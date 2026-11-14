@@ -1,0 +1,89 @@
+namespace LecturePlayer.UI;
+
+/// <summary>رسائل وحوار إدخال نص بالعربي (من اليمين للشمال).</summary>
+internal static class Dialogs
+{
+
+    private enum Kind { Info, Error, Question }
+
+    /// <summary>رسالة بنفس تصميم البرنامج (كارت بأيقونة وعنوان) بدل رسايل الويندوز البيضا.</summary>
+    private static bool Message(IWin32Window owner, string text, string title, Kind kind)
+    {
+        using var kit = new FormKit(title, 480);
+        var (glyph, color, heading) = kind switch
+        {
+            Kind.Error => ("\uE783", Theme.Danger, "حصلت مشكلة"),
+            Kind.Question => ("\uE9CE", Theme.Accent, title),
+            _ => ("\uE946", Theme.Accent, title)
+        };
+        var head = kit.Header(heading);
+        head.Text = "      " + heading;
+        var icon = new Label
+        {
+            Text = glyph, Font = Glyphs.Font(14f), ForeColor = color, BackColor = Color.Transparent,
+            TextAlign = ContentAlignment.MiddleCenter, Size = new Size(28, 28)
+        };
+        icon.Location = new Point(head.Right - 28, head.Top);
+        head.Parent!.Controls.Add(icon);
+        icon.BringToFront();
+        kit.Note(text, 24, Theme.Text);
+        if (kind == Kind.Question) kit.Buttons("أيوه", "لأ");
+        else kit.Buttons("تمام", null);
+        return kit.Show(owner) == DialogResult.OK;
+    }
+
+    public static void Info(IWin32Window owner, string text, string title = "مسار") => Message(owner, text, title, Kind.Info);
+
+    public static void Error(IWin32Window owner, string text, string title = "خطأ") => Message(owner, text, title, Kind.Error);
+
+    public static bool Confirm(IWin32Window owner, string text, string title = "تأكيد") => Message(owner, text, title, Kind.Question);
+
+    /// <summary>بيرجّع النص اللي اتكتب، أو null لو اتلغى.</summary>
+    public static string? Input(IWin32Window owner, string title, string prompt, string initial = "")
+    {
+        using var kit = new FormKit(title, 460);
+        kit.Note(prompt, 22, Theme.Text);
+        var box = kit.Full(new TextBox { Text = initial }, 34);
+        // اتجاه الكتابة حسب أول حرف: إنجليزي ← من الشمال (عشان «C#» متتكتبش «#C»)
+        void AutoDirection()
+        {
+            char first = box.Text.FirstOrDefault(char.IsLetter);
+            var dir = first != default && first < 0x0590 ? RightToLeft.No : RightToLeft.Yes;
+            if (box.RightToLeft != dir) box.RightToLeft = dir;
+        }
+        box.TextChanged += (_, _) => AutoDirection();
+        AutoDirection();
+        kit.Buttons("موافق");
+        kit.Form.Shown += (_, _) => { box.Focus(); box.SelectAll(); };
+        if (kit.Show(owner) != DialogResult.OK) return null;
+        string text = box.Text.Trim();
+        return text.Length == 0 ? null : text;
+    }
+
+    /// <summary>حوار إضافة روابط (فيديو أو قائمة تشغيل) — رابط في كل سطر.</summary>
+    public static (List<string> Urls, bool PlayFirst)? Urls(IWin32Window owner, string initial, string targetDescription)
+    {
+        using var kit = new FormKit("إضافة من يوتيوب / النت", 580);
+        kit.Header("الروابط");
+        kit.Note("حط رابط فيديو أو قائمة تشغيل (أو كذا رابط، كل واحد في سطر):", 22, Theme.Text);
+        var box = kit.Full(new TextBox
+        {
+            Text = initial, Multiline = true, ScrollBars = ScrollBars.Vertical, WordWrap = false,
+            RightToLeft = RightToLeft.No, Font = new Font("Consolas", 10f), AcceptsReturn = true
+        }, 150);
+        kit.Note("• قائمة التشغيل هتبقى محاضرة جديدة باسمها، وكل فيديو فيها هيبقى جزء منها\n" +
+                 "• الفيديو لوحده هيتضاف في: " + targetDescription, 40);
+        var play = kit.Full(new ToggleSwitch { Text = "شغّل أول فيديو بعد الإضافة", Checked = true }, 32);
+        kit.Buttons("إضافة");
+        kit.Form.Shown += (_, _) => { box.Focus(); box.SelectAll(); };
+        kit.Form.FormClosing += (_, e) =>
+        {
+            if (kit.Form.DialogResult != DialogResult.OK) return;
+            if (Data.MediaFiles.ExtractUrls(box.Text).Count > 0) return;
+            e.Cancel = true;
+            Error(kit.Form, "مفيش رابط صحيح. الرابط لازم يبدأ بـ https://");
+        };
+        if (kit.Show(owner) != DialogResult.OK) return null;
+        return (Data.MediaFiles.ExtractUrls(box.Text), play.Checked);
+    }
+}

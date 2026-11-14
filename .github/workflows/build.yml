@@ -1,0 +1,22 @@
+# فحص إن المشروع بيتبني مع كل push.
+# النشر (المثبّت + Release على GitHub) بيتعمل من Visual Studio ببروفايل «GitHub»،
+# عشان رقم الإصدار والمثبّت يبقوا هم نفس اللي الأجهزة بتتحدّث منه.
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build src/LecturePlayer/LecturePlayer.csproj -c Release

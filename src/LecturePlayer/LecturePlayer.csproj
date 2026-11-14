@@ -1,0 +1,175 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- windows10.0.19041 عشان محرك OCR بتاع الويندوز (Windows.Media.Ocr) -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>LecturePlayer</RootNamespace>
+    <AssemblyName>LecturePlayer</AssemblyName>
+    <ApplicationIcon>LecturePlayer.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <ApplicationUseCompatibleTextRendering>false</ApplicationUseCompatibleTextRendering>
+    <ApplicationDefaultFont>Segoe UI, 9.75pt</ApplicationDefaultFont>
+    <Product>مسار</Product>
+    <!-- بيظهروا في خصائص الملف (Properties ← Details) وفي «عن البرنامج» -->
+    <Authors>د. وائل عويس (Dr. Wael Owais)</Authors>
+    <Company>د. وائل عويس</Company>
+    <Copyright>© 2026 د. وائل عويس — جميع الحقوق محفوظة</Copyright>
+    <Description>مسار (Masar) — مكتبة فيديو منظّمة بتكمّل من حيث وقفت. تطوير د. وائل عويس</Description>
+    <!-- أول رقمين من الإصدار. التالت بيتحط تلقائيًا من BuildNumber.txt وقت النشر (بروفايل Installer) -->
+    <LpBaseVersion>4.1</LpBaseVersion>
+    <Version>$(LpBaseVersion).0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- عشان الـ restore العادي يجهّز win-x64 كمان، والنشر مايحتاجش restore لوحده -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+
+    <LpRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..'))</LpRoot>
+    <LpReleasesRoot>$(LpRoot)\Releases</LpReleasesRoot>
+    <LpBuildNumberFile>$(MSBuildProjectDirectory)\BuildNumber.txt</LpBuildNumberFile>
+
+    <!-- مستودع GitHub (owner/repo): البرنامج بيدوّر فيه على التحديثات، وبروفايل النشر «GitHub» بيرفع عليه.
+         لازم يكون Public عشان أجهزة المستخدمين تقدر تنزّل منه. -->
+    <LpGitHubRepo></LpGitHubRepo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- محرك التشغيل: VLC (يشغل mp4 / mkv / avi / ... أي صيغة) -->
+    <PackageReference Include="LibVLCSharp.WinForms" Version="3.*" />
+    <!-- GeneratePathProperty: بيدينا $(PkgVideoLAN_LibVLC_Windows) = مكان الباكدج، عشان خطوة النشر تتأكد إن مكتبات VLC اتنسخت -->
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.*" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(LpGitHubRepo)' != ''">
+    <!-- بيتكتب جوه البرنامج: UpdateChecker.BuiltInRepo -->
+    <AssemblyMetadata Include="UpdateRepo" Value="$(LpGitHubRepo)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- الأيقونة جوه البرنامج نفسه (للشبابيك وأيقونة جنب الساعة) -->
+    <EmbeddedResource Include="LecturePlayer.ico" LogicalName="LecturePlayer.ico" />
+  </ItemGroup>
+
+  <!-- =====================================================================
+       النشر ببروفايل Installer (LpRelease=true):
+         1) LpStampVersion: رقم الإصدار = LpBaseVersion + BuildNumber.txt (جوه تارجت، مش في الـ pubxml،
+            عشان الـ restore بتاع Visual Studio مايتلخبطش — ده اللي كان بيفشّل النشر)
+         2) النشر بيروح لـ Releases\_staging
+         3) LpRelease: يتأكد من مكتبات VLC ← ينضّف ← يعمل المثبّت في Releases ← يمسح الملفات المؤقتة ← يزوّد الرقم
+       ===================================================================== -->
+  <Target Name="LpStampVersion" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;Publish" Condition="'$(LpRelease)' == 'true'">
+    <PropertyGroup>
+      <LpBuildNumber Condition="Exists('$(LpBuildNumberFile)')">$([System.IO.File]::ReadAllText('$(LpBuildNumberFile)').Trim())</LpBuildNumber>
+      <LpBuildNumber Condition="'$(LpBuildNumber)' == ''">1</LpBuildNumber>
+      <Version>$(LpBaseVersion).$(LpBuildNumber)</Version>
+      <AssemblyVersion>$(Version).0</AssemblyVersion>
+      <FileVersion>$(Version).0</FileVersion>
+      <InformationalVersion>$(Version)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+
+  <!-- مكتبات VLC الأصلية (libvlc\win-x64): لو النشر مانسخهاش، ننسخها إحنا، ولو مالقيناهاش النشر يفشل بدل ما يطلع مثبّت بايظ -->
+  <Target Name="LpEnsureLibVlc">
+    <PropertyGroup>
+      <LpStaging>$([System.IO.Path]::GetFullPath('$(PublishDir)').TrimEnd('\').TrimEnd('/'))</LpStaging>
+      <LpVlcOut>$(LpStaging)\libvlc\win-x64\</LpVlcOut>
+      <LpVlcPkg>$(PkgVideoLAN_LibVLC_Windows)</LpVlcPkg>
+      <LpVlcPkg Condition="'$(LpVlcPkg)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)videolan.libvlc.windows</LpVlcPkg>
+    </PropertyGroup>
+
+    <!-- 1) من الباكدج -->
+    <ItemGroup Condition="!Exists('$(LpVlcOut)libvlc.dll') and '$(LpVlcPkg)' != '' and Exists('$(LpVlcPkg)')">
+      <LpVlcDll Include="$(LpVlcPkg)\**\libvlc.dll" />
+      <LpVlcDllX64 Include="@(LpVlcDll)" Condition="$([System.String]::Copy('%(FullPath)').Replace('\','/').Contains('/x64/')) or $([System.String]::Copy('%(FullPath)').Replace('\','/').Contains('/win-x64/'))" />
+    </ItemGroup>
+    <PropertyGroup Condition="'@(LpVlcDllX64)' != ''">
+      <LpVlcSrc>%(LpVlcDllX64.RootDir)%(LpVlcDllX64.Directory)</LpVlcSrc>
+    </PropertyGroup>
+    <!-- 2) أو من مخرجات الـ Build العادي -->
+    <PropertyGroup Condition="!Exists('$(LpVlcOut)libvlc.dll') and '$(LpVlcSrc)' == ''">
+      <LpVlcSrc Condition="Exists('$(MSBuildProjectDirectory)\bin\Release\$(TargetFramework)\libvlc\win-x64\libvlc.dll')">$(MSBuildProjectDirectory)\bin\Release\$(TargetFramework)\libvlc\win-x64\</LpVlcSrc>
+      <LpVlcSrc Condition="'$(LpVlcSrc)' == '' and Exists('$(MSBuildProjectDirectory)\bin\Debug\$(TargetFramework)\libvlc\win-x64\libvlc.dll')">$(MSBuildProjectDirectory)\bin\Debug\$(TargetFramework)\libvlc\win-x64\</LpVlcSrc>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(LpVlcSrc)' != ''">
+      <LpVlcFiles Include="$(LpVlcSrc)**\*" Exclude="$(LpVlcSrc)**\*.lib" />
+    </ItemGroup>
+    <Copy Condition="'$(LpVlcSrc)' != ''" SourceFiles="@(LpVlcFiles)"
+          DestinationFiles="@(LpVlcFiles->'$(LpVlcOut)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Message Condition="'$(LpVlcSrc)' != ''" Importance="high" Text="نسخت مكتبات VLC من: $(LpVlcSrc)" />
+    <Error Condition="!Exists('$(LpVlcOut)libvlc.dll') or !Exists('$(LpVlcOut)libvlccore.dll') or !Exists('$(LpVlcOut)plugins')"
+           Text="مكتبات VLC (libvlc\win-x64) مش موجودة في النشر، والمثبّت كان هيطلع بايظ. اعمل Build عادي مرة (Release) وبعدين Publish تاني." />
+  </Target>
+
+  <Target Name="LpRelease" AfterTargets="Publish" DependsOnTargets="LpStampVersion;LpEnsureLibVlc" Condition="'$(LpRelease)' == 'true'">
+    <PropertyGroup>
+      <LpIss>$(LpRoot)\installer\LecturePlayer.iss</LpIss>
+      <LpSetupName>Masar-Setup-$(Version)</LpSetupName>
+
+      <!-- مكان ISCC.exe: ممكن تحدده بنفسك بـ -p:LpIscc=... -->
+      <LpIscc Condition="'$(LpIscc)' == '' and Exists('$(MSBuildProgramFiles32)\Inno Setup 6\ISCC.exe')">$(MSBuildProgramFiles32)\Inno Setup 6\ISCC.exe</LpIscc>
+      <LpIscc Condition="'$(LpIscc)' == '' and Exists('$(ProgramW6432)\Inno Setup 6\ISCC.exe')">$(ProgramW6432)\Inno Setup 6\ISCC.exe</LpIscc>
+      <LpIscc Condition="'$(LpIscc)' == '' and Exists('$(LOCALAPPDATA)\Programs\Inno Setup 6\ISCC.exe')">$(LOCALAPPDATA)\Programs\Inno Setup 6\ISCC.exe</LpIscc>
+      <LpIscc Condition="'$(LpIscc)' == '' and Exists('$(ProgramW6432)\Inno Setup 7\ISCC.exe')">$(ProgramW6432)\Inno Setup 7\ISCC.exe</LpIscc>
+      <LpIscc Condition="'$(LpIscc)' == '' and Exists('$(MSBuildProgramFiles32)\Inno Setup 7\ISCC.exe')">$(MSBuildProgramFiles32)\Inno Setup 7\ISCC.exe</LpIscc>
+    </PropertyGroup>
+
+    <Error Condition="'$(LpIscc)' == ''"
+           Text="Inno Setup مش متثبت، فالمثبّت ماتعملش. نزّله من jrsoftware.org أو: winget install JRSoftware.InnoSetup" />
+
+    <!-- تنضيف ملفات النشر قبل التغليف:
+         باكدج VLC بينسخ x86 و arm64 كمان (~200 ميجا زيادة) والبرنامج 64 بت بس، وملفات .lib مش لازمة للتشغيل،
+         وفولدر Data (لو حد شغّل البرنامج من هنا) مايدخلش المثبّت أبدًا -->
+    <ItemGroup>
+      <LpLibFiles Include="$(LpStaging)\libvlc\**\*.lib" />
+    </ItemGroup>
+    <RemoveDir Directories="$(LpStaging)\libvlc\win-x86;$(LpStaging)\libvlc\win-arm64;$(LpStaging)\Data" />
+    <Delete Files="@(LpLibFiles)" />
+
+    <!-- المثبّت: ملف واحد في Releases -->
+    <MakeDir Directories="$(LpReleasesRoot)" />
+    <Exec Command="&quot;$(LpIscc)&quot; /Q &quot;/DSourceDir=$(LpStaging)&quot; &quot;/DAppVersion=$(Version)&quot; &quot;/O$(LpReleasesRoot)&quot; &quot;/F$(LpSetupName)&quot; &quot;$(LpIss)&quot;" />
+
+    <!-- ملفات النشر المؤقتة مالهاش لازمة بعد كده -->
+    <RemoveDir Directories="$(LpStaging)" />
+
+    <Message Importance="high" Text="✓ المثبّت جاهز: $(LpReleasesRoot)\$(LpSetupName).exe" />
+  </Target>
+
+  <!-- بروفايل «GitHub»: بعد المثبّت يعمل Release على GitHub ويرفعه، فالأجهزة تشوف التحديث لوحدها.
+       محتاج GitHub CLI متثبت ومسجّل دخول مرة واحدة: winget install GitHub.cli  ثم  gh auth login
+       ملاحظات الإصدار: لو فيه ملف ReleaseNotes.md جنب المشروع بيتاخد منه (اكتب فيه الجديد قبل النشر). -->
+  <Target Name="LpGitHubRelease" AfterTargets="LpRelease">
+    <PropertyGroup>
+      <LpNotesSrc>$(LpRoot)\ReleaseNotes.md</LpNotesSrc>
+      <LpNotesFile>$(IntermediateOutputPath)release-notes.md</LpNotesFile>
+    </PropertyGroup>
+    <Error Condition="'$(LpGitHubPublish)' == 'true' and '$(LpGitHubRepo)' == ''"
+           Text="اكتب مستودع GitHub في LecturePlayer.csproj: &lt;LpGitHubRepo&gt;owner/repo&lt;/LpGitHubRepo&gt;" />
+    <Exec Condition="'$(LpGitHubPublish)' == 'true'" Command="gh --version" IgnoreExitCode="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="LpGhCode" />
+    </Exec>
+    <Error Condition="'$(LpGitHubPublish)' == 'true' and '$(LpGhCode)' != '0'"
+           Text="GitHub CLI مش متثبت. ثبّته مرة واحدة: winget install GitHub.cli ثم gh auth login — وبعدين انشر تاني. (المثبّت نفسه اتعمل في Releases)" />
+
+    <Copy Condition="'$(LpGitHubPublish)' == 'true' and Exists('$(LpNotesSrc)')" SourceFiles="$(LpNotesSrc)" DestinationFiles="$(LpNotesFile)" />
+    <WriteLinesToFile Condition="'$(LpGitHubPublish)' == 'true' and !Exists('$(LpNotesSrc)')" File="$(LpNotesFile)"
+                      Lines="إصدار جديد من «مسار» $(Version)." Overwrite="true" />
+
+    <Exec Condition="'$(LpGitHubPublish)' == 'true'"
+          Command="gh release create v$(Version) &quot;$(LpReleasesRoot)\$(LpSetupName).exe&quot; --repo $(LpGitHubRepo) --title &quot;Masar $(Version)&quot; --notes-file &quot;$(LpNotesFile)&quot; --latest" />
+    <Message Condition="'$(LpGitHubPublish)' == 'true'" Importance="high"
+             Text="✓ اتنشر على GitHub: https://github.com/$(LpGitHubRepo)/releases/tag/v$(Version) — الأجهزة هتشوف التحديث أول ما تفتح البرنامج" />
+  </Target>
+
+  <!-- الإصدار الجاي: بيزيد بس لو كل اللي فات نجح -->
+  <Target Name="LpBumpBuild" AfterTargets="LpGitHubRelease" Condition="'$(LpRelease)' == 'true'">
+    <WriteLinesToFile File="$(LpBuildNumberFile)" Lines="$([MSBuild]::Add($(LpBuildNumber), 1))" Overwrite="true" />
+  </Target>
+
+</Project>

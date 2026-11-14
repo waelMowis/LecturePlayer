@@ -1,0 +1,18 @@
+# مخرجات البناء
+bin/
+obj/
+publish/
+installer/Output/
+Releases/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+
+# بيانات المستخدم (القوائم والإعدادات ومفتاح API) — متترفعش أبدًا
+Data/
+*.lpl
+*.jsonl
+transcripts/
