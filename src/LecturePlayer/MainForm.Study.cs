@@ -199,7 +199,21 @@ internal sealed partial class MainForm
     /// <summary>قفل/فتح قسم العلامات والملاحظات (الشجرة بتاخد المساحة).</summary>
     private void ToggleNotesSection()
     {
-        _notesCollapsed = !_notesCollapsed;
+        SetNotesCollapsed(!_notesCollapsed);
+        _settings.NotesExpanded = !_notesCollapsed;
+        SaveSettings();
+    }
+
+    /// <summary>بتفتح اللوحة لو كانت مقفولة (لما تحط علامة: عشان تشوفها وتكتب ملاحظة).</summary>
+    private void ShowNotesSection()
+    {
+        if (_notesCollapsed) SetNotesCollapsed(false);
+    }
+
+    private void SetNotesCollapsed(bool collapsed)
+    {
+        if (_notesCollapsed == collapsed) { UpdateNotesTitle(); return; }
+        _notesCollapsed = collapsed;
         if (_notesCollapsed)
         {
             _notesExpandedHeight = _notesPanel.Height;
@@ -211,6 +225,17 @@ internal sealed partial class MainForm
         }
         _notesSplitter.Visible = !_notesCollapsed;
         _notesChevron.Text = _notesCollapsed ? Glyphs.Collapse : Glyphs.Expand;
+        UpdateNotesTitle();
+    }
+
+    /// <summary>العنوان: عدد العلامات والملاحظات، واسم الفيديو لما اللوحة مفتوحة بس.</summary>
+    private void UpdateNotesTitle()
+    {
+        var v = _notesVideo;
+        int count = v == null ? 0 : v.Bookmarks.Count + (string.IsNullOrWhiteSpace(v.Notes) ? 0 : 1);
+        string text = "📝  العلامات والملاحظات" + (count > 0 ? $"  ({count})" : "");
+        if (!_notesCollapsed && v != null) text += $"  ·  {Modern.Bidi(v.Title)}";
+        _notesTitle.Text = text;
     }
 
     /// <summary>علامة: الوقت أزرق على اليمين (زي اللينك)، نقطة لحالة المراجعة، والملاحظة جنبه.</summary>
@@ -270,7 +295,7 @@ internal sealed partial class MainForm
         _loadingNotes = true;
         try
         {
-            _notesTitle.Text = v == null ? "العلامات والملاحظات" : $"العلامات والملاحظات  ·  {Modern.Bidi(v.Title)}";
+            UpdateNotesTitle();
             _notesBox.Enabled = v != null;
             _notesBox.Text = v?.Notes ?? "";
 
@@ -305,6 +330,7 @@ internal sealed partial class MainForm
         v.Touch();
         MarkDirty();
         RefreshVideo(v);
+        UpdateNotesTitle();
     }
 
     private void UpdateSeekMarkers()
@@ -345,6 +371,7 @@ internal sealed partial class MainForm
         MarkDirty();
         RefreshVideo(v);
         RefreshNotesPane();
+        ShowNotesSection();
         ShowStatus($"علامة عند {TimeFormat.Format(t)} ✓" + (withNote ? "" : "  —  Shift+B لعلامة بملاحظة"), 3);
     }
 

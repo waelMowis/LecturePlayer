@@ -392,6 +392,8 @@ public sealed class AppSettings
 
     public int SidePanelWidth { get; set; } = 400;
     public bool SidePanelVisible { get; set; } = true;
+    /// <summary>لوحة العلامات والملاحظات مفتوحة؟ (مقفولة افتراضيًا عشان الشجرة تاخد المساحة)</summary>
+    public bool NotesExpanded { get; set; }
 
     public int WindowX { get; set; }
     public int WindowY { get; set; }

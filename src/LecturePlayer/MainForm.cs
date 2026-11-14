@@ -585,6 +585,7 @@ internal sealed partial class MainForm : Form
         _sidePanel.Controls.Add(_treeCard);
         _sidePanel.Controls.Add(_notesSplitter);
         _sidePanel.Controls.Add(_notesPanel);
+        SetNotesCollapsed(!_settings.NotesExpanded);
     }
 
     private static ToolStripButton ToolButton(string text, string tip, Action onClick)
