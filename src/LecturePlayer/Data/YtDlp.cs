@@ -224,9 +224,10 @@ public static class YtDlp
     /// </summary>
     public static Task<OnlineStream> ResolveLiveAsync(string url, int maxHeight, CancellationToken ct)
     {
+        // بث يوتيوب بييجي صورة لوحدها وصوت لوحده. الصيغة دي موجودة دايمًا (مفيش «جودة مش متاحة»)،
+        // والتشغيل نفسه بيبقى من «القايمة الرئيسية» للبث (manifest) عشان المشغل يزامن الصورة والصوت.
         int h = maxHeight > 0 ? maxHeight : 720;
-        string format = $"b[height<={h}][fps<=30]/b[height<={h}]/b";
-        return ResolveFormatAsync(url, format, $"res:{h},fps:30,vcodec:h264", ct);
+        return ResolveFormatAsync(url, "bv*+ba/b", $"res:{h},fps:30,vcodec:h264", ct);
     }
 
     /// <summary>رابط جديد لنفس الصيغة بالظبط (بيستخدمه الوسيط لما يوتيوب يرفض الرابط القديم في النص).</summary>
@@ -282,6 +283,9 @@ public static class YtDlp
         }
         bool isLive = root.TryGetProperty("is_live", out var live) && live.ValueKind == JsonValueKind.True;
         string? manifest = Str(root, "manifest_url");
+        if (manifest == null && formats.ValueKind == JsonValueKind.Array)
+            foreach (var f in formats.EnumerateArray())
+                if (Str(f, "manifest_url") is { } m) { manifest = m; break; }
         // يوتيوب بقى بيفرض انتظار مدة الإعلان قبل ما الرابط يشتغل (available_at)؛ قبلها أي طلب بيترفض 403
         long availableAt = 0;
         foreach (var src in new[] { root }.Concat(formats.ValueKind == JsonValueKind.Array ? formats.EnumerateArray() : Enumerable.Empty<JsonElement>()))

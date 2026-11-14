@@ -148,6 +148,12 @@ internal static class SmokeTest
                 "{\"format_id\":\"251\",\"url\":\"https://a/a\",\"protocol\":\"https\",\"vcodec\":\"none\",\"acodec\":\"opus\"}]}");
             if (parsed.AvailableAt?.ToUnixTimeSeconds() != ts) throw new Exception("available_at not parsed");
             if (parsed.Parts?.Count != 2 || parsed.AudioUrl != "https://a/a") throw new Exception("parts not parsed");
+            // البث: القايمة الرئيسية (manifest_url) بتيجي جوه كل صيغة مش في الأول
+            var live = LecturePlayer.Data.YtDlp.ParseStream(
+                "{\"is_live\":true,\"requested_formats\":[" +
+                "{\"format_id\":\"301\",\"url\":\"https://a/v.m3u8\",\"protocol\":\"m3u8_native\",\"vcodec\":\"avc1\",\"acodec\":\"none\",\"manifest_url\":\"https://a/master.m3u8\"}," +
+                "{\"format_id\":\"234\",\"url\":\"https://a/a.m3u8\",\"protocol\":\"m3u8_native\",\"vcodec\":\"none\",\"acodec\":\"mp4a\",\"manifest_url\":\"https://a/master.m3u8\"}]}");
+            if (live.ManifestUrl != "https://a/master.m3u8" || live.AudioUrl == null) throw new Exception("live manifest not parsed");
             if (LecturePlayer.Data.StreamProxy.FamilyFromUrl(new Uri("https://a/v?ip=1.2.3.4")) != System.Net.Sockets.AddressFamily.InterNetwork) throw new Exception("ip family");
             // 4) وضع «الأنبوب»: عملية بتكتب على stdout والوسيط بيمرره
             string tmp = Path.Combine(Path.GetTempPath(), "masar-smoke-pipe.bin");

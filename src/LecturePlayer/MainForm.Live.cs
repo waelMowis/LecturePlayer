@@ -199,6 +199,7 @@ internal sealed partial class MainForm
     {
         string url = ch.Url;
         string? userAgent = null, referer = null, audio = null;
+        bool manifest = false;
         try
         {
             if (useResolver)
@@ -211,7 +212,16 @@ internal sealed partial class MainForm
                 var stream = await YtDlp.ResolveLiveAsync(url, LiveMaxHeight, CancellationToken.None);
                 if (stream == null || request != _playRequest || _closing || _currentLive != ch) return;
                 Log.Info($"live stream: {string.Join(" + ", (stream.Parts ?? Array.Empty<StreamPart>()).Select(p => p.Description))}");
-                url = stream.VideoUrl; audio = stream.AudioUrl; userAgent = stream.UserAgent; referer = stream.Referer;
+                userAgent = stream.UserAgent; referer = stream.Referer;
+                if (stream.ManifestUrl != null && stream.AudioUrl != null)
+                {
+                    // الصورة والصوت في رابطين: نشغّل القايمة الرئيسية للبث، فالمشغل يقراهم مع بعض متزامنين
+                    // (لو اتشغلوا كبثين منفصلين بيفقدوا التزامن: الصورة تقف والصوت يكمّل)
+                    url = stream.ManifestUrl;
+                    manifest = true;
+                    Log.Info("live: playing the stream manifest (video + audio in sync), max height " + LiveMaxHeight);
+                }
+                else { url = stream.VideoUrl; audio = stream.AudioUrl; }
                 // جودة واحدة ثابتة (مش القايمة الرئيسية): تبديل الجودة في نص البث كان بيجمّد الصورة والصوت شغال
             }
             if (request != _playRequest || _closing || _currentLive != ch) return;
@@ -224,6 +234,12 @@ internal sealed partial class MainForm
                 // فك الفيديو بالمعالج بدل كارت الشاشة: فك كارت الشاشة مع البث المباشر بيعلّق الصورة والصوت كمّل
                 ":avcodec-hw=none"
             };
+            if (manifest)
+            {
+                // جودة واحدة ثابتة (أعلى جودة لحد الحد المسموح) من غير تبديل في نص البث
+                options.Add(":adaptive-logic=highest");
+                options.Add($":adaptive-maxheight={LiveMaxHeight}");
+            }
             if (audio != null) options.Add(":input-slave=" + audio);
             if (userAgent != null) options.Add(":http-user-agent=" + userAgent);
             if (referer != null) options.Add(":http-referrer=" + referer);
