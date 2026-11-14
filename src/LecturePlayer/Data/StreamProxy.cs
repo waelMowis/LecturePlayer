@@ -28,6 +28,9 @@ public sealed class StreamProxy : IDisposable
         internal string Url;
         internal IReadOnlyDictionary<string, string> Headers;
         internal readonly Func<CancellationToken, Task<(string Url, IReadOnlyDictionary<string, string> Headers)?>>? Refresh;
+        /// <summary>مصدر «أنبوب»: بيشغّل عملية بتكتب الفيديو على stdout (من غير تقديم).</summary>
+        internal Func<System.Diagnostics.Process>? Pipe;
+        internal System.Diagnostics.Process? Running;
         internal long Length = -1;
         internal string? ContentType;
         internal readonly SemaphoreSlim RefreshLock = new(1, 1);
@@ -126,6 +129,50 @@ public sealed class StreamProxy : IDisposable
         return $"http://127.0.0.1:{Port}/s/{id}";
     }
 
+    /// <summary>مصدر من غير تقديم: كل طلب بيشغّل العملية من الأول ويمرر اللي بتكتبه.</summary>
+    public string RegisterPipe(Func<System.Diagnostics.Process> start, string contentType)
+    {
+        string id = Guid.NewGuid().ToString("N");
+        var source = new Source("", new Dictionary<string, string>(), null) { Pipe = start, ContentType = contentType };
+        _sources[id] = source;
+        return $"http://127.0.0.1:{Port}/s/{id}";
+    }
+
+    /// <summary>بيقفل أي عملية أنبوب شغالة (لما الفيديو يتغير أو البرنامج يتقفل).</summary>
+    public void StopPipes()
+    {
+        foreach (var src in _sources.Values)
+        {
+            var p = src.Running;
+            src.Running = null;
+            try { if (p is { HasExited: false }) p.Kill(entireProcessTree: true); } catch { }
+        }
+    }
+
+    private async Task<bool> ServePipeAsync(Stream net, Request req, Source src, CancellationToken ct)
+    {
+        if (req.RangeStart is > 0)
+        {
+            // مفيش تقديم في الوضع ده
+            await WriteHeadAsync(net, "416 Range Not Satisfiable", new() { ["Content-Length"] = "0" }, ct);
+            return true;
+        }
+        var old = src.Running;
+        try { if (old is { HasExited: false }) old.Kill(entireProcessTree: true); } catch { }
+        var process = src.Running = src.Pipe!();
+        await WriteHeadAsync(net, "200 OK", new() { ["Content-Type"] = src.ContentType ?? "video/mp4", ["Connection"] = "close" }, ct);
+        if (req.Method.Equals("HEAD", StringComparison.OrdinalIgnoreCase)) return false;
+        try
+        {
+            await process.StandardOutput.BaseStream.CopyToAsync(net, 256 * 1024, ct);
+        }
+        finally
+        {
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
+        }
+        return false;
+    }
+
     // =====================================================================
 
     private async Task AcceptLoopAsync()
@@ -213,6 +260,8 @@ public sealed class StreamProxy : IDisposable
             await WriteHeadAsync(net, "404 Not Found", new() { ["Content-Length"] = "0" }, ct);
             return false;
         }
+
+        if (src.Pipe != null) return await ServePipeAsync(net, req, src, ct);
 
         long start = req.RangeStart ?? 0;
         // أول طلب: نعرف الحجم الكلي ونوع الملف

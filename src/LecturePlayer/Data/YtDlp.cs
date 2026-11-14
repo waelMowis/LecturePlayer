@@ -15,7 +15,7 @@ public sealed record OnlineListing(string? Title, bool IsPlaylist, List<OnlineEn
 /// <param name="IsLive">بث مباشر (يوتيوب لايف…).</param>
 /// <param name="ManifestUrl">قايمة البث الرئيسية (HLS master) بكل الجودات، عشان VLC يغيّر الجودة لوحده حسب النت.</param>
 public sealed record OnlineStream(string VideoUrl, string? AudioUrl, string? UserAgent, string? Referer, long DurationMs,
-    bool IsLive = false, string? ManifestUrl = null, IReadOnlyList<StreamPart>? Parts = null);
+    bool IsLive = false, string? ManifestUrl = null, IReadOnlyList<StreamPart>? Parts = null, DateTimeOffset? AvailableAt = null);
 
 /// <summary>جزء من التشغيل (الصورة أو الصوت أو الاتنين) بالصيغة والهيدرز اللي yt-dlp استخدمها بالظبط.</summary>
 public sealed record StreamPart(string FormatId, string Url, string Protocol, bool HasVideo, bool HasAudio,
@@ -271,7 +271,13 @@ public static class YtDlp
         }
         bool isLive = root.TryGetProperty("is_live", out var live) && live.ValueKind == JsonValueKind.True;
         string? manifest = Str(root, "manifest_url");
-        return new OnlineStream(videoUrl, audioUrl, userAgent, referer, Seconds(root, "duration"), isLive, manifest, parts);
+        // يوتيوب بقى بيفرض انتظار مدة الإعلان قبل ما الرابط يشتغل (available_at)؛ قبلها أي طلب بيترفض 403
+        long availableAt = 0;
+        foreach (var src in new[] { root }.Concat(formats.ValueKind == JsonValueKind.Array ? formats.EnumerateArray() : Enumerable.Empty<JsonElement>()))
+            if (src.TryGetProperty("available_at", out var at) && at.ValueKind == JsonValueKind.Number && at.TryGetInt64(out var t))
+                availableAt = Math.Max(availableAt, t);
+        DateTimeOffset? available = availableAt > 0 ? DateTimeOffset.FromUnixTimeSeconds(availableAt) : null;
+        return new OnlineStream(videoUrl, audioUrl, userAgent, referer, Seconds(root, "duration"), isLive, manifest, parts, available);
     }
 
     private static StreamPart PartFrom(JsonElement f, JsonElement root, string url)
@@ -408,6 +414,41 @@ public static class YtDlp
     // =====================================================================
     //  تشغيل yt-dlp
     // =====================================================================
+
+    /// <summary>
+    /// أداة يوتيوب نفسها بتسحب الفيديو وتكتبه على stdout (نفس طريقة التنزيل بالظبط: بتستنى وقت الإتاحة،
+    /// وبتتعامل مع أي حماية جديدة من يوتيوب). الوسيط بيمرره للمشغل وهو بيتسحب، من غير ما يتحفظ على الجهاز.
+    /// </summary>
+    public static Process StartPipe(string url, string format)
+    {
+        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
+        var psi = new ProcessStartInfo(exe)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardErrorEncoding = Encoding.UTF8
+        };
+        foreach (string a in new[] { "-f", format, "-o", "-", "--no-part", "--no-playlist", "--quiet", "--no-progress" }) psi.ArgumentList.Add(a);
+        foreach (string a in CommonArgs()) psi.ArgumentList.Add(a);
+        psi.ArgumentList.Add(NormalizeUrl(url));
+        string path = Environment.GetEnvironmentVariable("PATH") ?? "";
+        psi.Environment["PATH"] = ToolsDir + Path.PathSeparator + AppContext.BaseDirectory + Path.PathSeparator + path;
+        psi.Environment["PYTHONIOENCODING"] = "utf-8";
+        var process = new Process { StartInfo = psi };
+        process.Start();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                string err = await process.StandardError.ReadToEndAsync();
+                if (!string.IsNullOrWhiteSpace(err)) Log.Info("yt-dlp pipe: " + err.Trim()[..Math.Min(err.Trim().Length, 600)]);
+            }
+            catch { }
+        });
+        return process;
+    }
 
     private static async Task<(int Code, string StdOut, string StdErr)> RunAsync(
         IEnumerable<string> args, CancellationToken ct, TimeSpan timeout)

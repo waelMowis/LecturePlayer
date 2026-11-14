@@ -372,6 +372,9 @@ internal sealed partial class MainForm
                 v.DurationMs = stream.DurationMs;
                 MarkDirty();
             }
+            // يوتيوب بيفرض انتظار مدة الإعلان قبل ما الرابط يشتغل — نستنى زي ما أداة يوتيوب وPotPlayer بيعملوا
+            if (!await WaitUntilAvailableAsync(stream.AvailableAt, () => request == _playRequest && !_closing, cts.Token)) return;
+
             if (!stream.IsLive && ProxyUrls(v, stream) is { } proxied)
                 PlayStream(proxied.Video, proxied.Audio, null, null, startMs);
             else
@@ -405,6 +408,33 @@ internal sealed partial class MainForm
     }
 
     /// <summary>
+    /// يوتيوب بقى بيحط «وقت إتاحة» للرابط = بعد مدة الإعلان اللي قبل الفيديو. أي طلب قبله بيترفض (403).
+    /// بنعرض عدّاد واضح ونبدأ لوحدنا أول ما الوقت ييجي.
+    /// </summary>
+    private async Task<bool> WaitUntilAvailableAsync(DateTimeOffset? availableAt, Func<bool> stillWanted, CancellationToken ct)
+    {
+        if (availableAt is not { } at) return true;
+        var wait = at - DateTimeOffset.UtcNow + TimeSpan.FromSeconds(1);
+        if (wait <= TimeSpan.Zero) return true;
+        Log.Info($"youtube requires waiting {wait.TotalSeconds:0}s before the stream is available");
+        if (wait > TimeSpan.FromMinutes(3)) wait = TimeSpan.FromMinutes(3);
+        var end = DateTime.UtcNow + wait;
+        try
+        {
+            while (DateTime.UtcNow < end)
+            {
+                if (!stillWanted()) return false;
+                int left = (int)Math.Ceiling((end - DateTime.UtcNow).TotalSeconds);
+                ShowBanner($"يوتيوب بيطلب انتظار {left} ثانية قبل الفيديو (مكان الإعلان اللي بيظهر على الموقع) — هيبدأ لوحده",
+                    BannerKind.Info, seconds: 0, key: "yt-wait");
+                await Task.Delay(1000, ct);
+            }
+        }
+        finally { HideBanner("yt-wait"); }
+        return stillWanted();
+    }
+
+    /// <summary>
     /// روابط يوتيوب العادية (https) بتعدّي على الوسيط المحلي: نفس هيدرز أداة يوتيوب، وأجزاء صغيرة،
     /// ولو الرابط اترفض في النص بيتجدد لوحده. البث (m3u8) بيروح لـ VLC مباشرة.
     /// </summary>
@@ -423,7 +453,14 @@ internal sealed partial class MainForm
                 return proxy.Register(part.Url, part.Headers, async ct =>
                 {
                     if (string.IsNullOrEmpty(fmt)) return null;
-                    var fresh = await YtDlp.ResolveFormatAsync(pageUrl, fmt, null, ct, forceIpv4: true);
+                    var fresh = await YtDlp.ResolveFormatAsync(pageUrl, fmt, null, ct);
+                    // الرابط الجديد كمان ليه وقت إتاحة: نستنى قبل ما الوسيط يستخدمه
+                    if (fresh.AvailableAt is { } at && at > DateTimeOffset.UtcNow)
+                    {
+                        var wait = at - DateTimeOffset.UtcNow + TimeSpan.FromSeconds(1);
+                        Log.Info($"proxy: refreshed url available in {wait.TotalSeconds:0}s");
+                        await Task.Delay(wait < TimeSpan.FromMinutes(3) ? wait : TimeSpan.FromMinutes(3), ct);
+                    }
                     var p = fresh.Parts?.FirstOrDefault(x => x.FormatId == fmt) ?? fresh.Parts?.FirstOrDefault();
                     return p == null ? null : (p.Url, p.Headers);
                 }, out _);
@@ -493,9 +530,8 @@ internal sealed partial class MainForm
         if (v == null || !v.IsOnline || PlayableLocalFile(v) != null) return false;
 
         // المحاولات بالترتيب (كل فيديو بيبدأ من الأول لما المستخدم يشغّله):
-        // 1) ملف واحد (صورة وصوت مع بعض) من نفس النقطة
-        // 2) ملف واحد من الأول، وبعد ما يشتغل نروح للنقطة (VLC ساعات بيفشل لو بدأ من نص فيديو طويل)
-        // 3) أعلى جودة من الأول وبعدين نروح للنقطة
+        // 1) ملف واحد (صورة وصوت مع بعض) من الأول، وبعد ما يشتغل نروح للنقطة
+        // 2) الطريقة المضمونة: أداة يوتيوب نفسها بتسحب الفيديو والمشغل بيعرضه وهو بيتسحب
         if (_onlineRetryFor != v)
         {
             _onlineRetryFor = v;
@@ -509,27 +545,44 @@ internal sealed partial class MainForm
         switch (_onlineRetryStage)
         {
             case 1:
-                Log.Info($"vlc error on online video, retrying muxed from {at}ms: {v.Path}");
-                request = ++_playRequest;
-                _ = PlayOnlineAsync(request, v, at, YtDlp.StreamMode.Muxed);
-                return true;
-            case 2:
-                Log.Info($"vlc error again, retrying muxed from start then seek to {at}ms: {v.Path}");
+                Log.Info($"vlc error on online video, retrying muxed from start then seek to {at}ms: {v.Path}");
                 _seekAfterPlayingMs = at;
                 request = ++_playRequest;
                 _ = PlayOnlineAsync(request, v, 0, YtDlp.StreamMode.Muxed);
                 return true;
-            case 3:
-                Log.Info($"vlc error again, retrying best from start then seek to {at}ms: {v.Path}");
-                _seekAfterPlayingMs = at;
-                request = ++_playRequest;
-                _ = PlayOnlineAsync(request, v, 0, YtDlp.StreamMode.Best);
+            case 2:
+                // الطريقة المضمونة: أداة يوتيوب نفسها بتسحب الفيديو (زي التنزيل بالظبط) والمشغل بيعرضه وهو بيتسحب.
+                // من غير تقديم، فبنبدأ من الأول ونقول للمستخدم.
+                Log.Info($"vlc error again, playing through yt-dlp pipe: {v.Path}");
+                PlayThroughYtDlpPipe(v, at);
                 return true;
         }
         _seekAfterPlayingMs = -1;
         Log.Info($"online video failed after {_onlineRetryStage - 1} retries: {v.Path}");
         ShowOnlineFailure(v, "مشغل الفيديو مقدرش يفتح الرابط اللي الموقع رجّعه.");
         return true;
+    }
+
+    private void PlayThroughYtDlpPipe(VideoItem v, long wantedMs)
+    {
+        try
+        {
+            string page = v.Path;
+            int h = _settings.OnlineMaxHeight is > 0 ? Math.Min(_settings.OnlineMaxHeight, 720) : 720;
+            // ملف واحد mp4 (صورة وصوت) عشان يتعرض وهو بيتسحب
+            string format = $"b[ext=mp4][height<={h}]/b[ext=mp4]/18/b";
+            string local = StreamProxy.Shared.RegisterPipe(() => YtDlp.StartPipe(page, format), "video/mp4");
+            Log.Info("online stream (yt-dlp pipe): " + format);
+            PlayStream(local, null, null, null, 0);
+            if (wantedMs > 5000)
+                ShowBanner($"الفيديو اشتغل بالطريقة المضمونة (من غير تقديم) فبدأ من الأول — كنت واقف عند {TimeFormat.Format(wantedMs)}",
+                    BannerKind.Warning, seconds: 15, key: "pipe");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("yt-dlp pipe", ex);
+            ShowOnlineFailure(v, ex.Message);
+        }
     }
 
     private int _onlineRetryStage;

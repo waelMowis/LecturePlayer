@@ -112,6 +112,7 @@ internal sealed partial class MainForm
         // تشغيل جديد من المستخدم: محاولات الإنقاذ بتاعة فيديوهات النت تبدأ من الأول
         _onlineRetryFor = null;
         _seekAfterPlayingMs = -1;
+        try { StreamProxy.Shared.StopPipes(); } catch { }
         _currentLive = null; // لو كان فيه بث مباشر شغال
         UpdateBookmarkButton();
         HideBanner("live");

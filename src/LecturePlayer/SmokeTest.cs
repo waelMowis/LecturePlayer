@@ -140,7 +140,31 @@ internal static class SmokeTest
             using var full = await http.GetAsync(local, HttpCompletionOption.ResponseHeadersRead);
             if ((int)full.StatusCode != 200 || full.Content.Headers.ContentLength != size)
                 throw new Exception("proxy: full request wrong: " + (int)full.StatusCode + " len " + full.Content.Headers.ContentLength);
-            // 3) تحليل Range
+            // 3) وقت الإتاحة بتاع يوتيوب (available_at) بيتقري من ناتج أداة يوتيوب
+            long ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 20;
+            var parsed = LecturePlayer.Data.YtDlp.ParseStream(
+                "{\"duration\":10,\"http_headers\":{\"User-Agent\":\"x\"},\"requested_formats\":[" +
+                "{\"format_id\":\"136\",\"url\":\"https://a/v?ip=1.2.3.4\",\"protocol\":\"https\",\"vcodec\":\"avc1\",\"acodec\":\"none\",\"available_at\":" + ts + "}," +
+                "{\"format_id\":\"251\",\"url\":\"https://a/a\",\"protocol\":\"https\",\"vcodec\":\"none\",\"acodec\":\"opus\"}]}");
+            if (parsed.AvailableAt?.ToUnixTimeSeconds() != ts) throw new Exception("available_at not parsed");
+            if (parsed.Parts?.Count != 2 || parsed.AudioUrl != "https://a/a") throw new Exception("parts not parsed");
+            if (LecturePlayer.Data.StreamProxy.FamilyFromUrl(new Uri("https://a/v?ip=1.2.3.4")) != System.Net.Sockets.AddressFamily.InterNetwork) throw new Exception("ip family");
+            // 4) وضع «الأنبوب»: عملية بتكتب على stdout والوسيط بيمرره
+            string tmp = Path.Combine(Path.GetTempPath(), "masar-smoke-pipe.bin");
+            var payload = new byte[3 * 1024 * 1024 + 7];
+            for (int i = 0; i < payload.Length; i++) payload[i] = At(i);
+            File.WriteAllBytes(tmp, payload);
+            string pipeUrl = proxy.RegisterPipe(() =>
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                psi.ArgumentList.Add("/c"); psi.ArgumentList.Add("type"); psi.ArgumentList.Add(tmp);
+                return System.Diagnostics.Process.Start(psi)!;
+            }, "video/mp4");
+            var piped = await http.GetByteArrayAsync(pipeUrl);
+            if (piped.Length != payload.Length || !piped.AsSpan().SequenceEqual(payload)) throw new Exception($"pipe: got {piped.Length} bytes");
+            proxy.StopPipes();
+            File.Delete(tmp);
+            // 5) تحليل Range
             if (LecturePlayer.Data.StreamProxy.ParseRange("bytes=10-") != (10, null)) throw new Exception("ParseRange");
         }
         finally
