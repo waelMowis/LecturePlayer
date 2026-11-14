@@ -41,6 +41,7 @@ internal sealed partial class MainForm : Form
     private readonly TextBox _searchBox = new();
     private readonly Label _courseLabel = new();
     private readonly Label _courseInfoLabel = new();
+    private Panel _infoRow = null!;
     private readonly StatusStrip _status = new();
     private readonly ToolStripStatusLabel _statusGroup = new();
     private readonly ToolStripStatusLabel _statusMessage = new();
@@ -536,16 +537,18 @@ internal sealed partial class MainForm : Form
         Icon(Glyphs.OpenFolder, "استيراد فولدر كورس (Ctrl+I)", ImportCourseDialog, sectionRow);
         Icon(Glyphs.Link, "رابط يوتيوب أو قائمة تشغيل (Ctrl+U)", () => AddUrlsDialog(null), sectionRow);
 
-        var infoRow = new Panel { Dock = DockStyle.Top, Height = LogicalToDeviceUnits(26), BackColor = Theme.Panel, Padding = new Padding(14, 0, 14, 6) };
+        // سطر الأرقام اتشال: الإحصائيات بقت في تلميح اسم المكتبة، والسطر ده بيظهر بس لما فيه فلتر شغال (عشان متتلخبطش ليه حاجات مش ظاهرة)
+        var infoRow = _infoRow = new Panel { Dock = DockStyle.Top, Height = LogicalToDeviceUnits(24), BackColor = Theme.Panel, Padding = new Padding(14, 0, 14, 4), Visible = false };
         _courseInfoLabel.Dock = DockStyle.Fill;
         _courseInfoLabel.ForeColor = Theme.Muted;
         _courseInfoLabel.Font = new Font("Segoe UI", 8.5f);
         _courseInfoLabel.RightToLeft = RightToLeft.Yes;
         _courseInfoLabel.TextAlign = ContentAlignment.MiddleRight;
         _libraryProgress.Dock = DockStyle.Bottom;
-        _libraryProgress.Height = LogicalToDeviceUnits(4);
+        _libraryProgress.Height = LogicalToDeviceUnits(3);
         infoRow.Controls.Add(_courseInfoLabel);
-        infoRow.Controls.Add(_libraryProgress);
+        // شريط التقدّم الكلي رفيع تحت اسم المكتبة (من غير أرقام)
+        sectionRow.Controls.Add(_libraryProgress);
 
         // ---------- البحث والفلتر ----------
         var searchRow = new Panel { Dock = DockStyle.Top, Height = LogicalToDeviceUnits(38), Padding = new Padding(10, 2, 14, 8), BackColor = Theme.Panel };

@@ -425,15 +425,19 @@ internal sealed partial class MainForm
     {
         // «📚 الاسم ▾»: واضح إن ده اسم المكتبة المفتوحة وإنه بيتضغط
         _courseLabel.Text = "📚  " + Modern.Bidi(_library.Name) + "  ▾";
-        _toolTip.SetToolTip(_courseLabel, "المكتبة المفتوحة: " + _library.Name + "\n" + _libraryPath +
-                                          "\n\nاضغط عشان تبدّل لمكتبة تانية أو تعمل واحدة جديدة");
         int videos = _library.VideoCount, watched = _library.WatchedCount;
         long total = _library.TotalDurationMs;
         string duration = total > 0 ? "  ·  " + TimeFormat.Format(total) : "";
         int percent = videos == 0 ? 0 : (int)Math.Round(watched * 100.0 / videos);
-        _courseInfoLabel.Text = (_library.Topics.Count > 0 ? $"{_library.Topics.Count} موضوع  ·  " : "") +
-            $"{_library.Courses.Count} كورس  ·  {videos} فيديو{duration}  ·  {percent}% خلص" +
-            (_activeFilterText.Length > 0 ? $"  ·  فلتر: {Modern.Bidi(_activeFilterText)}" : "");
+        string stats = (_library.Topics.Count > 0 ? $"{_library.Topics.Count} موضوع  ·  " : "") +
+            $"{_library.Courses.Count} كورس  ·  {videos} فيديو{duration}  ·  {percent}% خلص";
+        _toolTip.SetToolTip(_courseLabel, "المكتبة المفتوحة: " + _library.Name + "\n" + stats + "\n" + _libraryPath +
+                                          "\n\nاضغط عشان تبدّل لمكتبة تانية أو تعمل واحدة جديدة");
+        _toolTip.SetToolTip(_libraryProgress, stats);
+        // السطر ده بيظهر بس لما فيه فلتر شغال
+        bool filtered = _activeFilterText.Length > 0;
+        _courseInfoLabel.Text = filtered ? $"🔎 فلتر شغال: {Modern.Bidi(_activeFilterText)}" : "";
+        if (_infoRow != null && _infoRow.Visible != filtered) _infoRow.Visible = filtered;
         _libraryProgress.Value = videos == 0 ? 0 : (double)watched / videos;
     }
 
