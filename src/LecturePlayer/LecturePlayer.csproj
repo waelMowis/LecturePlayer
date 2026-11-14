@@ -33,7 +33,7 @@
     <LpReleasesRoot>$(LpRoot)\Releases</LpReleasesRoot>
     <LpBuildNumberFile>$(MSBuildProjectDirectory)\BuildNumber.txt</LpBuildNumberFile>
 
-    <!-- مستودع GitHub (owner/repo): البرنامج بيدوّر فيه على التحديثات، وبروفايل النشر «GitHub» بيرفع عليه.
+    <!-- مستودع GitHub (owner/repo): البرنامج بيدوّر فيه على التحديثات (.github/workflows/release.yml بينشر عليه).
          لازم يكون Public عشان أجهزة المستخدمين تقدر تنزّل منه. -->
     <LpGitHubRepo>waelMowis/LecturePlayer</LpGitHubRepo>
   </PropertyGroup>
@@ -141,34 +141,8 @@
     <Message Importance="high" Text="✓ المثبّت جاهز: $(LpReleasesRoot)\$(LpSetupName).exe" />
   </Target>
 
-  <!-- بروفايل «GitHub»: بعد المثبّت يعمل Release على GitHub ويرفعه، فالأجهزة تشوف التحديث لوحدها.
-       محتاج GitHub CLI متثبت ومسجّل دخول مرة واحدة: winget install GitHub.cli  ثم  gh auth login
-       ملاحظات الإصدار: لو فيه ملف ReleaseNotes.md جنب المشروع بيتاخد منه (اكتب فيه الجديد قبل النشر). -->
-  <Target Name="LpGitHubRelease" AfterTargets="LpRelease">
-    <PropertyGroup>
-      <LpNotesSrc>$(LpRoot)\ReleaseNotes.md</LpNotesSrc>
-      <LpNotesFile>$(IntermediateOutputPath)release-notes.md</LpNotesFile>
-    </PropertyGroup>
-    <Error Condition="'$(LpGitHubPublish)' == 'true' and '$(LpGitHubRepo)' == ''"
-           Text="اكتب مستودع GitHub في LecturePlayer.csproj: &lt;LpGitHubRepo&gt;owner/repo&lt;/LpGitHubRepo&gt;" />
-    <Exec Condition="'$(LpGitHubPublish)' == 'true'" Command="gh --version" IgnoreExitCode="true" StandardOutputImportance="low" StandardErrorImportance="low">
-      <Output TaskParameter="ExitCode" PropertyName="LpGhCode" />
-    </Exec>
-    <Error Condition="'$(LpGitHubPublish)' == 'true' and '$(LpGhCode)' != '0'"
-           Text="GitHub CLI مش متثبت. ثبّته مرة واحدة: winget install GitHub.cli ثم gh auth login — وبعدين انشر تاني. (المثبّت نفسه اتعمل في Releases)" />
-
-    <Copy Condition="'$(LpGitHubPublish)' == 'true' and Exists('$(LpNotesSrc)')" SourceFiles="$(LpNotesSrc)" DestinationFiles="$(LpNotesFile)" />
-    <WriteLinesToFile Condition="'$(LpGitHubPublish)' == 'true' and !Exists('$(LpNotesSrc)')" File="$(LpNotesFile)"
-                      Lines="إصدار جديد من «مسار» $(Version)." Overwrite="true" />
-
-    <Exec Condition="'$(LpGitHubPublish)' == 'true'"
-          Command="gh release create v$(Version) &quot;$(LpReleasesRoot)\$(LpSetupName).exe&quot; --repo $(LpGitHubRepo) --title &quot;Masar $(Version)&quot; --notes-file &quot;$(LpNotesFile)&quot; --latest" />
-    <Message Condition="'$(LpGitHubPublish)' == 'true'" Importance="high"
-             Text="✓ اتنشر على GitHub: https://github.com/$(LpGitHubRepo)/releases/tag/v$(Version) — الأجهزة هتشوف التحديث أول ما تفتح البرنامج" />
-  </Target>
-
   <!-- الإصدار الجاي: بيزيد بس لو كل اللي فات نجح -->
-  <Target Name="LpBumpBuild" AfterTargets="LpGitHubRelease" Condition="'$(LpRelease)' == 'true'">
+  <Target Name="LpBumpBuild" AfterTargets="LpRelease" Condition="'$(LpRelease)' == 'true'">
     <WriteLinesToFile File="$(LpBuildNumberFile)" Lines="$([MSBuild]::Add($(LpBuildNumber), 1))" Overwrite="true" />
   </Target>
 

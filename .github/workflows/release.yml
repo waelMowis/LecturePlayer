@@ -1,0 +1,47 @@
+# نشر إصدار جديد من «مسار» (المثبّت + Release على GitHub) ← كل الأجهزة تشوف «فيه تحديث» وتحدّث لوحدها.
+#
+# بيشتغل لوحده لما تعدّل ReleaseNotes.md وتعمل Push (اكتب فيه الجديد في الإصدار ده)،
+# أو بإيدك من: GitHub ← Actions ← «نشر إصدار» ← Run workflow.
+#
+# رقم الإصدار = LpBaseVersion (في LecturePlayer.csproj) + رقم تشغيل الـ workflow ده (1، 2، 3 …)
+name: نشر إصدار
+
+on:
+  push:
+    branches: [ master, main ]
+    paths: [ 'ReleaseNotes.md' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Publish + المثبّت
+        run: dotnet publish src/LecturePlayer/LecturePlayer.csproj -p:PublishProfile=Installer -p:LpBuildNumber=${{ github.run_number }}
+
+      - name: Release على GitHub
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = Get-ChildItem Releases -Filter 'Masar-Setup-*.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'المثبّت ماتعملش' }
+          $version = $setup.BaseName -replace '^Masar-Setup-', ''
+          Write-Host "الإصدار: $version  ($([math]::Round($setup.Length / 1MB)) MB)"
+          gh release create "v$version" $setup.FullName --title "Masar $version" --notes-file ReleaseNotes.md --latest

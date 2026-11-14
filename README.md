@@ -212,30 +212,25 @@ installer/LecturePlayer.iss   المثبّت
 
 ## نشر إصدار جديد
 
-فيه بروفايلين نشر (Visual Studio ← Publish):
+**النشر بيحصل على GitHub نفسه** (`.github/workflows/release.yml`)، مش محتاج تثبّت أي حاجة على جهازك:
 
-| البروفايل | بيعمل إيه |
-|---|---|
-| **Installer** | مثبّت في `Releases\Masar-Setup-4.1.x.exe` بس (للتجربة أو النقل بإيدك) |
-| **GitHub** | نفس المثبّت + Release على GitHub ← **كل الأجهزة تشوف «فيه تحديث» وتحدّث لوحدها** |
+1. اكتب الجديد في `ReleaseNotes.md` (بيظهر للمستخدمين في رسالة التحديث).
+2. Commit + Push من Visual Studio.
 
-### مرة واحدة قبل أول نشر على GitHub
-1. ثبّت [Inno Setup](https://jrsoftware.org/isdl.php) (`winget install JRSoftware.InnoSetup`).
-2. اعمل مستودع **Public** على GitHub، واكتب اسمه في `LecturePlayer.csproj`:
-   `<LpGitHubRepo>owner/repo</LpGitHubRepo>`
-3. ثبّت GitHub CLI وسجّل دخول: `winget install GitHub.cli` ثم `gh auth login`
+GitHub بيبني البرنامج ويعمل المثبّت وينشره كـ Release في دقايق (تقدر تتابعه من تبويب **Actions**).
+وتقدر تنشر من غير ما تعدّل الملاحظات: Actions ← «نشر إصدار» ← Run workflow.
 
-### كل إصدار
-1. (اختياري) اكتب الجديد في `ReleaseNotes.md` جنب المشروع؛ بيظهر للمستخدمين في رسالة التحديث.
-2. Publish ببروفايل **GitHub**.
+رقم الإصدار = `LpBaseVersion` في `LecturePlayer.csproj` (حاليًا 4.1) + رقم تشغيل النشر (4.1.1، 4.1.2، …).
+عشان تنقل لـ 4.2: غيّر `LpBaseVersion` (العداد بيكمّل، فالإصدار الجاي هيبقى 4.2.N وده أكبر من أي 4.1.x).
+
+بروفايل **Installer** في Visual Studio لسه موجود لو عايز مثبّت على جهازك للتجربة (`Releases\Masar-Setup-….exe`)،
+بس ماتوزّعهوش: الأجهزة بتتحدّث من GitHub بس.
 
 ### التحديث على الأجهزة
 البرنامج بيتحقق بعد ما يفتح بثواني (ومن مساعدة ← التحقق من التحديثات):
 «حدّث دلوقتي» ← بينزّل المثبّت من GitHub ويتأكد من بصمته (sha256) ← يحفظ كل حاجة ويقفل ← يتحدّث بهدوء ← يفتح تاني.
 وفيه «بعدين» و«تخطّى الإصدار ده»، ولو بتتفرج وقتها بيقول في الشريط بس من غير ما يقاطعك.
 المكتبة والإعدادات وفولدر `Data` مش بيتلمسوا.
-
-- رقم الإصدار بيزيد لوحده بعد كل نشر ناجح (`BuildNumber.txt`). لو عايز تنقل لـ 4.2 مثلًا غيّر `LpBaseVersion` في الـ csproj وخلّي `BuildNumber.txt` = 0.
 
 ## البيانات بتتحفظ فين
 
