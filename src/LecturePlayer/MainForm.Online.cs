@@ -425,7 +425,7 @@ internal sealed partial class MainForm
             {
                 if (!stillWanted()) return false;
                 int left = (int)Math.Ceiling((end - DateTime.UtcNow).TotalSeconds);
-                ShowBanner($"يوتيوب بيطلب انتظار {left} ثانية قبل الفيديو (مكان الإعلان اللي بيظهر على الموقع) — هيبدأ لوحده",
+                ShowBanner($"بجهّز الاتصال بيوتيوب… الفيديو هيبدأ لوحده خلال {left} ثانية",
                     BannerKind.Info, seconds: 0, key: "yt-wait");
                 await Task.Delay(1000, ct);
             }
