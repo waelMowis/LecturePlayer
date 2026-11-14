@@ -31,7 +31,7 @@ internal sealed partial class MainForm
         bool current = _currentGroup != null && courses.Any(c => c.Groups.Contains(_currentGroup));
         node.ForeColor = current ? Theme.Accent : done ? Theme.Success : Theme.Text;
         node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "");
-        _tree.SetRow(node, new LectureTreeView.RowInfo(duration > 0 ? TimeFormat.Format(duration) : "",
+        _tree.SetRow(node, new LectureTreeView.RowInfo("",
             courses.Count == 1 ? "كورس" : $"{courses.Count} كورس", done));
     }
 

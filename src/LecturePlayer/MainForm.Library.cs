@@ -574,8 +574,8 @@ internal sealed partial class MainForm
     private void UpdateCourseNode(TreeNode node, Course c)
     {
         node.Text = CourseMarks(c) + Modern.Bidi(c.Name);
-        _tree.SetRow(node, new LectureTreeView.RowInfo(c.TotalDurationMs > 0 ? TimeFormat.Format(c.TotalDurationMs) : "",
-            $"{c.WatchedCount}/{c.VideoCount}", c.IsCompleted));
+        // رقم واحد بس: خلصت كام من كام (المدة في التلميح)
+        _tree.SetRow(node, new LectureTreeView.RowInfo("", $"{c.WatchedCount}/{c.VideoCount}", c.IsCompleted));
         node.ImageKey = node.SelectedImageKey = c.IsCompleted ? "courseDone" : "course";
         bool current = _currentGroup != null && c.Groups.Contains(_currentGroup);
         node.ForeColor = current ? Theme.Accent : c.IsCompleted ? Theme.Success
@@ -589,15 +589,15 @@ internal sealed partial class MainForm
         string clip = g.Attachments.Count > 0 ? $"   📎{g.Attachments.Count}" : "";
         node.Text = Modern.Bidi(g.Name) + clip;
         int fresh = g.NewCount;
-        string meta = (g.SourceUrl != null ? "🔄 " : "") + (g.TotalDurationMs > 0 ? TimeFormat.Format(g.TotalDurationMs) : "");
+        string meta = g.SourceUrl != null ? "🔄" : "";
         _tree.SetRow(node, fresh > 0
             ? new LectureTreeView.RowInfo(meta, $"{fresh} جديد", Accent: true)
             : new LectureTreeView.RowInfo(meta, $"{g.WatchedCount}/{g.Videos.Count}", g.IsCompleted));
         node.ImageKey = node.SelectedImageKey = g.IsCompleted ? "groupDone" : "group";
         node.ForeColor = g == _currentGroup ? Theme.Accent : g.IsCompleted ? Theme.Success : Theme.Text;
         node.NodeFont = _groupNodeFont;
-        node.ToolTipText = g.Attachments.Count == 0 ? g.Name
-            : g.Name + "\n" + string.Join("\n", g.Attachments.Select(a => (a.IsLink ? "🔗 " : "📄 ") + a.Name));
+        node.ToolTipText = g.Name + (g.TotalDurationMs > 0 ? $"\n{g.Videos.Count} فيديو · المدة {TimeFormat.Format(g.TotalDurationMs)}" : "")
+            + (g.Attachments.Count == 0 ? "" : "\n" + string.Join("\n", g.Attachments.Select(a => (a.IsLink ? "🔗 " : "📄 ") + a.Name)));
     }
 
     private void UpdateVideoNode(TreeNode node, VideoItem v)
@@ -605,14 +605,16 @@ internal sealed partial class MainForm
         bool exists = IsAvailable(v);
         bool playing = v == _currentVideo;
 
-        string time = "";
-        if (v.DurationMs > 0)
-            time = v.LastPositionMs > 0 && !v.Watched
-                ? $"{TimeFormat.Format(v.LastPositionMs)} / {TimeFormat.Format(v.DurationMs)}"
-                : TimeFormat.Format(v.DurationMs);
+        // من غير أرقام في الشجرة: شريط تقدّم رفيع لو بدأته ومخلصتوش، والمدة في التلميح
+        double progress = v.DurationMs > 0 && v.LastPositionMs > 0 && !v.Watched
+            ? Math.Clamp((double)v.LastPositionMs / v.DurationMs, 0.02, 0.98) : -1;
+        string time = v.DurationMs <= 0 ? ""
+            : v.LastPositionMs > 0 && !v.Watched
+                ? $"المدة {TimeFormat.Format(v.DurationMs)} — وقفت عند {TimeFormat.Format(v.LastPositionMs)}"
+                : $"المدة {TimeFormat.Format(v.DurationMs)}";
 
         node.Text = v.Title;
-        _tree.SetRow(node, new LectureTreeView.RowInfo(time, v.IsNew ? "جديد" : null, Accent: v.IsNew));
+        _tree.SetRow(node, new LectureTreeView.RowInfo("", v.IsNew ? "جديد" : null, Accent: v.IsNew, Progress: progress));
         node.NodeFont = playing ? _groupNodeFont : _regularNodeFont;
         node.ImageKey = node.SelectedImageKey =
             !exists ? "missing" : playing ? "playing" : v.Watched ? "watched" : v.LastPositionMs > 0 ? "partial"
@@ -621,6 +623,7 @@ internal sealed partial class MainForm
         node.ToolTipText = v.IsOnline ? (IsDownloaded(v) ? "متنزّل للمشاهدة من غير نت:\n" : "من النت:\n") + v.Path
             : exists ? v.LocalPath
             : "الملف مش موجود على الجهاز ده:\n" + v.Path;
+        if (time.Length > 0) node.ToolTipText = time + "\n" + node.ToolTipText;
         if (v.Bookmarks.Count > 0 || !string.IsNullOrWhiteSpace(v.Notes))
             node.ToolTipText += $"\n\n{v.Bookmarks.Count} علامة" + (string.IsNullOrWhiteSpace(v.Notes) ? "" : " · فيه ملاحظات");
     }

@@ -198,7 +198,8 @@ internal sealed class LectureTreeView : TreeView
     /// <summary>بيانات الصف اللي بتترسم جنب الاسم.</summary>
     /// <param name="Meta">نص باهت على اليمين (المدة).</param>
     /// <param name="Badge">عدّاد في «حبة» (مثلًا 2/46).</param>
-    public sealed record RowInfo(string Meta, string? Badge = null, bool Done = false, bool Accent = false);
+    /// <param name="Progress">شريط تقدّم رفيع تحت الاسم (0..1)، أو سالب = من غيره.</param>
+    public sealed record RowInfo(string Meta, string? Badge = null, bool Done = false, bool Accent = false, double Progress = -1);
 
     private readonly Dictionary<TreeNode, RowInfo> _rows = new();
     private TreeNode? _hot;
@@ -379,6 +380,15 @@ internal sealed class LectureTreeView : TreeView
         var tr = new Rectangle(x, row.Y, Math.Max(10, right - x), row.Height);
         TextRenderer.DrawText(g, node.Text, font, tr, color,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+
+        // شريط تقدّم رفيع تحت الاسم بدل أرقام الوقت (اتفرجت على قد إيه)
+        if (info is { Progress: > 0 and < 1 })
+        {
+            int bw = Math.Min(tr.Width, LogicalToDeviceUnits(90));
+            int by = row.Bottom - 4;
+            using (var track = new SolidBrush(Theme.PanelLight)) g.FillRectangle(track, x, by, bw, 2);
+            using (var fill = new SolidBrush(Theme.Accent)) g.FillRectangle(fill, x, by, Math.Max(2, (int)(bw * info.Progress)), 2);
+        }
     }
 
     protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); InvalidateRow(SelectedNode); }

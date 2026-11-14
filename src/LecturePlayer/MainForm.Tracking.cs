@@ -315,7 +315,8 @@ internal sealed partial class MainForm
 
     private string CourseTooltip(Course c)
     {
-        var lines = new List<string> { c.Name, $"{c.Groups.Count} محاضرة · {c.VideoCount} فيديو · {CourseFilter.StatusText(c.Status)}" };
+        var lines = new List<string> { c.Name, $"{c.Groups.Count} محاضرة · {c.VideoCount} فيديو · {CourseFilter.StatusText(c.Status)}" +
+            (c.TotalDurationMs > 0 ? " · المدة " + TimeFormat.Format(c.TotalDurationMs) : "") };
         if (c.Tags.Count > 0) lines.Add(string.Join(" ", c.Tags.Select(t => "#" + t)));
         if (!string.IsNullOrWhiteSpace(c.Instructor)) lines.Add("المحاضر: " + c.Instructor);
         if (!string.IsNullOrWhiteSpace(c.Goal)) lines.Add("الهدف: " + c.Goal);
