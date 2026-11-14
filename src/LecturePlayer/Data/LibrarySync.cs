@@ -20,13 +20,15 @@ public static class LibrarySync
         public int AddedVideos;
         public int UpdatedInfo;
         public int AddedTopics;
-        public int Total => UpdatedVideos + AddedCourses + AddedGroups + AddedVideos + UpdatedInfo + AddedTopics;
+        public int AddedLive;
+        public int Total => UpdatedVideos + AddedCourses + AddedGroups + AddedVideos + UpdatedInfo + AddedTopics + AddedLive;
     }
 
     public static string VideoKey(VideoItem v) => "v:" + v.Path.ToUpperInvariant();
     public static string GroupKey(LectureGroup g) => "g:" + g.Id;
     public static string CourseKey(Course c) => "c:" + c.Id;
     public static string TopicKey(Topic t) => "t:" + t.Id;
+    public static string LiveKey(LiveChannel l) => "l:" + l.Id;
 
     public static Result Merge(CourseLibrary local, CourseLibrary remote, ISet<string>? deletedKeys = null)
     {
@@ -52,6 +54,20 @@ public static class LibrarySync
             var lt = local.Topics.FirstOrDefault(t => t.Id == rt.Id);
             if (lt == null) { local.Topics.Add(rt); result.AddedTopics++; }
             else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
+        }
+
+        // 1.6) البث المباشر: القنوات الجديدة بتتضاف، والتعديل الأحدث يكسب
+        foreach (var rl in remote.Live ?? new List<LiveChannel>())
+        {
+            if (deletedKeys.Contains(LiveKey(rl))) continue;
+            var ll = local.Live.FirstOrDefault(x => x.Id == rl.Id);
+            if (ll == null) { local.Live.Add(rl); result.AddedLive++; }
+            else if (rl.InfoUpdatedUtc > ll.InfoUpdatedUtc)
+            {
+                ll.Name = rl.Name; ll.Url = rl.Url; ll.Kind = rl.Kind; ll.Group = rl.Group; ll.Tags = rl.Tags;
+                ll.Logo = rl.Logo; ll.StationUuid = rl.StationUuid; ll.Favorite = rl.Favorite; ll.InfoUpdatedUtc = rl.InfoUpdatedUtc;
+                result.UpdatedInfo++;
+            }
         }
 
         // 2) الحاجات الجديدة اللي اتضافت على الجهاز التاني

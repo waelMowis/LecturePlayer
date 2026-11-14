@@ -351,6 +351,7 @@ internal sealed partial class MainForm
 
     private void RebuildTree()
     {
+        _liveForm?.RefreshList(); // بعد تراجع أو مزامنة
         string filter = _searchBox.Text.Trim();
         object? selectedTag = _tree.SelectedNode?.Tag;
         int scrollTopIndex = _tree.TopNode != null ? GetVisibleIndex(_tree.TopNode) : 0;

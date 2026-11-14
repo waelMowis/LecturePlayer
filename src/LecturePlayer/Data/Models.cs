@@ -88,6 +88,31 @@ public sealed class Bookmark
 
 public enum CourseStatus { Active, Planned, Paused, Done }
 
+public enum LiveKind { Radio, Tv }
+
+/// <summary>
+/// محطة راديو أو قناة تليفزيون بث مباشر (المفضلة، والقنوات اللي المستخدم ضافها بنفسه).
+/// بتتحفظ في ملف المكتبة فبتتزامن بين الأجهزة، ومالهاش «اتشاف» ولا تقدم.
+/// </summary>
+public sealed class LiveChannel
+{
+    /// <summary>محطات Radio Browser: «rb:» + رقم المحطة، عشان نفس المحطة ماتتكررش من جهازين.</summary>
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    public string Url { get; set; } = "";
+    [JsonConverter(typeof(JsonStringEnumConverter<LiveKind>))]
+    public LiveKind Kind { get; set; } = LiveKind.Radio;
+    /// <summary>البلد أو المجموعة (من ملف M3U).</summary>
+    public string? Group { get; set; }
+    public string? Tags { get; set; }
+    public string? Logo { get; set; }
+    /// <summary>رقم المحطة في Radio Browser (لو جاية من الدليل).</summary>
+    public string? StationUuid { get; set; }
+    public bool Favorite { get; set; }
+    public DateTime InfoUpdatedUtc { get; set; }
+    public void TouchInfo() => InfoUpdatedUtc = DateTime.UtcNow;
+}
+
 /// <summary>مرفق في محاضرة: ملف على الجهاز أو رابط.</summary>
 public sealed class Attachment
 {
@@ -208,6 +233,9 @@ public sealed class CourseLibrary
     /// <summary>المواضيع بالترتيب (التفريعة الرئيسية).</summary>
     public List<Topic> Topics { get; set; } = new();
     public List<Course> Courses { get; set; } = new();
+
+    /// <summary>البث المباشر: المفضلة والقنوات المضافة.</summary>
+    public List<LiveChannel> Live { get; set; } = new();
 
     /// <summary>
     /// موجودة بس عشان نقرا ملفات النسخة الأولى (اللي كانت محاضرات من غير كورسات).

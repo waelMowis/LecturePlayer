@@ -70,6 +70,7 @@ internal sealed partial class MainForm
         if (finished != null) { LogJournal(finished); UpdateStudyStatus(); }
 
         SilenceTick();
+        SleepTick();
         FocusTick();
         if (_tick % 4 == 0) PomodoroTick();
         if (_tick % 40 == 0) UpdateStudyStatus();

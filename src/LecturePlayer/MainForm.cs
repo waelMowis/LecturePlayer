@@ -418,6 +418,7 @@ internal sealed partial class MainForm : Form
         _activityExplorer.Active = true;
         Act(Glyphs.Search, "بحث في كلام الفيديوهات (Ctrl+Shift+F)", ShowTranscriptSearch, top);
         Act(Glyphs.History, "مراجعة النهارده (F7)", ShowReview, top);
+        Act(Glyphs.Radio, "بث مباشر: راديو وتليفزيون (Ctrl+Shift+L)", ShowLiveWindow, top);
         Act(Glyphs.Chart, "إحصائيات المذاكرة (F8)", ShowStats, top);
         Act(Glyphs.Chat, "اسأل الكورس (Ctrl+K)", AskCourse, top);
         Act(Glyphs.Code, "معمل الكود (Ctrl+L)", () => OpenCodeLab(""), top);
@@ -702,7 +703,7 @@ internal sealed partial class MainForm : Form
                 "\n\nفولدر البيانات" + (Storage.IsPortable ? " (جنب البرنامج)" : " (%AppData% — مفيش صلاحية كتابة جنب البرنامج)") +
                 ":\n" + Storage.AppDataDir)));
 
-        _menu.Items.AddRange(new ToolStripItem[] { file, groups, play, study, BuildSmartMenu(), BuildBoldMenu(), BuildOnlineMenu(), tools, help });
+        _menu.Items.AddRange(new ToolStripItem[] { file, groups, play, study, BuildSmartMenu(), BuildBoldMenu(), BuildOnlineMenu(), BuildLiveMenu(), tools, help });
     }
 
     private static ToolStripMenuItem SubMenu(string text, params ToolStripItem[] items)
@@ -977,6 +978,7 @@ internal sealed partial class MainForm : Form
             case Keys.Escape when _miniMode: ToggleMiniMode(); return true;
             case Keys.F6: ToggleSidePanel(); return true;
             case Keys.F1: HelpGuide.Open(this); return true;
+            case Keys.Control | Keys.Shift | Keys.L: ShowLiveWindow(); return true;
             case Keys.Control | Keys.F: if (_split.Panel2Collapsed) ToggleSidePanel(); _searchBox.Focus(); return true;
 
             case Keys.M: ToggleMute(); return true;
@@ -1123,6 +1125,7 @@ internal sealed partial class MainForm : Form
 
     private void UpdateTitle()
     {
+        if (_currentLive != null) { Text = $"{_currentLive.Name}  —  مباشر  —  {AppTitle}"; return; }
         Text = _currentVideo != null
             ? $"{_currentVideo.Title}  —  {_currentGroup?.Name}  —  {AppTitle}"
             : $"{_library.Name}  —  {AppTitle}";
@@ -1130,6 +1133,7 @@ internal sealed partial class MainForm : Form
 
     private void UpdateNowPlaying()
     {
+        if (_currentLive != null) { _nowPlayingLabel.Text = LiveLabel(); return; }
         if (_currentVideo == null || _currentGroup == null) { _nowPlayingLabel.Text = ""; return; }
         var course = _library.FindCourseOf(_currentGroup);
         _nowPlayingLabel.Text = $"{course?.Name}   ›   {_currentGroup.Name}   ›   {_currentVideo.Title}";

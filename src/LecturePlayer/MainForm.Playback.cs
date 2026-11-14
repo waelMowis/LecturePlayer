@@ -31,6 +31,7 @@ internal sealed partial class MainForm
         _mp.EncounteredError += (_, _) => Ui(() =>
         {
             // فيديو من النت: نجرّب رابط جديد بطريقة تانية قبل ما نقول إنه فشل
+            if (TryRecoverLive()) return;
             if (!TryRecoverOnlineError()) ShowStatus("الفيديو ده مش راضي يشتغل (الملف ممكن يكون بايظ)", 8);
         });
         _mp.LengthChanged += (_, e) =>
@@ -70,6 +71,8 @@ internal sealed partial class MainForm
 
     private void OnEndReached()
     {
+        // البث المباشر مالوش آخر: لو «خلص» يبقى الاتصال وقع
+        if (_currentLive != null) { TryRecoverLive(); return; }
         // ممكن يكون المستخدم شغّل فيديو تاني قبل ما الحدث يوصل
         if (_mp.State != VLCState.Ended || _currentVideo == null) return;
 
@@ -106,6 +109,8 @@ internal sealed partial class MainForm
 
         // تشغيل جديد من المستخدم: محاولات الإنقاذ بتاعة فيديوهات النت تبدأ من الأول
         _onlineRetryFor = null;
+        _currentLive = null; // لو كان فيه بث مباشر شغال
+        _liveNowPlaying = null;
         _directTriedFor = null;
 
         SaveCurrentPosition();
@@ -249,6 +254,7 @@ internal sealed partial class MainForm
 
     private void TogglePlay()
     {
+        if (_currentLive != null) { ToggleLive(); return; }
         if (_resolvingVideo != null) { ShowStatus("لسه بجهّز الفيديو من النت…"); return; }
         if (_currentVideo == null || _currentMedia == null) { PlaySelected(); return; }
 
@@ -286,6 +292,8 @@ internal sealed partial class MainForm
 
         if (clearCurrent)
         {
+            _currentLive = null;
+            _liveNowPlaying = null;
             var previousVideo = _currentVideo;
             var previousGroup = _currentGroup;
             _currentVideo = null;

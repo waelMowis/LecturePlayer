@@ -125,6 +125,7 @@ public static class Storage
         // ترقية ملفات النسخة الأولى: المحاضرات القديمة تبقى كورس واحد
         lib.Courses ??= new List<Course>();
         lib.Topics ??= new List<Topic>();
+        lib.Live ??= new List<LiveChannel>();
         if (lib.Groups is { Count: > 0 })
             lib.Courses.Insert(0, new Course { Name = lib.Name, Groups = lib.Groups });
         lib.Groups = null;

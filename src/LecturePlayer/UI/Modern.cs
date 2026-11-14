@@ -67,7 +67,7 @@ internal static class Glyphs
         Add = "\uE710", Filter = "\uE71C", NewFolder = "\uE8F4", OpenFolder = "\uE838", Video = "\uE714",
         Link = "\uE71B", Code = "\uE943", Chat = "\uE8BD", History = "\uE81C", Chart = "\uE9D9",
         Timer = "\uE916", Collapse = "\uE70E", Expand = "\uE70D",
-        MiniPlayer = "\uE73F", Help = "\uE897";
+        MiniPlayer = "\uE73F", Help = "\uE897", Radio = "\uE8D6";
 
     private static string? _family;
 
