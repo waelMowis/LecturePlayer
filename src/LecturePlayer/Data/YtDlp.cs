@@ -12,7 +12,10 @@ public sealed record OnlineEntry(string Url, string Title, long DurationMs);
 public sealed record OnlineListing(string? Title, bool IsPlaylist, List<OnlineEntry> Entries);
 
 /// <summary>روابط التشغيل الفعلية (بتنتهي صلاحيتها بعد ساعات، فبنجيبها وقت التشغيل بس).</summary>
-public sealed record OnlineStream(string VideoUrl, string? AudioUrl, string? UserAgent, string? Referer, long DurationMs);
+/// <param name="IsLive">بث مباشر (يوتيوب لايف…).</param>
+/// <param name="ManifestUrl">قايمة البث الرئيسية (HLS master) بكل الجودات، عشان VLC يغيّر الجودة لوحده حسب النت.</param>
+public sealed record OnlineStream(string VideoUrl, string? AudioUrl, string? UserAgent, string? Referer, long DurationMs,
+    bool IsLive = false, string? ManifestUrl = null);
 
 /// <summary>
 /// التعامل مع yt-dlp (نفس الأداة اللي PotPlayer بيستخدمها لليوتيوب).
@@ -249,7 +252,9 @@ public static class YtDlp
             userAgent = Str(headers, "User-Agent");
             referer = Str(headers, "Referer");
         }
-        return new OnlineStream(videoUrl, audioUrl, userAgent, referer, Seconds(root, "duration"));
+        bool isLive = root.TryGetProperty("is_live", out var live) && live.ValueKind == JsonValueKind.True;
+        string? manifest = Str(root, "manifest_url");
+        return new OnlineStream(videoUrl, audioUrl, userAgent, referer, Seconds(root, "duration"), isLive, manifest);
     }
 
     // =====================================================================

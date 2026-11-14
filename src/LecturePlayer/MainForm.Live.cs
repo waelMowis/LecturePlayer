@@ -24,8 +24,57 @@ internal sealed partial class MainForm
     /// شاشة الراديو مكان الفيديو: دايمًا للراديو، وللتليفزيون وهو بيتصل أو لو البث مفيهوش صورة.
     /// بتتنادى من التايمر (4 مرات في الثانية).
     /// </summary>
+    private const int MaxLiveRetries = 5;
+    private long _liveLastTime = -1;
+    private DateTime _liveLastProgressUtc = DateTime.UtcNow;
+    private DateTime? _livePlayingSinceUtc;
+
+    private void ResetLiveWatchdog()
+    {
+        _liveLastTime = -1;
+        _liveLastProgressUtc = DateTime.UtcNow;
+        _livePlayingSinceUtc = null;
+    }
+
+    /// <summary>
+    /// مراقب البث: لو الصورة/الصوت وقفوا من غير ما VLC يقول إن فيه خطأ (البث «اتجمّد»)، نعيد الاتصال برابط جديد.
+    /// ولو البث فضل شغال كويس دقيقة ونص، عدّاد المحاولات بيرجع صفر (القطع اللي بعد كده يتعامل كأول مرة).
+    /// </summary>
+    private void LiveWatchdog()
+    {
+        if (_currentLive == null || _liveReconnecting) { _liveLastProgressUtc = DateTime.UtcNow; return; }
+        var state = _mp.State;
+        var now = DateTime.UtcNow;
+        if (state is not (VLCState.Playing or VLCState.Buffering or VLCState.Opening))
+        {
+            // واقف بإرادة المستخدم أو لسه بيجهّز الرابط: مفيش مراقبة
+            _liveLastProgressUtc = now;
+            _livePlayingSinceUtc = null;
+            return;
+        }
+
+        long t = _mp.Time;
+        if (t != _liveLastTime)
+        {
+            _liveLastTime = t;
+            _liveLastProgressUtc = now;
+            if (state == VLCState.Playing) _livePlayingSinceUtc ??= now;
+            if (_livePlayingSinceUtc is { } since && now - since > TimeSpan.FromSeconds(90)) _liveRetries = 0;
+            return;
+        }
+
+        var limit = state == VLCState.Opening ? TimeSpan.FromSeconds(45) : TimeSpan.FromSeconds(20);
+        if (now - _liveLastProgressUtc > limit)
+        {
+            Log.Info($"live stalled ({state}) for {(now - _liveLastProgressUtc).TotalSeconds:0}s: {_currentLive.Url}");
+            ResetLiveWatchdog();
+            TryRecoverLive();
+        }
+    }
+
     private void UpdateRadioVisual()
     {
+        LiveWatchdog();
         var ch = _currentLive;
         bool show = false;
         if (ch != null)
@@ -118,10 +167,19 @@ internal sealed partial class MainForm
                     () => request == _playRequest && !_closing);
                 if (stream == null || request != _playRequest || _closing || _currentLive != ch) return;
                 url = stream.VideoUrl; audio = stream.AudioUrl; userAgent = stream.UserAgent; referer = stream.Referer;
+                // البث المباشر: القايمة الرئيسية بكل الجودات بدل جودة واحدة ثابتة،
+                // فـ VLC بينزل لجودة أقل لوحده لما النت يضعف بدل ما الصورة تقف
+                if (stream.IsLive && stream.ManifestUrl != null && audio == null) url = stream.ManifestUrl;
             }
             if (request != _playRequest || _closing || _currentLive != ch) return;
 
-            var options = new List<string> { ":network-caching=4000", ":http-reconnect" };
+            var options = new List<string>
+            {
+                ":network-caching=8000", ":http-reconnect",
+                // بث HLS: مخزون أكبر وتأخير أكبر شوية عن اللحظة الحالية = تقطيع أقل
+                ":adaptive-livedelay=20000", ":adaptive-maxbuffer=60000"
+            };
+            if (_settings.OnlineMaxHeight > 0) options.Add(":adaptive-maxheight=" + _settings.OnlineMaxHeight);
             if (audio != null) options.Add(":input-slave=" + audio);
             if (userAgent != null) options.Add(":http-user-agent=" + userAgent);
             if (referer != null) options.Add(":http-referrer=" + referer);
@@ -146,6 +204,8 @@ internal sealed partial class MainForm
             old?.Dispose();
 
             _timeLabel.Text = "● مباشر";
+            ResetLiveWatchdog();
+            _liveReconnecting = false; // من هنا المراقب بيتابع المحاولة دي كمان (لو علّقت وهي بتفتح)
             _seekBar.Value = 0;
             ShowStatus(ch.Kind == LiveKind.Radio ? $"📻 {ch.Name}" : $"📺 {ch.Name}", 4);
         }
@@ -181,12 +241,12 @@ internal sealed partial class MainForm
         var ch = _currentLive;
         if (ch == null) return false;
 
-        if (_liveRetries < 3)
+        if (_liveRetries < MaxLiveRetries)
         {
             _liveRetries++;
             _liveReconnecting = true;
             int attempt = _liveRetries;
-            ShowStatus($"البث وقف… بحاول أرجع ({attempt}/3)", 10);
+            ShowStatus($"البث وقف… بحاول أرجع ({attempt}/{MaxLiveRetries})", 10);
             int request = ++_playRequest;
             _ = Task.Delay(TimeSpan.FromSeconds(2 * attempt)).ContinueWith(_ => Ui(() =>
             {
