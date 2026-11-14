@@ -111,6 +111,35 @@ public static class RadioBrowser
         e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out int i) ? i : 0;
 }
 
+/// <summary>
+/// قنوات جاهزة: بث رسمي من القنوات نفسها على يوتيوب (مش منقول).
+/// رابط «/live» بتاع القناة بيجيب البث الشغال دلوقتي، فمش بيتأثر لما القناة تبدأ بث جديد.
+/// </summary>
+public static class LivePresets
+{
+    public static IReadOnlyList<LiveChannel> Tv { get; } = new[]
+    {
+        new LiveChannel
+        {
+            Id = "preset:makkah", Name = "مكة المكرمة — المسجد الحرام (قناة القرآن الكريم)",
+            Url = "https://www.youtube.com/channel/UCos52azQNBgW63_9uDJoPDA/live", Kind = LiveKind.Tv,
+            Group = "بث رسمي — هيئة الإذاعة والتلفزيون السعودية", Tags = "مكة، الحرم، صلاة، قرآن"
+        },
+        new LiveChannel
+        {
+            Id = "preset:madinah", Name = "المدينة المنورة — المسجد النبوي (قناة السنة النبوية)",
+            Url = "https://www.youtube.com/channel/UCROKYPep-UuODNwyipe6JMw/live", Kind = LiveKind.Tv,
+            Group = "بث رسمي — هيئة الإذاعة والتلفزيون السعودية", Tags = "المدينة، المسجد النبوي، صلاة"
+        }
+    };
+
+    /// <summary>نسخة جديدة (عشان التعديل عليها مايغيّرش القايمة الثابتة).</summary>
+    public static LiveChannel Copy(LiveChannel p) => new()
+    {
+        Id = p.Id, Name = p.Name, Url = p.Url, Kind = p.Kind, Group = p.Group, Tags = p.Tags, Logo = p.Logo
+    };
+}
+
 /// <summary>ملفات قوايم القنوات (M3U / M3U8 بتاعة IPTV).</summary>
 public static class M3u
 {

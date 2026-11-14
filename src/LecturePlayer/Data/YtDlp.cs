@@ -103,6 +103,8 @@ public static class YtDlp
             return ("الفيديو ده اتمسح أو مش متاح على يوتيوب.", false);
         if (Has("not available in your country", "geo restrict", "geo-restrict"))
             return ("الفيديو ده مش متاح في بلدك.", false);
+        if (Has("not currently live", "is not live", "no live"))
+            return ("القناة مش بتبث لايف دلوقتي. جرّب بعد شوية.", true);
         if (Has("live event will begin", "Premieres in", "This live event"))
             return ("البث ده لسه مابدأش.", false);
         if (Has("Unsupported URL"))

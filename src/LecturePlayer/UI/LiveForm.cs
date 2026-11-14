@@ -123,7 +123,7 @@ internal sealed class LiveForm : ToolWindow
         _note.Text = tab switch
         {
             Tab.Radio => "محطات راديو الإنترنت من دليل Radio Browser المفتوح. دبل كليك للتشغيل، و⭐ عشان تحفظها.",
-            Tab.Tv => "ضيف القنوات من مصادرها الرسمية: رابط البث من موقع القناة، أو بثها المباشر على يوتيوب، أو ملف M3U من اشتراكك.",
+            Tab.Tv => "أول قناتين بث رسمي جاهز من الحرمين. وضيف قنواتك من مصادرها الرسمية: رابط البث، أو بثها على يوتيوب، أو ملف M3U من اشتراكك.",
             _ => "محطاتك وقنواتك المفضلة (بتتزامن مع أجهزتك التانية مع المكتبة)."
         };
         if (tab == Tab.Radio && _radioResults.Count == 0) _ = SearchRadioAsync();
@@ -140,7 +140,10 @@ internal sealed class LiveForm : ToolWindow
         IEnumerable<Row> rows = _tab switch
         {
             Tab.Favorites => lib.Live.Where(l => l.Favorite).Select(l => new Row(l, null)),
-            Tab.Tv => lib.Live.Where(l => l.Kind == LiveKind.Tv).Select(l => new Row(l, null)),
+            // القنوات الرسمية الجاهزة الأول (لو اتحطت في المفضلة بتتاخد نسختها من المكتبة)، وبعدها قنواتك
+            Tab.Tv => LivePresets.Tv
+                .Select(p => new Row(lib.Live.FirstOrDefault(l => l.Id == p.Id) ?? LivePresets.Copy(p), null))
+                .Concat(lib.Live.Where(l => l.Kind == LiveKind.Tv && !l.Id.StartsWith("preset:", StringComparison.Ordinal)).Select(l => new Row(l, null))),
             _ => _radioResults.Select(s => new Row(lib.Live.FirstOrDefault(l => l.Id == "rb:" + s.Uuid) ?? s.ToChannel(), s))
         };
 
@@ -165,7 +168,7 @@ internal sealed class LiveForm : ToolWindow
         _status.Text = _tab switch
         {
             Tab.Favorites when _list.Items.Count == 0 => "مفيش مفضلة لسه: من تبويب «راديو» اختار محطة ودوس ⭐ للمفضلة.",
-            Tab.Tv when _list.Items.Count == 0 => "مفيش قنوات لسه: «＋ قناة برابط» أو «استيراد قايمة M3U».",
+            Tab.Tv when _list.Items.Count <= LivePresets.Tv.Count => "ضيف قنواتك: «＋ قناة برابط» أو «استيراد قايمة M3U».",
             _ => $"{_list.Items.Count} عنصر"
         };
         UpdateButtons();
@@ -236,8 +239,8 @@ internal sealed class LiveForm : ToolWindow
         {
             c.Favorite = false;
             c.TouchInfo();
-            // محطة من الدليل مالهاش لازمة في المكتبة لو مش مفضلة
-            if (c.StationUuid != null && c.Kind == LiveKind.Radio) { lib.Live.Remove(c); _host.Forget(c); }
+            // محطة من الدليل أو قناة جاهزة مالهاش لازمة في المكتبة لو مش مفضلة
+            if ((c.StationUuid != null && c.Kind == LiveKind.Radio) || c.Id.StartsWith("preset:", StringComparison.Ordinal)) { lib.Live.Remove(c); _host.Forget(c); }
         }
         _host.Changed();
         Fill();
