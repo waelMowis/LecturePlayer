@@ -32,7 +32,7 @@ internal sealed partial class MainForm
         {
             // فيديو من النت: نجرّب رابط جديد بطريقة تانية قبل ما نقول إنه فشل
             if (TryRecoverLive()) return;
-            if (!TryRecoverOnlineError()) ShowStatus("الفيديو ده مش راضي يشتغل (الملف ممكن يكون بايظ)", 8);
+            if (!TryRecoverOnlineError()) ShowBanner("الفيديو ده مش راضي يشتغل — الملف ممكن يكون بايظ أو ناقص", BannerKind.Error, "الفيديو اللي بعده", () => PlayNext(false), seconds: 12);
         });
         _mp.LengthChanged += (_, e) =>
         {
@@ -110,6 +110,9 @@ internal sealed partial class MainForm
         // تشغيل جديد من المستخدم: محاولات الإنقاذ بتاعة فيديوهات النت تبدأ من الأول
         _onlineRetryFor = null;
         _currentLive = null; // لو كان فيه بث مباشر شغال
+        UpdateBookmarkButton();
+        HideBanner("live");
+        HideBanner("resume");
         _liveNowPlaying = null;
         _directTriedFor = null;
 
@@ -249,7 +252,7 @@ internal sealed partial class MainForm
 
         var first = _library.AllGroups.FirstOrDefault(x => x.Videos.Count > 0);
         if (first != null) PlayGroup(first);
-        else ShowStatus("القايمة فاضية — اسحب فولدر الكورس هنا أو اضغط «استيراد فولدر»", 6);
+        else ShowBanner("المكتبة فاضية — ضيف فولدر فيديوهات، أو اسحبه وارميه هنا", BannerKind.Info, "📁  ضيف فولدر", ImportCourseDialog, seconds: 10);
     }
 
     private void TogglePlay()
@@ -293,6 +296,7 @@ internal sealed partial class MainForm
         if (clearCurrent)
         {
             _currentLive = null;
+            UpdateBookmarkButton();
             _liveNowPlaying = null;
             var previousVideo = _currentVideo;
             var previousGroup = _currentGroup;

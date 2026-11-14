@@ -65,7 +65,7 @@ internal sealed partial class MainForm
         if (!quiet)
         {
             var lines = new List<string>();
-            if (total > 0) lines.Add($"اتضاف {total} فيديو جديد (عليهم علامة «جديد» في القايمة):\n" +
+            if (total > 0) lines.Add($"اتضاف {total} فيديو جديد (عليهم علامة «جديد» في المكتبة):\n" +
                                      string.Join("\n", report.Where(x => x.Added > 0).Select(x => $"• {x.Group.Name}: {x.Added}")));
             int missing = report.Sum(x => x.Missing);
             if (missing > 0) lines.Add($"\nفيه {missing} فيديو اتشالوا من قوائم يوتيوب (أو بقوا خاصين). سبتهم عندك بتقدمك وملاحظاتك.");

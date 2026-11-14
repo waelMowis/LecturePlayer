@@ -19,18 +19,30 @@ internal sealed partial class MainForm
         !string.IsNullOrWhiteSpace(_settings.UpdateRepo) ? _settings.UpdateRepo.Trim().Trim('/') : UpdateChecker.BuiltInRepo;
 
     /// <summary>بعد ما الشباك يفتح: «اتحدّث ✓» لو ده أول تشغيل بعد تحديث، وبعد ثواني نتحقق من الجديد.</summary>
-    private async void AfterStartupUpdateCheck()
+    private async void AfterStartupUpdateCheck(bool firstRunTour = false)
     {
         string current = UpdateChecker.CurrentVersion.ToString(3);
         if (string.IsNullOrEmpty(_settings.LastRunVersion))
-            ShowStatus("أهلًا بيك في «مسار» 👋  دوس F1 عشان تفتح دليل الاستخدام", 15);
+        {
+            if (!firstRunTour)
+                ShowBanner("أهلًا بيك في «مسار» 👋  ابدأ بإنك تضيف فولدر فيديوهات أو رابط يوتيوب",
+                    BannerKind.Info, "جولة سريعة", StartTour, seconds: 20, key: "welcome");
+        }
         else if (_settings.LastRunVersion != current)
-            ShowStatus($"اتحدّث «مسار» لـ {current} ✓  (F1 لدليل الاستخدام)", 10);
+            ShowBanner($"اتحدّث «مسار» لـ {current} ✓", BannerKind.Success, "إيه الجديد؟", OpenReleaseNotes, seconds: 12, key: "updated");
         if (_settings.LastRunVersion != current) { _settings.LastRunVersion = current; SaveSettings(); }
 
         if (!_settings.CheckUpdates || UpdateRepo == null) return;
         await Task.Delay(TimeSpan.FromSeconds(6)); // مانبطّأش فتح البرنامج
         if (!_closing) await CheckForUpdatesAsync(manual: false);
+    }
+
+    /// <summary>صفحة الإصدار الحالي على GitHub (فيها اللي اتغيّر).</summary>
+    private void OpenReleaseNotes()
+    {
+        string? repo = UpdateRepo;
+        if (repo == null) { HelpGuide.Open(this); return; }
+        OpenInBrowser($"https://github.com/{repo}/releases/tag/v{UpdateChecker.CurrentVersion.ToString(3)}");
     }
 
     private async Task CheckForUpdatesAsync(bool manual)
@@ -58,13 +70,15 @@ internal sealed partial class MainForm
             // الإصدار اللي المستخدم قال «تخطّاه» مايتعرضش لوحده تاني (لكن يتعرض لو طلب التحقق بنفسه)
             if (!manual && string.Equals(_settings.SkippedUpdate, latest.Tag, StringComparison.OrdinalIgnoreCase))
             {
-                ShowStatus($"فيه إصدار جديد {latest.Tag} — مساعدة ← التحقق من التحديثات", 10);
+                ShowBanner($"فيه إصدار جديد من «مسار» ({latest.Tag})", BannerKind.Info, "حدّث دلوقتي",
+                    () => _ = CheckForUpdatesAsync(manual: true), seconds: 15, key: "update");
                 return;
             }
             // لو بيتفرج دلوقتي مانقاطعهوش: نقول في الشريط بس
             if (!manual && _mp.IsPlaying)
             {
-                ShowStatus($"فيه إصدار جديد {latest.Tag} — مساعدة ← التحقق من التحديثات", 15);
+                ShowBanner($"فيه إصدار جديد من «مسار» ({latest.Tag}) — مش هقاطعك وإنت بتتفرج", BannerKind.Info, "حدّث دلوقتي",
+                    () => _ = CheckForUpdatesAsync(manual: true), seconds: 0, key: "update");
                 return;
             }
 
@@ -76,10 +90,10 @@ internal sealed partial class MainForm
                 case DialogResult.Ignore:
                     _settings.SkippedUpdate = latest.Tag;
                     SaveSettings();
-                    ShowStatus($"مش هفكّرك بـ {latest.Tag} تاني (تقدر تحدّث من مساعدة ← التحقق من التحديثات)", 8);
+                    ShowBanner($"مش هفكّرك بـ {latest.Tag} تاني. تقدر تحدّث وقت ما تحب من: مساعدة ← التحقق من التحديثات", BannerKind.Info, seconds: 8);
                     break;
                 default:
-                    ShowStatus("التحديث متاح وقت ما تحب: مساعدة ← التحقق من التحديثات", 8);
+                    ShowBanner("التحديث متاح وقت ما تحب", BannerKind.Info, "حدّث دلوقتي", () => _ = CheckForUpdatesAsync(manual: true), seconds: 10, key: "update");
                     break;
             }
         }
@@ -135,7 +149,7 @@ internal sealed partial class MainForm
                     "البرنامج هيقفل (بعد ما يحفظ كل حاجة)، والتحديث هيتثبت، وبعدين يفتح تاني لوحده.\n\nنكمّل؟",
                     "تحديث"))
             {
-                ShowStatus("التحديث متنزّل؛ هيتثبت لما توافق: مساعدة ← التحقق من التحديثات", 8);
+                ShowBanner("التحديث متنزّل وجاهز يتثبت لما توافق", BannerKind.Info, "ثبّته", () => _ = CheckForUpdatesAsync(manual: true), seconds: 0, key: "update");
                 return;
             }
 

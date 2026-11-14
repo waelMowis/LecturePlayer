@@ -46,15 +46,16 @@ internal sealed partial class MainForm
             _waitingLibraryPath = null;
             Log.Info("waited library appeared: " + path);
             SwitchLibrary(path);
-            ShowStatus("اتفتحت قائمتك ✓ " + Path.GetFileName(path), 6);
+            ShowBanner("اتفتحت مكتبتك «" + Path.GetFileNameWithoutExtension(path) + "» ✓", BannerKind.Success, seconds: 6, key: "waiting-library");
             return;
         }
         if (DateTime.UtcNow - _waitingLibrarySinceUtc < TimeSpan.FromMinutes(2)) return;
 
         _waitingLibraryPath = null;
+        HideBanner("waiting-library");
         if (Dialogs.Confirm(this,
-                "مقدرتش ألاقي آخر قائمة كنت فاتحها:\n" + path +
-                "\n\nلو الملف في Google Drive أو OneDrive، اتأكد إن البرنامج بتاعهم شغال.\nتحب تدوّر عليها بنفسك؟", "ملف القائمة"))
+                "مقدرتش ألاقي آخر مكتبة كنت فاتحها:\n" + path +
+                "\n\nلو الملف في Google Drive أو OneDrive، اتأكد إن البرنامج بتاعهم شغال.\nتحب تدوّر عليها بنفسك؟", "ملف المكتبة"))
             OpenLibraryDialog();
     }
 
@@ -67,7 +68,7 @@ internal sealed partial class MainForm
             try { lib = Storage.LoadLibrary(path, _settings.PathMappings); }
             catch (Exception ex)
             {
-                Dialogs.Error(this, "مقدرتش أفتح ملف القائمة:\n" + path + "\n\n" + ex.Message);
+                Dialogs.Error(this, "مقدرتش أفتح ملف المكتبة:\n" + path + "\n\n" + ex.Message);
                 if (!string.Equals(path, Storage.DefaultLibraryPath, StringComparison.OrdinalIgnoreCase))
                 {
                     // مؤقتًا: من غير مانسجّل «مكتبتي» كآخر قائمة، فالقائمة الأصلية تفتح تاني المرة الجاية
@@ -96,6 +97,8 @@ internal sealed partial class MainForm
 
         if (remember)
         {
+            if (_waitingLibraryPath != null && !string.Equals(_waitingLibraryPath, path, StringComparison.OrdinalIgnoreCase))
+                HideBanner("waiting-library");
             _waitingLibraryPath = null;
             _settings.LastLibraryPath = path;
             AddRecent(path);
@@ -130,10 +133,10 @@ internal sealed partial class MainForm
     {
         using var dlg = new SaveFileDialog
         {
-            Title = "اسم وملف القائمة الجديدة",
+            Title = "اسم ومكان المكتبة الجديدة",
             Filter = Storage.LibraryFilter,
             DefaultExt = Storage.LibraryExtension,
-            FileName = "قائمة جديدة" + Storage.LibraryExtension,
+            FileName = "مكتبة جديدة" + Storage.LibraryExtension,
             InitialDirectory = Storage.AppDataDir, // فولدر Data جنب البرنامج
             OverwritePrompt = true
         };
@@ -147,14 +150,14 @@ internal sealed partial class MainForm
         }
         catch (Exception ex) { Dialogs.Error(this, ex.Message); return; }
         LoadLibrary(dlg.FileName);
-        ShowStatus("القائمة جاهزة — اسحب فولدر كورس أو اضغط «استيراد كورس»", 6);
+        ShowStatus("المكتبة الجديدة جاهزة — ضيف فولدر فيديوهات أو اسحبه وارميه هنا", 6);
     }
 
     private void OpenLibraryDialog()
     {
         using var dlg = new OpenFileDialog
         {
-            Title = "فتح قائمة",
+            Title = "فتح مكتبة",
             Filter = Storage.LibraryFilter,
             InitialDirectory = Path.GetDirectoryName(_libraryPath)
         };
@@ -165,7 +168,7 @@ internal sealed partial class MainForm
     {
         using var dlg = new SaveFileDialog
         {
-            Title = "حفظ القائمة باسم",
+            Title = "حفظ المكتبة باسم",
             Filter = Storage.LibraryFilter,
             DefaultExt = Storage.LibraryExtension,
             FileName = _library.Name + Storage.LibraryExtension,
@@ -187,7 +190,7 @@ internal sealed partial class MainForm
         catch (Exception ex)
         {
             Log.Error("save-as", ex);
-            Dialogs.Error(this, "مقدرتش أحفظ القائمة هنا:\n" + target + "\n\n" + ex.Message);
+            Dialogs.Error(this, "مقدرتش أحفظ المكتبة هنا:\n" + target + "\n\n" + ex.Message);
             return;
         }
 
@@ -217,8 +220,8 @@ internal sealed partial class MainForm
 
         if (!Dialogs.Confirm(this,
                 "عشان تكمّل مذاكرتك على أكتر من جهاز:\n\n" +
-                "1. ملف القائمة هيتحفظ في فولدر بيتزامن (OneDrive أو Google Drive).\n" +
-                "2. على الجهاز التاني: ملف ← فتح قائمة، واختار نفس الملف.\n" +
+                "1. ملف المكتبة هيتحفظ في فولدر بيتزامن (OneDrive أو Google Drive).\n" +
+                "2. على الجهاز التاني: ملف ← فتح مكتبة، واختار نفس الملف.\n" +
                 "3. البرنامج بيدمج التقدم والعلامات والملاحظات من الجهازين لوحده.\n\n" +
                 "الفيديوهات نفسها مش بتتنقل. لو مكانها مختلف على الجهاز التاني، حدد مكان أي فيديو مرة واحدة، " +
                 "والبرنامج هيفتكر المكان ده للجهاز ده بس.\n\n" +
@@ -231,7 +234,7 @@ internal sealed partial class MainForm
 
         using var dlg = new SaveFileDialog
         {
-            Title = "حفظ القائمة في فولدر المزامنة",
+            Title = "حفظ المكتبة في فولدر المزامنة",
             Filter = Storage.LibraryFilter,
             DefaultExt = Storage.LibraryExtension,
             FileName = _library.Name + Storage.LibraryExtension,
@@ -247,7 +250,7 @@ internal sealed partial class MainForm
         _statusFile.Text = Path.GetFileName(_libraryPath);
         _statusFile.ToolTipText = _libraryPath;
         Log.Info("library moved to sync folder: " + _libraryPath);
-        ShowStatus("القائمة بقت في فولدر المزامنة ✓ — افتحها من الجهاز التاني", 8);
+        ShowStatus("المكتبة بقت في فولدر المزامنة ✓ — افتحها من الجهاز التاني", 8);
     }
 
     private void RestoreBackupDialog()
@@ -255,7 +258,7 @@ internal sealed partial class MainForm
         string dir = Storage.BackupDir(_libraryPath);
         if (!Directory.Exists(dir) || Directory.GetFiles(dir, "*" + Storage.LibraryExtension).Length == 0)
         {
-            Dialogs.Info(this, "لسه مفيش نسخ احتياطية للقائمة دي.\nالبرنامج بياخد نسخة كل 6 ساعات وبيحتفظ بآخر 10.");
+            Dialogs.Info(this, "لسه مفيش نسخ احتياطية للمكتبة دي.\nالبرنامج بياخد نسخة كل 6 ساعات وبيحتفظ بآخر 10.");
             return;
         }
 
@@ -266,7 +269,7 @@ internal sealed partial class MainForm
             InitialDirectory = dir
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
-        if (!Dialogs.Confirm(this, $"ترجع القائمة لنسخة «{Path.GetFileNameWithoutExtension(dlg.FileName)}»؟\n" +
+        if (!Dialogs.Confirm(this, $"ترجع المكتبة لنسخة «{Path.GetFileNameWithoutExtension(dlg.FileName)}»؟\n" +
                                    "الحالة الحالية هتتحفظ كنسخة احتياطية الأول، فتقدر ترجعلها.")) return;
 
         try
@@ -300,7 +303,7 @@ internal sealed partial class MainForm
         catch (Exception ex)
         {
             Log.Error("save", ex);
-            ShowStatus("مقدرتش أحفظ: " + ex.Message, 8);
+            ShowBanner("مقدرتش أحفظ المكتبة: " + ex.Message + " — هحاول تاني لوحدي", BannerKind.Error, seconds: 15, key: "save-error");
         }
     }
 
@@ -335,7 +338,7 @@ internal sealed partial class MainForm
         RebuildTree();
         RefreshNotesPane();
         RefreshHome();
-        ShowStatus($"اتدمجت تغييرات من جهاز تاني ({result.Total}) ✓", 5);
+        ShowBanner($"اتجابت تغييرات عملتها على جهاز تاني ({result.Total}) ✓", BannerKind.Success, seconds: 6);
         return true;
     }
 
@@ -360,9 +363,48 @@ internal sealed partial class MainForm
         catch { }
     }
 
+    /// <summary>
+    /// الضغط على اسم المكتبة: قايمة صغيرة فيها مكتباتك الأخيرة (تبدّل بضغطة)، ومكتبة جديدة، وفتح، وتغيير الاسم.
+    /// </summary>
+    private void ShowLibrarySwitcher()
+    {
+        var menu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
+        ToolStripMenuItem Add(string text, Action click, bool enabled = true, string? shortcut = null)
+        {
+            var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text, Enabled = enabled, ShortcutKeyDisplayString = shortcut };
+            i.Click += (_, _) => click();
+            menu.Items.Add(i);
+            return i;
+        }
+
+        menu.Items.Add(new ToolStripLabel("مكتباتك") { ForeColor = Theme.Muted, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) });
+        var recent = _settings.RecentFiles.Take(8).ToList();
+        if (!recent.Any(f => string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase))) recent.Insert(0, _libraryPath);
+        foreach (string f in recent)
+        {
+            string path = f;
+            bool current = string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase);
+            bool exists = current || File.Exists(f);
+            string name = current ? _library.Name : Path.GetFileNameWithoutExtension(f);
+            var item = Add((current ? "✓  " : "      ") + name + (exists ? "" : "  (مش متاحة دلوقتي)"),
+                () => { if (!current) SwitchLibrary(path); }, exists);
+            item.ToolTipText = f;
+            if (current) item.Font = new Font(item.Font, FontStyle.Bold);
+        }
+        menu.Items.Add(new ToolStripSeparator());
+        Add("➕  مكتبة جديدة…", NewLibraryDialog, shortcut: "Ctrl+N");
+        Add("📂  فتح مكتبة من ملف…", OpenLibraryDialog, shortcut: "Ctrl+O");
+        menu.Items.Add(new ToolStripSeparator());
+        Add("✏️  تغيير اسم المكتبة دي…", RenameLibrary);
+        Add("💾  حفظ نسخة باسم تاني…", SaveLibraryAsDialog, shortcut: "Ctrl+Shift+S");
+        Add("📍  فتح مكان الملف", () => OpenInExplorer(_libraryPath));
+        menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
+        menu.Show(_courseLabel, new Point(_courseLabel.Width, _courseLabel.Height), ToolStripDropDownDirection.BelowLeft);
+    }
+
     private void RenameLibrary()
     {
-        string? name = Dialogs.Input(this, "اسم القائمة", "اكتب اسم القائمة (المكتبة):", _library.Name);
+        string? name = Dialogs.Input(this, "اسم المكتبة", "اكتب اسم المكتبة:", _library.Name);
         if (name == null) return;
         _library.Name = name;
         MarkDirty();
@@ -372,7 +414,10 @@ internal sealed partial class MainForm
 
     private void UpdateLibraryHeader()
     {
-        _courseLabel.Text = Modern.Bidi(_library.Name);
+        // «📚 الاسم ▾»: واضح إن ده اسم المكتبة المفتوحة وإنه بيتضغط
+        _courseLabel.Text = "📚  " + Modern.Bidi(_library.Name) + "  ▾";
+        _toolTip.SetToolTip(_courseLabel, "المكتبة المفتوحة: " + _library.Name + "\n" + _libraryPath +
+                                          "\n\nاضغط عشان تبدّل لمكتبة تانية أو تعمل واحدة جديدة");
         int videos = _library.VideoCount, watched = _library.WatchedCount;
         long total = _library.TotalDurationMs;
         string duration = total > 0 ? "  ·  " + TimeFormat.Format(total) : "";
@@ -615,7 +660,12 @@ internal sealed partial class MainForm
         if (node == null) return;
         _tree.SelectedNode = node;
         node.EnsureVisible();
-        if (v != null) ShowStatus($"آخر حاجة كنت بتتفرج عليها: {v.Title} — دوس Space تكمّل", 8);
+        if (v != null)
+        {
+            var group = _library.FindGroupOf(v);
+            ShowBanner($"آخر حاجة كنت بتتفرج عليها: {v.Title}", BannerKind.Info, "▶  كمّل",
+                () => { if (group != null) PlayVideo(group, v, v.LastPositionMs); }, seconds: 12, key: "resume");
+        }
     }
 
     private TreeNode? NodeOf(object item) => item switch
@@ -768,7 +818,7 @@ internal sealed partial class MainForm
             }
             case VideoItem v:
             {
-                string? name = Dialogs.Input(this, "إعادة تسمية", "الاسم اللي هيظهر في القايمة (الملف نفسه مش هيتغير):", v.Title);
+                string? name = Dialogs.Input(this, "إعادة تسمية", "الاسم اللي هيظهر في المكتبة (الملف نفسه مش هيتغير):", v.Title);
                 if (name == null) return;
                 Checkpoint("إعادة تسمية");
                 v.Title = name;
@@ -792,7 +842,7 @@ internal sealed partial class MainForm
                 return;
 
             case Course c:
-                if (!Dialogs.Confirm(this, $"حذف الكورس «{c.Name}» من القايمة؟\n" +
+                if (!Dialogs.Confirm(this, $"حذف الكورس «{c.Name}» من المكتبة؟\n" +
                                            $"({c.Groups.Count} محاضرة · {c.VideoCount} فيديو — الملفات نفسها مش هتتمسح من الجهاز)"))
                     return;
                 if (_currentGroup != null && c.Groups.Contains(_currentGroup)) StopPlaybackCore(clearCurrent: true);
@@ -802,7 +852,7 @@ internal sealed partial class MainForm
                 break;
 
             case LectureGroup g:
-                if (!Dialogs.Confirm(this, $"حذف المحاضرة «{g.Name}» من القايمة؟\n({g.Videos.Count} فيديو — الملفات نفسها مش هتتمسح من الجهاز)"))
+                if (!Dialogs.Confirm(this, $"حذف المحاضرة «{g.Name}» من المكتبة؟\n({g.Videos.Count} فيديو — الملفات نفسها مش هتتمسح من الجهاز)"))
                     return;
                 if (g == _currentGroup) StopPlaybackCore(clearCurrent: true);
                 var course = _library.FindCourseOf(g);
@@ -1309,14 +1359,14 @@ internal sealed partial class MainForm
 
             case Course c:
                 items.Add(MenuItem("▶  تشغيل / استكمال الكورس", () => PlayCourse(c)));
-                items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
+                if (AdvancedMode) items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
                 items.Add(new ToolStripSeparator());
                 items.Add(MenuItem("محاضرة جديدة في الكورس ده…", () => AddGroup(course: c)));
                 items.Add(MenuItem("إضافة فولدر محاضرات للكورس ده…", () => ImportIntoCourseDialog(c)));
                 items.Add(MenuItem("إضافة قائمة تشغيل يوتيوب للكورس ده…", () => AddUrlsDialog(null), "Ctrl+U"));
                 items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
                 items.Add(MenuItem("ترتيب المحاضرات بالاسم", () => SortGroups(c)));
-                items.Add(MenuItem("تصدير ملاحظات الكورس (Markdown)…", () => ExportNotesDialog(c), "Ctrl+E"));
+                items.Add(MenuItem("حفظ ملاحظات الكورس في ملف…", () => ExportNotesDialog(c), "Ctrl+E"));
                 items.Add(new ToolStripSeparator());
                 items.Add(MenuItem(c.IsCompleted ? "إلغاء علامة المشاهدة للكورس كله" : "تعليم الكورس كله كمُشاهَد", ToggleWatchedSelected, "W"));
                 items.Add(MenuItem("↺ تصفير التقدم في الكورس…", () => ResetWatched(c.AllVideos, $"كورس «{c.Name}»")));
@@ -1325,7 +1375,7 @@ internal sealed partial class MainForm
                 items.Add(new ToolStripSeparator());
                 items.Add(MoveCourseToTopicMenu(c));
                 items.Add(MenuItem("كورس جديد بعده…", () => AddCourse(after: c)));
-                items.Add(MenuItem("حذف الكورس من القايمة", DeleteSelected, "Delete"));
+                items.Add(MenuItem("حذف الكورس من المكتبة", DeleteSelected, "Delete"));
                 break;
 
             case LectureGroup g:
@@ -1347,7 +1397,7 @@ internal sealed partial class MainForm
                 items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
                 items.Add(MenuItem("محاضرة جديدة بعدها…", () => AddGroup(after: g)));
                 items.Add(new ToolStripSeparator());
-                items.Add(MenuItem("تقسيم تلقائي (عند Part 01)…", () => AutoSplitDialog(g)));
+                if (AdvancedMode) items.Add(MenuItem("تقسيم تلقائي (عند Part 01)…", () => AutoSplitDialog(g)));
                 items.Add(MenuItem("ترتيب الفيديوهات بالاسم", () => SortGroupVideos(g)));
                 if (g.Videos.Any(x => x.IsOnline))
                     items.Add(MenuItem("تنزيل فيديوهات يوتيوب في المحاضرة دي (من غير نت)", () => _ = DownloadOfflineAsync(g.Videos)));
@@ -1373,7 +1423,7 @@ internal sealed partial class MainForm
                 items.Add(moveTo);
 
                 items.Add(new ToolStripSeparator());
-                items.Add(MenuItem("حذف المحاضرة من القايمة", DeleteSelected, "Delete"));
+                items.Add(MenuItem("حذف المحاضرة من المكتبة", DeleteSelected, "Delete"));
                 break;
             }
 
@@ -1410,7 +1460,7 @@ internal sealed partial class MainForm
                     items.Add(MenuItem("نسخ الرابط", () => { try { Clipboard.SetText(v.Path); } catch { } }));
                 }
                 else if (exists) items.Add(MenuItem("فتح مكان الملف", () => OpenInExplorer(v.LocalPath)));
-                items.Add(MenuItem("إزالة من القايمة", DeleteSelected, "Delete"));
+                items.Add(MenuItem("إزالة من المكتبة", DeleteSelected, "Delete"));
                 break;
             }
         }
@@ -1459,7 +1509,7 @@ internal sealed partial class MainForm
         _nodeMenu.Items.Add(MenuItem("موضوع جديد (تفريعة رئيسية)…", () => AddTopic(), "Ctrl+Shift+N"));
         _nodeMenu.Items.Add(MenuItem("كورس جديد (برا أي موضوع)…", () => AddCourse(atRoot: true), "Ctrl+Shift+G"));
         _nodeMenu.Items.Add(MenuItem("استيراد فولدر كورس…", ImportCourseDialog, "Ctrl+I"));
-        _nodeMenu.Items.Add(MenuItem("استيراد فولدر فيه أكتر من كورس…", ImportMultiCourseDialog, "Ctrl+Shift+I"));
+        if (AdvancedMode) _nodeMenu.Items.Add(MenuItem("استيراد فولدر فيه أكتر من كورس…", ImportMultiCourseDialog, "Ctrl+Shift+I"));
         _nodeMenu.Items.Add(MenuItem("إضافة رابط يوتيوب / قائمة تشغيل…", () => AddUrlsDialog(null), "Ctrl+U"));
         _nodeMenu.Items.Add(new ToolStripSeparator());
         _nodeMenu.Items.Add(MenuItem("فتح الكل", () => SetAllExpanded(true)));

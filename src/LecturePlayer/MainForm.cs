@@ -59,6 +59,7 @@ internal sealed partial class MainForm : Form
     private readonly GlyphButton _btnFullscreen = MakeButton(Glyphs.FullScreen);
     private readonly GlyphButton _btnPlaylist = MakeButton(Glyphs.List);
     private readonly GlyphButton _btnMini = MakeButton(Glyphs.MiniPlayer);
+    private readonly PillButton _btnBookmark = new("🔖  علامة هنا");
     private Label _speedLabel = null!;
 
     private ToolStripMenuItem _recentMenu = null!;
@@ -107,6 +108,7 @@ internal sealed partial class MainForm : Form
         WireEvents();
         WirePlayerEvents();
         ApplySettings();
+        InitAdvancedMode();
 
         string path = openPath ?? _settings.LastLibraryPath ?? "";
         if (string.IsNullOrWhiteSpace(path)) path = Storage.DefaultLibraryPath;
@@ -118,7 +120,8 @@ internal sealed partial class MainForm : Form
             _waitingLibrarySinceUtc = DateTime.UtcNow;
             Log.Info("last library not available yet, waiting: " + path);
             LoadLibrary(Storage.DefaultLibraryPath, remember: false);
-            ShowStatus("بستنى قائمتك تظهر (" + Path.GetFileName(path) + ") — ممكن Google Drive / OneDrive لسه بيفتح…", 30);
+            ShowBanner("بستنى مكتبتك «" + Path.GetFileNameWithoutExtension(path) + "» تظهر — غالبًا Google Drive أو OneDrive لسه بيفتح. هفتحها لوحدي أول ما توصل.",
+                BannerKind.Warning, "اختارها بنفسي", OpenLibraryDialog, seconds: 0, key: "waiting-library");
         }
         else LoadLibrary(path);
 
@@ -180,6 +183,7 @@ internal sealed partial class MainForm : Form
         _radioVisual.MouseDoubleClick += (_, e) => { if (e.Button == MouseButtons.Left) { if (_miniMode) ToggleMiniMode(); else ToggleFullscreen(); } };
         _radioVisual.MouseUp += (_, e) => { if (e.Button == MouseButtons.Right) ShowVideoMenu(_videoView.PointToClient(_radioVisual.PointToScreen(e.Location))); };
         _radioVisual.MouseWheel += (_, e) => SetVolume(_settings.Volume + (e.Delta > 0 ? 5 : -5));
+        BuildBanner();
 
         // ---------- القايمة الجانبية ----------
         BuildSidePanel();
@@ -279,8 +283,9 @@ internal sealed partial class MainForm : Form
         _toolTip.SetToolTip(_btnStop, "إيقاف");
         _toolTip.SetToolTip(_btnMute, "كتم الصوت (M)");
         _toolTip.SetToolTip(_btnFullscreen, "ملء الشاشة (F11 أو دبل كليك)");
-        _toolTip.SetToolTip(_btnPlaylist, "إظهار / إخفاء قايمة المحاضرات (F6)");
+        _toolTip.SetToolTip(_btnPlaylist, "إظهار / إخفاء المكتبة (F6)");
         _toolTip.SetToolTip(_btnMini, "المشغل الصغير (P)");
+        _toolTip.SetToolTip(_btnBookmark, "حط علامة عند اللحظة دي عشان ترجعلها بعدين (B)\nكليك يمين: علامة بملاحظة، علامة مراجعة، لقطة شاشة…");
 
         ResumeLayout(false);
         PerformLayout();
@@ -328,7 +333,10 @@ internal sealed partial class MainForm : Form
             FlowDirection = FlowDirection.LeftToRight,
             BackColor = Theme.Panel
         };
-        left.Controls.AddRange(new Control[] { _btnPrev, _btnBack, _btnPlay, _btnFwd, _btnNext, _btnStop });
+        _btnBookmark.Size = new Size(118, 32);
+        _btnBookmark.Margin = new Padding(14, 4, 4, 4);
+        _btnBookmark.TabStop = false;
+        left.Controls.AddRange(new Control[] { _btnPrev, _btnBack, _btnPlay, _btnFwd, _btnNext, _btnStop, _btnBookmark });
         _btnPlay.Size = new Size(50, 36);
         _btnPlay.Primary = true;
 
@@ -412,40 +420,40 @@ internal sealed partial class MainForm : Form
     private void BuildActivityBar()
     {
         _activity.Dock = DockStyle.Fill;
-        _activity.Width = LogicalToDeviceUnits(46);
+        _activity.Width = LogicalToDeviceUnits(64);
         _activity.BackColor = Theme.Panel;
         var top = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Theme.Panel,
             Padding = new Padding(0, 4, 0, 0)
         };
-        GlyphButton Act(string glyph, string tip, Action click, Control parent)
+        GlyphButton Act(string glyph, string caption, string tip, Action click, Control parent)
         {
-            var b = new GlyphButton(glyph, 16f)
+            var b = new GlyphButton(glyph, 15f)
             {
-                Size = new Size(LogicalToDeviceUnits(46), LogicalToDeviceUnits(44)), Margin = Padding.Empty,
-                ShowIndicator = true, IndicatorOnRight = true
+                Size = new Size(LogicalToDeviceUnits(64), LogicalToDeviceUnits(56)), Margin = Padding.Empty,
+                ShowIndicator = true, IndicatorOnRight = true, Caption = caption
             };
             b.Click += (_, _) => click();
             _toolTip.SetToolTip(b, tip);
             parent.Controls.Add(b);
             return b;
         }
-        _activityExplorer = Act(Glyphs.Library, "قايمة الكورسات (F6)", ToggleSidePanel, top);
+        _activityExplorer = Act(Glyphs.Library, "مكتبتي", "مكتبتك: الكورسات والفيديوهات — اضغط تخفيها أو تظهرها (F6)", ToggleSidePanel, top);
         _activityExplorer.Active = true;
-        Act(Glyphs.Search, "بحث في كلام الفيديوهات (Ctrl+Shift+F)", ShowTranscriptSearch, top);
-        Act(Glyphs.History, "مراجعة النهارده (F7)", ShowReview, top);
-        Act(Glyphs.Radio, "بث مباشر: راديو وتليفزيون (Ctrl+Shift+L)", ShowLiveWindow, top);
-        Act(Glyphs.Chart, "إحصائيات المذاكرة (F8)", ShowStats, top);
-        Act(Glyphs.Chat, "اسأل الكورس (Ctrl+K)", AskCourse, top);
-        Act(Glyphs.Code, "معمل الكود (Ctrl+L)", () => OpenCodeLab(""), top);
-        Act(Glyphs.Timer, "وضع التركيز", StartFocusDialog, top);
+        Act(Glyphs.Radio, "بث مباشر", "راديو وتليفزيون على الهوا، ومنهم الحرم المكي والمدني (Ctrl+Shift+L)", ShowLiveWindow, top);
+        // أدوات الوضع المتقدم (بتستخبى في الوضع البسيط)
+        _advancedActivity.Add(Act(Glyphs.Search, "بحث", "دوّر على كلمة اتقالت جوه الفيديوهات (Ctrl+Shift+F)", ShowTranscriptSearch, top));
+        _advancedActivity.Add(Act(Glyphs.History, "مراجعة", "العلامات اللي عليها الدور تراجعها النهارده (F7)", ShowReview, top));
+        _advancedActivity.Add(Act(Glyphs.Chart, "إحصائيات", "ذاكرت قد إيه النهارده والأسبوع ده (F8)", ShowStats, top));
+        _advancedActivity.Add(Act(Glyphs.Chat, "اسأل", "اسأل عن أي حاجة في الكورس والذكاء الاصطناعي يجاوبك من كلام المحاضرات (Ctrl+K)", AskCourse, top));
+        _advancedActivity.Add(Act(Glyphs.Code, "كود", "جرّب الكود اللي في المحاضرة (Ctrl+L)", () => OpenCodeLab(""), top));
+        _advancedActivity.Add(Act(Glyphs.Timer, "تركيز", "وضع التركيز: مذاكرة بوقت محدد وبريك", StartFocusDialog, top));
 
-        var bottom = new Panel { Dock = DockStyle.Bottom, Height = LogicalToDeviceUnits(46), BackColor = Theme.Panel };
-        bottom.Height = LogicalToDeviceUnits(92);
-        var settings = Act(Glyphs.Settings, "الإعدادات (Ctrl+,)", SettingsDialog, bottom);
+        var bottom = new Panel { Dock = DockStyle.Bottom, Height = LogicalToDeviceUnits(112), BackColor = Theme.Panel };
+        var settings = Act(Glyphs.Settings, "الإعدادات", "الإعدادات (Ctrl+,)", SettingsDialog, bottom);
         settings.Dock = DockStyle.Bottom;
-        var help = Act(Glyphs.Help, "دليل الاستخدام (F1)", () => HelpGuide.Open(this), bottom);
+        var help = Act(Glyphs.Help, "مساعدة", "دليل الاستخدام (F1) — والجولة السريعة من منيو مساعدة", () => HelpGuide.Open(this), bottom);
         help.Dock = DockStyle.Bottom;
         _activity.Controls.Add(top);
         _activity.Controls.Add(bottom);
@@ -474,11 +482,13 @@ internal sealed partial class MainForm : Form
         };
         titleRow.Controls.Add(title);
         var moreMenu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
-        void MoreItem(string text, Action click) { var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text }; i.Click += (_, _) => click(); moreMenu.Items.Add(i); }
-        MoreItem("استيراد فولدر فيه أكتر من كورس…", ImportMultiCourseDialog);
-        MoreItem("تقسيم المحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup()));
-        MoreItem("بيانات الكورس المحدد…  (F4)", () => EditCourseInfo(SelectedCourse()));
-        moreMenu.Items.Add(new ToolStripSeparator());
+        ToolStripMenuItem MoreItem(string text, Action click) { var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text }; i.Click += (_, _) => click(); moreMenu.Items.Add(i); return i; }
+        Adv(MoreItem("استيراد فولدر فيه أكتر من كورس…", ImportMultiCourseDialog));
+        Adv(MoreItem("تقسيم المحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup())));
+        Adv(MoreItem("بيانات الكورس المحدد…  (F4)", () => EditCourseInfo(SelectedCourse())));
+        var moreSep = new ToolStripSeparator();
+        moreMenu.Items.Add(moreSep);
+        moreMenu.Opening += (_, _) => { foreach (ToolStripItem i in moreMenu.Items) ApplyMode(i, AdvancedMode); TidySeparators(moreMenu.Items); };
         MoreItem("ترتيب الكورسات بالاسم", SortCourses);
         MoreItem("فتح الكل", () => SetAllExpanded(true));
         MoreItem("قفل الكل", () => SetAllExpanded(false));
@@ -494,7 +504,7 @@ internal sealed partial class MainForm : Form
         _courseLabel.TextAlign = ContentAlignment.MiddleRight;
         _courseLabel.AutoEllipsis = true;
         _courseLabel.Cursor = Cursors.Hand;
-        _toolTip.SetToolTip(_courseLabel, "اضغط لتغيير اسم القائمة");
+        _toolTip.SetToolTip(_courseLabel, "اسم المكتبة المفتوحة — اضغط عشان تبدّل لمكتبة تانية أو تعمل واحدة جديدة");
         sectionRow.Controls.Add(_courseLabel);
         Icon(Glyphs.Library, "موضوع جديد — تفريعة رئيسية زي «C#» أو «قواعد البيانات» (Ctrl+Shift+N)", () => AddTopic(), sectionRow);
         Icon(Glyphs.NewFolder, "كورس جديد في الموضوع المحدد (Ctrl+Shift+G)", () => AddCourse(), sectionRow);
@@ -568,23 +578,23 @@ internal sealed partial class MainForm : Form
     private void BuildMenus()
     {
         var file = SubMenu("ملف",
-            Item("قائمة جديدة…", NewLibraryDialog, Keys.Control | Keys.N),
-            Item("فتح قائمة…", OpenLibraryDialog, Keys.Control | Keys.O),
+            Item("مكتبة جديدة…", NewLibraryDialog, Keys.Control | Keys.N),
+            Item("فتح مكتبة…", OpenLibraryDialog, Keys.Control | Keys.O),
             Item("حفظ", () => { SaveLibrary(); ShowStatus("اتحفظ ✓"); }, Keys.Control | Keys.S),
-            Item("حفظ باسم…", SaveLibraryAsDialog, Keys.Control | Keys.Shift | Keys.S),
-            Item("نقل القائمة لـ OneDrive (مزامنة بين الأجهزة)…", MoveLibraryToCloudDialog),
+            Item("حفظ المكتبة باسم…", SaveLibraryAsDialog, Keys.Control | Keys.Shift | Keys.S),
+            Item("نقل المكتبة لـ OneDrive / Google Drive (مزامنة بين الأجهزة)…", MoveLibraryToCloudDialog),
             Item("استرجاع نسخة احتياطية…", RestoreBackupDialog),
             new ToolStripSeparator(),
-            Item("تصدير ملاحظات الكورس المحدد (Markdown)…", () => ExportNotesDialog(null), Keys.Control | Keys.E),
+            Adv(Item("حفظ ملاحظات الكورس المحدد في ملف…", () => ExportNotesDialog(null), Keys.Control | Keys.E)),
             new ToolStripSeparator(),
-            _recentMenu = SubMenu("القوائم الأخيرة"),
+            _recentMenu = SubMenu("المكتبات الأخيرة"),
             new ToolStripSeparator(),
-            Item("فتح مكان ملف القائمة", () => OpenInExplorer(_libraryPath)),
-            Item("فتح فولدر البيانات (القوائم والإعدادات)", () =>
+            Item("فتح مكان ملف المكتبة", () => OpenInExplorer(_libraryPath)),
+            Adv(Item("فتح فولدر البيانات (المكتبات والإعدادات)", () =>
             {
                 Directory.CreateDirectory(Storage.AppDataDir);
                 try { System.Diagnostics.Process.Start("explorer.exe", $"\"{Storage.AppDataDir}\""); } catch { }
-            }),
+            })),
             new ToolStripSeparator(),
             Item("خروج", Close, Keys.Alt | Keys.F4));
         _recentMenu.DropDownOpening += (_, _) => BuildRecentMenu();
@@ -597,24 +607,24 @@ internal sealed partial class MainForm : Form
             Item("إضافة فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),
             new ToolStripSeparator(),
             Item("استيراد فولدر كورس…", ImportCourseDialog, Keys.Control | Keys.I),
-            Item("استيراد فولدر فيه أكتر من كورس…", ImportMultiCourseDialog, Keys.Control | Keys.Shift | Keys.I),
+            Adv(Item("استيراد فولدر فيه أكتر من كورس…", ImportMultiCourseDialog, Keys.Control | Keys.Shift | Keys.I)),
             Item("إضافة فولدر محاضرات للكورس المحدد…", () =>
             {
                 if (SelectedCourse() is { } c) ImportIntoCourseDialog(c);
                 else Dialogs.Info(this, "حدد كورس الأول.");
             }),
             new ToolStripSeparator(),
-            Item("تقسيم تلقائي للمحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup())),
-            Item("ترتيب فيديوهات المحاضرة المحددة بالاسم", () => SortGroupVideos(SelectedGroup())),
-            Item("ترتيب محاضرات الكورس المحدد بالاسم", () => SortGroups(SelectedCourse())),
-            Item("ترتيب الكورسات بالاسم", SortCourses),
-            new ToolStripSeparator(),
-            Item("بيانات الكورس المحدد…", () => EditCourseInfo(SelectedCourse()), display: "F4"),
+            Adv(Item("تقسيم تلقائي للمحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup()))),
+            Adv(Item("ترتيب فيديوهات المحاضرة المحددة بالاسم", () => SortGroupVideos(SelectedGroup()))),
+            Adv(Item("ترتيب محاضرات الكورس المحدد بالاسم", () => SortGroups(SelectedCourse()))),
+            Adv(Item("ترتيب الكورسات بالاسم", SortCourses)),
+            Adv(new ToolStripSeparator()),
+            Adv(Item("بيانات الكورس المحدد…", () => EditCourseInfo(SelectedCourse()), display: "F4")),
             new ToolStripSeparator(),
             Item("فتح الكل", () => SetAllExpanded(true)),
             Item("قفل الكل", () => SetAllExpanded(false)),
             new ToolStripSeparator(),
-            Item("تصفير المشاهدة للقائمة كلها…", () => ResetWatched(_library.AllVideos, "كل الكورسات")));
+            Item("تصفير المشاهدة للمكتبة كلها…", () => ResetWatched(_library.AllVideos, "كل الكورسات")));
 
         _autoNextItem = Item("تشغيل الفيديو التالي تلقائيًا", () =>
         {
@@ -646,7 +656,7 @@ internal sealed partial class MainForm : Form
             _autoNextItem, _continueGroupsItem, _resumeItem,
             new ToolStripSeparator(),
             Item("ملء الشاشة", ToggleFullscreen, display: "F11"),
-            Item("إظهار / إخفاء القايمة", ToggleSidePanel, display: "F6"),
+            Item("إظهار / إخفاء المكتبة", ToggleSidePanel, display: "F6"),
             _alwaysOnTopItem = Item("دايمًا فوق الشبابيك التانية", ToggleAlwaysOnTop, display: "T"),
             Item("الشاشة الرئيسية", GoHome));
 
@@ -665,19 +675,19 @@ internal sealed partial class MainForm : Form
         var study = SubMenu("مذاكرة",
             Item("علامة عند اللحظة دي", () => AddBookmark(false), display: "B"),
             Item("علامة بملاحظة…", () => AddBookmark(true), display: "Shift+B"),
-            Item("تكرار جزء (A–B)", CycleAbLoop, display: "A"),
+            Adv(Item("كرّر جزء معيّن (بداية ونهاية)", CycleAbLoop, display: "A")),
             Item("لقطة شاشة", TakeScreenshot, display: "S"),
             Item("فتح فولدر اللقطات", OpenSnapshotsFolder),
+            Adv(new ToolStripSeparator()),
+            Adv(Item("حفظ ملاحظات الكورس في ملف…", () => ExportNotesDialog(null), display: "Ctrl+E")),
             new ToolStripSeparator(),
-            Item("تصدير ملاحظات الكورس (Markdown)…", () => ExportNotesDialog(null), display: "Ctrl+E"),
-            new ToolStripSeparator(),
-            Item("إحصائيات المذاكرة", ShowStats, Keys.F8),
-            Item("بومودورو (تشغيل / إيقاف)", TogglePomodoro, Keys.F9),
-            Item("بيانات الكورس المحدد (الموعد والوسوم)…", () => EditCourseInfo(SelectedCourse()), Keys.F4),
+            Adv(Item("إحصائيات المذاكرة", ShowStats, Keys.F8)),
+            Adv(Item("بومودورو (تشغيل / إيقاف)", TogglePomodoro, Keys.F9)),
+            Adv(Item("بيانات الكورس المحدد (الموعد والوسوم)…", () => EditCourseInfo(SelectedCourse()), Keys.F4)),
             Item("الإعدادات…", SettingsDialog, Keys.Control | Keys.Oemcomma, "Ctrl+,"),
             new ToolStripSeparator(),
             tracks,
-            normalize);
+            Adv(normalize));
 
         var seekPreview = Item("صورة معاينة على شريط التقديم", () => { });
         seekPreview.Checked = _settings.SeekPreview;
@@ -692,12 +702,12 @@ internal sealed partial class MainForm : Form
             Item("إعادة", RedoLast, display: "Ctrl+Y"),
             new ToolStripSeparator(),
             Item("المشغل الصغير", ToggleMiniMode, display: "P"),
-            seekPreview,
+            Adv(seekPreview),
             new ToolStripSeparator(),
-            Item("تنزيل ffmpeg (المعاينة والتنزيل والتفريغ)…", () => _ = EnsureFfmpegAsync("المعاينة وتنزيل يوتيوب والتفريغ")),
+            Adv(Item("تنزيل أداة الفيديو (للمعاينة والتنزيل وتحويل الكلام لنص)…", () => _ = EnsureFfmpegAsync("معاينة الشريط وتنزيل يوتيوب وتحويل الكلام لنص"))),
             Item("إلغاء التنزيل الشغال", CancelDownload),
             new ToolStripSeparator(),
-            Item("فتح فولدر الأدوات", () => OpenDataFolder("tools")),
+            Adv(Item("فتح فولدر الأدوات", () => OpenDataFolder("tools"))),
             Item("فتح فولدر الفيديوهات المتنزلة", () => OpenDataFolder("offline")),
             Item("فتح فولدر سجل الأخطاء", () => OpenDataFolder("logs")));
         tools.DropDownOpening += (_, _) =>
@@ -710,17 +720,20 @@ internal sealed partial class MainForm : Form
 
         var help = SubMenu("مساعدة",
             Item("التحقق من التحديثات", () => _ = CheckForUpdatesAsync(manual: true)),
-            Item("مستودع التحديثات على GitHub…", SetUpdateRepoDialog),
+            Adv(Item("مستودع التحديثات على GitHub…", SetUpdateRepoDialog)),
+            new ToolStripSeparator(),
+            _advancedItem = Item("الوضع المتقدم (كل الأدوات)", () => SetAdvancedMode(!AdvancedMode)),
             new ToolStripSeparator(),
             Item("دليل الاستخدام", () => HelpGuide.Open(this), display: "F1"),
+            Item("جولة سريعة (3 خطوات)", StartTour),
             Item("اختصارات الكيبورد", ShowShortcuts),
             Item("عن البرنامج", () => AboutDialog.Show(this, UpdateChecker.CurrentVersion.ToString(3) + (Application.ProductVersion.Contains("-test") ? " (نسخة تجريبية)" : ""),
                 "محرك التشغيل: VLC (LibVLCSharp)\nفيديوهات النت: yt-dlp + Deno\nمنصة التشغيل: .NET " + Environment.Version.ToString(2) +
-                "\n\nملف القائمة الحالي:\n" + _libraryPath +
+                "\n\nملف المكتبة الحالية:\n" + _libraryPath +
                 "\n\nفولدر البيانات" + (Storage.IsPortable ? " (جنب البرنامج)" : " (%AppData% — مفيش صلاحية كتابة جنب البرنامج)") +
                 ":\n" + Storage.AppDataDir)));
 
-        _menu.Items.AddRange(new ToolStripItem[] { file, groups, play, study, BuildSmartMenu(), BuildBoldMenu(), BuildOnlineMenu(), BuildLiveMenu(), tools, help });
+        _menu.Items.AddRange(new ToolStripItem[] { file, groups, play, study, Adv(BuildSmartMenu()), Adv(BuildBoldMenu()), BuildOnlineMenu(), BuildLiveMenu(), tools, help });
     }
 
     private static ToolStripMenuItem SubMenu(string text, params ToolStripItem[] items)
@@ -776,6 +789,8 @@ internal sealed partial class MainForm : Form
         _btnFullscreen.Click += (_, _) => ToggleFullscreen();
         _btnPlaylist.Click += (_, _) => ToggleSidePanel();
         _btnMini.Click += (_, _) => ToggleMiniMode();
+        _btnBookmark.Click += (_, e) => { if (e is MouseEventArgs { Button: not MouseButtons.Left }) return; AddBookmark(false); }; // كليك يمين = المنيو بس
+        _btnBookmark.MouseUp += (_, e) => { if (e.Button == MouseButtons.Right) ShowStudyMenu(_btnBookmark, new Point(0, -4), above: true); };
 
         _seekBar.Scrubbing += (_, v) =>
         {
@@ -806,7 +821,7 @@ internal sealed partial class MainForm : Form
             if (_speedCombo.SelectedIndex >= 0) SetRate(Rates[_speedCombo.SelectedIndex]);
         };
 
-        _courseLabel.Click += (_, _) => RenameLibrary();
+        _courseLabel.Click += (_, _) => ShowLibrarySwitcher();
 
         _searchBox.TextChanged += (_, _) => RebuildTree();
 
@@ -851,8 +866,11 @@ internal sealed partial class MainForm : Form
         {
             ApplySidePanelWidth();
             BeginInvoke(new Action(CheckLeftoverFocusBlock));
+            bool withFiles = _pendingExternal != null;
             if (_pendingExternal is { } files) { _pendingExternal = null; BeginInvoke(() => OpenExternalFiles(files)); }
-            AfterStartupUpdateCheck();
+            bool tour = ShouldShowFirstRunTour(withFiles);
+            if (tour) BeginInvoke(new Action(StartTour));
+            AfterStartupUpdateCheck(firstRunTour: tour);
         };
         DpiChanged += (_, _) => BeginInvoke(new Action(ApplySidePanelWidth));
 
@@ -1041,13 +1059,13 @@ internal sealed partial class MainForm : Form
             "  S  ←  لقطة شاشة\n" +
             "  T  ←  دايمًا فوق الشبابيك التانية\n" +
             "  P  ←  المشغل الصغير (فوق كل الشبابيك)\n" +
-            "  Ctrl + Z / Ctrl + Y  ←  تراجع / إعادة لتعديلات القايمة\n" +
+            "  Ctrl + Z / Ctrl + Y  ←  تراجع / إعادة لتعديلات المكتبة\n" +
             "  Ctrl + E  ←  تصدير ملاحظات الكورس\n" +
             "  C / X / Z  ←  أسرع / أبطأ / سرعة عادية\n" +
             "  PageDown / PageUp  ←  الفيديو التالي / السابق\n" +
             "  F11 أو F أو دبل كليك  ←  ملء الشاشة (Esc للخروج)\n" +
-            "  F6  ←  إظهار / إخفاء القايمة\n" +
-            "  O  ←  نسخ الكود/النص اللي على الشاشة (OCR)\n" +
+            "  F6  ←  إظهار / إخفاء المكتبة\n" +
+            "  O  ←  نسخ الكلام المكتوب على الشاشة\n" +
             "  Shift+S  ←  تخطي السكوت\n\n" +
             "المذاكرة والذكاء\n" +
             "  R  ←  علامة مراجعة متباعدة   ·   F7  ←  مراجعة النهارده\n" +
@@ -1055,7 +1073,7 @@ internal sealed partial class MainForm : Form
             "  Ctrl+T  ←  نص الفيديو   ·   Ctrl+Shift+F  ←  بحث في كلام الفيديوهات\n" +
             "  Ctrl+Q  ←  اختبرني   ·   Ctrl+K  ←  اسأل الكورس   ·   Ctrl+L  ←  معمل الكود\n" +
             "  Ctrl+,  ←  الإعدادات\n\n" +
-            "القايمة (لما تكون واقف عليها)\n" +
+            "المكتبة (لما تكون واقف عليها)\n" +
             "  Enter  ←  تشغيل الفيديو / المحاضرة / الكورس\n" +
             "  F2  ←  إعادة تسمية\n" +
             "  W  ←  تعليم كمُشاهَد / غير مُشاهَد\n" +

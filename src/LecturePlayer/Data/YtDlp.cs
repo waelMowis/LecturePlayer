@@ -95,9 +95,9 @@ public static class YtDlp
         bool Has(params string[] keys) => keys.Any(k => r.Contains(k, StringComparison.OrdinalIgnoreCase));
 
         if (Has("confirm your age", "age-restricted", "Sign in to confirm your age"))
-            return ("الفيديو ده محتاج تسجيل دخول (للكبار بس).\nالحل: فعّل «كوكيز المتصفح» من الإعدادات.", false);
+            return ("الفيديو ده محتاج تسجيل دخول (للكبار بس).\nالحل: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح».", false);
         if (Has("Sign in to confirm", "not a bot"))
-            return ("يوتيوب طالب يتأكد إنك مش روبوت.\nالحل: الإعدادات ← يوتيوب والإنترنت ← «كوكيز المتصفح» واختار المتصفح اللي فاتح بيه يوتيوب (Firefox الأضمن).", false);
+            return ("يوتيوب طالب يتأكد إنك مش روبوت.\nالحل: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح» واختار المتصفح اللي فاتح بيه يوتيوب (Firefox الأضمن).", false);
         if (Has("Private video"))
             return ("الفيديو ده خاص (Private) ومش متاح غير لصاحبه.", false);
         if (Has("members-only", "Join this channel", "available to this channel's members"))
@@ -115,7 +115,7 @@ public static class YtDlp
         if (Has("Unable to download webpage", "getaddrinfo", "timed out", "Connection reset", "Temporary failure in name resolution", "No route to host"))
             return ("مشكلة في الاتصال بالنت. اتأكد إن النت شغال وجرّب تاني.", true);
         if (Has("HTTP Error 403", "Forbidden"))
-            return ("الموقع رفض الطلب (403). غالبًا yt-dlp محتاج تحديث: منيو إنترنت ← تحديث yt-dlp.", true);
+            return ("الموقع رفض الطلب (403). غالبًا أداة يوتيوب محتاجة تحديث: منيو إنترنت ← تحديث أداة يوتيوب.", true);
         if (Has("Requested format is not available"))
             return ("مفيش جودة مناسبة للفيديو ده. جرّب تغيير الجودة من منيو إنترنت ← جودة فيديوهات النت.", true);
         return (r.Length > 0 ? r : "خطأ مش معروف", true);
@@ -244,7 +244,7 @@ public static class YtDlp
             }
         }
         videoUrl ??= Str(root, "url");
-        if (videoUrl == null) throw new InvalidOperationException("yt-dlp مرجّعش رابط تشغيل");
+        if (videoUrl == null) throw new InvalidOperationException("أداة يوتيوب مرجّعتش رابط تشغيل");
 
         string? userAgent = null, referer = null;
         if (root.TryGetProperty("http_headers", out var headers) && headers.ValueKind == JsonValueKind.Object)
@@ -272,8 +272,8 @@ public static class YtDlp
         if (includeDeno)
         {
             string zip = Path.Combine(ToolsDir, "deno.zip");
-            await DownloadFileAsync(http, DenoDownloadUrl, zip, "Deno", progress, ct);
-            progress.Report("بفك ضغط Deno…");
+            await DownloadFileAsync(http, DenoDownloadUrl, zip, "الأداة المساعدة", progress, ct);
+            progress.Report("بجهّز الأداة المساعدة…");
             using (var archive = ZipFile.OpenRead(zip))
             {
                 var entry = archive.Entries.FirstOrDefault(e => e.Name.Equals("deno.exe", StringComparison.OrdinalIgnoreCase))
@@ -325,7 +325,7 @@ public static class YtDlp
     public static async Task<string> DownloadVideoAsync(string url, string outDir, int maxHeight,
         IProgress<int> percent, CancellationToken ct)
     {
-        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة yt-dlp مش موجودة");
+        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
         Directory.CreateDirectory(outDir);
         string sort = maxHeight > 0 ? $"res:{maxHeight},vcodec:h264,acodec:m4a" : "vcodec:h264,acodec:m4a";
         var args = new List<string>
@@ -378,7 +378,7 @@ public static class YtDlp
     private static async Task<(int Code, string StdOut, string StdErr)> RunAsync(
         IEnumerable<string> args, CancellationToken ct, TimeSpan timeout)
     {
-        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة yt-dlp مش موجودة");
+        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
 
         var psi = new ProcessStartInfo(exe)
         {
@@ -411,7 +411,7 @@ public static class YtDlp
         {
             try { process.Kill(entireProcessTree: true); } catch { }
             if (ct.IsCancellationRequested) throw;
-            throw new TimeoutException("yt-dlp أخد وقت طويل ومردّش — جرّب تاني أو اعمل تحديث للأداة");
+            throw new TimeoutException("أداة يوتيوب أخدت وقت طويل ومردّتش — جرّب تاني أو اعمل تحديث للأداة");
         }
 
         return (process.ExitCode, await stdoutTask, await stderrTask);

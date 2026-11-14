@@ -131,11 +131,11 @@ internal sealed class StatsForm : Form
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 50, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(4, 10, 4, 0), BackColor = Theme.Window };
         buttons.Controls.Add(Btn("قفل", Close, PillStyle.Ghost));
-        buttons.Controls.Add(Btn("تقرير الأسبوع (Markdown)…", SaveWeeklyReport, PillStyle.Primary));
+        buttons.Controls.Add(Btn("حفظ تقرير الأسبوع في ملف…", SaveWeeklyReport, PillStyle.Primary));
         buttons.Controls.Add(Btn("نسخ التقرير", () =>
         {
             Clipboard.SetText(StudyStats.WeeklyReport(_lib, _entries, _today, _settings.DailyGoalMinutes));
-            Dialogs.Info(this, "اتنسخ ✓ — الصقه في أي مكان بيدعم Markdown.");
+            Dialogs.Info(this, "اتنسخ ✓ — الصقه في أي مكان (رسالة، ملاحظات، إيميل).");
         }, PillStyle.Ghost));
 
         // كل قسم كارت لوحده (زي باقي البرنامج)
@@ -424,7 +424,7 @@ internal sealed class StatsForm : Form
     {
         using var dlg = new SaveFileDialog
         {
-            Filter = "Markdown (*.md)|*.md",
+            Filter = "ملف ملاحظات (*.md)|*.md",
             FileName = $"تقرير-المذاكرة-{StudyStats.StartOfWeek(_today):yyyy-MM-dd}.md"
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;

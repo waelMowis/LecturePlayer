@@ -221,6 +221,7 @@ internal sealed partial class MainForm
         if (UI.SettingsDialog.Show(this, _settings))
         {
             YtDlp.CookiesBrowser = _settings.OnlineCookiesBrowser;
+            ApplyMode();
             SaveSettings();
             UpdateStudyStatus();
             ShowStatus("الإعدادات اتحفظت ✓");
@@ -386,7 +387,7 @@ internal sealed partial class MainForm
         string? url = Dialogs.Input(this, "إضافة رابط", "الرابط (https://…):", initial);
         if (url == null) return;
         if (!MediaFiles.IsUrl(url)) { Dialogs.Error(this, "الرابط لازم يبدأ بـ https://"); return; }
-        string name = Dialogs.Input(this, "إضافة رابط", "اسم يظهر في القايمة:", Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host : url) ?? url;
+        string name = Dialogs.Input(this, "إضافة رابط", "اسم يظهر في المكتبة:", Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host : url) ?? url;
         Checkpoint("إضافة رابط مرفق");
         g.Attachments.Add(new Attachment { Name = name, Target = url });
         TouchGroupInfo(g);

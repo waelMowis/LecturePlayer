@@ -55,15 +55,15 @@ internal sealed partial class MainForm
             Item("🔄 تحديث قوائم يوتيوب (هات الفيديوهات الجديدة)", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
             new ToolStripSeparator(),
             quality,
-            whole,
+            Adv(whole),
             new ToolStripSeparator(),
-            Item("تنزيل أدوات يوتيوب (yt-dlp + Deno)…", () => _ = DownloadToolsAsync(askFirst: true, includeDeno: true)),
-            Item("تحديث yt-dlp (لو اليوتيوب وقف يشتغل)", () => _ = UpdateYtDlpAsync()),
-            Item("فتح فولدر الأدوات", () =>
+            Adv(Item("تنزيل أدوات يوتيوب…", () => _ = DownloadToolsAsync(askFirst: true, includeDeno: true))),
+            Item("تحديث أداة يوتيوب (لو اليوتيوب وقف يشتغل)", () => _ = UpdateYtDlpAsync()),
+            Adv(Item("فتح فولدر الأدوات", () =>
             {
                 Directory.CreateDirectory(YtDlp.ToolsDir);
                 try { Process.Start("explorer.exe", $"\"{YtDlp.ToolsDir}\""); } catch { }
-            }));
+            })));
     }
 
     private void SetOnlineQuality(int height)
@@ -89,10 +89,10 @@ internal sealed partial class MainForm
         if (_downloadingTools) { ShowStatus("التنزيل شغال بالفعل…"); return false; }
 
         if (askFirst && !Dialogs.Confirm(this,
-                "تشغيل فيديوهات اليوتيوب محتاج أداتين مجانيتين (نفس اللي PotPlayer بيستخدمهم):\n\n" +
-                "• yt-dlp  (حوالي 18 ميجا) ← بيجيب الفيديو من اليوتيوب\n" +
-                (includeDeno ? "• Deno  (حوالي 40 ميجا) ← يوتيوب بقى محتاجه عشان yt-dlp يشتغل صح\n" : "") +
-                "\nهيتنزلوا من GitHub الرسمي في:\n" + YtDlp.ToolsDir + "\n\nأنزّلهم دلوقتي؟",
+                "تشغيل فيديوهات اليوتيوب محتاج أدوات مجانية بتتنزل مرة واحدة:\n\n" +
+                "• أداة يوتيوب  (حوالي 18 ميجا) ← بتجيب الفيديو من اليوتيوب\n" +
+                (includeDeno ? "• أداة مساعدة  (حوالي 40 ميجا) ← يوتيوب بقى محتاجها عشان التشغيل يشتغل صح\n" : "") +
+                "\nهيتنزلوا من مصدرهم الرسمي. أنزّلهم دلوقتي؟",
                 "أدوات اليوتيوب"))
             return false;
 
@@ -102,6 +102,7 @@ internal sealed partial class MainForm
         {
             var progress = new Progress<string>(m => ShowStatus(m, 30));
             await YtDlp.DownloadToolsAsync(includeDeno, progress, CancellationToken.None);
+            HideBanner("tools");
             ShowStatus("أدوات اليوتيوب جاهزة ✓", 5);
             return true;
         }
@@ -122,18 +123,18 @@ internal sealed partial class MainForm
     private async Task UpdateYtDlpAsync()
     {
         if (YtDlp.FindYtDlp() == null) { await EnsureYtDlpAsync(); return; }
-        ShowStatus("بحدّث yt-dlp…", 60);
+        ShowStatus("بحدّث أداة يوتيوب…", 60);
         UseWaitCursor = true;
         try
         {
             string result = await YtDlp.UpdateAsync(CancellationToken.None);
             if (YtDlp.FindDeno() == null &&
-                Dialogs.Confirm(this, result + "\n\nDeno مش موجود، ومن غيره اليوتيوب ممكن ميشتغلش كويس. أنزّله؟"))
+                Dialogs.Confirm(this, result + "\n\nالأداة المساعدة مش موجودة، ومن غيرها اليوتيوب ممكن ميشتغلش كويس. أنزّلها؟"))
             {
                 await DownloadToolsAsync(askFirst: false, includeDeno: true);
                 return;
             }
-            Dialogs.Info(this, result, "تحديث yt-dlp");
+            Dialogs.Info(this, result, "تحديث أداة يوتيوب");
         }
         catch (Exception ex) { Dialogs.Error(this, ex.Message); }
         finally
@@ -224,7 +225,7 @@ internal sealed partial class MainForm
                     // يوتيوب غيّر حاجة: نحدّث yt-dlp مرة ونجرّب تاني
                     _ytdlpAutoUpdated = true;
                     Log.Error("list (هيتحدّث yt-dlp ويتجرّب تاني)", ex);
-                    ShowStatus("بحدّث yt-dlp وأجرّب تاني…", 120);
+                    ShowStatus("بحدّث أداة يوتيوب وأجرّب تاني…", 120);
                     try { Log.Info("yt-dlp auto-update: " + await YtDlp.UpdateAsync(CancellationToken.None)); } catch (Exception uex) { Log.Error("yt-dlp auto-update", uex); }
                     try { listing = await YtDlp.ListAsync(urls[i], _settings.WholePlaylist, CancellationToken.None); }
                     catch (Exception ex2)
@@ -302,13 +303,13 @@ internal sealed partial class MainForm
         }
         else if (errors.Count == 0)
         {
-            ShowStatus("الفيديوهات دي موجودة في القايمة أصلًا");
+            ShowStatus("الفيديوهات دي موجودة في المكتبة أصلًا");
         }
         else ShowStatus("");
 
         if (errors.Count > 0)
             Dialogs.Error(this, "الروابط دي مقدرتش أضيفها:\n\n" + string.Join("\n\n", errors.Take(8)) +
-                                "\n\nلو اليوتيوب كله وقف فجأة: منيو إنترنت ← تحديث yt-dlp");
+                                "\n\nلو اليوتيوب كله وقف فجأة: منيو إنترنت ← تحديث أداة يوتيوب");
 
         if (playFirst && firstGroup != null && firstVideo != null) PlayVideo(firstGroup, firstVideo);
     }
@@ -354,7 +355,8 @@ internal sealed partial class MainForm
 
         if (!await EnsureYtDlpAsync())
         {
-            if (request == _playRequest) ShowStatus("فيديوهات النت محتاجة أداة yt-dlp", 6);
+            if (request == _playRequest) ShowBanner("فيديوهات النت محتاجة «أدوات يوتيوب» (بتتنزل مرة واحدة)", BannerKind.Warning, "نزّلها",
+                () => _ = DownloadToolsAsync(askFirst: false, includeDeno: true), seconds: 0, key: "tools");
             return;
         }
 
@@ -415,7 +417,7 @@ internal sealed partial class MainForm
         {
             _ytdlpAutoUpdated = true;
             Log.Error("online-resolve (هيتحدّث yt-dlp ويتجرّب تاني)", ex);
-            ShowStatus("يوتيوب غيّر حاجة… بحدّث yt-dlp وأجرّب تاني", 120);
+            ShowStatus("يوتيوب غيّر حاجة… بحدّث أداة يوتيوب وأجرّب تاني", 120);
             try { Log.Info("yt-dlp auto-update: " + await YtDlp.UpdateAsync(ct)); }
             catch (Exception uex) when (uex is not OperationCanceledException) { Log.Error("yt-dlp auto-update", uex); }
             if (!stillWanted()) return null;

@@ -35,7 +35,7 @@ public sealed class ClaudeClient
 
     public ClaudeClient(string apiKey, HttpClient? http = null)
     {
-        if (string.IsNullOrWhiteSpace(apiKey)) throw new ClaudeException("مفيش مفتاح API. حطه من الإعدادات ← الذكاء الاصطناعي.");
+        if (string.IsNullOrWhiteSpace(apiKey)) throw new ClaudeException("مفيش مفتاح Claude. حطه من الإعدادات ← الذكاء الاصطناعي (فعّل الوضع المتقدم لو مش ظاهر).");
         _apiKey = apiKey.Trim();
         _http = http ?? SharedHttp;
     }
@@ -133,7 +133,7 @@ public static class AiBudget
         if (s.AiMonthlyTokenCap <= 0) return null;
         long used = UsedThisMonth(s, nowUtc);
         if (used + estimate <= s.AiMonthlyTokenCap) return null;
-        return $"وصلت للحد الشهري للذكاء الاصطناعي ({used:N0} من {s.AiMonthlyTokenCap:N0} توكن).\nزوّد الحد من الإعدادات لو عايز تكمل.";
+        return $"وصلت للحد الشهري للذكاء الاصطناعي ({used:N0} من {s.AiMonthlyTokenCap:N0} وحدة).\nزوّد الحد من الإعدادات لو عايز تكمل.";
     }
 
     public static void Record(AppSettings s, DateTime nowUtc, ClaudeReply r)

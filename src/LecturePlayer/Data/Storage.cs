@@ -7,7 +7,7 @@ namespace LecturePlayer.Data;
 public static class Storage
 {
     public const string LibraryExtension = ".lpl";
-    public const string LibraryFilter = "قائمة محاضرات (*.lpl)|*.lpl|كل الملفات|*.*";
+    public const string LibraryFilter = "مكتبة «مسار» (*.lpl)|*.lpl|كل الملفات|*.*";
 
     private static readonly JsonSerializerOptions Options = new()
     {

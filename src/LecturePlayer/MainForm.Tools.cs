@@ -131,23 +131,60 @@ internal sealed partial class MainForm
     {
         _speedLabel.Visible = _speedCombo.Visible = _volumeBar.Visible = !mini;
         _btnPlaylist.Visible = _btnStop.Visible = !mini;
+        UpdateBookmarkButton();
         _btnMini.Active = mini;
         _btnMini.Text = mini ? Glyphs.FullScreen : Glyphs.MiniPlayer;
         _toolTip.SetToolTip(_btnMini, mini ? "رجوع للمشغل الكامل (P أو Esc أو دبل كليك)" : "المشغل الصغير (P)");
     }
 
-    /// <summary>كليك يمين على الفيديو: طرق واضحة للتنقل بين الأوضاع.</summary>
+    /// <summary>كليك يمين على الفيديو: أدوات المذاكرة الأساسية + التنقل بين الأوضاع.</summary>
     private void ShowVideoMenu(Point at)
     {
-        var menu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
+        var menu = NewStudyMenu();
+        menu.Items.Add(new ToolStripSeparator());
         void Add(string text, string keys, Action act) =>
-            menu.Items.Add(new ToolStripMenuItem(text, null, (_, _) => act()) { ShortcutKeyDisplayString = keys });
+            menu.Items.Add(new ToolStripMenuItem(text, null, (_, _) => act()) { ShortcutKeyDisplayString = keys, ForeColor = Theme.Text });
         Add(_miniMode ? "رجوع للمشغل الكامل" : "المشغل الصغير", "P", ToggleMiniMode);
         Add(_fullscreen ? "خروج من ملء الشاشة" : "ملء الشاشة", _fullscreen ? "Esc" : "F11", ToggleFullscreen);
-        menu.Items.Add(new ToolStripSeparator());
-        Add(TopMost ? "إلغاء «فوق كل الشبابيك»" : "فوق كل الشبابيك", "T", ToggleAlwaysOnTop);
+        Add(TopMost ? "إلغاء «فوق كل الشبابيك»" : "خلّيه فوق كل الشبابيك", "T", ToggleAlwaysOnTop);
         menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
         menu.Show(_videoView, at);
+    }
+
+    /// <summary>زرار «علامة هنا» بيظهر بس مع فيديو عادي (مش بث مباشر، ومش في المشغل الصغير).</summary>
+    private void UpdateBookmarkButton() => _btnBookmark.Visible = !_miniMode && _currentLive == null;
+
+    /// <summary>كليك يمين على زرار «علامة هنا».</summary>
+    private void ShowStudyMenu(Control owner, Point at, bool above)
+    {
+        var menu = NewStudyMenu();
+        menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
+        if (above) menu.Show(owner, at, ToolStripDropDownDirection.AboveRight);
+        else menu.Show(owner, at);
+    }
+
+    /// <summary>أدوات المذاكرة على الفيديو اللي شغال (البسيطة دايمًا، والمتقدمة في الوضع المتقدم).</summary>
+    private ContextMenuStrip NewStudyMenu()
+    {
+        var menu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
+        bool video = _currentVideo != null && IsActive && _currentLive == null;
+        void Add(string text, string keys, Action act, bool enabled = true) =>
+            menu.Items.Add(new ToolStripMenuItem(text, null, (_, _) => act())
+                { ShortcutKeyDisplayString = keys, Enabled = enabled, ForeColor = Theme.Text });
+
+        if (!video)
+            menu.Items.Add(new ToolStripLabel("شغّل فيديو عشان تستخدم أدوات المذاكرة") { ForeColor = Theme.Muted });
+        Add("🔖  علامة هنا", "B", () => AddBookmark(false), video);
+        Add("📝  علامة بملاحظة…", "Shift+B", () => AddBookmark(true), video);
+        Add("📷  صورة من الشاشة (لقطة)", "S", TakeScreenshot, video);
+        Add(_loopA < 0 ? "🔁  كرّر جزء: ابدأ من هنا" : _loopB < 0 ? "🔁  كرّر جزء: لحد هنا" : "🔁  وقّف تكرار الجزء", "A", CycleAbLoop, video);
+        if (AdvancedMode)
+        {
+            menu.Items.Add(new ToolStripSeparator());
+            Add("📌  علامة مراجعة (تفكّرني أراجعها)…", "R", AddReviewBookmark, video);
+            Add("📋  انسخ الكلام المكتوب على الشاشة", "O", () => _ = OcrFrameAsync(), video);
+        }
+        return menu;
     }
 
     // =====================================================================
@@ -242,21 +279,21 @@ internal sealed partial class MainForm
     {
         if (Tools.FindFfmpeg() != null) return true;
         if (!Dialogs.Confirm(this,
-                $"{why} محتاج أداة ffmpeg المجانية (حوالي 65 ميجا).\n\n" +
-                "هتتنزل من GitHub الرسمي في:\n" + Tools.FfmpegDir + "\n\nأنزّلها دلوقتي؟", "ffmpeg"))
+                $"{why} محتاج «أداة الفيديو» المجانية (حوالي 65 ميجا، بتتنزل مرة واحدة).\n\n" +
+                "هتتنزل من مصدرها الرسمي. أنزّلها دلوقتي؟", "أداة الفيديو"))
             return false;
 
         UseWaitCursor = true;
         try
         {
             await Tools.DownloadFfmpegAsync(new Progress<string>(m => ShowStatus(m, 60)), CancellationToken.None);
-            ShowStatus("ffmpeg جاهز ✓", 4);
+            ShowStatus("أداة الفيديو جاهزة ✓", 4);
             return true;
         }
         catch (Exception ex)
         {
             Log.Error("ffmpeg-download", ex);
-            Dialogs.Error(this, "مقدرتش أنزّل ffmpeg:\n" + ex.Message + "\n\nتقدر تنزّله بإيدك من:\n" + Tools.FfmpegUrl +
+            Dialogs.Error(this, "مقدرتش أنزّل أداة الفيديو (ffmpeg):\n" + ex.Message + "\n\nتقدر تنزّله بإيدك من:\n" + Tools.FfmpegUrl +
                                 "\nوتفك ffmpeg.exe والـ dll في:\n" + Tools.FfmpegDir);
             return false;
         }
@@ -314,7 +351,7 @@ internal sealed partial class MainForm
     private void RemoveOffline(VideoItem v)
     {
         if (!_settings.OfflineFiles.TryGetValue(v.Path, out var file)) return;
-        if (!Dialogs.Confirm(this, $"مسح النسخة المتنزلة من «{v.Title}»؟\n(الفيديو هيفضل في القايمة ويتشغّل من النت)")) return;
+        if (!Dialogs.Confirm(this, $"مسح النسخة المتنزلة من «{v.Title}»؟\n(الفيديو هيفضل في المكتبة ويتشغّل من النت)")) return;
         try { if (File.Exists(file) && v != _currentVideo) File.Delete(file); } catch (Exception ex) { Log.Error("offline-delete", ex); }
         _settings.OfflineFiles.Remove(v.Path);
         RefreshVideo(v);

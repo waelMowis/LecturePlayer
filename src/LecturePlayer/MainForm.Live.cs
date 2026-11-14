@@ -156,6 +156,7 @@ internal sealed partial class MainForm
         StopPlaybackCore(clearCurrent: true);
         _welcome.Visible = false;
         _currentLive = ch;
+        UpdateBookmarkButton();
         _liveNowPlaying = null;
         _liveRetries = 0;
         _liveTriedResolver = false;
@@ -228,12 +229,14 @@ internal sealed partial class MainForm
             _liveReconnecting = false; // من هنا المراقب بيتابع المحاولة دي كمان (لو علّقت وهي بتفتح)
             _seekBar.Value = 0;
             ShowStatus(ch.Kind == LiveKind.Radio ? $"📻 {ch.Name}" : $"📺 {ch.Name}", 4);
+            HideBanner("live");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             if (request != _playRequest || _closing) return;
             Log.Error($"live {ch.Url}", ex);
+            HideBanner("live");
             ShowStatus("البث ده مش راضي يشتغل", 6);
             Dialogs.Error(this, $"مقدرتش أشغّل «{ch.Name}»:\n\n{YtDlp.Explain(ex.Message).Message}");
         }
@@ -266,7 +269,7 @@ internal sealed partial class MainForm
             _liveRetries++;
             _liveReconnecting = true;
             int attempt = _liveRetries;
-            ShowStatus($"البث وقف… بحاول أرجع ({attempt}/{MaxLiveRetries})", 10);
+            ShowBanner($"البث وقف… بحاول أرجّعه ({attempt} من {MaxLiveRetries})", BannerKind.Warning, seconds: 0, key: "live");
             int request = ++_playRequest;
             _ = Task.Delay(TimeSpan.FromSeconds(2 * attempt)).ContinueWith(_ => Ui(() =>
             {
@@ -282,6 +285,7 @@ internal sealed partial class MainForm
             _ = StartLiveAsync(ch, ++_playRequest, useResolver: true);
             return true;
         }
+        HideBanner("live");
         ShowStatus("البث ده مش متاح دلوقتي", 8);
         Dialogs.Error(this, $"«{ch.Name}» مش متاح دلوقتي.\n\nممكن المحطة/القناة قافلة البث، أو الرابط اتغيّر، أو النت مش ثابت.");
         return true;
@@ -327,7 +331,7 @@ internal sealed partial class MainForm
         _sleepAtUtc = null;
         if (_mp.IsPlaying) _mp.SetPause(true);
         UpdatePlayButton();
-        ShowStatus("😴 مؤقت النوم وقّف التشغيل", 30);
+        ShowBanner("😴 مؤقت النوم وقّف التشغيل", BannerKind.Info, seconds: 0);
     }
 
     private ToolStripMenuItem BuildLiveMenu()

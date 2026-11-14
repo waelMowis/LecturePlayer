@@ -36,7 +36,7 @@ public static class Transcriber
 
     public static async Task<Transcript?> FromYoutubeAsync(string url, string preferredLang, CancellationToken ct)
     {
-        string exe = YtDlp.FindYtDlp() ?? throw new FileNotFoundException("أداة yt-dlp مش موجودة");
+        string exe = YtDlp.FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
         string dir = Path.Combine(Path.GetTempPath(), "LecturePlayer-subs", Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(dir);
         try

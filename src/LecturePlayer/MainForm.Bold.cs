@@ -36,7 +36,7 @@ internal sealed partial class MainForm
             skip,
             new ToolStripSeparator(),
             Item("«اللي فات» في الكورس ده", () => { var c = CurrentOrSelectedCourse(); if (c != null) ShowRecap(c, force: true); }),
-            Item("صفحة إنجازاتي (HTML)…", ExportAchievements),
+            Item("صفحة إنجازاتي (تفتح في المتصفح)…", ExportAchievements),
             Item("معمل الكود…", () => OpenCodeLab(""), Keys.Control | Keys.L));
         menu.DropDownOpening += (_, _) => skip.Checked = _settings.SkipSilence;
         return menu;
@@ -240,11 +240,11 @@ internal sealed partial class MainForm
     {
         if (FocusActive) { ShowStatus("وضع التركيز شغال بالفعل"); return; }
         using var kit = new FormKit("وضع التركيز الصارم", 520);
-        kit.Note("ملء الشاشة، القايمة مستخبية، ومينفعش تخرج قبل الوقت غير لما تكتب جملة تأكيد.", 40, Theme.Text);
+        kit.Note("ملء الشاشة، المكتبة مستخبية، ومينفعش تخرج قبل الوقت غير لما تكتب جملة تأكيد.", 40, Theme.Text);
         var minutes = kit.Row("المدة (دقيقة)", new NumberBox { Minimum = 10, Maximum = 240, Increment = 5, Value = Math.Clamp(_settings.FocusMinutes, 10, 240) });
         var block = kit.Row("حجب المواقع", new ToggleSwitch { Text = "احجب المواقع دي طول المدة", Checked = _settings.FocusBlockSites });
         var sites = kit.Row("المواقع", new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, RightToLeft = RightToLeft.No, Text = string.Join("\r\n", _settings.FocusSites) }, 110);
-        kit.Note("الحجب بيعدّل ملف hosts في الويندوز، فهيطلب صلاحية مسؤول (UAC) مرة في الأول ومرة في الآخر.\nيوتيوب مش في القايمة عشان المحاضرات.", 40);
+        kit.Note("عشان يقفل المواقع دي، الويندوز هيسألك «تسمح للبرنامج يعمل تغييرات؟» — دوس «نعم». هيسألك مرة في الأول ومرة في الآخر.\nيوتيوب مش في قايمة الحجب عشان الكورسات.", 40);
         kit.Buttons("ابدأ");
         if (kit.Show(this) != DialogResult.OK) return;
 
@@ -362,7 +362,7 @@ internal sealed partial class MainForm
                 .Select(v => (v, TranscriptStore.Load(_libraryPath, v))).ToList();
             if (recent.All(x => x.Item2 == null && string.IsNullOrWhiteSpace(x.v.Notes)))
             {
-                Dialogs.Info(this, "آخر فيديوهات مش متفرغة ومفيهاش ملاحظات — فرّغها الأول عشان Claude يقدر يلخصها.");
+                Dialogs.Info(this, "آخر فيديوهات كلامها متحوّلش لنص ومفيهاش ملاحظات — حوّل كلامها لنص الأول (منيو ذكاء) عشان Claude يقدر يلخصها.");
                 return;
             }
             string? text = await RunClaudeAsync("اللي فات", Recap.Prompt(c, recent), cts.Token);

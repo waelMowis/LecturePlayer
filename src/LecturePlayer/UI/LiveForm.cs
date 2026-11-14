@@ -89,7 +89,7 @@ internal sealed class LiveForm : ToolWindow
         _favButton = Btn("⭐ للمفضلة", ToggleFavorite);
         bar.Controls.Add(_favButton);
         bar.Controls.Add(Btn("＋ قناة برابط…", AddByLink));
-        bar.Controls.Add(Btn("استيراد قايمة M3U…", ImportM3u));
+        bar.Controls.Add(Btn("إضافة قنوات من ملف…", ImportM3u));
         _deleteButton = Btn("حذف", DeleteSelected);
         bar.Controls.Add(_deleteButton);
 
@@ -123,7 +123,7 @@ internal sealed class LiveForm : ToolWindow
         _note.Text = tab switch
         {
             Tab.Radio => "محطات راديو الإنترنت من دليل Radio Browser المفتوح. دبل كليك للتشغيل، و⭐ عشان تحفظها.",
-            Tab.Tv => "أول قناتين بث رسمي جاهز من الحرمين. وضيف قنواتك من مصادرها الرسمية: رابط البث، أو بثها على يوتيوب، أو ملف M3U من اشتراكك.",
+            Tab.Tv => "أول قناتين بث رسمي جاهز من الحرمين. وضيف قنواتك من مصادرها الرسمية: رابط البث، أو بثها على يوتيوب، أو ملف قنوات (M3U) من اشتراكك.",
             _ => "محطاتك وقنواتك المفضلة (بتتزامن مع أجهزتك التانية مع المكتبة)."
         };
         if (tab == Tab.Radio && _radioResults.Count == 0) _ = SearchRadioAsync();
@@ -168,7 +168,7 @@ internal sealed class LiveForm : ToolWindow
         _status.Text = _tab switch
         {
             Tab.Favorites when _list.Items.Count == 0 => "مفيش مفضلة لسه: من تبويب «راديو» اختار محطة ودوس ⭐ للمفضلة.",
-            Tab.Tv when _list.Items.Count <= LivePresets.Tv.Count => "ضيف قنواتك: «＋ قناة برابط» أو «استيراد قايمة M3U».",
+            Tab.Tv when _list.Items.Count <= LivePresets.Tv.Count => "ضيف قنواتك: «＋ قناة برابط» أو «استيراد ملف قنوات».",
             _ => $"{_list.Items.Count} عنصر"
         };
         UpdateButtons();
@@ -285,8 +285,8 @@ internal sealed class LiveForm : ToolWindow
     {
         using var dlg = new OpenFileDialog
         {
-            Title = "استيراد قايمة قنوات (M3U)",
-            Filter = "قوايم القنوات (*.m3u;*.m3u8)|*.m3u;*.m3u8|كل الملفات|*.*"
+            Title = "استيراد ملف قنوات (M3U)",
+            Filter = "ملفات القنوات (*.m3u;*.m3u8)|*.m3u;*.m3u8|كل الملفات|*.*"
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         try

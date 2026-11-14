@@ -30,6 +30,9 @@ internal sealed partial class MainForm
 
     // ---------- الشاشة الرئيسية ----------
     private readonly Label _homeTitle = new();
+    /// <summary>أزرار الإجراءات الكبيرة: «ضيف فولدر»، «رابط يوتيوب»، «بث مباشر»، «إزاي أستخدم البرنامج».</summary>
+    private readonly FlowLayoutPanel _homeActions = new();
+    private bool? _homeActionsBig;
     private readonly FlowLayoutPanel _homeCards = new();
     private readonly Label _homeHint = new();
     private readonly FlowLayoutPanel _homeTopics = new();
@@ -409,19 +412,19 @@ internal sealed partial class MainForm
         {
             _loopA = t;
             _loopB = -1;
-            ShowStatus($"بداية التكرار A عند {TimeFormat.Format(t)} — اضغط A تاني عند النهاية", 5);
+            ShowStatus($"الجزء هيبدأ من {TimeFormat.Format(t)} — اضغط A تاني عند آخر الجزء اللي عايز تكرره", 5);
         }
         else if (_loopB < 0)
         {
             if (t <= _loopA + 1000) { ShowStatus("النهاية لازم تبقى بعد البداية بثانية على الأقل"); return; }
             _loopB = t;
             _mp.Time = _loopA;
-            ShowStatus($"تكرار A–B شغال: {TimeFormat.Format(_loopA)} ← {TimeFormat.Format(_loopB)}  (A تلغيه)", 5);
+            ShowStatus($"بكرّر الجزء من {TimeFormat.Format(_loopA)} لـ {TimeFormat.Format(_loopB)}  (اضغط A تاني توقفه)", 5);
         }
         else
         {
             ClearAbLoop();
-            ShowStatus("اتلغى التكرار");
+            ShowStatus("وقف تكرار الجزء");
         }
         UpdateSeekMarkers();
     }
@@ -508,7 +511,7 @@ internal sealed partial class MainForm
         using var dlg = new SaveFileDialog
         {
             Title = $"تصدير ملاحظات «{course.Name}»",
-            Filter = "Markdown (*.md)|*.md|نص (*.txt)|*.txt",
+            Filter = "ملف ملاحظات (*.md)|*.md|نص عادي (*.txt)|*.txt",
             FileName = NotesExporter.SafeFileName(course.Name + " - ملاحظات") + ".md",
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
         };
@@ -535,6 +538,13 @@ internal sealed partial class MainForm
     {
         _welcome.Controls.Clear();
         _welcome.Padding = new Padding(28, 20, 28, 12);
+        // أي مكان في الشاشة الرئيسية بيستقبل فولدر/ملفات بالسحب
+        foreach (Control c in new Control[] { _welcome, _homeTitle })
+        {
+            c.AllowDrop = true;
+            c.DragEnter += OnExternalDragEnter;
+            c.DragDrop += (_, e) => OnExternalDrop(e, null);
+        }
         _welcome.RightToLeft = RightToLeft.Yes;
 
         _homeTitle.Dock = DockStyle.Top;
@@ -565,6 +575,17 @@ internal sealed partial class MainForm
         _homeHint.DragEnter += OnExternalDragEnter;
         _homeHint.DragDrop += (_, e) => OnExternalDrop(e, null);
 
+        _homeActions.Dock = DockStyle.Top;
+        _homeActions.FlowDirection = FlowDirection.RightToLeft;
+        _homeActions.WrapContents = true;
+        _homeActions.AutoSize = true;
+        _homeActions.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        _homeActions.BackColor = Theme.Panel;
+        _homeActions.Padding = new Padding(0, 0, 0, LogicalToDeviceUnits(6));
+        _homeActions.AllowDrop = true;
+        _homeActions.DragEnter += OnExternalDragEnter;
+        _homeActions.DragDrop += (_, e) => OnExternalDrop(e, null);
+
         BuildHomePlan();
         _homeTopics.Dock = DockStyle.Top;
         _homeTopics.Height = LogicalToDeviceUnits(44);
@@ -577,7 +598,51 @@ internal sealed partial class MainForm
         _welcome.Controls.Add(_homeHint);
         _welcome.Controls.Add(_homePlan);
         _welcome.Controls.Add(_homeTopics);
+        _welcome.Controls.Add(_homeActions);
         _welcome.Controls.Add(_homeTitle);
+    }
+
+    /// <summary>
+    /// مكتبة فاضية: 4 أزرار كبيرة بشرح (أول حاجة المستخدم الجديد يشوفها).
+    /// فيها كورسات: صف صغير لنفس الإجراءات فوق «كمّل اللي بدأته».
+    /// </summary>
+    private void RefreshHomeActions(bool empty)
+    {
+        if (_homeActionsBig == empty && _homeActions.Controls.Count > 0) return;
+        _homeActionsBig = empty;
+        _homeActions.SuspendLayout();
+        var old = _homeActions.Controls.Cast<Control>().ToList();
+        _homeActions.Controls.Clear();
+        foreach (var c in old) c.Dispose();
+
+        ActionTile Tile(string glyph, string title, string subtitle, Color color, Action click)
+        {
+            var t = new ActionTile(glyph, title, empty ? subtitle : "")
+            {
+                IconColor = color,
+                Compact = !empty,
+                Size = empty ? new Size(LogicalToDeviceUnits(330), LogicalToDeviceUnits(92))
+                             : new Size(LogicalToDeviceUnits(200), LogicalToDeviceUnits(52)),
+                Margin = new Padding(LogicalToDeviceUnits(empty ? 8 : 5)),
+                AllowDrop = true
+            };
+            t.Click += (_, _) => click();
+            t.DragEnter += OnExternalDragEnter;
+            t.DragDrop += (_, e) => OnExternalDrop(e, null);
+            _toolTip.SetToolTip(t, subtitle);
+            return t;
+        }
+
+        _homeActions.Controls.Add(Tile(Glyphs.OpenFolder, empty ? "ضيف فولدر فيديوهات" : "ضيف فولدر",
+            "اختار فولدر كورس من جهازك (أو اسحبه وارميه هنا)", Theme.Folder, ImportCourseDialog));
+        _homeActions.Controls.Add(Tile(Glyphs.Link, empty ? "ضيف رابط يوتيوب" : "رابط يوتيوب",
+            "فيديو أو قائمة تشغيل كاملة من يوتيوب", Theme.Danger, () => AddUrlsDialog(null)));
+        _homeActions.Controls.Add(Tile(Glyphs.Radio, empty ? "اسمع راديو أو شوف الحرم" : "بث مباشر",
+            "آلاف محطات الراديو، وبث مباشر من مكة والمدينة", Theme.Success, ShowLiveWindow));
+        if (empty)
+            _homeActions.Controls.Add(Tile(Glyphs.Help, "إزاي أستخدم البرنامج؟",
+                "جولة سريعة في 3 خطوات، والدليل الكامل", Theme.Accent, StartTourOrGuide));
+        _homeActions.ResumeLayout(true);
     }
 
     private void RefreshHome()
@@ -599,8 +664,13 @@ internal sealed partial class MainForm
         _homeCards.Controls.Clear();
         foreach (var c in old) c.Dispose();
 
+        bool emptyLibrary = _library.Courses.Count == 0;
+        RefreshHomeActions(emptyLibrary);
+        _homeHint.Visible = emptyLibrary;
+        _homeHint.Text = "أو اسحب فولدر فيه فيديوهات من الويندوز وارميه في أي مكان هنا\n" +
+                         "(الفولدر بيبقى كورس، وكل فولدر جواه بيبقى محاضرة)";
         _homeTitle.Text = courses.Count == 0
-            ? (_library.Courses.Count == 0 ? "أهلًا! ابدأ بإضافة أول كورس"
+            ? (emptyLibrary ? "أهلًا بيك في «مسار» 👋  ابدأ من هنا"
                 : _settings.HomeTopicFilter != "" ? "مفيش كورسات شغالة في الموضوع ده ✓" : "خلّصت كل الكورسات ✓")
             : "كمّل اللي بدأته";
 

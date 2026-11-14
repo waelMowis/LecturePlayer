@@ -29,19 +29,19 @@ internal sealed partial class MainForm
         };
 
         var menu = SubMenu("ذكاء",
-            Item("نص الفيديو ده (تفريغ)", () => _ = TranscribeAsync(TargetVideo(), show: true), Keys.Control | Keys.T),
-            Item("تفريغ المحاضرة المحددة كلها", () => _ = TranscribeGroupAsync(SelectedGroup() ?? _currentGroup)),
+            Item("حوّل كلام الفيديو ده لنص مكتوب", () => _ = TranscribeAsync(TargetVideo(), show: true), Keys.Control | Keys.T),
+            Item("حوّل كلام المحاضرة المحددة كلها لنص", () => _ = TranscribeGroupAsync(SelectedGroup() ?? _currentGroup)),
             Item("بحث في كلام كل الفيديوهات…", ShowTranscriptSearch, Keys.Control | Keys.Shift | Keys.F),
             subtitle,
             new ToolStripSeparator(),
-            Item("ملخص الفيديو (Claude)", () => _ = SummarizeAsync(TargetVideo(), force: false)),
-            Item("فصول تلقائية كعلامات (Claude)", () => _ = ChaptersAsync(TargetVideo())),
-            Item("اختبرني في الفيديو ده (Claude)", () => _ = QuizAsync(TargetVideo()), Keys.Control | Keys.Q),
-            Item("اسأل الكورس (Claude)…", AskCourse, Keys.Control | Keys.K),
+            Item("لخّصلي الفيديو ده", () => _ = SummarizeAsync(TargetVideo(), force: false)),
+            Item("قسّم الفيديو لأجزاء بعناوين (كعلامات)", () => _ = ChaptersAsync(TargetVideo())),
+            Item("اختبرني في الفيديو ده", () => _ = QuizAsync(TargetVideo()), Keys.Control | Keys.Q),
+            Item("اسأل عن أي حاجة في الكورس…", AskCourse, Keys.Control | Keys.K),
             new ToolStripSeparator(),
-            Item("نسخ الكود / النص اللي على الشاشة (OCR)", () => _ = OcrFrameAsync(), display: "O"),
+            Item("انسخ الكلام المكتوب على الشاشة (كود أو نص)", () => _ = OcrFrameAsync(), display: "O"),
             new ToolStripSeparator(),
-            Item("إلغاء الشغل الشغال (تفريغ / Claude)", CancelSmart),
+            Item("وقّف الشغل اللي شغال دلوقتي", CancelSmart),
             Item("إعدادات الذكاء الاصطناعي…", SettingsDialog));
         return menu;
     }
@@ -58,7 +58,7 @@ internal sealed partial class MainForm
 
     private CancellationTokenSource? BeginSmart()
     {
-        if (_smartCts != null) { ShowStatus("فيه شغل ذكي شغال — استنى لما يخلص أو ألغيه من قايمة «ذكاء»", 5); return null; }
+        if (_smartCts != null) { ShowStatus("فيه شغل ذكي شغال — استنى لما يخلص أو ألغيه من منيو «ذكاء»", 5); return null; }
         return _smartCts = new CancellationTokenSource();
     }
 
@@ -87,24 +87,24 @@ internal sealed partial class MainForm
     {
         string model = string.IsNullOrWhiteSpace(_settings.WhisperModel) ? "small" : _settings.WhisperModel;
         if (Tools.FindWhisper() != null && File.Exists(Tools.ModelPath(model))) return true;
-        if (!await EnsureFfmpegAsync("التفريغ")) return false;
+        if (!await EnsureFfmpegAsync("تحويل الكلام لنص")) return false;
         string label = Tools.WhisperModels.FirstOrDefault(m => m.Name == model).Label ?? model;
         if (!Dialogs.Confirm(this,
-                "التفريغ على الجهاز محتاج whisper.cpp (مجاني ومن غير نت بعد التنزيل):\n\n" +
-                $"• البرنامج (حوالي 10 ميجا)\n• الموديل: {label}\n\n" +
-                "تقدر تغيّر الموديل من الإعدادات. أنزّلهم دلوقتي؟", "whisper"))
+                "تحويل كلام الفيديو لنص بيحصل على جهازك، ومحتاج أداة مجانية تتنزل مرة واحدة (وبعدها بيشتغل من غير نت):\n\n" +
+                $"• الأداة (حوالي 10 ميجا)\n• ملف اللغة: {label}\n\n" +
+                "تقدر تغيّر الدقة من الإعدادات. أنزّلهم دلوقتي؟", "أداة تحويل الكلام لنص"))
             return false;
         UseWaitCursor = true;
         try
         {
             await Tools.DownloadWhisperAsync(model, new Progress<string>(m => ShowStatus(m, 120)), CancellationToken.None);
-            ShowStatus("whisper جاهز ✓", 4);
+            ShowStatus("أداة تحويل الكلام لنص جاهزة ✓", 4);
             return true;
         }
         catch (Exception ex)
         {
             Log.Error("whisper-download", ex);
-            Dialogs.Error(this, "مقدرتش أنزّل whisper:\n" + ex.Message);
+            Dialogs.Error(this, "مقدرتش أنزّل أداة تحويل الكلام لنص:\n" + ex.Message);
             return false;
         }
         finally { UseWaitCursor = false; }
@@ -129,7 +129,7 @@ internal sealed partial class MainForm
                 {
                     if (interactive)
                         Dialogs.Info(this, $"الفيديو «{v.Title}» مالوش ترجمة على يوتيوب.\n\n" +
-                                           "نزّله الأول (كليك يمين ← تنزيل) وبعدين فرّغه على الجهاز بـ whisper.");
+                                           "نزّله الأول (كليك يمين ← تنزيل) وبعدين حوّل كلامه لنص (ذكاء ← حوّل كلام الفيديو ده لنص مكتوب).");
                     return null;
                 }
                 t = await WhisperAsync(v, local, ct);
@@ -160,7 +160,7 @@ internal sealed partial class MainForm
             new Progress<int>(p =>
             {
                 string eta = p is > 3 and < 100 ? $" — فاضل حوالي {TimeFormat.Format((long)(sw.ElapsedMilliseconds * (100.0 - p) / p))}" : "";
-                ShowStatus($"بفرّغ «{v.Title}» على الجهاز: {p}%{eta}", 120);
+                ShowStatus($"بحوّل كلام «{v.Title}» لنص: {p}%{eta}", 120);
             }), ct);
     }
 
@@ -177,7 +177,7 @@ internal sealed partial class MainForm
             if (show) ShowTranscriptText(v, t);
         }
         catch (OperationCanceledException) { ShowStatus("اتلغى"); }
-        catch (Exception ex) { Log.Error("transcribe", ex); Dialogs.Error(this, "التفريغ فشل:\n" + ex.Message); }
+        catch (Exception ex) { Log.Error("transcribe", ex); Dialogs.Error(this, "تحويل الكلام لنص فشل:\n" + ex.Message); }
         finally { EndSmart(cts); }
     }
 
@@ -192,7 +192,7 @@ internal sealed partial class MainForm
     {
         if (g == null) { ShowStatus("حدد محاضرة الأول"); return; }
         var todo = g.Videos.Where(v => !TranscriptStore.Has(_libraryPath, v)).ToList();
-        if (todo.Count == 0) { ShowStatus("كل فيديوهات المحاضرة متفرغة ✓", 4); return; }
+        if (todo.Count == 0) { ShowStatus("كل فيديوهات المحاضرة كلامها اتحوّل لنص ✓", 4); return; }
         if (todo.Any(v => !v.IsOnline) && !await EnsureWhisperAsync()) return;
         var cts = BeginSmart();
         if (cts == null) return;
@@ -202,12 +202,12 @@ internal sealed partial class MainForm
             foreach (var v in todo)
             {
                 cts.Token.ThrowIfCancellationRequested();
-                ShowStatus($"تفريغ المحاضرة: {done + failed + 1} من {todo.Count}…", 60);
+                ShowStatus($"بحوّل كلام المحاضرة لنص: {done + failed + 1} من {todo.Count}…", 60);
                 try { if (await GetTranscriptAsync(v, cts.Token, interactive: false) != null) done++; else failed++; }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { failed++; Log.Error("transcribe " + v.Title, ex); }
             }
-            ShowStatus($"خلص التفريغ: {done} ✓" + (failed > 0 ? $" — {failed} مقدرتش (مالهاش ترجمة أو الملف مش موجود)" : ""), 10);
+            ShowStatus($"خلص تحويل الكلام لنص: {done} ✓" + (failed > 0 ? $" — {failed} مقدرتش (مالهاش ترجمة أو الملف مش موجود)" : ""), 10);
         }
         catch (OperationCanceledException) { ShowStatus($"اتلغى بعد {done} فيديو"); }
         finally { EndSmart(cts); }
@@ -246,7 +246,7 @@ internal sealed partial class MainForm
         UseWaitCursor = true;
         var (idx, missing) = BuildIndex(_library.AllVideos);
         UseWaitCursor = false;
-        string status = $"{idx.VideoCount} فيديو متفرغ" + (missing > 0 ? $" — {missing} لسه (فرّغهم من قايمة «ذكاء»)" : "");
+        string status = $"{idx.VideoCount} فيديو كلامه متحوّل لنص" + (missing > 0 ? $" — {missing} لسه (حوّلهم من منيو «ذكاء»)" : "");
         new TranscriptSearchForm(status, q => idx.Search(q), PlayAt).Show(this);
     }
 
@@ -259,8 +259,8 @@ internal sealed partial class MainForm
         string key = _settings.ClaudeApiKey;
         if (string.IsNullOrWhiteSpace(key))
         {
-            if (Dialogs.Confirm(this, "المميزات دي بتستخدم Claude ومحتاجة مفتاح API بتاعك (من console.anthropic.com).\n\n" +
-                                      "المفتاح بيتحفظ متشفّر على الجهاز ده بس، ومش بيتكتب في ملف القائمة.\n\nتفتح الإعدادات تحطه؟", "Claude"))
+            if (Dialogs.Confirm(this, "المميزات دي بتستخدم الذكاء الاصطناعي Claude، ومحتاجة «مفتاح» بتعمله مرة واحدة من موقع console.anthropic.com.\n\n" +
+                                      "المفتاح بيتحفظ متشفّر على الجهاز ده بس، ومش بيتكتب في ملف المكتبة.\n\nتفتح الإعدادات تحطه؟", "Claude"))
                 SettingsDialog();
             key = _settings.ClaudeApiKey;
             if (string.IsNullOrWhiteSpace(key)) return null;
@@ -281,7 +281,7 @@ internal sealed partial class MainForm
         AiBudget.Record(_settings, DateTime.UtcNow, reply);
         SaveSettings();
         Log.Info($"claude {what}: {reply.InputTokens}+{reply.OutputTokens} tokens");
-        ShowStatus($"{what} جاهز ✓  ({reply.TotalTokens:N0} توكن — الشهر ده {AiBudget.UsedThisMonth(_settings, DateTime.UtcNow):N0})", 6);
+        ShowStatus($"{what} جاهز ✓  (استهلك {reply.TotalTokens:N0} وحدة — الشهر ده {AiBudget.UsedThisMonth(_settings, DateTime.UtcNow):N0})", 6);
         return reply.Text;
     }
 
@@ -389,11 +389,11 @@ internal sealed partial class MainForm
         var (idx, missing) = BuildIndex(course.AllVideos);
         if (idx.VideoCount == 0)
         {
-            Dialogs.Info(this, $"مفيش ولا فيديو متفرغ في «{course.Name}».\n\nفرّغ المحاضرات الأول (قايمة «ذكاء» ← تفريغ المحاضرة كلها)، " +
+            Dialogs.Info(this, $"مفيش ولا فيديو في «{course.Name}» كلامه متحوّل لنص.\n\nحوّل كلام المحاضرات لنص الأول (منيو «ذكاء» ← حوّل كلام المحاضرة المحددة كلها لنص)، " +
                                "وبعدين اسأل وأنا هجاوبك من كلام الفيديوهات نفسها مع الوقت.");
             return;
         }
-        if (missing > 0) ShowStatus($"ملحوظة: {missing} فيديو في الكورس لسه مش متفرغين ومش هيدخلوا في الإجابة", 8);
+        if (missing > 0) ShowStatus($"ملحوظة: {missing} فيديو في الكورس كلامهم لسه متحوّلش لنص، ومش هيدخلوا في الإجابة", 8);
 
         new AskForm(course.Name, async (question, ct) =>
         {
@@ -436,7 +436,7 @@ internal sealed partial class MainForm
             viewer.UseCodeFont();
             viewer.Show(this);
             Clipboard.SetText(text);
-            ShowStatus("النص اتنسخ ✓ (راجع المسافات — الـ OCR مش بيحافظ على الإزاحة)", 6);
+            ShowStatus("الكلام اتنسخ ✓ — الصقه في أي مكان (راجع المسافات في أول السطور)", 6);
         }
         catch (Exception ex)
         {

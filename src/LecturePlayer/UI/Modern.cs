@@ -109,6 +109,12 @@ internal sealed class GlyphButton : Control
     [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public bool Primary { get; set; }
 
+    /// <summary>كلمة صغيرة تحت الأيقونة (للشريط الجانبي) عشان المستخدم يعرف الزرار بيعمل إيه من غير ما يقف عليه.</summary>
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string? Caption { get; set; }
+
+    private Font? _captionFont;
+
     /// <summary>النص = الأيقونة (عشان الكود القديم اللي بيغيّر Text يفضل شغال).</summary>
     [System.Diagnostics.CodeAnalysis.AllowNull]
     public override string Text { get => _glyph; set => Glyph = value ?? ""; }
@@ -122,6 +128,12 @@ internal sealed class GlyphButton : Control
         Cursor = Cursors.Hand;
         Size = new Size(28, 28);
         Margin = new Padding(1);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _captionFont?.Dispose();
+        base.Dispose(disposing);
     }
 
     protected override void OnMouseEnter(EventArgs e) { _hot = true; Invalidate(); base.OnMouseEnter(e); }
@@ -152,6 +164,21 @@ internal sealed class GlyphButton : Control
         Color c = !Enabled ? Theme.Border
             : ShowIndicator ? (_active || _hot ? Color.White : Theme.Muted)
             : _active ? Theme.Accent : _hot ? Color.White : Theme.Text;
+        if (!string.IsNullOrEmpty(Caption))
+        {
+            if (ShowIndicator && _hot && !_active)
+                Modern.FillRound(g, Theme.PanelLight, new RectangleF(4, 3, Width - 8, Height - 6), 6);
+            _captionFont ??= new Font("Segoe UI", 7.5f);
+            int capH = TextRenderer.MeasureText("ت", _captionFont).Height;
+            int glyphH = Font.Height;
+            int top = Math.Max(2, (Height - glyphH - capH) / 2);
+            TextRenderer.DrawText(g, _glyph, Font, new Rectangle(0, top, Width, glyphH), c,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(g, Caption, _captionFont, new Rectangle(1, top + glyphH, Width - 2, capH + 2), c,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding |
+                TextFormatFlags.EndEllipsis | TextFormatFlags.RightToLeft);
+            return;
+        }
         TextRenderer.DrawText(g, _glyph, Font, ClientRectangle, c,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
     }

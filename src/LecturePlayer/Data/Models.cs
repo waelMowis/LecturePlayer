@@ -300,6 +300,13 @@ public sealed class AppSettings
     public string SkippedUpdate { get; set; } = "";
     /// <summary>آخر إصدار اشتغل على الجهاز ده (عشان نقول «اتحدّث ✓» بعد التحديث).</summary>
     public string LastRunVersion { get; set; } = "";
+    /// <summary>
+    /// الوضع المتقدم: كل الأدوات (الذكاء الاصطناعي، معمل الكود، التركيز، الإحصائيات…).
+    /// null = لسه ماتحددش (أول تشغيل بعد التحديث): المستخدم الجديد بيبدأ بسيط، والقديم متقدم.
+    /// </summary>
+    public bool? AdvancedMode { get; set; }
+    /// <summary>الجولة التعريفية اتعرضت قبل كده.</summary>
+    public bool TourShown { get; set; }
     public float Rate { get; set; } = 1f;
     public bool AutoPlayNext { get; set; } = true;
     public bool ContinueToNextGroup { get; set; } = false;

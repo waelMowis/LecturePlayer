@@ -8,6 +8,12 @@ internal static class SettingsDialog
     public static bool Show(IWin32Window owner, AppSettings s)
     {
         using var kit = new FormKit("الإعدادات", 600);
+        bool adv = s.AdvancedMode == true;
+
+        kit.Header("شكل البرنامج");
+        var advanced = kit.Row("الوضع المتقدم", new ToggleSwitch { Text = "اعرض كل الأدوات", Checked = adv });
+        kit.Note("الوضع البسيط بيعرض الأساسي بس: المكتبة، والتشغيل، والعلامات، ويوتيوب، والبث المباشر.\n" +
+                 "المتقدم بيضيف: الذكاء الاصطناعي، والإحصائيات، والمراجعة، ووضع التركيز، ومعمل الكود.", 40);
 
         kit.Header("المذاكرة");
         var goal = kit.Row("الهدف اليومي (دقيقة)", new NumberBox { Minimum = 5, Maximum = 720, Increment = 5, Value = Math.Clamp(s.DailyGoalMinutes, 5, 720) });
@@ -16,74 +22,82 @@ internal static class SettingsDialog
         remind.CheckedChanged += (_, _) => time.Enabled = remind.Checked;
         time.Enabled = remind.Checked;
 
-        kit.Header("بومودورو");
-        var work = kit.Row("تركيز (دقيقة)", new NumberBox { Minimum = 5, Maximum = 120, Value = Math.Clamp(s.PomodoroWorkMinutes, 5, 120) });
-        var rest = kit.Row("بريك (دقيقة)", new NumberBox { Minimum = 1, Maximum = 60, Value = Math.Clamp(s.PomodoroBreakMinutes, 1, 60) });
-        var pause = kit.Row("وقت البريك", new ToggleSwitch { Text = "وقّف الفيديو تلقائيًا", Checked = s.PomodoroPausesVideo });
+        NumberBox? work = null, rest = null, recap = null;
+        ToggleSwitch? pause = null, silence = null;
+        if (adv)
+        {
+            kit.Header("بومودورو");
+            work = kit.Row("تركيز (دقيقة)", new NumberBox { Minimum = 5, Maximum = 120, Value = Math.Clamp(s.PomodoroWorkMinutes, 5, 120) });
+            rest = kit.Row("بريك (دقيقة)", new NumberBox { Minimum = 1, Maximum = 60, Value = Math.Clamp(s.PomodoroBreakMinutes, 1, 60) });
+            pause = kit.Row("وقت البريك", new ToggleSwitch { Text = "وقّف الفيديو تلقائيًا", Checked = s.PomodoroPausesVideo });
 
-        kit.Header("التشغيل الذكي");
-        var silence = kit.Row("السكوت", new ToggleSwitch { Text = "اتخطى فترات السكوت تلقائيًا (Shift+S)", Checked = s.SkipSilence });
-        var recap = kit.Row("«اللي فات» بعد", new NumberBox { Minimum = 0, Maximum = 60, Value = Math.Clamp(s.RecapAfterDays, 0, 60) });
-        kit.Note("عدد أيام الغياب عن الكورس قبل ما يفكّرك وقفت فين (0 = متفكرنيش).");
+            kit.Header("التشغيل الذكي");
+            silence = kit.Row("السكوت", new ToggleSwitch { Text = "اتخطى فترات السكوت تلقائيًا (Shift+S)", Checked = s.SkipSilence });
+            recap = kit.Row("«اللي فات» بعد", new NumberBox { Minimum = 0, Maximum = 60, Value = Math.Clamp(s.RecapAfterDays, 0, 60) });
+            kit.Note("عدد أيام الغياب عن الكورس قبل ما يفكّرك وقفت فين (0 = متفكرنيش).");
+        }
 
         kit.Header("يوتيوب والإنترنت");
-        var autoSync = kit.Row("تحديث تلقائي", new ToggleSwitch { Text = "هات الفيديوهات الجديدة لوحدك", Checked = s.AutoSyncPlaylists });
+        var autoSync = kit.Row("تحديث تلقائي", new ToggleSwitch { Text = "هات الفيديوهات الجديدة في قوائم التشغيل لوحدك", Checked = s.AutoSyncPlaylists });
         var syncHours = kit.Row("كل (ساعة)", new NumberBox { Minimum = 1, Maximum = 168, Value = Math.Clamp(s.PlaylistSyncHours, 1, 168) });
         kit.Note("التحديث اليدوي: Ctrl+R، أو كليك يمين على المحاضرة ← تحديث من يوتيوب.");
         var browsers = new[] { ("", "من غير"), ("firefox", "Firefox"), ("chrome", "Chrome"), ("edge", "Edge"), ("brave", "Brave"), ("opera", "Opera") };
-        var cookies = kit.Row("كوكيز المتصفح", new SelectBox { RightToLeft = RightToLeft.No });
+        var cookies = kit.Row("تسجيل الدخول من المتصفح", new SelectBox { RightToLeft = RightToLeft.No });
         foreach (var (_, label) in browsers) cookies.Items.Add(label);
         cookies.SelectedIndex = Math.Max(0, Array.FindIndex(browsers, b => string.Equals(b.Item1, s.OnlineCookiesBrowser, StringComparison.OrdinalIgnoreCase)));
-        kit.Note("لو يوتيوب قال «Sign in to confirm you're not a bot» أو الفيديو محتاج تسجيل دخول: اختار المتصفح اللي فاتح بيه يوتيوب. " +
-                 "Firefox الأضمن؛ Chrome وEdge الجداد ساعات بيمنعوا قراية الكوكيز، فلو مااشتغلش اقفل المتصفح وجرّب تاني.");
+        kit.Note("لو يوتيوب قال «Sign in to confirm you're not a bot» أو الفيديو محتاج تسجيل دخول: اختار المتصفح اللي إنت مسجّل فيه دخول يوتيوب، " +
+                 "والبرنامج هيستخدم تسجيل دخولك. Firefox الأضمن؛ Chrome وEdge ساعات بيمنعوا ده، فلو مااشتغلش اقفل المتصفح وجرّب تاني.", 54);
 
         kit.Header("التحديثات");
         var updates = kit.Row("تحديث تلقائي", new ToggleSwitch { Text = "اعرض عليّ الإصدارات الجديدة أول ما تنزل", Checked = s.CheckUpdates });
         kit.Note($"الإصدار الحالي: {UpdateChecker.CurrentVersion.ToString(3)}.  تقدر تتحقق بنفسك من: مساعدة ← التحقق من التحديثات.");
 
-        kit.Header("الذكاء الاصطناعي (Claude)");
-        var key = kit.Row("مفتاح API", new TextBox { Text = s.ClaudeApiKey, UseSystemPasswordChar = true, RightToLeft = RightToLeft.No });
-        kit.Note("من console.anthropic.com — بيتحفظ متشفّر على الجهاز ده بس، ومش بيتكتب في ملف القائمة.");
-        var model = kit.Row("الموديل", new SelectBox { Editable = true, RightToLeft = RightToLeft.No });
-        model.Items.AddRange(ClaudeClient.KnownModels);
-        model.Text = s.AiModel;
-        var cap = kit.Row("حد التوكنز في الشهر", new NumberBox { Minimum = 0, Maximum = 100_000_000, Increment = 100_000, ThousandsSeparator = true, Value = Math.Clamp(s.AiMonthlyTokenCap, 0, 100_000_000) });
-        kit.Note($"0 = من غير حد.  استهلاك الشهر ده: {AiBudget.UsedThisMonth(s, DateTime.UtcNow):N0} توكن.");
-
-        kit.Header("تفريغ الفيديوهات");
-        var whisper = kit.Row("موديل whisper", new SelectBox());
-        foreach (var (name, label) in Tools.WhisperModels) whisper.Items.Add(label);
-        whisper.SelectedIndex = Math.Max(0, Array.FindIndex(Tools.WhisperModels, m => m.Name == s.WhisperModel));
-        var lang = kit.Row("لغة الفيديوهات", new SelectBox());
+        TextBox? key = null;
+        SelectBox? model = null, whisper = null, lang = null;
+        NumberBox? cap = null;
         var langs = new[] { ("auto", "تلقائي"), ("ar", "عربي"), ("en", "إنجليزي") };
-        foreach (var (_, label) in langs) lang.Items.Add(label);
-        lang.SelectedIndex = Math.Max(0, Array.FindIndex(langs, l => l.Item1 == s.TranscriptLanguage));
-
-        Action apply = () =>
+        if (adv)
         {
-            s.SkipSilence = silence.Checked;
-            s.AutoSyncPlaylists = autoSync.Checked;
-            s.CheckUpdates = updates.Checked;
-            s.OnlineCookiesBrowser = browsers[Math.Max(0, cookies.SelectedIndex)].Item1;
-            s.PlaylistSyncHours = (int)syncHours.Value;
-            s.RecapAfterDays = (int)recap.Value;
-            s.ClaudeApiKey = key.Text;
-            s.AiModel = string.IsNullOrWhiteSpace(model.Text) ? ClaudeClient.DefaultModel : model.Text.Trim();
-            s.AiMonthlyTokenCap = (long)cap.Value;
-            s.WhisperModel = Tools.WhisperModels[Math.Max(0, whisper.SelectedIndex)].Name;
-            s.TranscriptLanguage = langs[Math.Max(0, lang.SelectedIndex)].Item1;
-        };
+            kit.Header("الذكاء الاصطناعي (Claude)");
+            key = kit.Row("مفتاح Claude", new TextBox { Text = s.ClaudeApiKey, UseSystemPasswordChar = true, RightToLeft = RightToLeft.No });
+            kit.Note("بتعمله من console.anthropic.com — بيتحفظ متشفّر على الجهاز ده بس، ومش بيتكتب في ملف المكتبة.");
+            model = kit.Row("الموديل", new SelectBox { Editable = true, RightToLeft = RightToLeft.No });
+            model.Items.AddRange(ClaudeClient.KnownModels);
+            model.Text = s.AiModel;
+            cap = kit.Row("حد الاستخدام في الشهر", new NumberBox { Minimum = 0, Maximum = 100_000_000, Increment = 100_000, ThousandsSeparator = true, Value = Math.Clamp(s.AiMonthlyTokenCap, 0, 100_000_000) });
+            kit.Note($"بوحدات Claude (الكلمة تقريبًا وحدة ونص). 0 = من غير حد.  استهلاك الشهر ده: {AiBudget.UsedThisMonth(s, DateTime.UtcNow):N0}.");
+
+            kit.Header("تحويل كلام الفيديو لنص");
+            whisper = kit.Row("الدقة", new SelectBox());
+            foreach (var (name, label) in Tools.WhisperModels) whisper.Items.Add(label);
+            whisper.SelectedIndex = Math.Max(0, Array.FindIndex(Tools.WhisperModels, m => m.Name == s.WhisperModel));
+            kit.Note("أدق = أبطأ وحجمه أكبر. التحويل بيحصل على جهازك ومن غير نت.");
+            lang = kit.Row("لغة الفيديوهات", new SelectBox());
+            foreach (var (_, label) in langs) lang.Items.Add(label);
+            lang.SelectedIndex = Math.Max(0, Array.FindIndex(langs, l => l.Item1 == s.TranscriptLanguage));
+        }
 
         kit.Buttons();
         if (kit.Show(owner) != DialogResult.OK) return false;
 
+        s.AdvancedMode = advanced.Checked;
         s.DailyGoalMinutes = (int)goal.Value;
         s.RemindersEnabled = remind.Checked;
         s.ReminderTime = time.Value.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
-        s.PomodoroWorkMinutes = (int)work.Value;
-        s.PomodoroBreakMinutes = (int)rest.Value;
-        s.PomodoroPausesVideo = pause.Checked;
-        apply();
+        if (work != null) s.PomodoroWorkMinutes = (int)work.Value;
+        if (rest != null) s.PomodoroBreakMinutes = (int)rest.Value;
+        if (pause != null) s.PomodoroPausesVideo = pause.Checked;
+        if (silence != null) s.SkipSilence = silence.Checked;
+        if (recap != null) s.RecapAfterDays = (int)recap.Value;
+        s.AutoSyncPlaylists = autoSync.Checked;
+        s.PlaylistSyncHours = (int)syncHours.Value;
+        s.CheckUpdates = updates.Checked;
+        s.OnlineCookiesBrowser = browsers[Math.Max(0, cookies.SelectedIndex)].Item1;
+        if (key != null) s.ClaudeApiKey = key.Text;
+        if (model != null) s.AiModel = string.IsNullOrWhiteSpace(model.Text) ? ClaudeClient.DefaultModel : model.Text.Trim();
+        if (cap != null) s.AiMonthlyTokenCap = (long)cap.Value;
+        if (whisper != null) s.WhisperModel = Tools.WhisperModels[Math.Max(0, whisper.SelectedIndex)].Name;
+        if (lang != null) s.TranscriptLanguage = langs[Math.Max(0, lang.SelectedIndex)].Item1;
         return true;
     }
 }

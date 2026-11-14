@@ -55,8 +55,8 @@ public static class Tools
     public static async Task DownloadFfmpegAsync(IProgress<string> progress, CancellationToken ct)
     {
         string zip = Path.Combine(ToolsDir, "ffmpeg.zip");
-        await DownloadAsync(FfmpegUrl, zip, "ffmpeg", progress, ct);
-        progress.Report("بفك ضغط ffmpeg…");
+        await DownloadAsync(FfmpegUrl, zip, "أداة الفيديو", progress, ct);
+        progress.Report("بجهّز أداة الفيديو…");
         ExtractFlat(zip, FfmpegDir, e => e.FullName.Contains("/bin/", StringComparison.OrdinalIgnoreCase));
         File.Delete(zip);
         if (FindFfmpeg() == null) throw new InvalidOperationException("ملف ffmpeg المضغوط مفيهوش ffmpeg.exe");
@@ -67,8 +67,8 @@ public static class Tools
         if (FindWhisper() == null)
         {
             string zip = Path.Combine(ToolsDir, "whisper.zip");
-            await DownloadAsync(WhisperUrl, zip, "whisper", progress, ct);
-            progress.Report("بفك ضغط whisper…");
+            await DownloadAsync(WhisperUrl, zip, "أداة تحويل الكلام لنص", progress, ct);
+            progress.Report("بجهّز أداة تحويل الكلام لنص…");
             ExtractFlat(zip, WhisperDir, e => e.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
                                               e.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
             File.Delete(zip);
@@ -77,7 +77,7 @@ public static class Tools
         {
             Directory.CreateDirectory(ModelsDir);
             await DownloadAsync(string.Format(CultureInfo.InvariantCulture, WhisperModelUrlFormat, model), ModelPath(model),
-                $"موديل whisper ({model})", progress, ct);
+                $"ملف اللغة ({model})", progress, ct);
         }
         if (FindWhisper() == null) throw new InvalidOperationException("ملف whisper المضغوط مفيهوش whisper-cli.exe");
     }
