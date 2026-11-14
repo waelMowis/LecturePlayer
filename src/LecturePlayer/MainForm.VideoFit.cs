@@ -17,6 +17,30 @@ internal sealed partial class MainForm
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder name, int max);
+
+    /// <summary>للتشخيص: شجرة شبابيك مساحة الفيديو بالمقاسات.</summary>
+    internal string DescribeVideoWindows()
+    {
+        if (!_videoView.IsHandleCreated) return "no handle";
+        var sb = new System.Text.StringBuilder();
+        GetWindowRect(_videoView.Handle, out var host);
+        sb.Append($"area ({host.Left},{host.Top})-({host.Right},{host.Bottom})");
+        void Walk(IntPtr parent, int depth)
+        {
+            if (depth > 4) return;
+            for (IntPtr c = GetWindow(parent, GW_CHILD); c != IntPtr.Zero; c = GetWindow(c, GW_HWNDNEXT))
+            {
+                var name = new System.Text.StringBuilder(128);
+                GetClassName(c, name, 128);
+                GetWindowRect(c, out var r);
+                sb.Append($" | {new string('>', depth + 1)}{name} ({r.Left},{r.Top})-({r.Right},{r.Bottom}){(IsWindowVisible(c) ? "" : " hidden")}");
+                Walk(c, depth + 1);
+            }
+        }
+        Walk(_videoView.Handle, 0);
+        return sb.ToString();
+    }
 
     private const uint GW_CHILD = 5, GW_HWNDNEXT = 2;
     private const uint SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010, SWP_NOOWNERZORDER = 0x0200, SWP_ASYNCWINDOWPOS = 0x4000;
@@ -64,8 +88,8 @@ internal sealed partial class MainForm
                 if (!IsWindowVisible(child)) continue;
                 found++;
                 GetWindowRect(child, out var r);
-                if (Math.Abs(r.Left - host.Left) > 2 || Math.Abs(r.Top - host.Top) > 2 ||
-                    Math.Abs(r.Right - host.Right) > 2 || Math.Abs(r.Bottom - host.Bottom) > 2)
+                // لازم يبقى جوه مساحة الفيديو (VLC ممكن يسيب حواف سودا عشان نسبة الصورة، ده طبيعي)
+                if (r.Left < host.Left - 2 || r.Top < host.Top - 2 || r.Right > host.Right + 2 || r.Bottom > host.Bottom + 2)
                     bad ??= $"vlc window ({r.Left},{r.Top})-({r.Right},{r.Bottom}) vs video area ({host.Left},{host.Top})-({host.Right},{host.Bottom})";
                 Walk(child, depth + 1);
             }

@@ -295,12 +295,12 @@ internal sealed partial class MainForm
         var vu = DateTime.UtcNow.AddSeconds(20);
         while (DateTime.UtcNow < vu && VlcWindowsMisfit() == "no vlc window") Pump(100);
         Pump(500);
-        Console.WriteLine($"SMOKE video window (full): {VlcWindowsMisfit() ?? "fits"}");
+        Console.WriteLine($"SMOKE video window (full): {VlcWindowsMisfit() ?? "fits"} :: {DescribeVideoWindows()}");
 
         // من غير الإصلاح (عشان نتأكد إن ده فعلًا سبب المشكلة)
         DisableVideoFitForTest = true;
         ToggleMiniMode(); Pump(800);
-        Console.WriteLine($"SMOKE mini WITHOUT fix: {VlcWindowsMisfit() ?? "fits"}");
+        Console.WriteLine($"SMOKE mini WITHOUT fix: {VlcWindowsMisfit() ?? "fits"} :: {DescribeVideoWindows()}");
         ToggleMiniMode(); Pump(800);
         DisableVideoFitForTest = false;
         FitVlcWindows(); Pump(300);
@@ -311,7 +311,7 @@ internal sealed partial class MainForm
             toggle();
             Pump(800);
             string? misfit = VlcWindowsMisfit();
-            Console.WriteLine($"SMOKE {name}: {misfit ?? "fits"}");
+            Console.WriteLine($"SMOKE {name}: {misfit ?? "fits"} :: {DescribeVideoWindows()}");
             if (misfit != null && misfit != "no vlc window") throw new Exception($"video window does not fit after {name}: {misfit}");
         }
         if (_miniMode || _fullscreen) throw new Exception("mini/fullscreen did not toggle back");
