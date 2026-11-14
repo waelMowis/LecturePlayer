@@ -128,7 +128,7 @@ public static class LivePresets
         new LiveChannel
         {
             Id = "preset:madinah", Name = "المدينة المنورة — المسجد النبوي (قناة السنة النبوية)",
-            Url = "https://www.youtube.com/channel/UCROKYPep-UuODNwyipe6JMw/live", Kind = LiveKind.Tv,
+            Url = "https://www.youtube.com/watch?v=AsSEENjHds0", Kind = LiveKind.Tv,
             Group = "بث رسمي — هيئة الإذاعة والتلفزيون السعودية", Tags = "المدينة، المسجد النبوي، صلاة"
         }
     };
