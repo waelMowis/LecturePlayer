@@ -12,7 +12,9 @@ internal sealed class ActionTile : Control
     public string Glyph { get; }
     public string Title { get; }
     public string Subtitle { get; }
+    [System.ComponentModel.Browsable(false), System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Color IconColor { get; init; } = Theme.Accent;
+    [System.ComponentModel.Browsable(false), System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool Compact { get; init; }
 
     public ActionTile(string glyph, string title, string subtitle)
