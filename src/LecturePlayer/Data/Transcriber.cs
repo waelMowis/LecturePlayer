@@ -84,7 +84,6 @@ public static class Transcriber
         string whisper = Tools.FindWhisper() ?? throw new FileNotFoundException("whisper مش متنزّل");
         string modelPath = Tools.ModelPath(model);
         if (!File.Exists(modelPath)) throw new FileNotFoundException("موديل whisper مش متنزّل: " + model);
-        if (Tools.FindFfmpeg() == null) throw new FileNotFoundException("ffmpeg مش متنزّل");
 
         string dir = Path.Combine(Path.GetTempPath(), "LecturePlayer-whisper", Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(dir);
@@ -92,7 +91,9 @@ public static class Transcriber
         {
             string wav = Path.Combine(dir, "audio.wav");
             progress.Report(0);
-            await Tools.ExtractAudioWavAsync(videoFile, wav, ct);
+            // صوت الفيديو لملف WAV: بأداة الفيديو لو موجودة، وإلا بالمشغل نفسه (VLC) — فمش لازم تنزّل حاجة زيادة
+            if (Tools.FindFfmpeg() != null) await Tools.ExtractAudioWavAsync(videoFile, wav, ct);
+            else await VlcAudio.ExtractWavAsync(videoFile, wav, ct);
 
             string prefix = Path.Combine(dir, "out");
             int threads = Math.Clamp(Environment.ProcessorCount - 1, 1, 8);

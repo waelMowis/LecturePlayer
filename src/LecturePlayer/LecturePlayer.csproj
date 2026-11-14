@@ -118,6 +118,7 @@
   <Target Name="LpBundleTools" Condition="'$(LpRelease)' == 'true' and '$(LpBundleTools)' != 'false'">
     <PropertyGroup>
       <LpToolsCache>$(LpReleasesRoot)\_tools</LpToolsCache>
+      <LpWhisperUrl Condition="'$(LpWhisperUrl)' == ''">https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-x64.zip</LpWhisperUrl>
     </PropertyGroup>
     <RemoveDir Directories="$(LpToolsCache)\new" />
 
@@ -132,7 +133,25 @@
       <Output TaskParameter="DownloadedFile" ItemName="LpGotDeno" />
     </DownloadFile>
     <Unzip Condition="'@(LpGotDeno)' != ''" SourceFiles="@(LpGotDeno)" DestinationFolder="$(LpToolsCache)" OverwriteReadOnlyFiles="true" ContinueOnError="WarnAndContinue" />
-    <RemoveDir Directories="$(LpToolsCache)\new" />
+    <!-- أداة تحويل الكلام لنص (whisper.cpp): آخر إصدارات v1.9.x مفيهاش ملفات ويندوز، فبنثبّت إصدار فيه الملف -->
+    <DownloadFile SourceUrl="$(LpWhisperUrl)"
+                  DestinationFolder="$(LpToolsCache)\new" DestinationFileName="whisper.zip" Retries="3" ContinueOnError="WarnAndContinue">
+      <Output TaskParameter="DownloadedFile" ItemName="LpGotWhisper" />
+    </DownloadFile>
+    <RemoveDir Condition="'@(LpGotWhisper)' != ''" Directories="$(LpToolsCache)\whisper-raw;$(LpToolsCache)\whisper" />
+    <Unzip Condition="'@(LpGotWhisper)' != ''" SourceFiles="@(LpGotWhisper)" DestinationFolder="$(LpToolsCache)\whisper-raw" OverwriteReadOnlyFiles="true" ContinueOnError="WarnAndContinue" />
+    <ItemGroup>
+      <LpWhisperFiles Include="$(LpToolsCache)\whisper-raw\**\*.exe;$(LpToolsCache)\whisper-raw\**\*.dll" />
+    </ItemGroup>
+    <Copy Condition="'@(LpWhisperFiles)' != ''" SourceFiles="@(LpWhisperFiles)" DestinationFolder="$(LpToolsCache)\whisper" />
+    <RemoveDir Directories="$(LpToolsCache)\new;$(LpToolsCache)\whisper-raw" />
+    <ItemGroup>
+      <LpWhisperReady Include="$(LpToolsCache)\whisper\*.*" />
+    </ItemGroup>
+    <Copy Condition="Exists('$(LpToolsCache)\whisper\whisper-cli.exe')" SourceFiles="@(LpWhisperReady)" DestinationFolder="$(LpStaging)\whisper" />
+    <Error Condition="!Exists('$(LpStaging)\whisper\whisper-cli.exe')"
+           Text="أداة تحويل الكلام لنص (whisper-cli.exe) ماتضافتش للمثبّت — الرابط: $(LpWhisperUrl)" />
+    <Message Importance="high" Text="✓ أداة تحويل الكلام لنص (whisper) اتضافت للمثبّت" />
 
     <Copy Condition="Exists('$(LpToolsCache)\yt-dlp.exe')" SourceFiles="$(LpToolsCache)\yt-dlp.exe" DestinationFolder="$(LpStaging)" />
     <Copy Condition="Exists('$(LpToolsCache)\deno.exe')" SourceFiles="$(LpToolsCache)\deno.exe" DestinationFolder="$(LpStaging)" />

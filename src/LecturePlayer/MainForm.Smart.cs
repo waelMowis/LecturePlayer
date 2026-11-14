@@ -87,12 +87,14 @@ internal sealed partial class MainForm
     {
         string model = string.IsNullOrWhiteSpace(_settings.WhisperModel) ? "small" : _settings.WhisperModel;
         if (Tools.FindWhisper() != null && File.Exists(Tools.ModelPath(model))) return true;
-        if (!await EnsureFfmpegAsync("تحويل الكلام لنص")) return false;
         string label = Tools.WhisperModels.FirstOrDefault(m => m.Name == model).Label ?? model;
-        if (!Dialogs.Confirm(this,
-                "تحويل كلام الفيديو لنص بيحصل على جهازك، ومحتاج أداة مجانية تتنزل مرة واحدة (وبعدها بيشتغل من غير نت):\n\n" +
-                $"• الأداة (حوالي 10 ميجا)\n• ملف اللغة: {label}\n\n" +
-                "تقدر تغيّر الدقة من الإعدادات. أنزّلهم دلوقتي؟", "أداة تحويل الكلام لنص"))
+        // الأداة نفسها جاية مع البرنامج؛ ملف اللغة كبير (مئات الميجا) فبيتنزل مرة واحدة أول ما تحتاجه
+        string what = Tools.FindWhisper() != null
+            ? $"أداة تحويل الكلام لنص جاية جاهزة مع البرنامج، وناقص «ملف اللغة» بس ({label}).\n" +
+              "بيتنزل مرة واحدة، وبعدها التحويل بيشتغل على جهازك من غير نت.\n\n"
+            : "تحويل كلام الفيديو لنص بيحصل على جهازك، ومحتاج أداة مجانية تتنزل مرة واحدة (وبعدها بيشتغل من غير نت):\n\n" +
+              $"• الأداة (حوالي 10 ميجا)\n• ملف اللغة: {label}\n\n";
+        if (!Dialogs.Confirm(this, what + "تقدر تغيّر الدقة (وحجم الملف) من الإعدادات. أنزّله دلوقتي؟", "تحويل الكلام لنص"))
             return false;
         UseWaitCursor = true;
         try

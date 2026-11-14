@@ -12,7 +12,10 @@ namespace LecturePlayer.Data;
 public static class Tools
 {
     public const string FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip";
-    public const string WhisperUrl = "https://github.com/ggml-org/whisper.cpp/releases/latest/download/whisper-bin-x64.zip";
+    // آخر إصدارات whisper.cpp الرسمية (v1.9.x) بقت من غير ملفات ويندوز جاهزة، فرابط «latest» بيرجّع 404.
+    // الملفات الجاهزة بقت في إصدارات تانية (bNNNN): بندوّر على أحدث إصدار فيه الملف، والرابط ده احتياطي لو مفيش نت لـ API.
+    public const string WhisperFallbackUrl = "https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-x64.zip";
+    private const string WhisperAsset = "whisper-bin-x64.zip";
     public const string WhisperModelUrlFormat = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{0}.bin";
 
     /// <summary>موديلات whisper المتاحة: الاسم ← الحجم التقريبي.</summary>
@@ -29,7 +32,9 @@ public static class Tools
     public static string ModelsDir => Path.Combine(ToolsDir, "models");
 
     public static string? FindFfmpeg() => Find("ffmpeg.exe", FfmpegDir) ?? Find("ffmpeg", FfmpegDir);
-    public static string? FindWhisper() => Find("whisper-cli.exe", WhisperDir) ?? Find("whisper-cli", WhisperDir);
+    /// <summary>الأداة بتيجي جاهزة مع البرنامج (فولدر whisper جنب البرنامج)، أو متنزلة في فولدر الأدوات.</summary>
+    public static string? FindWhisper() =>
+        Find("whisper-cli.exe", WhisperDir) ?? Find("whisper-cli.exe", Path.Combine(AppContext.BaseDirectory, "whisper")) ?? Find("whisper-cli", WhisperDir);
     public static string ModelPath(string model) => Path.Combine(ModelsDir, $"ggml-{model}.bin");
 
     private static string? Find(string exe, string preferredDir)
@@ -67,7 +72,7 @@ public static class Tools
         if (FindWhisper() == null)
         {
             string zip = Path.Combine(ToolsDir, "whisper.zip");
-            await DownloadAsync(WhisperUrl, zip, "أداة تحويل الكلام لنص", progress, ct);
+            await DownloadAsync(await ResolveWhisperUrlAsync(ct), zip, "أداة تحويل الكلام لنص", progress, ct);
             progress.Report("بجهّز أداة تحويل الكلام لنص…");
             ExtractFlat(zip, WhisperDir, e => e.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
                                               e.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
@@ -80,6 +85,29 @@ public static class Tools
                 $"ملف اللغة ({model})", progress, ct);
         }
         if (FindWhisper() == null) throw new InvalidOperationException("ملف whisper المضغوط مفيهوش whisper-cli.exe");
+    }
+
+    /// <summary>أحدث إصدار من whisper.cpp فيه ملف ويندوز 64 جاهز.</summary>
+    public static async Task<string> ResolveWhisperUrlAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Masar");
+            string json = await http.GetStringAsync("https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=30", ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            foreach (var release in doc.RootElement.EnumerateArray())
+            {
+                if (release.TryGetProperty("draft", out var d) && d.GetBoolean()) continue;
+                if (!release.TryGetProperty("assets", out var assets)) continue;
+                foreach (var a in assets.EnumerateArray())
+                    if (a.GetProperty("name").GetString() == WhisperAsset)
+                        return a.GetProperty("browser_download_url").GetString()!;
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { Log.Info("whisper url lookup failed, using fallback: " + ex.Message); }
+        return WhisperFallbackUrl;
     }
 
     /// <summary>بيفك الملفات المطلوبة من الـ zip في فولدر واحد (من غير الفولدرات اللي جواه).</summary>

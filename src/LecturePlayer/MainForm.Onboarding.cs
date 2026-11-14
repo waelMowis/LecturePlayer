@@ -269,6 +269,15 @@ internal sealed partial class MainForm
         Console.WriteLine($"SMOKE playback: state {state}, time {time} ms");
         if (state == VLCState.Error) throw new Exception("playback: VLC error playing a local audio file");
         if (state != VLCState.Playing || time <= 0) throw new Exception($"playback: never started (state {state}, time {time})");
+        // استخراج الصوت لتحويل الكلام لنص بالمشغل نفسه (من غير ffmpeg)
+        string extracted = Path.Combine(dir, "extracted.wav");
+        var swx = System.Diagnostics.Stopwatch.StartNew();
+        Task.Run(() => VlcAudio.ExtractWavAsync(wav, extracted, CancellationToken.None)).GetAwaiter().GetResult();
+        long bytes = new FileInfo(extracted).Length;
+        Console.WriteLine($"SMOKE vlc audio extract: {bytes} bytes in {swx.ElapsedMilliseconds} ms");
+        // 8 ثواني × 16000 × 2 بايت ≈ 256 كيلو
+        if (bytes < 200_000) throw new Exception($"vlc audio extract too small: {bytes}");
+
         // المشغل الصغير وملء الشاشة والفيديو شغال: الصورة لازم تتظبط على المقاس الجديد من غير أخطاء
         PlayVideo(group0, tone, 0);
         foreach (Action toggle in new Action[] { ToggleMiniMode, ToggleMiniMode, ToggleFullscreen, ToggleFullscreen })
