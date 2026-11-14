@@ -66,6 +66,8 @@
     <PropertyGroup>
       <LpBuildNumber Condition="Exists('$(LpBuildNumberFile)')">$([System.IO.File]::ReadAllText('$(LpBuildNumberFile)').Trim())</LpBuildNumber>
       <LpBuildNumber Condition="'$(LpBuildNumber)' == ''">1</LpBuildNumber>
+      <!-- النشر من GitHub Actions بيبعت رقم التشغيل هنا (BuildNumber.txt للنشر من الجهاز بس) -->
+      <LpBuildNumber Condition="'$(LpBuildNumberOverride)' != ''">$(LpBuildNumberOverride)</LpBuildNumber>
       <Version>$(LpBaseVersion).$(LpBuildNumber)</Version>
       <AssemblyVersion>$(Version).0</AssemblyVersion>
       <FileVersion>$(Version).0</FileVersion>

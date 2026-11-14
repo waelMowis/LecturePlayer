@@ -33,7 +33,7 @@ jobs:
         run: choco install innosetup -y --no-progress
 
       - name: Publish + المثبّت
-        run: dotnet publish src/LecturePlayer/LecturePlayer.csproj -p:PublishProfile=Installer -p:LpBuildNumber=${{ github.run_number }}
+        run: dotnet publish src/LecturePlayer/LecturePlayer.csproj -p:PublishProfile=Installer -p:LpBuildNumberOverride=${{ github.run_number }}
 
       - name: Release على GitHub
         shell: pwsh
