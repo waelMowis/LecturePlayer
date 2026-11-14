@@ -548,7 +548,8 @@ internal sealed partial class MainForm
                 if (!_seekBar.IsDragging)
                 {
                     _seekBar.Value = (double)t / len;
-                    _timeLabel.Text = $"{TimeFormat.Format(t)} / {TimeFormat.Format(len)}";
+                    string time = $"{TimeFormat.Format(t)} / {TimeFormat.Format(len)}";
+                    if (_timeLabel.Text != time) _timeLabel.Text = time; // منرسمش الرقم من غير ما يتغير
                 }
 
                 // كل 5 ثواني: نحفظ مكانك، ولو عدّيت 92% من الفيديو يتعلّم إنه اتشاف
@@ -562,7 +563,7 @@ internal sealed partial class MainForm
                         LogWatched(v);
                         RefreshGroup(_currentGroup);
                     }
-                    MarkDirty();
+                    MarkPositionDirty();
                     RefreshVideo(v);
                 }
             }
@@ -572,6 +573,7 @@ internal sealed partial class MainForm
         TrackTick();
 
         if (_tick % 40 == 0 && _dirty) SaveLibrary(); // حفظ تلقائي كل 10 ثواني لو في تغيير
+        else if (_tick % 240 == 0 && _positionDirty) SaveLibrary(); // مكان التشغيل بس: كل دقيقة
         else if (_tick % 120 == 0) MergeExternalChanges(); // كل 30 ثانية: هل جهاز تاني عدّل القائمة؟
 
         if (_statusMessage.Text.Length > 0 && DateTime.Now > _statusMessageUntil) _statusMessage.Text = "";

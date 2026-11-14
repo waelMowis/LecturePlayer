@@ -299,6 +299,8 @@ internal sealed partial class MainForm
             Storage.SaveLibrary(_libraryPath, _library);
             _libraryStampUtc = File.GetLastWriteTimeUtc(_libraryPath);
             _dirty = false;
+            _positionDirty = false;
+            HideBanner("save-error");
         }
         catch (Exception ex)
         {
@@ -343,6 +345,13 @@ internal sealed partial class MainForm
     }
 
     private void MarkDirty() => _dirty = true;
+
+    /// <summary>
+    /// تغيير مكان التشغيل بس (كل 5 ثواني وإنت بتتفرج): بيتحفظ كل دقيقة بدل كل 10 ثواني،
+    /// عشان منكتبش ملف المكتبة على Google Drive/Dropbox طول ما الفيديو شغال. أي تغيير حقيقي بيتحفظ في ثواني زي ما هو.
+    /// </summary>
+    private void MarkPositionDirty() => _positionDirty = true;
+    private bool _positionDirty;
 
     private void AddRecent(string path)
     {

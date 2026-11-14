@@ -122,10 +122,7 @@ public sealed class StreamProxy : IDisposable
     {
         string id = Guid.NewGuid().ToString("N");
         source = new Source(url, headers, refresh);
-        _sources[id] = source;
-        // نشيل القديم عشان الذاكرة (بنحتفظ بآخر 20 بس)
-        if (_sources.Count > 20)
-            foreach (var key in _sources.Keys.Take(_sources.Count - 20)) _sources.TryRemove(key, out _);
+        Add(id, source);
         return $"http://127.0.0.1:{Port}/s/{id}";
     }
 
@@ -134,8 +131,23 @@ public sealed class StreamProxy : IDisposable
     {
         string id = Guid.NewGuid().ToString("N");
         var source = new Source("", new Dictionary<string, string>(), null) { Pipe = start, ContentType = contentType };
-        _sources[id] = source;
+        Add(id, source);
         return $"http://127.0.0.1:{Port}/s/{id}";
+    }
+
+    private readonly Queue<string> _order = new();
+
+    /// <summary>بنحتفظ بآخر 20 مصدر بس (بالترتيب: الأقدم بيتشال الأول، فالفيديو الشغال عمره ما يتشال).</summary>
+    private void Add(string id, Source source)
+    {
+        _sources[id] = source;
+        lock (_order)
+        {
+            _order.Enqueue(id);
+            while (_order.Count > 20)
+                if (_sources.TryRemove(_order.Dequeue(), out var old))
+                    try { if (old.Running is { HasExited: false } p) p.Kill(entireProcessTree: true); } catch { }
+        }
     }
 
     /// <summary>بيقفل أي عملية أنبوب شغالة (لما الفيديو يتغير أو البرنامج يتقفل).</summary>

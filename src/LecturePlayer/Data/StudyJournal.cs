@@ -51,6 +51,9 @@ public sealed class StudyJournal
     private readonly object _lock = new();
     private List<JournalEntry>? _cache;
     private DateTime _cacheStamp;
+    private DateTime _cacheCheckedUtc;
+    /// <summary>أقل مدة بين كل فحص للديسك (الفولدر غالبًا على Google Drive/Dropbox وقراية الملفات بطيئة).</summary>
+    private static readonly TimeSpan DiskCheckInterval = TimeSpan.FromSeconds(30);
 
     public string LibraryPath { get; }
     public string Device { get; }
@@ -97,6 +100,9 @@ public sealed class StudyJournal
     {
         lock (_lock)
         {
+            // سجلات الجهاز ده بتتضاف للكاش مباشرة؛ الديسك بنبص عليه بس عشان أجهزة تانية
+            if (_cache != null && DateTime.UtcNow - _cacheCheckedUtc < DiskCheckInterval) return _cache;
+            _cacheCheckedUtc = DateTime.UtcNow;
             var files = AllFiles.ToList();
             DateTime stamp = files.Select(f => File.GetLastWriteTimeUtc(f)).DefaultIfEmpty().Max();
             stamp = stamp.AddTicks(files.Count); // عشان لو ملف اتضاف بنفس الوقت

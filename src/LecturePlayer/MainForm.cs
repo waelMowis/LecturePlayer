@@ -844,7 +844,10 @@ internal sealed partial class MainForm : Form
 
         _courseLabel.Click += (_, _) => ShowLibrarySwitcher();
 
-        _searchBox.TextChanged += (_, _) => RebuildTree();
+        // البحث: نستنى لحد ما المستخدم يقف عن الكتابة شوية بدل ما نبني الشجرة كلها مع كل حرف
+        var searchDelay = new Timer { Interval = 220 };
+        searchDelay.Tick += (_, _) => { searchDelay.Stop(); RebuildTree(); };
+        _searchBox.TextChanged += (_, _) => { searchDelay.Stop(); searchDelay.Start(); };
 
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
@@ -892,6 +895,7 @@ internal sealed partial class MainForm : Form
             bool tour = ShouldShowFirstRunTour(withFiles);
             if (tour) BeginInvoke(new Action(StartTour));
             AfterStartupUpdateCheck(firstRunTour: tour);
+            CheckLastCrash();
         };
         DpiChanged += (_, _) => BeginInvoke(new Action(ApplySidePanelWidth));
 

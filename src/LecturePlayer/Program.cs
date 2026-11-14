@@ -18,11 +18,13 @@ internal static class Program
 
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-            LecturePlayer.Data.Log.Error("unhandled", e.ExceptionObject as Exception ?? new Exception(e.ExceptionObject?.ToString()));
+            LecturePlayer.Data.CrashReport.Record("unhandled", e.ExceptionObject as Exception ?? new Exception(e.ExceptionObject?.ToString()), fatal: true);
         Application.ThreadException += (_, e) =>
         {
-            LecturePlayer.Data.Log.Error("ui", e.Exception);
-            MessageBox.Show(e.Exception.Message, "حصل خطأ", MessageBoxButtons.OK, MessageBoxIcon.Error,
+            LecturePlayer.Data.CrashReport.Record("ui", e.Exception, fatal: false);
+            MessageBox.Show("حصل خطأ مش متوقع، بس بياناتك ومكتبتك سليمة وتقدر تكمّل عادي.\n\n" + e.Exception.Message +
+                            "\n\nاتسجل تقرير بالتفاصيل، وهيتعرض عليك المرة الجاية اللي تفتح فيها البرنامج عشان تبعته.",
+                "«مسار»", MessageBoxButtons.OK, MessageBoxIcon.Warning,
                 MessageBoxDefaultButton.Button1, MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
         };
 
@@ -37,10 +39,26 @@ internal static class Program
         if (!instance.IsFirst && mediaFiles.Count > 0 && LecturePlayer.Data.SingleInstance.Send(mediaFiles))
             return 0;
 
-        // تحميل مكتبة VLC الأصلية (libvlc) اللي جاية مع باكدج VideoLAN.LibVLC.Windows
-        LibVLCSharp.Shared.Core.Initialize();
-
-        var form = new MainForm(libraryFile, mediaFiles);
+        MainForm form;
+        try
+        {
+            // تحميل مكتبة VLC الأصلية (libvlc) اللي جاية مع باكدج VideoLAN.LibVLC.Windows
+            LibVLCSharp.Shared.Core.Initialize();
+            form = new MainForm(libraryFile, mediaFiles);
+        }
+        catch (Exception ex)
+        {
+            // البرنامج مقدرش يفتح خالص: بدل ما يختفي من غير ولا كلمة، نقول للمستخدم ونسيبله تقرير
+            LecturePlayer.Data.CrashReport.Record("startup", ex, fatal: true);
+            var answer = MessageBox.Show(
+                "«مسار» مقدرش يفتح بسبب عطل:\n\n" + ex.Message +
+                "\n\nبياناتك ومكتباتك سليمة ومحدش لمسها. التحديث الجاي غالبًا هيصلّح ده.\n\nتحب تفتح فولدر السجل عشان تبعت التفاصيل؟",
+                "«مسار»", MessageBoxButtons.YesNo, MessageBoxIcon.Error,
+                MessageBoxDefaultButton.Button1, MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
+            if (answer == DialogResult.Yes)
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(LecturePlayer.Data.Log.LogDir) { UseShellExecute = true }); } catch { }
+            return 1;
+        }
         form.Shown += (_, _) => instance.Listen(paths =>
         {
             try { form.BeginInvoke(() => form.OpenExternalFiles(paths)); } catch { /* الشباك بيقفل */ }

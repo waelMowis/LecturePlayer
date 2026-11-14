@@ -1,3 +1,5 @@
+using LibVLCSharp.Shared;
+using System.Diagnostics;
 using LecturePlayer.Data;
 using LecturePlayer.UI;
 
@@ -130,5 +132,156 @@ internal sealed partial class MainForm
         using (var m = NewStudyMenu()) { m.Show(this, Point.Empty); m.Close(); }
         RefreshHome();
         TourForm.SmokeTest(this);
+
+        RunStressAndPlaybackChecks();
+
+        // تقرير الأعطال: تسجيل، وقراية، وبناء التقرير، وفتح الشاشة بتاعته
+        CrashReport.Record("smoke", new InvalidOperationException("smoke test"), fatal: false);
+        string? crash = CrashReport.TakeLast();
+        if (crash == null || !crash.Contains("smoke test")) throw new Exception("crash marker not written/read");
+        if (CrashReport.TakeLast() != null) throw new Exception("crash marker not cleared");
+        using (var cf = BuildCrashReportForm(crash)) { cf.Show(this); Application.DoEvents(); cf.Close(); }
+    }
+
+    // =====================================================================
+    //  تقرير الأعطال
+    // =====================================================================
+
+    /// <summary>لو البرنامج وقع المرة اللي فاتت: شريط تنبيه وزرار يعرض التقرير.</summary>
+    private void CheckLastCrash()
+    {
+        if (SmokeTest.Active) return;
+        if (CrashReport.TakeLast() is not { } crash) return;
+        Log.Info("previous run ended with an error; offering report");
+        ShowBanner("«مسار» حصل فيه عطل المرة اللي فاتت واتسجل سببه — بياناتك سليمة", BannerKind.Warning,
+            "اعرض التقرير", () => ShowCrashReport(crash), seconds: 30, key: "crash");
+    }
+
+    private void ShowCrashReport(string crash)
+    {
+        using var f = BuildCrashReportForm(crash);
+        f.ShowDialog(this);
+    }
+
+    private Form BuildCrashReportForm(string crash)
+    {
+        string report = CrashReport.BuildReport(crash);
+        var f = new Form
+        {
+            Text = "تقرير العطل", StartPosition = FormStartPosition.CenterParent, ShowInTaskbar = false, ShowIcon = false,
+            MinimizeBox = false, MaximizeBox = false, RightToLeft = RightToLeft.Yes, BackColor = Theme.Window, ForeColor = Theme.Text,
+            Font = new Font("Segoe UI", 10f), AutoScaleDimensions = new SizeF(96F, 96F), AutoScaleMode = AutoScaleMode.Dpi,
+            ClientSize = new Size(720, 480)
+        };
+        f.HandleCreated += (_, _) => NativeMethods.UseDarkTitleBar(f);
+        var note = new Label
+        {
+            Dock = DockStyle.Top, Height = 54, Padding = new Padding(12, 10, 12, 0), RightToLeft = RightToLeft.Yes,
+            Text = "ده تقرير العطل اللي حصل. انسخه وابعته للمطوّر عشان يتصلّح. التقرير فيه أسماء ملفات من جهازك (زي مكان المكتبة)، فراجعه قبل ما تبعته لحد."
+        };
+        var box = new TextBox
+        {
+            Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Both, WordWrap = false,
+            Text = report, BackColor = Theme.Input, ForeColor = Theme.Text, Font = new Font("Consolas", 9f), RightToLeft = RightToLeft.No,
+            BorderStyle = BorderStyle.None
+        };
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 56, Padding = new Padding(10), FlowDirection = FlowDirection.RightToLeft, BackColor = Theme.Window };
+        var copy = new PillButton("📋  انسخ التقرير", PillStyle.Primary);
+        copy.Click += (_, _) => { try { Clipboard.SetText(report); copy.Text = "اتنسخ ✓"; copy.AutoSizeToText(); } catch { } };
+        var folder = new PillButton("فتح فولدر السجل");
+        folder.Click += (_, _) => { try { Process.Start(new ProcessStartInfo(Log.LogDir) { UseShellExecute = true }); } catch { } };
+        var close = new PillButton("قفل", PillStyle.Subtle) { DialogResult = DialogResult.Cancel };
+        buttons.Controls.AddRange(new Control[] { copy, folder, close });
+        f.CancelButton = close;
+        f.Controls.Add(box);
+        f.Controls.Add(note);
+        f.Controls.Add(buttons);
+        return f;
+    }
+
+    /// <summary>
+    /// فحص الأداء والتشغيل الفعلي: مكتبة كبيرة (آلاف الفيديوهات) بتتفتح وتتبني وتتدوّر فيها في وقت معقول،
+    /// وملف صوت حقيقي بيشتغل فعلًا في VLC.
+    /// </summary>
+    private void RunStressAndPlaybackChecks()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "masar-smoke");
+        Directory.CreateDirectory(dir);
+        string wav = Path.Combine(dir, "tone.wav");
+        WriteToneWav(wav, seconds: 8);
+
+        // مكتبة كبيرة: 10 كورسات × 20 محاضرة × 25 فيديو = 5000 فيديو
+        var lib = new CourseLibrary { Name = "فحص" };
+        for (int c = 0; c < 10; c++)
+        {
+            var course = new Course { Name = $"Course {c}" };
+            for (int g = 0; g < 20; g++)
+            {
+                var group = new LectureGroup { Name = $"Lecture {c}-{g}" };
+                for (int v = 0; v < 25; v++)
+                    group.Videos.Add(new VideoItem { Path = Path.Combine(dir, $"missing-{c}-{g}-{v}.mp4"), Title = $"Video {c}-{g}-{v}", DurationMs = 600_000 });
+                course.Groups.Add(group);
+            }
+            lib.Courses.Add(course);
+        }
+        var real = new VideoItem { Path = wav, Title = "Tone", DurationMs = 8000 };
+        lib.Courses[0].Groups[0].Videos.Insert(0, real);
+        string libPath = Path.Combine(dir, "stress.lpl");
+        Storage.SaveLibrary(libPath, lib);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        LoadLibrary(libPath, remember: false);
+        Application.DoEvents();
+        long loadMs = sw.ElapsedMilliseconds;
+
+        sw.Restart();
+        _searchBox.Text = "Video 9-19-24";
+        RebuildTree();
+        Application.DoEvents();
+        long searchMs = sw.ElapsedMilliseconds;
+        _searchBox.Text = "";
+        RebuildTree();
+
+        sw.Restart();
+        SaveLibrary();
+        long saveMs = sw.ElapsedMilliseconds;
+        Console.WriteLine($"SMOKE perf: load+tree {loadMs} ms, search {searchMs} ms, save {saveMs} ms (5001 videos)");
+        if (loadMs > 15000) throw new Exception($"perf: loading a 5000-video library took {loadMs} ms");
+        if (searchMs > 5000) throw new Exception($"perf: search took {searchMs} ms");
+        if (saveMs > 5000) throw new Exception($"perf: save took {saveMs} ms");
+
+        // تشغيل فعلي في VLC
+        var group0 = _library.Courses[0].Groups[0];
+        var tone = group0.Videos[0];
+        PlayVideo(group0, tone, 0);
+        var until = DateTime.UtcNow.AddSeconds(25);
+        VLCState state = VLCState.NothingSpecial;
+        long time = 0;
+        while (DateTime.UtcNow < until)
+        {
+            Application.DoEvents();
+            Thread.Sleep(50);
+            state = _mp.State;
+            time = _mp.Time;
+            if (state == VLCState.Error) break;
+            if (state == VLCState.Playing && time > 500) break;
+        }
+        Console.WriteLine($"SMOKE playback: state {state}, time {time} ms");
+        if (state == VLCState.Error) throw new Exception("playback: VLC error playing a local audio file");
+        if (state != VLCState.Playing || time <= 0) throw new Exception($"playback: never started (state {state}, time {time})");
+        StopPlayback();
+        Application.DoEvents();
+    }
+
+    /// <summary>ملف صوت WAV بسيط (نغمة 440 هرتز) للفحص.</summary>
+    private static void WriteToneWav(string path, int seconds)
+    {
+        const int rate = 22050;
+        int samples = rate * seconds;
+        using var bw = new BinaryWriter(File.Create(path));
+        bw.Write("RIFF"u8.ToArray()); bw.Write(36 + samples * 2); bw.Write("WAVE"u8.ToArray());
+        bw.Write("fmt "u8.ToArray()); bw.Write(16); bw.Write((short)1); bw.Write((short)1); bw.Write(rate); bw.Write(rate * 2); bw.Write((short)2); bw.Write((short)16);
+        bw.Write("data"u8.ToArray()); bw.Write(samples * 2);
+        for (int i = 0; i < samples; i++) bw.Write((short)(Math.Sin(2 * Math.PI * 440 * i / rate) * 8000));
     }
 }
