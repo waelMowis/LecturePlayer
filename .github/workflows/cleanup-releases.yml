@@ -1,0 +1,35 @@
+# تنظيف الإصدارات: بيمسح كل الإصدارات القديمة على GitHub (والـ tags بتاعتها) ويسيب آخر إصدار بس.
+# بيشتغل بإيدك: GitHub ← Actions ← «تنظيف الإصدارات» ← Run workflow
+# (والأجهزة اللي عليها أي إصدار قديم بتتحدّث لآخر إصدار عادي، لأنها بتدوّر على «latest» بس.)
+name: تنظيف الإصدارات
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master, main ]
+    paths: [ '.github/workflows/cleanup-releases.yml' ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: امسح كل الإصدارات ما عدا الأخير
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          latest=$(gh release view --json tagName -q .tagName)
+          echo "آخر إصدار (هيفضل): $latest"
+          gh release list --limit 200 --json tagName -q '.[].tagName' | while read -r tag; do
+            if [ -n "$tag" ] && [ "$tag" != "$latest" ]; then
+              echo "مسح $tag"
+              gh release delete "$tag" --yes --cleanup-tag
+            fi
+          done
