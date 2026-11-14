@@ -149,6 +149,7 @@ internal sealed partial class MainForm
                 Size = s;
             }
             _videoView.Invalidate();
+            FitVlcWindows();
         }
         BeginInvoke(Fit);
         // ومرة كمان بعد ما الويندوز يخلص رسم الشباك بمقاسه الجديد

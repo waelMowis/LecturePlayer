@@ -278,16 +278,43 @@ internal sealed partial class MainForm
         // 8 ثواني × 16000 × 2 بايت ≈ 256 كيلو
         if (bytes < 200_000) throw new Exception($"vlc audio extract too small: {bytes}");
 
-        // المشغل الصغير وملء الشاشة والفيديو شغال: الصورة لازم تتظبط على المقاس الجديد من غير أخطاء
-        PlayVideo(group0, tone, 0);
-        foreach (Action toggle in new Action[] { ToggleMiniMode, ToggleMiniMode, ToggleFullscreen, ToggleFullscreen })
+        // المشغل الصغير وملء الشاشة بفيديو فيه صورة فعلًا (صورة PNG بيعرضها VLC كفيديو):
+        // شباك VLC لازم يغطي مساحة الفيديو بالظبط بعد كل تغيير مقاس
+        string png = Path.Combine(dir, "frame.png");
+        using (var bmp = new Bitmap(640, 360))
+        using (var g = Graphics.FromImage(bmp))
+        {
+            g.Clear(Color.DarkSlateBlue);
+            g.FillEllipse(Brushes.Gold, 220, 80, 200, 200);
+            bmp.Save(png, System.Drawing.Imaging.ImageFormat.Png);
+        }
+        var picture = new VideoItem { Path = png, Title = "Frame", DurationMs = 10000 };
+        group0.Videos.Insert(1, picture);
+        void Pump(int ms) { var w = DateTime.UtcNow.AddMilliseconds(ms); while (DateTime.UtcNow < w) { Application.DoEvents(); Thread.Sleep(20); } }
+        PlayVideo(group0, picture, 0);
+        var vu = DateTime.UtcNow.AddSeconds(20);
+        while (DateTime.UtcNow < vu && VlcWindowsMisfit() == "no vlc window") Pump(100);
+        Pump(500);
+        Console.WriteLine($"SMOKE video window (full): {VlcWindowsMisfit() ?? "fits"}");
+
+        // من غير الإصلاح (عشان نتأكد إن ده فعلًا سبب المشكلة)
+        DisableVideoFitForTest = true;
+        ToggleMiniMode(); Pump(800);
+        Console.WriteLine($"SMOKE mini WITHOUT fix: {VlcWindowsMisfit() ?? "fits"}");
+        ToggleMiniMode(); Pump(800);
+        DisableVideoFitForTest = false;
+        FitVlcWindows(); Pump(300);
+
+        // بالإصلاح
+        foreach (var (name, toggle) in new (string, Action)[] { ("mini", ToggleMiniMode), ("back from mini", ToggleMiniMode), ("fullscreen", ToggleFullscreen), ("back from fullscreen", ToggleFullscreen) })
         {
             toggle();
-            var wait = DateTime.UtcNow.AddMilliseconds(500);
-            while (DateTime.UtcNow < wait) { Application.DoEvents(); Thread.Sleep(20); }
+            Pump(800);
+            string? misfit = VlcWindowsMisfit();
+            Console.WriteLine($"SMOKE {name}: {misfit ?? "fits"}");
+            if (misfit != null && misfit != "no vlc window") throw new Exception($"video window does not fit after {name}: {misfit}");
         }
         if (_miniMode || _fullscreen) throw new Exception("mini/fullscreen did not toggle back");
-        Console.WriteLine($"SMOKE mini/fullscreen: ok, scale {_mp.Scale}");
         StopPlayback();
         Application.DoEvents();
     }

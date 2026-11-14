@@ -205,6 +205,7 @@ internal sealed partial class MainForm : Form
         _radioVisual.MouseUp += (_, e) => { if (e.Button == MouseButtons.Right) ShowVideoMenu(_videoView.PointToClient(_radioVisual.PointToScreen(e.Location))); };
         _radioVisual.MouseWheel += (_, e) => SetVolume(_settings.Volume + (e.Delta > 0 ? 5 : -5));
         BuildBanner();
+        InitVideoFit();
 
         // ---------- القايمة الجانبية ----------
         BuildSidePanel();
