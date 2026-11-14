@@ -79,12 +79,35 @@ internal sealed partial class MainForm
     private DateTime _videoFitLoggedUtc = DateTime.MinValue;
 
     /// <summary>
+    /// السبب الحقيقي لمشكلة المشغل الصغير: الـ SplitContainer لما المكتبة تكون مستخبية (Panel2Collapsed)
+    /// وهو يصغر فجأة، الجزء اللي فيه الفيديو (Panel1) بيفضل بمقاسه القديم الكبير — فالفيديو يبان مقصوص ومزاح.
+    /// الحل: نخفي ونظهر المكتبة تاني في نفس اللحظة، فالـ SplitContainer يعيد حساب مقاس الجزء ده صح.
+    /// </summary>
+    private void FixSplitPanelSize()
+    {
+        if (!_split.Panel2Collapsed) return;
+        var want = _split.ClientSize;
+        if (_split.Panel1.Size == want) return;
+        _split.SuspendLayout();
+        _split.Panel2Collapsed = false;
+        _split.Panel2Collapsed = true;
+        _split.ResumeLayout(true);
+        if (_split.Panel1.Size != want)
+        {
+            // لو لسه: نضبطه بإيدينا
+            _split.Panel1.Size = want;
+            _split.Panel1.PerformLayout();
+        }
+    }
+
+    /// <summary>
     /// بيتنده كل ثانية والفيديو شغال: لو شباك الصورة طالع بره مساحة الفيديو (أيًا كان السبب) بنرجّعه،
     /// ونسجّل شكل الشبابيك في السجل (مرة كل دقيقة بالكتير) عشان لو حصل تاني نعرف السبب بالظبط.
     /// </summary>
     private void HealVideoFit()
     {
         if (DisableVideoFitForTest) return;
+        FixSplitPanelSize();
         string? misfit;
         try { misfit = VlcWindowsMisfit(); } catch { return; }
         if (misfit == null || misfit == "no vlc window" || misfit == "no handle") return;
@@ -117,6 +140,7 @@ internal sealed partial class MainForm
     private void FitVlcWindows()
     {
         if (DisableVideoFitForTest || !_videoView.IsHandleCreated || IsDisposed) return;
+        FixSplitPanelSize();
         try { FitChildren(_videoView.Handle, depth: 0); } catch { }
     }
 
