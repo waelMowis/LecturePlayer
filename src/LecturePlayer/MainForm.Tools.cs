@@ -104,9 +104,10 @@ internal sealed partial class MainForm
             Bounds = new Rectangle(area.Right - size.Width - 16, area.Bottom - size.Height - 16, size.Width, size.Height);
             TopMost = true;
             ResumeLayout(true);
+            FixSplitPanelSize();
             RefitVideo();
             var logLater = new System.Windows.Forms.Timer { Interval = 1200 };
-            logLater.Tick += (_, _) => { logLater.Stop(); logLater.Dispose(); if (_miniMode) Log.Info($"mini player (dpi {DeviceDpi}): {DescribeVideoWindows()}"); };
+            logLater.Tick += (_, _) => { logLater.Stop(); logLater.Dispose(); if (_miniMode) Log.Info($"mini player (dpi {DeviceDpi}): {VideoAreaOutsideWindow() ?? "video inside window"}"); };
             logLater.Start();
             ShowStatus("المشغل الصغير — P أو Esc أو دبل كليك للرجوع");
         }
