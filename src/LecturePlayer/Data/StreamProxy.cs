@@ -58,12 +58,59 @@ public sealed class StreamProxy : IDisposable
             AllowAutoRedirect = true,
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             ConnectTimeout = TimeSpan.FromSeconds(20),
+            ConnectCallback = ConnectMatchingFamilyAsync,
         }) { Timeout = Timeout.InfiniteTimeSpan };
 
         _listener = new TcpListener(IPAddress.Loopback, 0);
         _listener.Start();
         Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
         _ = AcceptLoopAsync();
+    }
+
+    /// <summary>
+    /// روابط يوتيوب مربوطة بعنوان الجهاز اللي طلبها (ip= جوه الرابط). لو الجهاز عنده IPv4 وIPv6 والأداة طلبت بواحد
+    /// والاتصال راح بالتاني، يوتيوب بيرفض (403). فبنتصل بنفس نوع العنوان المكتوب في الرابط.
+    /// </summary>
+    public static AddressFamily? FamilyFromUrl(Uri? uri)
+    {
+        if (uri == null) return null;
+        foreach (var pair in uri.Query.TrimStart('?').Split('&'))
+        {
+            int eq = pair.IndexOf('=');
+            if (eq <= 0 || !pair[..eq].Equals("ip", StringComparison.OrdinalIgnoreCase)) continue;
+            string value = Uri.UnescapeDataString(pair[(eq + 1)..]);
+            if (IPAddress.TryParse(value, out var ip)) return ip.AddressFamily;
+        }
+        return null;
+    }
+
+    private static async ValueTask<Stream> ConnectMatchingFamilyAsync(SocketsHttpConnectionContext ctx, CancellationToken ct)
+    {
+        var want = FamilyFromUrl(ctx.InitialRequestMessage.RequestUri);
+        var addresses = await Dns.GetHostAddressesAsync(ctx.DnsEndPoint.Host, ct);
+        IEnumerable<IPAddress> ordered = addresses;
+        if (want != null)
+        {
+            var matching = addresses.Where(a => a.AddressFamily == want).ToList();
+            if (matching.Count > 0) ordered = matching;
+            else Trace?.Invoke($"proxy: no {want} address for {ctx.DnsEndPoint.Host}");
+        }
+        Exception? last = null;
+        foreach (var address in ordered)
+        {
+            var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+            try
+            {
+                await socket.ConnectAsync(new IPEndPoint(address, ctx.DnsEndPoint.Port), ct);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                last = ex;
+                socket.Dispose();
+            }
+        }
+        throw last ?? new IOException("no address for " + ctx.DnsEndPoint.Host);
     }
 
     /// <summary>بيرجّع الرابط المحلي اللي VLC هيشغّله.</summary>
@@ -272,7 +319,7 @@ public sealed class StreamProxy : IDisposable
                     }
                     return resp;
                 }
-                Trace?.Invoke($"proxy: upstream {(int)resp.StatusCode} at {from} (attempt {attempt + 1})");
+                Trace?.Invoke($"proxy: upstream {(int)resp.StatusCode} at {from} (attempt {attempt + 1}, url ip {FamilyFromUrl(new Uri(url))?.ToString() ?? "?"})");
             }
             catch (OperationCanceledException) { resp?.Dispose(); throw; }
             catch (Exception ex) { Trace?.Invoke($"proxy: upstream error at {from}: {ex.Message}"); }

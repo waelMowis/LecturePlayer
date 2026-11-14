@@ -423,7 +423,7 @@ internal sealed partial class MainForm
                 return proxy.Register(part.Url, part.Headers, async ct =>
                 {
                     if (string.IsNullOrEmpty(fmt)) return null;
-                    var fresh = await YtDlp.ResolveFormatAsync(pageUrl, fmt, null, ct);
+                    var fresh = await YtDlp.ResolveFormatAsync(pageUrl, fmt, null, ct, forceIpv4: true);
                     var p = fresh.Parts?.FirstOrDefault(x => x.FormatId == fmt) ?? fresh.Parts?.FirstOrDefault();
                     return p == null ? null : (p.Url, p.Headers);
                 }, out _);

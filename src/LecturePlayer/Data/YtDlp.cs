@@ -219,14 +219,17 @@ public static class YtDlp
     }
 
     /// <summary>رابط جديد لنفس الصيغة بالظبط (بيستخدمه الوسيط لما يوتيوب يرفض الرابط القديم في النص).</summary>
-    public static async Task<OnlineStream> ResolveFormatAsync(string url, string format, string? sort, CancellationToken ct)
+    public static async Task<OnlineStream> ResolveFormatAsync(string url, string format, string? sort, CancellationToken ct, bool forceIpv4 = false)
     {
         var args = new List<string> { "-j", "--no-playlist", "-f", format };
+        if (forceIpv4) args.Add("--force-ipv4"); // الرابط يتربط بعنوان IPv4 (والوسيط بيتصل بـ IPv4)
         if (!string.IsNullOrEmpty(sort)) { args.Add("-S"); args.Add(sort); }
-        args.AddRange(CommonArgs());
+        args.AddRange(CommonArgs().Where(a => a != "--no-warnings")); // تحذيرات يوتيوب مهمة هنا (بتتسجل)
         args.Add(NormalizeUrl(url));
 
         var (code, stdout, stderr) = await RunAsync(args, ct, TimeSpan.FromSeconds(90));
+        var warnings = stderr.Split('\n').Select(l => l.Trim()).Where(l => l.StartsWith("WARNING", StringComparison.Ordinal)).Take(6).ToList();
+        if (warnings.Count > 0) Log.Info("yt-dlp warnings:\n    " + string.Join("\n    ", warnings));
         if (code != 0 || string.IsNullOrWhiteSpace(stdout))
             throw new InvalidOperationException(ErrorFrom(stderr, "مقدرتش أجيب الفيديو"));
 
