@@ -528,6 +528,7 @@ internal sealed partial class MainForm
     {
         _tick++;
         UpdateRadioVisual();
+        if (_tick % 8 == 0) CheckWaitingLibrary(); // كل ثانيتين
         var v = _currentVideo;
 
         if (v != null && IsActive)

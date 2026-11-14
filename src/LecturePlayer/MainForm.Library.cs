@@ -32,7 +32,34 @@ internal sealed partial class MainForm
     //  ملف القائمة
     // =====================================================================
 
-    private void LoadLibrary(string path)
+    private string? _waitingLibraryPath;
+    private DateTime _waitingLibrarySinceUtc;
+
+    /// <summary>
+    /// بيتنده من التايمر: لو آخر قائمة كانت مش موجودة وقت الفتح (درايف سحابي لسه بيفتح)، نفتحها أول ما تظهر.
+    /// </summary>
+    private void CheckWaitingLibrary()
+    {
+        if (_waitingLibraryPath is not { } path) return;
+        if (File.Exists(path))
+        {
+            _waitingLibraryPath = null;
+            Log.Info("waited library appeared: " + path);
+            SwitchLibrary(path);
+            ShowStatus("اتفتحت قائمتك ✓ " + Path.GetFileName(path), 6);
+            return;
+        }
+        if (DateTime.UtcNow - _waitingLibrarySinceUtc < TimeSpan.FromMinutes(2)) return;
+
+        _waitingLibraryPath = null;
+        if (Dialogs.Confirm(this,
+                "مقدرتش ألاقي آخر قائمة كنت فاتحها:\n" + path +
+                "\n\nلو الملف في Google Drive أو OneDrive، اتأكد إن البرنامج بتاعهم شغال.\nتحب تدوّر عليها بنفسك؟", "ملف القائمة"))
+            OpenLibraryDialog();
+    }
+
+    /// <param name="remember">false = فتح مؤقت، مايتسجلش كـ «آخر قائمة» (عشان مانضيّعش القائمة الأصلية)</param>
+    private void LoadLibrary(string path, bool remember = true)
     {
         CourseLibrary? lib = null;
         if (File.Exists(path))
@@ -43,7 +70,8 @@ internal sealed partial class MainForm
                 Dialogs.Error(this, "مقدرتش أفتح ملف القائمة:\n" + path + "\n\n" + ex.Message);
                 if (!string.Equals(path, Storage.DefaultLibraryPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    LoadLibrary(Storage.DefaultLibraryPath);
+                    // مؤقتًا: من غير مانسجّل «مكتبتي» كآخر قائمة، فالقائمة الأصلية تفتح تاني المرة الجاية
+                    LoadLibrary(Storage.DefaultLibraryPath, remember: false);
                     return;
                 }
             }
@@ -66,8 +94,13 @@ internal sealed partial class MainForm
         if (lib != null) Storage.BackupIfDue(path);
         Log.Info($"library loaded: {path} ({_library.Courses.Count} courses)");
 
-        _settings.LastLibraryPath = path;
-        AddRecent(path);
+        if (remember)
+        {
+            _waitingLibraryPath = null;
+            _settings.LastLibraryPath = path;
+            AddRecent(path);
+            try { Storage.SaveSettings(_settings); } catch { } // من غير مقاس الشباك (ممكن نكون لسه بنفتح)
+        }
 
         _searchBox.Clear();
         RefreshFilterCombo();
@@ -139,14 +172,38 @@ internal sealed partial class MainForm
             InitialDirectory = Path.GetDirectoryName(_libraryPath)
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        string target = dlg.FileName;
+        if (string.Equals(target, _libraryPath, StringComparison.OrdinalIgnoreCase)) { SaveLibrary(); ShowStatus("اتحفظ ✓"); return; }
 
-        _libraryPath = dlg.FileName;
-        _settings.LastLibraryPath = _libraryPath;
-        AddRecent(_libraryPath);
-        SaveLibrary();
-        _statusFile.Text = Path.GetFileName(_libraryPath);
-        _statusFile.ToolTipText = _libraryPath;
-        ShowStatus("اتحفظ ✓");
+        try
+        {
+            // الحفظ باسم بيكتب القائمة الحالية زي ما هي. (قبل كده كان بيدمجها مع الملف اللي اخترته لو كان موجود،
+            // فلو حفظت فوق قائمة تانية، الاتنين كانوا بيتخلطوا في بعض)
+            SaveCurrentPosition();
+            CommitNotes();
+            MergeExternalChanges();
+            Storage.SaveLibrary(target, _library);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("save-as", ex);
+            Dialogs.Error(this, "مقدرتش أحفظ القائمة هنا:\n" + target + "\n\n" + ex.Message);
+            return;
+        }
+
+        _libraryPath = target;
+        _libraryStampUtc = File.GetLastWriteTimeUtc(target);
+        _dirty = false;
+        _deletedKeys.Clear();
+        InitJournal(target); // سجل المذاكرة يمشي مع القائمة الجديدة
+        _settings.LastLibraryPath = target;
+        AddRecent(target);
+        SaveSettings();
+        _statusFile.Text = Path.GetFileName(target);
+        _statusFile.ToolTipText = target;
+        UpdateTitle();
+        Log.Info("library saved as: " + target);
+        ShowStatus("اتحفظت باسم " + Path.GetFileName(target) + " ✓", 5);
     }
 
     /// <summary>

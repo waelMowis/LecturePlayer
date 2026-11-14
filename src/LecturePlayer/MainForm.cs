@@ -109,8 +109,18 @@ internal sealed partial class MainForm : Form
         ApplySettings();
 
         string path = openPath ?? _settings.LastLibraryPath ?? "";
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) path = Storage.DefaultLibraryPath;
-        LoadLibrary(path);
+        if (string.IsNullOrWhiteSpace(path)) path = Storage.DefaultLibraryPath;
+        if (!File.Exists(path) && !string.Equals(path, Storage.DefaultLibraryPath, StringComparison.OrdinalIgnoreCase))
+        {
+            // آخر قائمة مش موجودة دلوقتي — غالبًا في Google Drive / OneDrive واللي لسه مااشتغلش بعد تشغيل الجهاز.
+            // نفتح «مكتبتي» مؤقتًا من غير مانغيّر «آخر قائمة»، ونفضل مستنيين الملف يظهر ونفتحه لوحده.
+            _waitingLibraryPath = path;
+            _waitingLibrarySinceUtc = DateTime.UtcNow;
+            Log.Info("last library not available yet, waiting: " + path);
+            LoadLibrary(Storage.DefaultLibraryPath, remember: false);
+            ShowStatus("بستنى قائمتك تظهر (" + Path.GetFileName(path) + ") — ممكن Google Drive / OneDrive لسه بيفتح…", 30);
+        }
+        else LoadLibrary(path);
 
         _uiTimer.Tick += (_, _) => OnUiTick();
         _uiTimer.Start();
@@ -732,7 +742,7 @@ internal sealed partial class MainForm : Form
     private void BuildRecentMenu()
     {
         _recentMenu.DropDownItems.Clear();
-        var files = _settings.RecentFiles.Where(File.Exists).ToList();
+        var files = _settings.RecentFiles.ToList();
         if (files.Count == 0)
         {
             _recentMenu.DropDownItems.Add(new ToolStripMenuItem("(مفيش)") { Enabled = false });
@@ -741,7 +751,10 @@ internal sealed partial class MainForm : Form
         foreach (string f in files)
         {
             string path = f;
-            var item = Item(Path.GetFileNameWithoutExtension(f) + "    —    " + f, () => SwitchLibrary(path));
+            bool exists = File.Exists(f);
+            // الملفات اللي مش متاحة دلوقتي (درايف سحابي مش شغال مثلًا) بتظهر بس متعطلة، عشان المستخدم يعرف إنها لسه موجودة
+            var item = Item(Path.GetFileNameWithoutExtension(f) + (exists ? "" : "  (مش متاحة دلوقتي)") + "    —    " + f, () => SwitchLibrary(path));
+            item.Enabled = exists;
             item.Checked = string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase);
             _recentMenu.DropDownItems.Add(item);
         }
