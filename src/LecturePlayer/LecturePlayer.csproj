@@ -22,7 +22,7 @@
     <Company>د. وائل عويس</Company>
     <Copyright>© 2026 د. وائل عويس — جميع الحقوق محفوظة</Copyright>
     <Description>مسار (Masar) — مكتبة فيديو منظّمة بتكمّل من حيث وقفت. تطوير د. وائل عويس</Description>
-    <!-- أول رقمين من الإصدار. التالت بيتحط تلقائيًا من BuildNumber.txt وقت النشر (بروفايل Installer) -->
+    <!-- أول رقمين من الإصدار. التالت = رقم النشر الرسمي على GitHub (شوف LpStampVersion تحت) -->
     <LpBaseVersion>4.1</LpBaseVersion>
     <Version>$(LpBaseVersion).0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
@@ -31,7 +31,6 @@
 
     <LpRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..'))</LpRoot>
     <LpReleasesRoot>$(LpRoot)\Releases</LpReleasesRoot>
-    <LpBuildNumberFile>$(MSBuildProjectDirectory)\BuildNumber.txt</LpBuildNumberFile>
 
     <!-- مستودع GitHub (owner/repo): البرنامج بيدوّر فيه على التحديثات (.github/workflows/release.yml بينشر عليه).
          لازم يكون Public عشان أجهزة المستخدمين تقدر تنزّل منه. -->
@@ -58,22 +57,24 @@
   </ItemGroup>
 
   <!-- =====================================================================
-       النشر ببروفايل Installer (LpRelease=true):
-         1) LpStampVersion: رقم الإصدار = LpBaseVersion + BuildNumber.txt (جوه تارجت، مش في الـ pubxml،
-            عشان الـ restore بتاع Visual Studio مايتلخبطش — ده اللي كان بيفشّل النشر)
-         2) النشر بيروح لـ Releases\_staging
-         3) LpRelease: يتأكد من مكتبات VLC ← ينضّف ← يعمل المثبّت في Releases ← يمسح الملفات المؤقتة ← يزوّد الرقم
+       أرقام الإصدارات — مصدر واحد بس: GitHub
+         • النشر الرسمي (GitHub Actions ← release.yml): الإصدار = LpBaseVersion + رقم تشغيل النشر (4.1.8، 4.1.9 …)
+           ودي الإصدارات اللي الأجهزة بتتحدّث منها.
+         • النشر من Visual Studio (بروفايل Installer): مثبّت للتجربة على جهازك بس. رقمه LpBaseVersion.0 (أقل من
+           أي إصدار رسمي، فالبرنامج المتثبت منه بيعرض التحديث للإصدار الرسمي على طول)، واسمه فيه التاريخ والساعة
+           عشان مايتلخبطش مع الإصدارات الرسمية: Masar-Setup-test-20261114-1130.exe
        ===================================================================== -->
   <Target Name="LpStampVersion" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;Publish" Condition="'$(LpRelease)' == 'true'">
     <PropertyGroup>
-      <LpBuildNumber Condition="Exists('$(LpBuildNumberFile)')">$([System.IO.File]::ReadAllText('$(LpBuildNumberFile)').Trim())</LpBuildNumber>
-      <LpBuildNumber Condition="'$(LpBuildNumber)' == ''">1</LpBuildNumber>
-      <!-- النشر من GitHub Actions بيبعت رقم التشغيل هنا (BuildNumber.txt للنشر من الجهاز بس) -->
-      <LpBuildNumber Condition="'$(LpBuildNumberOverride)' != ''">$(LpBuildNumberOverride)</LpBuildNumber>
+      <LpOfficial Condition="'$(LpBuildNumberOverride)' != ''">true</LpOfficial>
+      <LpBuildNumber Condition="'$(LpOfficial)' == 'true'">$(LpBuildNumberOverride)</LpBuildNumber>
+      <LpBuildNumber Condition="'$(LpOfficial)' != 'true'">0</LpBuildNumber>
+      <LpStamp>$([System.DateTime]::Now.ToString("yyyyMMdd-HHmm"))</LpStamp>
       <Version>$(LpBaseVersion).$(LpBuildNumber)</Version>
       <AssemblyVersion>$(Version).0</AssemblyVersion>
       <FileVersion>$(Version).0</FileVersion>
-      <InformationalVersion>$(Version)</InformationalVersion>
+      <InformationalVersion Condition="'$(LpOfficial)' == 'true'">$(Version)</InformationalVersion>
+      <InformationalVersion Condition="'$(LpOfficial)' != 'true'">$(Version)-test.$(LpStamp)</InformationalVersion>
     </PropertyGroup>
   </Target>
 
@@ -145,7 +146,8 @@
   <Target Name="LpRelease" AfterTargets="Publish" DependsOnTargets="LpStampVersion;LpEnsureLibVlc;LpBundleTools" Condition="'$(LpRelease)' == 'true'">
     <PropertyGroup>
       <LpIss>$(LpRoot)\installer\LecturePlayer.iss</LpIss>
-      <LpSetupName>Masar-Setup-$(Version)</LpSetupName>
+      <LpSetupName Condition="'$(LpOfficial)' == 'true'">Masar-Setup-$(Version)</LpSetupName>
+      <LpSetupName Condition="'$(LpOfficial)' != 'true'">Masar-Setup-test-$(LpStamp)</LpSetupName>
 
       <!-- مكان ISCC.exe: ممكن تحدده بنفسك بـ -p:LpIscc=... -->
       <LpIscc Condition="'$(LpIscc)' == '' and Exists('$(MSBuildProgramFiles32)\Inno Setup 6\ISCC.exe')">$(MSBuildProgramFiles32)\Inno Setup 6\ISCC.exe</LpIscc>
@@ -175,11 +177,6 @@
     <RemoveDir Directories="$(LpStaging)" />
 
     <Message Importance="high" Text="✓ المثبّت جاهز: $(LpReleasesRoot)\$(LpSetupName).exe" />
-  </Target>
-
-  <!-- الإصدار الجاي: بيزيد بس لو كل اللي فات نجح -->
-  <Target Name="LpBumpBuild" AfterTargets="LpRelease" Condition="'$(LpRelease)' == 'true'">
-    <WriteLinesToFile File="$(LpBuildNumberFile)" Lines="$([MSBuild]::Add($(LpBuildNumber), 1))" Overwrite="true" />
   </Target>
 
 </Project>

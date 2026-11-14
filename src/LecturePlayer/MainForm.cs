@@ -704,7 +704,7 @@ internal sealed partial class MainForm : Form
             new ToolStripSeparator(),
             Item("دليل الاستخدام", () => HelpGuide.Open(this), display: "F1"),
             Item("اختصارات الكيبورد", ShowShortcuts),
-            Item("عن البرنامج", () => AboutDialog.Show(this, UpdateChecker.CurrentVersion.ToString(3),
+            Item("عن البرنامج", () => AboutDialog.Show(this, UpdateChecker.CurrentVersion.ToString(3) + (Application.ProductVersion.Contains("-test") ? " (نسخة تجريبية)" : ""),
                 "محرك التشغيل: VLC (LibVLCSharp)\nفيديوهات النت: yt-dlp + Deno\nمنصة التشغيل: .NET " + Environment.Version.ToString(2) +
                 "\n\nملف القائمة الحالي:\n" + _libraryPath +
                 "\n\nفولدر البيانات" + (Storage.IsPortable ? " (جنب البرنامج)" : " (%AppData% — مفيش صلاحية كتابة جنب البرنامج)") +
