@@ -404,12 +404,12 @@ internal sealed partial class MainForm
     /// يجيب رابط التشغيل، ولو الخطأ شكله من النوع اللي بيتحل بتحديث yt-dlp (يوتيوب بيغيّر حاجات كتير)
     /// يحدّث الأداة لوحده ويجرّب تاني مرة واحدة.
     /// </summary>
-    private async Task<OnlineStream?> ResolveWithAutoUpdateAsync(string url, YtDlp.StreamMode mode, CancellationToken ct, Func<bool> stillWanted)
+    private async Task<OnlineStream?> ResolveWithAutoUpdateAsync(string url, YtDlp.StreamMode mode, CancellationToken ct, Func<bool> stillWanted, int? maxHeight = null)
     {
         YtDlp.CookiesBrowser = _settings.OnlineCookiesBrowser;
         try
         {
-            return await YtDlp.ResolveAsync(url, _settings.OnlineMaxHeight, ct, mode);
+            return await YtDlp.ResolveAsync(url, maxHeight ?? _settings.OnlineMaxHeight, ct, mode);
         }
         catch (Exception ex) when (ex is not OperationCanceledException && !_ytdlpAutoUpdated && YtDlp.MightBeFixedByUpdate(ex.Message))
         {
@@ -419,7 +419,7 @@ internal sealed partial class MainForm
             try { Log.Info("yt-dlp auto-update: " + await YtDlp.UpdateAsync(ct)); }
             catch (Exception uex) when (uex is not OperationCanceledException) { Log.Error("yt-dlp auto-update", uex); }
             if (!stillWanted()) return null;
-            return await YtDlp.ResolveAsync(url, _settings.OnlineMaxHeight, ct, mode);
+            return await YtDlp.ResolveAsync(url, maxHeight ?? _settings.OnlineMaxHeight, ct, mode);
         }
     }
 

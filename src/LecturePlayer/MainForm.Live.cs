@@ -25,12 +25,19 @@ internal sealed partial class MainForm
     /// بتتنادى من التايمر (4 مرات في الثانية).
     /// </summary>
     private const int MaxLiveRetries = 5;
+
+    /// <summary>البث المباشر: 720 بحد أقصى (أثبت كتير من 1080 في البث، والفرق في الشكل بسيط).</summary>
+    private int LiveMaxHeight => _settings.OnlineMaxHeight is > 0 and < 720 ? _settings.OnlineMaxHeight : 720;
+    private int _liveLastPictures = -1;
+    private DateTime _liveLastPictureUtc = DateTime.UtcNow;
     private long _liveLastTime = -1;
     private DateTime _liveLastProgressUtc = DateTime.UtcNow;
     private DateTime? _livePlayingSinceUtc;
 
     private void ResetLiveWatchdog()
     {
+        _liveLastPictures = -1;
+        _liveLastPictureUtc = DateTime.UtcNow;
         _liveLastTime = -1;
         _liveLastProgressUtc = DateTime.UtcNow;
         _livePlayingSinceUtc = null;
@@ -60,6 +67,20 @@ internal sealed partial class MainForm
             _liveLastProgressUtc = now;
             if (state == VLCState.Playing) _livePlayingSinceUtc ??= now;
             if (_livePlayingSinceUtc is { } since && now - since > TimeSpan.FromSeconds(90)) _liveRetries = 0;
+
+            // الصورة اتجمّدت والصوت شغال: الوقت ماشي (بيمشي مع الصوت) بس مفيش صور جديدة بتتعرض
+            if (state == VLCState.Playing && _currentLive.Kind == LiveKind.Tv && _mp.VideoTrackCount > 0 && _currentMedia != null)
+            {
+                int pictures;
+                try { pictures = _currentMedia.Statistics.DisplayedPictures; } catch { return; }
+                if (pictures != _liveLastPictures) { _liveLastPictures = pictures; _liveLastPictureUtc = now; }
+                else if (now - _liveLastPictureUtc > TimeSpan.FromSeconds(8))
+                {
+                    Log.Info($"live video frozen (audio still playing): {_currentLive.Url}");
+                    ResetLiveWatchdog();
+                    TryRecoverLive();
+                }
+            }
             return;
         }
 
@@ -164,12 +185,10 @@ internal sealed partial class MainForm
                 if (!await EnsureYtDlpAsync()) return;
                 ShowStatus("بجهّز البث…", 60);
                 var stream = await ResolveWithAutoUpdateAsync(url, YtDlp.StreamMode.Muxed, CancellationToken.None,
-                    () => request == _playRequest && !_closing);
+                    () => request == _playRequest && !_closing, LiveMaxHeight);
                 if (stream == null || request != _playRequest || _closing || _currentLive != ch) return;
                 url = stream.VideoUrl; audio = stream.AudioUrl; userAgent = stream.UserAgent; referer = stream.Referer;
-                // البث المباشر: القايمة الرئيسية بكل الجودات بدل جودة واحدة ثابتة،
-                // فـ VLC بينزل لجودة أقل لوحده لما النت يضعف بدل ما الصورة تقف
-                if (stream.IsLive && stream.ManifestUrl != null && audio == null) url = stream.ManifestUrl;
+                // جودة واحدة ثابتة (مش القايمة الرئيسية): تبديل الجودة في نص البث كان بيجمّد الصورة والصوت شغال
             }
             if (request != _playRequest || _closing || _currentLive != ch) return;
 
@@ -177,9 +196,10 @@ internal sealed partial class MainForm
             {
                 ":network-caching=8000", ":http-reconnect",
                 // بث HLS: مخزون أكبر وتأخير أكبر شوية عن اللحظة الحالية = تقطيع أقل
-                ":adaptive-livedelay=20000", ":adaptive-maxbuffer=60000"
+                ":adaptive-livedelay=20000", ":adaptive-maxbuffer=60000",
+                // فك الفيديو بالمعالج بدل كارت الشاشة: فك كارت الشاشة مع البث المباشر بيعلّق الصورة والصوت كمّل
+                ":avcodec-hw=none"
             };
-            if (_settings.OnlineMaxHeight > 0) options.Add(":adaptive-maxheight=" + _settings.OnlineMaxHeight);
             if (audio != null) options.Add(":input-slave=" + audio);
             if (userAgent != null) options.Add(":http-user-agent=" + userAgent);
             if (referer != null) options.Add(":http-referrer=" + referer);
