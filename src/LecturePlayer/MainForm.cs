@@ -1214,7 +1214,8 @@ internal sealed partial class MainForm : Form
             FormBorderStyle = FormBorderStyle.Sizable;
             Bounds = _prevBounds;
             WindowState = _prevWindowState;
-            _menuHost.Visible = _statusHost.Visible = _activityHost.Visible = true;
+            _menuHost.Visible = _activityHost.Visible = true;
+            _statusHost.Visible = StatusBarWanted;
             _split.Panel2Collapsed = !_settings.SidePanelVisible;
             SetChromeless(false);
             ControlChromeVisible = true;
@@ -1254,7 +1255,28 @@ internal sealed partial class MainForm : Form
     {
         _statusMessage.Text = message;
         _statusMessageUntil = DateTime.Now.AddSeconds(seconds);
+        // الوضع البسيط من غير شريط حالة: الرسالة بتظهر لثواني مكان اسم الفيديو تحت الشاشة وبعدين الاسم يرجع
+        if (!AdvancedMode && !string.IsNullOrEmpty(message))
+        {
+            _toastUntil = _statusMessageUntil;
+            _nowPlayingLabel.ForeColor = Theme.Accent;
+            _nowPlayingLabel.Text = message;
+        }
     }
+
+    private DateTime _toastUntil = DateTime.MinValue;
+
+    /// <summary>بيتنده كل ربع ثانية: يرجّع اسم الفيديو بعد ما الرسالة تخلص.</summary>
+    private void ExpireToast()
+    {
+        if (_toastUntil == DateTime.MinValue || DateTime.Now < _toastUntil) return;
+        _toastUntil = DateTime.MinValue;
+        _nowPlayingLabel.ForeColor = Theme.Text;
+        UpdateNowPlaying();
+    }
+
+    /// <summary>شريط الحالة تحت: في الوضع المتقدم بس (ومش في المشغل الصغير أو ملء الشاشة).</summary>
+    private bool StatusBarWanted => AdvancedMode && !_miniMode && !_fullscreen;
 
     private void UpdateTitle()
     {
@@ -1266,6 +1288,7 @@ internal sealed partial class MainForm : Form
 
     private void UpdateNowPlaying()
     {
+        if (DateTime.Now < _toastUntil) return; // فيه رسالة معروضة؛ الاسم هيرجع لما تخلص
         if (_currentLive != null) { _nowPlayingLabel.Text = LiveLabel(); return; }
         if (_currentVideo == null || _currentGroup == null) { _nowPlayingLabel.Text = ""; return; }
         var course = _library.FindCourseOf(_currentGroup);

@@ -55,6 +55,7 @@ internal sealed partial class MainForm
     {
         bool adv = AdvancedMode;
         ArrangeMenus(adv);
+        if (_statusHost.Visible != StatusBarWanted) _statusHost.Visible = StatusBarWanted;
         foreach (ToolStripItem top in _menu.Items) ApplyMode(top, adv);
         foreach (var b in _advancedActivity) b.Visible = adv;
         if (_advancedItem != null) _advancedItem.Checked = adv;
@@ -129,6 +130,16 @@ internal sealed partial class MainForm
             Console.WriteLine($"SMOKE menus ({(adv ? "advanced" : "simple")}): {tops.Count} — {string.Join(" | ", tops)}");
             if (!adv && tops.Count != 5) throw new Exception($"simple mode should show 5 top menus, got {tops.Count}");
             if (adv && tops.Count != 10) throw new Exception($"advanced mode should show 10 top menus, got {tops.Count}");
+            if (_statusHost.Visible != adv) throw new Exception($"status bar visible={_statusHost.Visible} in {(adv ? "advanced" : "simple")} mode");
+            if (!adv)
+            {
+                ShowStatus("رسالة فحص", 0.3);
+                if (_nowPlayingLabel.Text != "رسالة فحص") throw new Exception("toast not shown in simple mode");
+                var until = DateTime.UtcNow.AddMilliseconds(900);
+                while (DateTime.UtcNow < until) { Application.DoEvents(); Thread.Sleep(30); }
+                ExpireToast();
+                if (_nowPlayingLabel.Text == "رسالة فحص") throw new Exception("toast did not expire");
+            }
         }
         ShowBanner("فحص", BannerKind.Warning, "زرار", () => { }, seconds: 0, key: "smoke");
         HideBanner("smoke");

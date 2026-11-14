@@ -119,7 +119,8 @@ internal sealed partial class MainForm
             Bounds = _preMiniBounds;
             WindowState = _preMiniState;
             TopMost = _preMiniTopMost || _settings.AlwaysOnTop;
-            _menuHost.Visible = _statusHost.Visible = _activityHost.Visible = true;
+            _menuHost.Visible = _activityHost.Visible = true;
+            _statusHost.Visible = StatusBarWanted;
             _split.Panel2Collapsed = !_settings.SidePanelVisible;
             SetChromeless(false);
             SetMiniControls(false);

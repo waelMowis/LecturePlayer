@@ -577,6 +577,7 @@ internal sealed partial class MainForm
         else if (_tick % 120 == 0) MergeExternalChanges(); // كل 30 ثانية: هل جهاز تاني عدّل القائمة؟
 
         if (_statusMessage.Text.Length > 0 && DateTime.Now > _statusMessageUntil) _statusMessage.Text = "";
+        ExpireToast();
 
         if (_fullscreen) UpdateFullscreenChrome();
         if (_activityHome.Active != _welcome.Visible) _activityHome.Active = _welcome.Visible; // الأيقونة منورة وإنت في الرئيسية
