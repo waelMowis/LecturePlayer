@@ -28,24 +28,24 @@ internal sealed partial class MainForm
         _bannerIcon = new Label
         {
             Dock = DockStyle.Right, Width = LogicalToDeviceUnits(36), Font = Glyphs.Font(14f),
-            TextAlign = ContentAlignment.MiddleCenter, BackColor = Color.Transparent
+            TextAlign = ContentAlignment.MiddleCenter, BackColor = Theme.PanelLight
         };
         _bannerText = new Label
         {
             Dock = DockStyle.Fill, ForeColor = Color.White, Font = new Font("Segoe UI", 10f),
-            TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, BackColor = Color.Transparent,
+            TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, BackColor = Theme.PanelLight,
             RightToLeft = RightToLeft.Yes, UseMnemonic = false
         };
         var close = new GlyphButton("", 10f)
         {
-            Dock = DockStyle.Left, Width = LogicalToDeviceUnits(36), BackColor = Color.Transparent
+            Dock = DockStyle.Left, Width = LogicalToDeviceUnits(36), BackColor = Theme.PanelLight
         };
         _toolTip.SetToolTip(close, "قفل");
         close.Click += (_, _) => HideBanner();
         _bannerAction = new PillButton("", PillStyle.Primary) { Visible = false };
         var actionHost = new Panel
         {
-            Dock = DockStyle.Left, Width = LogicalToDeviceUnits(10), BackColor = Color.Transparent,
+            Dock = DockStyle.Left, Width = LogicalToDeviceUnits(10), BackColor = Theme.PanelLight,
             Padding = new Padding(0, LogicalToDeviceUnits(7), LogicalToDeviceUnits(10), LogicalToDeviceUnits(7))
         };
         _bannerAction.Dock = DockStyle.Fill;

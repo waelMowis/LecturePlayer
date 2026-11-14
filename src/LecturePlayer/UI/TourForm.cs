@@ -61,6 +61,15 @@ internal sealed class TourForm : Form
         return f.Choice;
     }
 
+    /// <summary>للفحص الآلي: يفتح الجولة من غير ما يستنى، ويعدّي على كل الخطوات، ويقفل.</summary>
+    internal static void SmokeTest(IWin32Window owner)
+    {
+        using var f = new TourForm();
+        f.Show(owner);
+        for (int i = 0; i < Steps.Length; i++) { f.Go(i); Application.DoEvents(); }
+        f.Close();
+    }
+
     private TourForm()
     {
         Text = "جولة سريعة في «مسار»";

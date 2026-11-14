@@ -12,6 +12,10 @@ internal static class Program
 
         ApplicationConfiguration.Initialize();
 
+        // فحص تشغيل آلي (GitHub Actions): يفتح الشباك فعلًا ويجرّب الشاشات الجديدة ويقفل.
+        // أي Exception = كود خروج 1، فالإصدار مايتنشرش لو البرنامج بيقع وهو بيفتح.
+        if (args.Contains("--smoke-test")) return SmokeTest.Run();
+
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             LecturePlayer.Data.Log.Error("unhandled", e.ExceptionObject as Exception ?? new Exception(e.ExceptionObject?.ToString()));

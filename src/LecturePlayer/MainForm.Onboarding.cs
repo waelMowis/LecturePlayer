@@ -108,5 +108,27 @@ internal sealed partial class MainForm
     }
 
     /// <summary>أول تشغيل للبرنامج خالص: نعرض الجولة (إلا لو اتفتح بملف فيديو، ساعتها منقاطعش).</summary>
-    private bool ShouldShowFirstRunTour(bool openedWithFiles) => !_settings.TourShown && !openedWithFiles;
+    private bool ShouldShowFirstRunTour(bool openedWithFiles) => !_settings.TourShown && !openedWithFiles && !SmokeTest.Active;
+
+    // =====================================================================
+    //  فحص التشغيل الآلي (SmokeTest)
+    // =====================================================================
+
+    /// <summary>بيجرّب الحاجات اللي بتتبني وقت التشغيل بس (مش وقت الـ compile).</summary>
+    internal void RunSmokeChecks()
+    {
+        bool before = AdvancedMode;
+        foreach (bool adv in new[] { false, true, before })
+        {
+            _settings.AdvancedMode = adv;
+            ApplyMode();
+        }
+        ShowBanner("فحص", BannerKind.Warning, "زرار", () => { }, seconds: 0, key: "smoke");
+        HideBanner("smoke");
+        foreach (var kind in Enum.GetValues<BannerKind>()) ShowBanner("فحص", kind, seconds: 1);
+        HideBanner();
+        using (var m = NewStudyMenu()) { m.Show(this, Point.Empty); m.Close(); }
+        RefreshHome();
+        TourForm.SmokeTest(this);
+    }
 }

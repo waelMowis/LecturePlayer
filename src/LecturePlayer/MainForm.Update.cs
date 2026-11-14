@@ -21,6 +21,7 @@ internal sealed partial class MainForm
     /// <summary>بعد ما الشباك يفتح: «اتحدّث ✓» لو ده أول تشغيل بعد تحديث، وبعد ثواني نتحقق من الجديد.</summary>
     private async void AfterStartupUpdateCheck(bool firstRunTour = false)
     {
+        if (SmokeTest.Active) return;
         string current = UpdateChecker.CurrentVersion.ToString(3);
         if (string.IsNullOrEmpty(_settings.LastRunVersion))
         {
