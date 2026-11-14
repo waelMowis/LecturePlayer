@@ -34,7 +34,7 @@ internal sealed partial class MainForm : Form
     private readonly Panel _controlBar = new();
     private readonly SeekBar _seekBar = new();
     private readonly SeekBar _volumeBar = new();
-    private readonly Label _timeLabel = new();
+    private readonly TimeReadout _timeLabel = new();
     private readonly Label _nowPlayingLabel = new();
     private readonly SelectBox _speedCombo = new();
     private readonly LectureTreeView _tree = new();
@@ -335,11 +335,10 @@ internal sealed partial class MainForm : Form
         var seekRow = new Panel { Dock = DockStyle.Top, Height = 28, BackColor = Theme.Panel };
         _seekBar.Dock = DockStyle.Fill;
         _timeLabel.Dock = DockStyle.Right;
-        _timeLabel.Width = 170;
-        _timeLabel.TextAlign = ContentAlignment.MiddleRight;
-        _timeLabel.ForeColor = Theme.Text;
+        _timeLabel.Width = 190;
         _timeLabel.Font = new Font("Consolas", 10.5f);
-        _timeLabel.Text = "00:00 / 00:00";
+        _toolTip.SetToolTip(_timeLabel, "دوس هنا عشان تبدّل بين «الباقي» و«المدة كلها»");
+        _timeLabel.ModeChanged += (_, _) => { _settings.TimeShowsTotal = _timeLabel.ShowTotal; SaveSettings(); };
         seekRow.Controls.Add(_seekBar);
         seekRow.Controls.Add(_timeLabel);
 
@@ -819,7 +818,7 @@ internal sealed partial class MainForm : Form
         _seekBar.Scrubbing += (_, v) =>
         {
             long len = CurrentLength();
-            if (len > 0) _timeLabel.Text = $"{TimeFormat.Format((long)(v * len))} / {TimeFormat.Format(len)}";
+            if (len > 0) _timeLabel.Set((long)(v * len), len);
         };
         _seekBar.ValueCommitted += (_, v) => SeekToFraction(v);
         string lastHover = "";
@@ -950,6 +949,7 @@ internal sealed partial class MainForm : Form
 
     private void ApplySettings()
     {
+        _timeLabel.ShowTotal = _settings.TimeShowsTotal;
         _autoNextItem.Checked = _settings.AutoPlayNext;
         _continueGroupsItem.Checked = _settings.ContinueToNextGroup;
         _resumeItem.Checked = _settings.ResumePosition;
@@ -1205,7 +1205,9 @@ internal sealed partial class MainForm : Form
         if (_currentLive != null) { _nowPlayingLabel.Text = LiveLabel(); return; }
         if (_currentVideo == null || _currentGroup == null) { _nowPlayingLabel.Text = ""; return; }
         var course = _library.FindCourseOf(_currentGroup);
-        _nowPlayingLabel.Text = $"{course?.Name}   ›   {_currentGroup.Name}   ›   {_currentVideo.Title}";
+        // الاسم بس؛ الكورس والمحاضرة بيظهروا لما تقف بالماوس
+        _nowPlayingLabel.Text = _currentVideo.Title;
+        _toolTip.SetToolTip(_nowPlayingLabel, $"{course?.Name}  ›  {_currentGroup.Name}  ›  {_currentVideo.Title}");
     }
 
     // =====================================================================

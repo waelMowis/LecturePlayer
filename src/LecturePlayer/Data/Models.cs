@@ -280,6 +280,8 @@ public sealed class AppSettings
     public bool NormalizeAudio { get; set; }
 
     public bool AlwaysOnTop { get; set; }
+    /// <summary>الوقت تحت الفيديو: true = المدة كلها، false = الباقي.</summary>
+    public bool TimeShowsTotal { get; set; }
 
     /// <summary>
     /// تحويل مسارات خاص بالجهاز ده: لو الكورس على الجهاز ده في مكان غير المكتوب في القائمة

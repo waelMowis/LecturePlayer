@@ -263,7 +263,7 @@ internal sealed partial class MainForm
             _mp.Play(media);
             old?.Dispose();
 
-            _timeLabel.Text = "● مباشر";
+            _timeLabel.SetLive();
             ResetLiveWatchdog();
             _liveReconnecting = false; // من هنا المراقب بيتابع المحاولة دي كمان (لو علّقت وهي بتفتح)
             _seekBar.Value = 0;

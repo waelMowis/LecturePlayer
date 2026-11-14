@@ -172,7 +172,7 @@ internal sealed partial class MainForm
 
         long len = v.DurationMs;
         _seekBar.Value = len > 0 ? (double)start / len : 0;
-        _timeLabel.Text = $"{TimeFormat.Format(start)} / {TimeFormat.Format(len)}";
+        _timeLabel.Set(start, len);
 
         RefreshVideo(previousVideo);
         if (previousGroup != g) RefreshGroup(previousGroup);
@@ -294,7 +294,7 @@ internal sealed partial class MainForm
         if (_mp.State != VLCState.NothingSpecial && _mp.State != VLCState.Stopped) _mp.Stop();
 
         _seekBar.Value = 0;
-        _timeLabel.Text = "00:00 / 00:00";
+        _timeLabel.Reset();
         ClearAbLoop();
 
         if (clearCurrent)
@@ -548,8 +548,7 @@ internal sealed partial class MainForm
                 if (!_seekBar.IsDragging)
                 {
                     _seekBar.Value = (double)t / len;
-                    string time = $"{TimeFormat.Format(t)} / {TimeFormat.Format(len)}";
-                    if (_timeLabel.Text != time) _timeLabel.Text = time; // منرسمش الرقم من غير ما يتغير
+                    _timeLabel.Set(t, len); // بيترسم بس لما الثانية تتغير
                 }
 
                 // كل 5 ثواني: نحفظ مكانك، ولو عدّيت 92% من الفيديو يتعلّم إنه اتشاف
