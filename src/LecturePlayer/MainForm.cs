@@ -530,12 +530,28 @@ internal sealed partial class MainForm : Form
         _courseLabel.Cursor = Cursors.Hand;
         _toolTip.SetToolTip(_courseLabel, "اسم المكتبة المفتوحة — اضغط عشان تبدّل لمكتبة تانية أو تعمل واحدة جديدة");
         sectionRow.Controls.Add(_courseLabel);
-        Icon(Glyphs.Library, "موضوع جديد — تفريعة رئيسية زي «C#» أو «قواعد البيانات» (Ctrl+Shift+N)", () => AddTopic(), sectionRow);
-        Icon(Glyphs.NewFolder, "كورس جديد في الموضوع المحدد (Ctrl+Shift+G)", () => AddCourse(), sectionRow);
-        Icon(Glyphs.Add, "محاضرة جديدة في الكورس المحدد (Ctrl+G)", () => AddGroup(), sectionRow);
-        Icon(Glyphs.Video, "إضافة فيديوهات للمحاضرة المحددة (Ctrl+Shift+A)", () => AddVideosDialog(SelectedGroup()), sectionRow);
-        Icon(Glyphs.OpenFolder, "استيراد فولدر كورس (Ctrl+I)", ImportCourseDialog, sectionRow);
-        Icon(Glyphs.Link, "رابط يوتيوب أو قائمة تشغيل (Ctrl+U)", () => AddUrlsDialog(null), sectionRow);
+        // زرار واحد «＋ إضافة» بدل 6 أيقونات صغيرة من غير أسامي
+        var addMenu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
+        void AddItem(string text, string keys, Action click)
+        {
+            var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text, ShortcutKeyDisplayString = keys };
+            i.Click += (_, _) => click();
+            addMenu.Items.Add(i);
+        }
+        AddItem("📁  فولدر فيديوهات (كورس)…", "Ctrl+I", ImportCourseDialog);
+        AddItem("🔗  رابط يوتيوب أو قائمة تشغيل…", "Ctrl+U", () => AddUrlsDialog(null));
+        AddItem("🎬  فيديوهات للمحاضرة المحددة…", "Ctrl+Shift+A", () => AddVideosDialog(SelectedGroup()));
+        addMenu.Items.Add(new ToolStripSeparator());
+        AddItem("محاضرة جديدة في الكورس المحدد", "Ctrl+G", () => AddGroup());
+        AddItem("كورس جديد", "Ctrl+Shift+G", () => AddCourse());
+        AddItem("موضوع جديد (تفريعة رئيسية زي «C#»)", "Ctrl+Shift+N", () => AddTopic());
+        var addButton = new PillButton("＋  إضافة", PillStyle.Ghost)
+        {
+            Dock = DockStyle.Left, Width = LogicalToDeviceUnits(82), Margin = Padding.Empty, TabStop = false
+        };
+        addButton.Click += (_, _) => addMenu.Show(addButton, new Point(0, addButton.Height + 2));
+        _toolTip.SetToolTip(addButton, "ضيف فولدر، أو رابط يوتيوب، أو فيديوهات، أو محاضرة/كورس جديد");
+        sectionRow.Controls.Add(addButton);
 
         // سطر الأرقام اتشال: الإحصائيات بقت في تلميح اسم المكتبة، والسطر ده بيظهر بس لما فيه فلتر شغال (عشان متتلخبطش ليه حاجات مش ظاهرة)
         var infoRow = _infoRow = new Panel { Dock = DockStyle.Top, Height = LogicalToDeviceUnits(24), BackColor = Theme.Panel, Padding = new Padding(14, 0, 14, 4), Visible = false };
