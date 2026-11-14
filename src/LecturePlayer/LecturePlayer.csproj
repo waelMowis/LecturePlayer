@@ -35,7 +35,7 @@
 
     <!-- مستودع GitHub (owner/repo): البرنامج بيدوّر فيه على التحديثات، وبروفايل النشر «GitHub» بيرفع عليه.
          لازم يكون Public عشان أجهزة المستخدمين تقدر تنزّل منه. -->
-    <LpGitHubRepo></LpGitHubRepo>
+    <LpGitHubRepo>waelMowis/LecturePlayer</LpGitHubRepo>
   </PropertyGroup>
 
   <ItemGroup>
