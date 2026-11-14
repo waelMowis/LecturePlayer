@@ -54,6 +54,7 @@ internal sealed partial class MainForm
     private void ApplyMode()
     {
         bool adv = AdvancedMode;
+        ArrangeMenus(adv);
         foreach (ToolStripItem top in _menu.Items) ApplyMode(top, adv);
         foreach (var b in _advancedActivity) b.Visible = adv;
         if (_advancedItem != null) _advancedItem.Checked = adv;
@@ -124,6 +125,10 @@ internal sealed partial class MainForm
         {
             _settings.AdvancedMode = adv;
             ApplyMode();
+            var tops = _menu.Items.Cast<ToolStripItem>().Where(i => i.Available).Select(i => i.Text).ToList();
+            Console.WriteLine($"SMOKE menus ({(adv ? "advanced" : "simple")}): {tops.Count} — {string.Join(" | ", tops)}");
+            if (!adv && tops.Count != 5) throw new Exception($"simple mode should show 5 top menus, got {tops.Count}");
+            if (adv && tops.Count != 10) throw new Exception($"advanced mode should show 10 top menus, got {tops.Count}");
         }
         ShowBanner("فحص", BannerKind.Warning, "زرار", () => { }, seconds: 0, key: "smoke");
         HideBanner("smoke");

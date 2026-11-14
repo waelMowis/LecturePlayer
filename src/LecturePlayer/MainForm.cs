@@ -776,7 +776,51 @@ internal sealed partial class MainForm : Form
                 "\n\nفولدر البيانات" + (Storage.IsPortable ? " (جنب البرنامج)" : " (%AppData% — مفيش صلاحية كتابة جنب البرنامج)") +
                 ":\n" + Storage.AppDataDir)));
 
-        _menu.Items.AddRange(new ToolStripItem[] { file, groups, play, study, Adv(BuildSmartMenu()), Adv(BuildBoldMenu()), BuildOnlineMenu(), BuildLiveMenu(), tools, help });
+        var online = BuildOnlineMenu();
+        var live = BuildLiveMenu();
+        _menuFile = file; _menuGroups = groups; _menuTools = tools; _menuOnline = online; _menuLive = live;
+        _menu.Items.AddRange(new ToolStripItem[] { file, groups, play, study, Adv(BuildSmartMenu()), Adv(BuildBoldMenu()), online, live, tools, help });
+    }
+
+    // القوايم اللي بتتنقل في الوضع البسيط
+    private ToolStripMenuItem _menuFile = null!, _menuGroups = null!, _menuTools = null!, _menuOnline = null!, _menuLive = null!;
+    private readonly ToolStripSeparator _fileNestSep = new(), _onlineNestSep = new();
+
+    /// <summary>
+    /// الوضع البسيط: 5 قوايم بس فوق (ملف، التشغيل، مذاكرة، إنترنت، مساعدة).
+    /// «الكورسات والمحاضرات» و«أدوات» بيبقوا جوه «ملف»، و«بث مباشر» جوه «إنترنت» — نفس الأوامر ونفس الاختصارات.
+    /// الوضع المتقدم: كل قايمة لوحدها زي ما كانت.
+    /// </summary>
+    private void ArrangeMenus(bool adv)
+    {
+        if (_menuFile == null) return;
+        bool nested = _menuFile.DropDownItems.Contains(_menuGroups);
+        if (!adv && !nested)
+        {
+            _menu.SuspendLayout();
+            _menu.Items.Remove(_menuGroups);
+            _menu.Items.Remove(_menuTools);
+            _menu.Items.Remove(_menuLive);
+            _menuFile.DropDownItems.Insert(0, _menuGroups);
+            _menuFile.DropDownItems.Insert(1, _menuTools);
+            _menuFile.DropDownItems.Insert(2, _fileNestSep);
+            _menuOnline.DropDownItems.Insert(0, _menuLive);
+            _menuOnline.DropDownItems.Insert(1, _onlineNestSep);
+            _menu.ResumeLayout(true);
+        }
+        else if (adv && nested)
+        {
+            _menu.SuspendLayout();
+            _menuFile.DropDownItems.Remove(_menuGroups);
+            _menuFile.DropDownItems.Remove(_menuTools);
+            _menuFile.DropDownItems.Remove(_fileNestSep);
+            _menuOnline.DropDownItems.Remove(_menuLive);
+            _menuOnline.DropDownItems.Remove(_onlineNestSep);
+            _menu.Items.Insert(_menu.Items.IndexOf(_menuFile) + 1, _menuGroups);
+            _menu.Items.Insert(_menu.Items.IndexOf(_menuOnline) + 1, _menuLive);
+            _menu.Items.Insert(_menu.Items.IndexOf(_menuLive) + 1, _menuTools);
+            _menu.ResumeLayout(true);
+        }
     }
 
     private static ToolStripMenuItem SubMenu(string text, params ToolStripItem[] items)
