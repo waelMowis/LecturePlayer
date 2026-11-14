@@ -16,6 +16,48 @@ internal sealed partial class MainForm
     private bool _liveTriedResolver;
     private LiveForm? _liveForm;
     private DateTime? _sleepAtUtc;
+    private readonly RadioVisual _radioVisual = new();
+    private bool _liveReconnecting;
+    private static readonly HttpClient LogoHttp = new() { Timeout = TimeSpan.FromSeconds(8) };
+
+    /// <summary>
+    /// شاشة الراديو مكان الفيديو: دايمًا للراديو، وللتليفزيون وهو بيتصل أو لو البث مفيهوش صورة.
+    /// بتتنادى من التايمر (4 مرات في الثانية).
+    /// </summary>
+    private void UpdateRadioVisual()
+    {
+        var ch = _currentLive;
+        bool show = false;
+        if (ch != null)
+        {
+            var state = _mp.State;
+            bool playing = state == VLCState.Playing;
+            show = ch.Kind == LiveKind.Radio || !playing || _mp.VideoTrackCount <= 0;
+            _radioVisual.SetStatus(_liveReconnecting ? RadioVisual.Status.Reconnecting
+                : playing ? RadioVisual.Status.Playing
+                : state == VLCState.Paused ? RadioVisual.Status.Paused
+                : RadioVisual.Status.Connecting);
+            if (playing) _liveReconnecting = false;
+        }
+        if (_radioVisual.Visible != show) _radioVisual.Visible = show;
+    }
+
+    private async Task LoadLogoAsync(LiveChannel ch)
+    {
+        if (string.IsNullOrWhiteSpace(ch.Logo) || !Uri.TryCreate(ch.Logo, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)) return;
+        try
+        {
+            using var resp = await LogoHttp.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
+            if (!resp.IsSuccessStatusCode || resp.Content.Headers.ContentLength > 2_000_000) return;
+            var bytes = await resp.Content.ReadAsByteArrayAsync();
+            if (bytes.Length > 2_000_000) return;
+            Image img;
+            try { img = Image.FromStream(new MemoryStream(bytes)); } catch { return; } // svg أو صيغة مش مدعومة: نسيب الأيقونة
+            if (_currentLive == ch && !_closing) _radioVisual.SetLogo(img); else img.Dispose();
+        }
+        catch { /* اللوجو مش مهم */ }
+    }
 
     private void ShowLiveWindow()
     {
@@ -47,7 +89,12 @@ internal sealed partial class MainForm
         _liveNowPlaying = null;
         _liveRetries = 0;
         _liveTriedResolver = false;
+        _liveReconnecting = false;
         ApplyRateSilently(1f);
+        string subtitle = string.Join("  ·  ", new[] { ch.Group, FirstTags(ch.Tags) }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        _radioVisual.Start(ch.Name, subtitle, ch.Kind == LiveKind.Tv);
+        _radioVisual.Visible = true;
+        _ = LoadLogoAsync(ch);
         int request = ++_playRequest;
         _ = StartLiveAsync(ch, request, useResolver: !M3u.IsDirectStream(ch.Url));
         UpdateNowPlaying();
@@ -85,7 +132,13 @@ internal sealed partial class MainForm
                 if (e.MetadataType is not (MetadataType.NowPlaying or MetadataType.Title)) return;
                 string? now = null;
                 try { now = media.Meta(MetadataType.NowPlaying); } catch { }
-                Ui(() => { if (_currentLive == ch && _currentMedia == media) { _liveNowPlaying = Clean(now); UpdateNowPlaying(); } });
+                Ui(() =>
+                {
+                    if (_currentLive != ch || _currentMedia != media) return;
+                    _liveNowPlaying = Clean(now);
+                    _radioVisual.SetNowPlaying(_liveNowPlaying);
+                    UpdateNowPlaying();
+                });
             };
             var old = _currentMedia;
             _currentMedia = media;
@@ -106,10 +159,19 @@ internal sealed partial class MainForm
         }
     }
 
+    private static string? FirstTags(string? tags)
+    {
+        if (string.IsNullOrWhiteSpace(tags)) return null;
+        var parts = tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Take(3);
+        return string.Join("، ", parts);
+    }
+
+    /// <summary>اللي المحطة بتبعته كاسم «اللي بيتذاع» — نتجاهل الفاضي والعلامات لوحدها زي «-».</summary>
     private static string? Clean(string? s)
     {
         if (string.IsNullOrWhiteSpace(s)) return null;
-        s = s.Trim();
+        s = s.Trim().Trim('-', '|', '.', ' ');
+        if (!s.Any(char.IsLetterOrDigit)) return null;
         return s.Length > 120 ? s[..120] + "…" : s;
     }
 
@@ -122,6 +184,7 @@ internal sealed partial class MainForm
         if (_liveRetries < 3)
         {
             _liveRetries++;
+            _liveReconnecting = true;
             int attempt = _liveRetries;
             ShowStatus($"البث وقف… بحاول أرجع ({attempt}/3)", 10);
             int request = ++_playRequest;

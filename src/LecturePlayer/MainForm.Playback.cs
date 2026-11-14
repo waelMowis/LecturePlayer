@@ -527,6 +527,7 @@ internal sealed partial class MainForm
     private void OnUiTick()
     {
         _tick++;
+        UpdateRadioVisual();
         var v = _currentVideo;
 
         if (v != null && IsActive)

@@ -162,7 +162,14 @@ internal sealed partial class MainForm : Form
 
         _videoArea.Controls.Add(_videoView);
         _videoArea.Controls.Add(_welcome);
+        _videoArea.Controls.Add(_radioVisual);
+        _radioVisual.Dock = DockStyle.Fill;
+        _radioVisual.Visible = false;
         _welcome.BringToFront();
+        _radioVisual.BringToFront();
+        _radioVisual.MouseDoubleClick += (_, e) => { if (e.Button == MouseButtons.Left) { if (_miniMode) ToggleMiniMode(); else ToggleFullscreen(); } };
+        _radioVisual.MouseUp += (_, e) => { if (e.Button == MouseButtons.Right) ShowVideoMenu(_videoView.PointToClient(_radioVisual.PointToScreen(e.Location))); };
+        _radioVisual.MouseWheel += (_, e) => SetVolume(_settings.Volume + (e.Delta > 0 ? 5 : -5));
 
         // ---------- القايمة الجانبية ----------
         BuildSidePanel();
