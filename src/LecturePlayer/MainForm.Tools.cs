@@ -104,6 +104,7 @@ internal sealed partial class MainForm
             Bounds = new Rectangle(area.Right - size.Width - 16, area.Bottom - size.Height - 16, size.Width, size.Height);
             TopMost = true;
             ResumeLayout(true);
+            RefitVideo();
             ShowStatus("المشغل الصغير — P أو Esc أو دبل كليك للرجوع");
         }
         else
@@ -120,7 +121,40 @@ internal sealed partial class MainForm
             SetMiniControls(false);
             ResumeLayout(true);
             ApplySidePanelWidth();
+            RefitVideo();
         }
+    }
+
+    /// <summary>
+    /// بعد ما الشباك يصغر أو يكبر فجأة (المشغل الصغير/ملء الشاشة)، المشغل ساعات بيكمّل يرسم بالمقاس القديم
+    /// فيبان جزء من الصورة بس. بنرجّع الصورة «على قد الشباك» ونخلّي المشغل يحس بالمقاس الجديد.
+    /// </summary>
+    private void RefitVideo()
+    {
+        void Fit()
+        {
+            if (IsDisposed) return;
+            try
+            {
+                _mp.Scale = 0;              // 0 = على قد المساحة
+                _mp.AspectRatio = null;     // نسبة الفيديو الأصلية
+            }
+            catch { }
+            // هزّة صغيرة لمساحة الفيديو: المشغل بيعيد حساب مقاسه
+            var host = _videoView.Parent;
+            if (host != null && WindowState == FormWindowState.Normal)
+            {
+                var s = Size;
+                Size = new Size(s.Width + 1, s.Height);
+                Size = s;
+            }
+            _videoView.Invalidate();
+        }
+        BeginInvoke(Fit);
+        // ومرة كمان بعد ما الويندوز يخلص رسم الشباك بمقاسه الجديد
+        var t = new System.Windows.Forms.Timer { Interval = 300 };
+        t.Tick += (_, _) => { t.Stop(); t.Dispose(); Fit(); };
+        t.Start();
     }
 
     /// <summary>

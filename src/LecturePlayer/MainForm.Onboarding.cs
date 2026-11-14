@@ -269,6 +269,16 @@ internal sealed partial class MainForm
         Console.WriteLine($"SMOKE playback: state {state}, time {time} ms");
         if (state == VLCState.Error) throw new Exception("playback: VLC error playing a local audio file");
         if (state != VLCState.Playing || time <= 0) throw new Exception($"playback: never started (state {state}, time {time})");
+        // المشغل الصغير وملء الشاشة والفيديو شغال: الصورة لازم تتظبط على المقاس الجديد من غير أخطاء
+        PlayVideo(group0, tone, 0);
+        foreach (Action toggle in new Action[] { ToggleMiniMode, ToggleMiniMode, ToggleFullscreen, ToggleFullscreen })
+        {
+            toggle();
+            var wait = DateTime.UtcNow.AddMilliseconds(500);
+            while (DateTime.UtcNow < wait) { Application.DoEvents(); Thread.Sleep(20); }
+        }
+        if (_miniMode || _fullscreen) throw new Exception("mini/fullscreen did not toggle back");
+        Console.WriteLine($"SMOKE mini/fullscreen: ok, scale {_mp.Scale}");
         StopPlayback();
         Application.DoEvents();
     }

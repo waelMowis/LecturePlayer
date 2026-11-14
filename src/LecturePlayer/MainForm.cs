@@ -1138,6 +1138,7 @@ internal sealed partial class MainForm : Form
             WindowState = FormWindowState.Normal;
             Bounds = Screen.FromControl(this).Bounds;
             ResumeLayout(true);
+            RefitVideo();
             _lastMouseActivity = DateTime.Now;
             ShowStatus("Esc للخروج من ملء الشاشة");
         }
@@ -1153,6 +1154,7 @@ internal sealed partial class MainForm : Form
             SetChromeless(false);
             ControlChromeVisible = true;
             ResumeLayout(true);
+            RefitVideo();
             ApplySidePanelWidth();
         }
     }
