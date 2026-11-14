@@ -30,6 +30,7 @@ internal sealed partial class MainForm
         _mp.EndReached += (_, _) => Ui(OnEndReached);
         _mp.EncounteredError += (_, _) => Ui(() =>
         {
+            DumpVlcLog("error");
             // فيديو من النت: نجرّب رابط جديد بطريقة تانية قبل ما نقول إنه فشل
             if (TryRecoverLive()) return;
             if (!TryRecoverOnlineError()) ShowBanner("الفيديو ده مش راضي يشتغل — الملف ممكن يكون بايظ أو ناقص", BannerKind.Error, "الفيديو اللي بعده", () => PlayNext(false), seconds: 12);

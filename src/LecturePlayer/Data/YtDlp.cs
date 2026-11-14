@@ -15,7 +15,11 @@ public sealed record OnlineListing(string? Title, bool IsPlaylist, List<OnlineEn
 /// <param name="IsLive">بث مباشر (يوتيوب لايف…).</param>
 /// <param name="ManifestUrl">قايمة البث الرئيسية (HLS master) بكل الجودات، عشان VLC يغيّر الجودة لوحده حسب النت.</param>
 public sealed record OnlineStream(string VideoUrl, string? AudioUrl, string? UserAgent, string? Referer, long DurationMs,
-    bool IsLive = false, string? ManifestUrl = null);
+    bool IsLive = false, string? ManifestUrl = null, IReadOnlyList<StreamPart>? Parts = null);
+
+/// <summary>جزء من التشغيل (الصورة أو الصوت أو الاتنين) بالصيغة والهيدرز اللي yt-dlp استخدمها بالظبط.</summary>
+public sealed record StreamPart(string FormatId, string Url, string Protocol, bool HasVideo, bool HasAudio,
+    IReadOnlyDictionary<string, string> Headers, string Description);
 
 /// <summary>
 /// التعامل مع yt-dlp (نفس الأداة اللي PotPlayer بيستخدمها لليوتيوب).
@@ -209,12 +213,16 @@ public static class YtDlp
     public static async Task<OnlineStream> ResolveAsync(string url, int maxHeight, CancellationToken ct, StreamMode mode = StreamMode.Best)
     {
         // proto: يفضّل https العادي على m3u8 (VLC بيشغّله أسهل)، وh264/m4a لأنهم أضمن مع VLC
-        string sort = (maxHeight > 0 ? $"res:{maxHeight}," : "") + "proto,vcodec:h264,acodec:m4a";
-        var args = new List<string>
-        {
-            "-j", "--no-playlist",
-            "-f", mode == StreamMode.Muxed ? "b/bv*+ba" : "bv*+ba/b", "-S", sort
-        };
+        // الصوت: من غير تفضيل m4a — yt-dlp بيختار أحسن صوت متاح (غالبًا opus زي PotPlayer)، وVLC بيشغّله عادي
+        string sort = (maxHeight > 0 ? $"res:{maxHeight}," : "") + "proto,vcodec:h264" + (mode == StreamMode.Muxed ? ",acodec:m4a" : "");
+        return await ResolveFormatAsync(url, mode == StreamMode.Muxed ? "b/bv*+ba" : "bv*+ba/b", sort, ct);
+    }
+
+    /// <summary>رابط جديد لنفس الصيغة بالظبط (بيستخدمه الوسيط لما يوتيوب يرفض الرابط القديم في النص).</summary>
+    public static async Task<OnlineStream> ResolveFormatAsync(string url, string format, string? sort, CancellationToken ct)
+    {
+        var args = new List<string> { "-j", "--no-playlist", "-f", format };
+        if (!string.IsNullOrEmpty(sort)) { args.Add("-S"); args.Add(sort); }
         args.AddRange(CommonArgs());
         args.Add(NormalizeUrl(url));
 
@@ -232,6 +240,7 @@ public static class YtDlp
         var root = doc.RootElement;
 
         string? videoUrl = null, audioUrl = null;
+        var parts = new List<StreamPart>();
         if (root.TryGetProperty("requested_formats", out var formats) && formats.ValueKind == JsonValueKind.Array)
         {
             foreach (var f in formats.EnumerateArray())
@@ -241,9 +250,14 @@ public static class YtDlp
                 bool hasVideo = Str(f, "vcodec") is { } vc && vc != "none";
                 if (hasVideo && videoUrl == null) videoUrl = u;
                 else if (!hasVideo && audioUrl == null) audioUrl = u;
+                parts.Add(PartFrom(f, root, u));
             }
         }
-        videoUrl ??= Str(root, "url");
+        if (videoUrl == null && Str(root, "url") is { } single)
+        {
+            videoUrl = single;
+            parts.Add(PartFrom(root, root, single));
+        }
         if (videoUrl == null) throw new InvalidOperationException("أداة يوتيوب مرجّعتش رابط تشغيل");
 
         string? userAgent = null, referer = null;
@@ -254,7 +268,24 @@ public static class YtDlp
         }
         bool isLive = root.TryGetProperty("is_live", out var live) && live.ValueKind == JsonValueKind.True;
         string? manifest = Str(root, "manifest_url");
-        return new OnlineStream(videoUrl, audioUrl, userAgent, referer, Seconds(root, "duration"), isLive, manifest);
+        return new OnlineStream(videoUrl, audioUrl, userAgent, referer, Seconds(root, "duration"), isLive, manifest, parts);
+    }
+
+    private static StreamPart PartFrom(JsonElement f, JsonElement root, string url)
+    {
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var src in new[] { root, f }) // هيدرز الصيغة نفسها بتكسب
+        {
+            if (src.TryGetProperty("http_headers", out var h) && h.ValueKind == JsonValueKind.Object)
+                foreach (var p in h.EnumerateObject())
+                    if (p.Value.ValueKind == JsonValueKind.String) headers[p.Name] = p.Value.GetString()!;
+        }
+        string vcodec = Str(f, "vcodec") ?? "", acodec = Str(f, "acodec") ?? "";
+        bool hasVideo = vcodec != "none" && vcodec != "";
+        bool hasAudio = acodec != "none" && acodec != "";
+        if (!hasVideo && !hasAudio) { hasVideo = true; hasAudio = true; } // صيغة من غير بيانات: نعتبرها كاملة
+        string desc = $"{Str(f, "format_id")} {Str(f, "protocol")} {vcodec}/{acodec} {(f.TryGetProperty("height", out var hh) && hh.ValueKind == JsonValueKind.Number ? hh.GetInt32() + "p" : "")}";
+        return new StreamPart(Str(f, "format_id") ?? "", url, Str(f, "protocol") ?? "", hasVideo, hasAudio, headers, desc.Trim());
     }
 
     // =====================================================================

@@ -372,7 +372,13 @@ internal sealed partial class MainForm
                 v.DurationMs = stream.DurationMs;
                 MarkDirty();
             }
-            PlayStream(stream.VideoUrl, stream.AudioUrl, stream.UserAgent, stream.Referer, startMs);
+            if (!stream.IsLive && ProxyUrls(v, stream) is { } proxied)
+                PlayStream(proxied.Video, proxied.Audio, null, null, startMs);
+            else
+            {
+                Log.Info("online stream (direct): " + string.Join(" + ", (stream.Parts ?? Array.Empty<StreamPart>()).Select(p => p.Description)));
+                PlayStream(stream.VideoUrl, stream.AudioUrl, stream.UserAgent, stream.Referer, startMs);
+            }
             RefreshVideo(v);
             RefreshGroup(_currentGroup);
         }
@@ -395,6 +401,42 @@ internal sealed partial class MainForm
         finally
         {
             if (_resolvingVideo == v) _resolvingVideo = null;
+        }
+    }
+
+    /// <summary>
+    /// روابط يوتيوب العادية (https) بتعدّي على الوسيط المحلي: نفس هيدرز أداة يوتيوب، وأجزاء صغيرة،
+    /// ولو الرابط اترفض في النص بيتجدد لوحده. البث (m3u8) بيروح لـ VLC مباشرة.
+    /// </summary>
+    private (string Video, string? Audio)? ProxyUrls(VideoItem v, OnlineStream stream)
+    {
+        var parts = stream.Parts;
+        if (parts == null || parts.Count == 0 || parts.Count > 2) return null;
+        if (parts.Any(p => !p.Protocol.StartsWith("http", StringComparison.OrdinalIgnoreCase))) return null;
+        try
+        {
+            var proxy = StreamProxy.Shared;
+            string pageUrl = v.Path;
+            string Register(StreamPart part)
+            {
+                string fmt = part.FormatId;
+                return proxy.Register(part.Url, part.Headers, async ct =>
+                {
+                    if (string.IsNullOrEmpty(fmt)) return null;
+                    var fresh = await YtDlp.ResolveFormatAsync(pageUrl, fmt, null, ct);
+                    var p = fresh.Parts?.FirstOrDefault(x => x.FormatId == fmt) ?? fresh.Parts?.FirstOrDefault();
+                    return p == null ? null : (p.Url, p.Headers);
+                }, out _);
+            }
+            var videoPart = parts.FirstOrDefault(p => p.HasVideo) ?? parts[0];
+            var audioPart = parts.FirstOrDefault(p => p != videoPart);
+            Log.Info("online stream (proxy): " + string.Join(" + ", parts.Select(p => p.Description)));
+            return (Register(videoPart), audioPart == null ? null : Register(audioPart));
+        }
+        catch (Exception ex)
+        {
+            Log.Error("stream proxy", ex);
+            return null;
         }
     }
 

@@ -82,6 +82,16 @@ internal sealed partial class MainForm : Form
 
     private int _tick;
     private DateTime _statusMessageUntil;
+    private readonly Queue<string> _vlcLog = new();
+
+    /// <summary>بيكتب آخر رسايل VLC في السجل (بيتنده لما فيديو يفشل).</summary>
+    private void DumpVlcLog(string why)
+    {
+        string[] lines;
+        lock (_vlcLog) { lines = _vlcLog.ToArray(); _vlcLog.Clear(); }
+        if (lines.Length > 0) Log.Info($"vlc log ({why}):\n    " + string.Join("\n    ", lines.TakeLast(15)));
+    }
+
     private bool _closing;
     private bool _shutdownDone;
 
@@ -94,6 +104,17 @@ internal sealed partial class MainForm : Form
         var vlcOptions = new List<string> { "--no-video-title-show" };
         if (_settings.NormalizeAudio) vlcOptions.Add("--audio-filter=normvol"); // توحيد مستوى الصوت
         _libVLC = new LibVLC(vlcOptions.ToArray());
+        // آخر تحذيرات/أخطاء VLC بتتحفظ في الذاكرة، وبتتكتب في السجل لما فيديو يفشل (عشان نعرف السبب الحقيقي)
+        _libVLC.Log += (_, e) =>
+        {
+            if (e.Level < LogLevel.Warning) return;
+            lock (_vlcLog)
+            {
+                _vlcLog.Enqueue($"{e.Level} {e.Module}: {e.Message}");
+                while (_vlcLog.Count > 30) _vlcLog.Dequeue();
+            }
+        };
+        StreamProxy.Trace = Log.Info;
         Log.Info("app started" + (_settings.NormalizeAudio ? " (normvol)" : ""));
         _mp = new MediaPlayer(_libVLC)
         {
