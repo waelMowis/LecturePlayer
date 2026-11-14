@@ -110,7 +110,39 @@
            Text="مكتبات VLC (libvlc\win-x64) مش موجودة في النشر، والمثبّت كان هيطلع بايظ. اعمل Build عادي مرة (Release) وبعدين Publish تاني." />
   </Target>
 
-  <Target Name="LpRelease" AfterTargets="Publish" DependsOnTargets="LpStampVersion;LpEnsureLibVlc" Condition="'$(LpRelease)' == 'true'">
+  <!-- أدوات يوتيوب جوه المثبّت: yt-dlp وDeno بيتنزلوا من GitHub الرسمي وقت النشر (أحدث نسخة)
+       وبيتحطوا جنب البرنامج، فالمستخدم مايتطلبش منه ينزّل حاجة أول مرة.
+       لو التنزيل فشل (من غير نت مثلًا) بنستخدم آخر نسخة متنزلة، ولو مفيش: تحذير والمثبّت يطلع من غيرهم.
+       لإلغاء الدمج: -p:LpBundleTools=false -->
+  <Target Name="LpBundleTools" Condition="'$(LpRelease)' == 'true' and '$(LpBundleTools)' != 'false'">
+    <PropertyGroup>
+      <LpToolsCache>$(LpReleasesRoot)\_tools</LpToolsCache>
+    </PropertyGroup>
+    <RemoveDir Directories="$(LpToolsCache)\new" />
+
+    <DownloadFile SourceUrl="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+                  DestinationFolder="$(LpToolsCache)\new" DestinationFileName="yt-dlp.exe" Retries="2" ContinueOnError="WarnAndContinue">
+      <Output TaskParameter="DownloadedFile" ItemName="LpGotYtDlp" />
+    </DownloadFile>
+    <Copy Condition="'@(LpGotYtDlp)' != ''" SourceFiles="@(LpGotYtDlp)" DestinationFolder="$(LpToolsCache)" />
+
+    <DownloadFile SourceUrl="https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip"
+                  DestinationFolder="$(LpToolsCache)\new" DestinationFileName="deno.zip" Retries="2" ContinueOnError="WarnAndContinue">
+      <Output TaskParameter="DownloadedFile" ItemName="LpGotDeno" />
+    </DownloadFile>
+    <Unzip Condition="'@(LpGotDeno)' != ''" SourceFiles="@(LpGotDeno)" DestinationFolder="$(LpToolsCache)" OverwriteReadOnlyFiles="true" ContinueOnError="WarnAndContinue" />
+    <RemoveDir Directories="$(LpToolsCache)\new" />
+
+    <Copy Condition="Exists('$(LpToolsCache)\yt-dlp.exe')" SourceFiles="$(LpToolsCache)\yt-dlp.exe" DestinationFolder="$(LpStaging)" />
+    <Copy Condition="Exists('$(LpToolsCache)\deno.exe')" SourceFiles="$(LpToolsCache)\deno.exe" DestinationFolder="$(LpStaging)" />
+    <Copy SourceFiles="$(LpRoot)\installer\THIRD-PARTY-NOTICES.txt" DestinationFolder="$(LpStaging)" Condition="Exists('$(LpRoot)\installer\THIRD-PARTY-NOTICES.txt')" />
+
+    <Message Condition="Exists('$(LpStaging)\yt-dlp.exe') and Exists('$(LpStaging)\deno.exe')" Importance="high" Text="✓ أدوات يوتيوب (yt-dlp + Deno) اتضافت للمثبّت" />
+    <Warning Condition="!Exists('$(LpStaging)\yt-dlp.exe') or !Exists('$(LpStaging)\deno.exe')"
+             Text="مقدرتش أجيب أدوات يوتيوب (yt-dlp / Deno) للمثبّت، فالبرنامج هيطلب ينزّلهم أول مرة زي الأول." />
+  </Target>
+
+  <Target Name="LpRelease" AfterTargets="Publish" DependsOnTargets="LpStampVersion;LpEnsureLibVlc;LpBundleTools" Condition="'$(LpRelease)' == 'true'">
     <PropertyGroup>
       <LpIss>$(LpRoot)\installer\LecturePlayer.iss</LpIss>
       <LpSetupName>Masar-Setup-$(Version)</LpSetupName>
