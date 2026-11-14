@@ -281,16 +281,21 @@ internal sealed partial class MainForm
         // المشغل الصغير وملء الشاشة بفيديو فيه صورة فعلًا (صورة PNG بيعرضها VLC كفيديو):
         // شباك VLC لازم يغطي مساحة الفيديو بالظبط بعد كل تغيير مقاس
         string png = Path.Combine(dir, "frame.png");
-        using (var bmp = new Bitmap(640, 360))
+        using (var bmp = new Bitmap(1920, 1080))
         using (var g = Graphics.FromImage(bmp))
         {
             g.Clear(Color.DarkSlateBlue);
-            g.FillEllipse(Brushes.Gold, 220, 80, 200, 200);
+            g.FillEllipse(Brushes.Gold, 760, 340, 400, 400);
             bmp.Save(png, System.Drawing.Imaging.ImageFormat.Png);
         }
         var picture = new VideoItem { Path = png, Title = "Frame", DurationMs = 10000 };
         group0.Videos.Insert(1, picture);
         void Pump(int ms) { var w = DateTime.UtcNow.AddMilliseconds(ms); while (DateTime.UtcNow < w) { Application.DoEvents(); Thread.Sleep(20); } }
+        // شباك كبير الأول (زي جهاز المستخدم) عشان المشغل الصغير يبقى أصغر منه بكتير
+        WindowState = FormWindowState.Normal;
+        var wa = Screen.FromControl(this).WorkingArea;
+        Bounds = new Rectangle(wa.Left, wa.Top, wa.Width, wa.Height);
+        Pump(300);
         PlayVideo(group0, picture, 0);
         var vu = DateTime.UtcNow.AddSeconds(20);
         while (DateTime.UtcNow < vu && VlcWindowsMisfit() == "no vlc window") Pump(100);

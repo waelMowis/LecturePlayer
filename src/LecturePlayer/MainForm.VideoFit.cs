@@ -60,18 +60,16 @@ internal sealed partial class MainForm
         try { FitChildren(_videoView.Handle, depth: 0); } catch { }
     }
 
-    private static void FitChildren(IntPtr parent, int depth)
+    /// <summary>بس شبابيك VLC اللي على طول جوه مساحة الفيديو (VLC بيحط الصورة جواها بنسبتها الصح).</summary>
+    private static void FitChildren(IntPtr parent, int depth, bool topOnly = true)
     {
-        if (depth > 3) return;
         if (!GetClientRect(parent, out var rc)) return;
         int w = rc.Right - rc.Left, h = rc.Bottom - rc.Top;
         if (w <= 0 || h <= 0) return;
         for (IntPtr child = GetWindow(parent, GW_CHILD); child != IntPtr.Zero; child = GetWindow(child, GW_HWNDNEXT))
-        {
             SetWindowPos(child, IntPtr.Zero, 0, 0, w, h, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_ASYNCWINDOWPOS);
-            FitChildren(child, depth + 1);
-        }
     }
+
 
     /// <summary>للفحص: هل كل شبابيك VLC مغطية مساحة الفيديو بالظبط؟ بيرجّع وصف أول شباك مش مظبوط (أو null).</summary>
     internal string? VlcWindowsMisfit()
