@@ -450,17 +450,58 @@ internal sealed partial class MainForm
         var v = _currentVideo;
         if (v == null || !v.IsOnline || PlayableLocalFile(v) != null) return false;
 
-        long at = v.DurationMs > 0 ? (long)(_seekBar.Value * v.DurationMs) : 0;
+        // المحاولات بالترتيب (كل فيديو بيبدأ من الأول لما المستخدم يشغّله):
+        // 1) ملف واحد (صورة وصوت مع بعض) من نفس النقطة
+        // 2) ملف واحد من الأول، وبعد ما يشتغل نروح للنقطة (VLC ساعات بيفشل لو بدأ من نص فيديو طويل)
+        // 3) أعلى جودة من الأول وبعدين نروح للنقطة
         if (_onlineRetryFor != v)
         {
             _onlineRetryFor = v;
-            Log.Info($"vlc error on online video, retrying muxed: {v.Path}");
-            int request = ++_playRequest;
-            _ = PlayOnlineAsync(request, v, at, YtDlp.StreamMode.Muxed);
-            return true;
+            _onlineRetryStage = 0;
+            _onlineRetryAtMs = v.DurationMs > 0 ? (long)(_seekBar.Value * v.DurationMs) : 0;
+            if (_onlineRetryAtMs <= 0) _onlineRetryAtMs = Math.Max(0, v.LastPositionMs);
         }
+        long at = _onlineRetryAtMs;
+        _onlineRetryStage++;
+        int request;
+        switch (_onlineRetryStage)
+        {
+            case 1:
+                Log.Info($"vlc error on online video, retrying muxed from {at}ms: {v.Path}");
+                request = ++_playRequest;
+                _ = PlayOnlineAsync(request, v, at, YtDlp.StreamMode.Muxed);
+                return true;
+            case 2:
+                Log.Info($"vlc error again, retrying muxed from start then seek to {at}ms: {v.Path}");
+                _seekAfterPlayingMs = at;
+                request = ++_playRequest;
+                _ = PlayOnlineAsync(request, v, 0, YtDlp.StreamMode.Muxed);
+                return true;
+            case 3:
+                Log.Info($"vlc error again, retrying best from start then seek to {at}ms: {v.Path}");
+                _seekAfterPlayingMs = at;
+                request = ++_playRequest;
+                _ = PlayOnlineAsync(request, v, 0, YtDlp.StreamMode.Best);
+                return true;
+        }
+        _seekAfterPlayingMs = -1;
+        Log.Info($"online video failed after {_onlineRetryStage - 1} retries: {v.Path}");
         ShowOnlineFailure(v, "مشغل الفيديو مقدرش يفتح الرابط اللي الموقع رجّعه.");
         return true;
+    }
+
+    private int _onlineRetryStage;
+    private long _onlineRetryAtMs;
+    /// <summary>نقطة نروحلها أول ما الفيديو يشتغل فعلًا (بدل :start-time اللي ساعات بيوقّع VLC مع روابط النت).</summary>
+    private long _seekAfterPlayingMs = -1;
+
+    /// <summary>بتتنده من OnPlaying.</summary>
+    private void ApplyDeferredSeek()
+    {
+        if (_seekAfterPlayingMs <= 0) return;
+        long t = _seekAfterPlayingMs;
+        _seekAfterPlayingMs = -1;
+        try { _mp.Time = t; ShowStatus($"استكمال من {TimeFormat.Format(t)}", 3); } catch { }
     }
 
     private void ShowOnlineFailure(VideoItem v, string raw)
@@ -469,13 +510,30 @@ internal sealed partial class MainForm
         ShowStatus("الفيديو ده مش راضي يشتغل", 6);
         if (recoverable)
         {
+            string size = EstimateDownloadSize(v);
             if (Dialogs.Confirm(this,
-                    $"مقدرتش أشغّل «{v.Title}» من النت:\n\n{message}\n\n" +
-                    "تحب أنزّله على الجهاز وأشغّله منه؟ (أضمن طريقة، وبعدها يشتغل من غير نت)", "فيديو من النت"))
+                    $"مقدرتش أشغّل «{v.Title}» من النت بعد كذا محاولة:\n\n{message}\n\n" +
+                    "• «أيوه»: أنزّله على الجهاز وأشغّله منه (أضمن طريقة، ومن غير نت بعد كده)." + size + "\n" +
+                    "   تقدر تمسحه بعدين: كليك يمين على الفيديو ← مسح النسخة المتنزلة.\n" +
+                    "• «لأ»: أفتحه في المتصفح بدل كده.", "فيديو من النت"))
                 _ = DownloadThenPlayAsync(v);
+            else
+                OpenInBrowser(YtDlp.NormalizeUrl(v.Path));
         }
         else if (Dialogs.Confirm(this, $"مقدرتش أشغّل «{v.Title}»:\n\n{message}\n\nتحب تفتحه في المتصفح؟", "فيديو من النت"))
             OpenInBrowser(YtDlp.NormalizeUrl(v.Path));
+    }
+
+    /// <summary>حجم تقريبي للتنزيل حسب المدة والجودة (عشان المستخدم يعرف هياخد قد إيه من الجهاز).</summary>
+    private string EstimateDownloadSize(VideoItem v)
+    {
+        if (v.DurationMs <= 0) return "";
+        int h = _settings.OnlineMaxHeight;
+        // ميجا في الساعة تقريبًا (فيديو + صوت) لفيديوهات المحاضرات/التلاوات
+        double mbPerHour = h is > 0 and <= 360 ? 300 : h is > 0 and <= 480 ? 450 : h is > 0 and <= 720 ? 800 : 1500;
+        double mb = mbPerHour * v.DurationMs / 3_600_000.0;
+        string text = mb >= 1024 ? $"{mb / 1024:0.#} جيجا" : $"{Math.Max(1, mb):0} ميجا";
+        return $"\n   الحجم التقريبي: {text} (تقدر تقلله من منيو إنترنت ← الجودة).";
     }
 
     private async Task DownloadThenPlayAsync(VideoItem v)

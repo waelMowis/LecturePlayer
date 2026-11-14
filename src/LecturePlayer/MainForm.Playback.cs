@@ -56,6 +56,7 @@ internal sealed partial class MainForm
         UpdatePlayButton();
         AttachTranscriptSubtitle();
         PrepareSilence();
+        ApplyDeferredSeek();
     }
 
     private void OnLengthChanged(long length)
@@ -109,6 +110,7 @@ internal sealed partial class MainForm
 
         // تشغيل جديد من المستخدم: محاولات الإنقاذ بتاعة فيديوهات النت تبدأ من الأول
         _onlineRetryFor = null;
+        _seekAfterPlayingMs = -1;
         _currentLive = null; // لو كان فيه بث مباشر شغال
         UpdateBookmarkButton();
         HideBanner("live");
