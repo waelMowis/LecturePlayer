@@ -20,6 +20,29 @@ internal sealed partial class MainForm
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder name, int max);
 
+    /// <summary>للتشخيص: كل عنصر من الفيديو لحد الشباك: نوعه ومقاسه ومكانه.</summary>
+    internal string DescribeLayoutChain()
+    {
+        var sb = new System.Text.StringBuilder();
+        GetWindowRect(Handle, out var f);
+        sb.Append($"form {Bounds} client {ClientSize} win ({f.Left},{f.Top})-({f.Right},{f.Bottom}) state {WindowState}");
+        for (Control? c = _videoView; c != null && c != this; c = c.Parent)
+            sb.Append($" | {c.GetType().Name}{(c.Name.Length > 0 ? ":" + c.Name : "")} {c.Bounds} dock {c.Dock} vis {c.Visible}");
+        sb.Append($" | split dist {_split.SplitterDistance} p1min {_split.Panel1MinSize} p2collapsed {_split.Panel2Collapsed}");
+        return sb.ToString();
+    }
+
+    /// <summary>للفحص: مساحة الفيديو لازم تبقى جوه الشباك.</summary>
+    internal string? VideoAreaOutsideWindow()
+    {
+        if (!_videoView.IsHandleCreated) return null;
+        GetWindowRect(Handle, out var f);
+        GetWindowRect(_videoView.Handle, out var v);
+        if (v.Left < f.Left - 2 || v.Top < f.Top - 2 || v.Right > f.Right + 2 || v.Bottom > f.Bottom + 2)
+            return $"video ({v.Left},{v.Top})-({v.Right},{v.Bottom}) outside window ({f.Left},{f.Top})-({f.Right},{f.Bottom})";
+        return null;
+    }
+
     /// <summary>للتشخيص: شجرة شبابيك مساحة الفيديو بالمقاسات.</summary>
     internal string DescribeVideoWindows()
     {

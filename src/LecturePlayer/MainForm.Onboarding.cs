@@ -317,6 +317,7 @@ internal sealed partial class MainForm
             Pump(800);
             string? misfit = VlcWindowsMisfit();
             Console.WriteLine($"SMOKE {name}: {misfit ?? "fits"} :: {DescribeVideoWindows()}");
+            Console.WriteLine($"SMOKE layout {name}: {VideoAreaOutsideWindow() ?? "inside"} :: {DescribeLayoutChain()}");
             if (misfit != null && misfit != "no vlc window") throw new Exception($"video window does not fit after {name}: {misfit}");
         }
         if (_miniMode || _fullscreen) throw new Exception("mini/fullscreen did not toggle back");
@@ -326,6 +327,7 @@ internal sealed partial class MainForm
         DisableVideoFitForTest = true;
         ToggleMiniMode(); Pump(1000);
         Console.WriteLine($"SMOKE maximized->mini WITHOUT fix: {VlcWindowsMisfit() ?? "fits"} :: {DescribeVideoWindows()}");
+        Console.WriteLine($"SMOKE layout maximized->mini: {VideoAreaOutsideWindow() ?? "inside"} :: {DescribeLayoutChain()}");
         DisableVideoFitForTest = false;
         HealVideoFit(); Pump(500);
         string? mm = VlcWindowsMisfit();
