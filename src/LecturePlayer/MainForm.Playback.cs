@@ -579,5 +579,6 @@ internal sealed partial class MainForm
         if (_statusMessage.Text.Length > 0 && DateTime.Now > _statusMessageUntil) _statusMessage.Text = "";
 
         if (_fullscreen) UpdateFullscreenChrome();
+        if (_activityHome.Active != _welcome.Visible) _activityHome.Active = _welcome.Visible; // الأيقونة منورة وإنت في الرئيسية
     }
 }

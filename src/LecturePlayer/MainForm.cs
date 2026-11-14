@@ -436,6 +436,7 @@ internal sealed partial class MainForm : Form
         _videoArea.BackColor = Theme.Panel;
     }
     private GlyphButton _activityExplorer = null!;
+    private GlyphButton _activityHome = null!;
 
     /// <summary>شريط الأيقونات على طرف الشاشة (زي المحررات الحديثة): القايمة، البحث، المراجعة، الإحصائيات…</summary>
     private void BuildActivityBar()
@@ -460,6 +461,7 @@ internal sealed partial class MainForm : Form
             parent.Controls.Add(b);
             return b;
         }
+        _activityHome = Act(Glyphs.Home, "الرئيسية", "الشاشة الرئيسية: كمّل اللي بدأته، وضيف فيديوهات (Alt+Home)\nلو فيه فيديو شغال، مكانك بيتحفظ وتقدر تكمّل منه", GoHome, top);
         _activityExplorer = Act(Glyphs.Library, "مكتبتي", "مكتبتك: الكورسات والفيديوهات — اضغط تخفيها أو تظهرها (F6)", ToggleSidePanel, top);
         _activityExplorer.Active = true;
         Act(Glyphs.Radio, "بث مباشر", "راديو وتليفزيون على الهوا، ومنهم الحرم المكي والمدني (Ctrl+Shift+L)", ShowLiveWindow, top);
@@ -679,7 +681,7 @@ internal sealed partial class MainForm : Form
             Item("ملء الشاشة", ToggleFullscreen, display: "F11"),
             Item("إظهار / إخفاء المكتبة", ToggleSidePanel, display: "F6"),
             _alwaysOnTopItem = Item("دايمًا فوق الشبابيك التانية", ToggleAlwaysOnTop, display: "T"),
-            Item("الشاشة الرئيسية", GoHome));
+            Item("الشاشة الرئيسية", GoHome, display: "Alt+Home"));
 
         var tracks = SubMenu("الترجمة والصوت");
         tracks.DropDownOpening += (_, _) => BuildTracksMenu(tracks);
@@ -1040,6 +1042,7 @@ internal sealed partial class MainForm : Form
             case Keys.Escape when _fullscreen: ToggleFullscreen(); return true;
             case Keys.Escape when _miniMode: ToggleMiniMode(); return true;
             case Keys.F6: ToggleSidePanel(); return true;
+            case Keys.Alt | Keys.Home: GoHome(); return true;
             case Keys.F1: HelpGuide.Open(this); return true;
             case Keys.Control | Keys.Shift | Keys.L: ShowLiveWindow(); return true;
             case Keys.Control | Keys.F: if (_split.Panel2Collapsed) ToggleSidePanel(); _searchBox.Focus(); return true;
