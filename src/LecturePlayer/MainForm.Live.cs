@@ -93,9 +93,31 @@ internal sealed partial class MainForm
         }
     }
 
+    // تشخيص البث: كل دقيقة بنسجّل إحصائيات المشغل (صور اتعرضت/ضاعت، بيانات بايظة…) عشان أي تقطيع يبان سببه
+    private DateTime _liveStatsUtc = DateTime.MinValue;
+    private int _liveLostPicturesSeen;
+
+    private void LogLiveStats()
+    {
+        if (_currentLive == null || _currentMedia == null || _mp.State != VLCState.Playing) return;
+        if (DateTime.UtcNow - _liveStatsUtc < TimeSpan.FromSeconds(60)) return;
+        _liveStatsUtc = DateTime.UtcNow;
+        try
+        {
+            var st = _currentMedia.Statistics;
+            Log.Info($"live stats: shown {st.DisplayedPictures}, lost pictures {st.LostPictures}, decoded video {st.DecodedVideo}, " +
+                     $"lost audio {st.LostAbuffers}, corrupted {st.DemuxCorrupted}, discontinuity {st.DemuxDiscontinuity}, " +
+                     $"bitrate {st.InputBitrate * 8000:0} kbps");
+            if (st.LostPictures > _liveLostPicturesSeen) DumpVlcLog("live: pictures lost");
+            _liveLostPicturesSeen = st.LostPictures;
+        }
+        catch { }
+    }
+
     private void UpdateRadioVisual()
     {
         LiveWatchdog();
+        LogLiveStats();
         var ch = _currentLive;
         bool show = false;
         if (ch != null)
@@ -185,9 +207,10 @@ internal sealed partial class MainForm
                 _liveTriedResolver = true;
                 if (!await EnsureYtDlpAsync()) return;
                 ShowStatus("بجهّز البث…", 60);
-                var stream = await ResolveWithAutoUpdateAsync(url, YtDlp.StreamMode.Muxed, CancellationToken.None,
-                    () => request == _playRequest && !_closing, LiveMaxHeight);
+                YtDlp.CookiesBrowser = _settings.OnlineCookiesBrowser;
+                var stream = await YtDlp.ResolveLiveAsync(url, LiveMaxHeight, CancellationToken.None);
                 if (stream == null || request != _playRequest || _closing || _currentLive != ch) return;
+                Log.Info($"live stream: {string.Join(" + ", (stream.Parts ?? Array.Empty<StreamPart>()).Select(p => p.Description))}");
                 url = stream.VideoUrl; audio = stream.AudioUrl; userAgent = stream.UserAgent; referer = stream.Referer;
                 // جودة واحدة ثابتة (مش القايمة الرئيسية): تبديل الجودة في نص البث كان بيجمّد الصورة والصوت شغال
             }

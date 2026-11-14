@@ -218,6 +218,17 @@ public static class YtDlp
         return await ResolveFormatAsync(url, mode == StreamMode.Muxed ? "b/bv*+ba" : "bv*+ba/b", sort, ct);
     }
 
+    /// <summary>
+    /// بث مباشر: ملف واحد (صورة وصوت مع بعض) بحد أقصى 30 صورة في الثانية.
+    /// بث الحرم على يوتيوب بييجي 60 صورة في الثانية، وده بيتقل على فك الفيديو فالصورة تقف والصوت يكمّل.
+    /// </summary>
+    public static Task<OnlineStream> ResolveLiveAsync(string url, int maxHeight, CancellationToken ct)
+    {
+        int h = maxHeight > 0 ? maxHeight : 720;
+        string format = $"b[height<={h}][fps<=30]/b[height<={h}]/b";
+        return ResolveFormatAsync(url, format, $"res:{h},fps:30,vcodec:h264", ct);
+    }
+
     /// <summary>رابط جديد لنفس الصيغة بالظبط (بيستخدمه الوسيط لما يوتيوب يرفض الرابط القديم في النص).</summary>
     public static async Task<OnlineStream> ResolveFormatAsync(string url, string format, string? sort, CancellationToken ct, bool forceIpv4 = false)
     {
