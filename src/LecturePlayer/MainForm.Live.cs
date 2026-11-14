@@ -106,7 +106,7 @@ internal sealed partial class MainForm
         {
             var st = _currentMedia.Statistics;
             Log.Info($"live stats: shown {st.DisplayedPictures}, lost pictures {st.LostPictures}, decoded video {st.DecodedVideo}, " +
-                     $"lost audio {st.LostAbuffers}, corrupted {st.DemuxCorrupted}, discontinuity {st.DemuxDiscontinuity}, " +
+                     $"corrupted {st.DemuxCorrupted}, discontinuity {st.DemuxDiscontinuity}, " +
                      $"bitrate {st.InputBitrate * 8000:0} kbps");
             if (st.LostPictures > _liveLostPicturesSeen) DumpVlcLog("live: pictures lost");
             _liveLostPicturesSeen = st.LostPictures;
