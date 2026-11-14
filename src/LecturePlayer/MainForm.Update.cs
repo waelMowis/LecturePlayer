@@ -22,8 +22,10 @@ internal sealed partial class MainForm
     private async void AfterStartupUpdateCheck()
     {
         string current = UpdateChecker.CurrentVersion.ToString(3);
-        if (!string.IsNullOrEmpty(_settings.LastRunVersion) && _settings.LastRunVersion != current)
-            ShowStatus($"اتحدّث «مسار» لـ {current} ✓", 8);
+        if (string.IsNullOrEmpty(_settings.LastRunVersion))
+            ShowStatus("أهلًا بيك في «مسار» 👋  دوس F1 عشان تفتح دليل الاستخدام", 15);
+        else if (_settings.LastRunVersion != current)
+            ShowStatus($"اتحدّث «مسار» لـ {current} ✓  (F1 لدليل الاستخدام)", 10);
         if (_settings.LastRunVersion != current) { _settings.LastRunVersion = current; SaveSettings(); }
 
         if (!_settings.CheckUpdates || UpdateRepo == null) return;

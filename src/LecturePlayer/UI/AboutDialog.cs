@@ -25,7 +25,7 @@ internal static class AboutDialog
             Font = new Font("Segoe UI", 9.75f),
             AutoScaleDimensions = new SizeF(96F, 96F),
             AutoScaleMode = AutoScaleMode.Dpi,
-            ClientSize = new Size(420, 440),
+            ClientSize = new Size(440, 440),
             Padding = new Padding(14, 14, 14, 0),
             KeyPreview = true
         };
@@ -101,7 +101,10 @@ internal static class AboutDialog
         var ok = new PillButton("تمام", PillStyle.Primary) { Size = new Size(96, 34), DialogResult = DialogResult.OK };
         var details = new PillButton("تفاصيل تقنية", PillStyle.Ghost) { Size = new Size(120, 34), Margin = new Padding(3, 3, 8, 3) };
         details.Click += (_, _) => Dialogs.Info(form, technicalDetails, "تفاصيل تقنية");
+        var guide = new PillButton("دليل الاستخدام", PillStyle.Ghost) { Size = new Size(124, 34), Margin = new Padding(3, 3, 8, 3) };
+        guide.Click += (_, _) => HelpGuide.Open(form);
         footer.Controls.Add(ok);
+        footer.Controls.Add(guide);
         footer.Controls.Add(details);
 
         form.Controls.Add(card);

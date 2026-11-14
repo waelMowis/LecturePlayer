@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دليل استخدام «مسار»</title>
+<style>
+  :root {
+    --bg: #111112; --card: #202022; --card2: #29292c; --border: #36363a; --text: #d6d6d6; --muted: #9d9d9d;
+    --head: #ffffff; --accent: #3794ff; --accent-bg: rgba(0,120,212,.16); --ok: #89d185; --warn: #dcb67a; --bad: #f14c4c;
+    --kbd-bg: #2f2f33; --kbd-border: #4a4a50;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f3f3f5; --card: #ffffff; --card2: #f7f7f9; --border: #dcdce2; --text: #2a2a2e; --muted: #6b6b73;
+      --head: #111; --accent: #0067c0; --accent-bg: rgba(0,103,192,.09); --ok: #2e7d32; --warn: #9a6a00; --bad: #c62828;
+      --kbd-bg: #f1f1f4; --kbd-border: #c9c9d1;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15.5px/1.85 "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 22px; max-width: 1240px; margin: 0 auto; padding: 22px; }
+  nav {
+    position: sticky; top: 22px; align-self: start; max-height: calc(100vh - 44px); overflow: auto;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 12px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .logo { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #1f6fd1, #0b4a94); display: grid; place-items: center; }
+  .logo::after { content: ""; border-style: solid; border-width: 8px 0 8px 13px; border-color: transparent transparent transparent #fff; margin-left: 4px; transform: scaleX(-1); }
+  .brand b { display: block; color: var(--head); font-size: 18px; line-height: 1.2; }
+  .brand small { color: var(--muted); font-size: 12.5px; }
+  #q {
+    width: 100%; padding: 8px 12px; margin: 4px 0 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card2); color: var(--text); font: inherit; font-size: 14px; outline: none;
+  }
+  #q:focus { border-color: var(--accent); }
+  nav ol { list-style: none; margin: 0; padding: 0; counter-reset: toc; }
+  nav li a { display: block; padding: 5px 10px; border-radius: 7px; color: var(--text); font-size: 14.2px; }
+  nav li a:hover { background: var(--accent-bg); text-decoration: none; }
+  nav li a.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+  main { min-width: 0; }
+  header.hero {
+    background: linear-gradient(135deg, rgba(31,111,209,.28), rgba(11,74,148,.08)), var(--card);
+    border: 1px solid var(--border); border-radius: 14px; padding: 26px 28px; margin-bottom: 18px;
+  }
+  header.hero h1 { margin: 0 0 6px; color: var(--head); font-size: 30px; }
+  header.hero p { margin: 0; color: var(--muted); }
+  section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 26px; margin-bottom: 16px;
+  }
+  section.hidden { display: none; }
+  h2 { color: var(--head); font-size: 22px; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+  h2 .n { font-size: 13px; background: var(--accent-bg); color: var(--accent); border-radius: 20px; padding: 1px 10px; }
+  h3 { color: var(--head); font-size: 17px; margin: 18px 0 6px; }
+  p { margin: 6px 0; }
+  ul, ol.steps { margin: 6px 0; padding-right: 22px; padding-left: 0; }
+  li { margin: 3px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14.6px; }
+  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; background: var(--card2); }
+  tr:last-child td { border-bottom: none; }
+  kbd {
+    display: inline-block; min-width: 22px; text-align: center; direction: ltr;
+    padding: 0 7px; margin: 0 1px; border-radius: 6px; font: 600 12.5px/1.75 Consolas, "Segoe UI", monospace;
+    background: var(--kbd-bg); border: 1px solid var(--kbd-border); border-bottom-width: 2px; color: var(--head);
+  }
+  .path { color: var(--head); font-weight: 600; }
+  .tip, .warn, .note {
+    border-radius: 10px; padding: 10px 14px; margin: 10px 0; border: 1px solid var(--border); background: var(--card2);
+  }
+  .tip { border-right: 4px solid var(--ok); }
+  .warn { border-right: 4px solid var(--warn); }
+  .note { border-right: 4px solid var(--accent); }
+  .tree {
+    direction: rtl; background: var(--card2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 16px; font-size: 14.5px; line-height: 2;
+  }
+  .tree div { white-space: nowrap; }
+  .tree .t1 { padding-right: 22px; } .tree .t2 { padding-right: 44px; } .tree .t3 { padding-right: 66px; }
+  .tree .m { color: var(--muted); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin: 10px 0; }
+  .grid .item { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+  .grid .item b { color: var(--head); display: block; }
+  .grid .item span { color: var(--muted); font-size: 14px; }
+  code { direction: ltr; unicode-bidi: embed; font-family: Consolas, monospace; font-size: 13.5px; background: var(--card2); border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; }
+  details { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; margin: 8px 0; }
+  details summary { cursor: pointer; color: var(--head); font-weight: 600; }
+  details[open] summary { margin-bottom: 6px; }
+  footer { text-align: center; color: var(--muted); font-size: 13.5px; padding: 10px 0 30px; }
+  mark { background: rgba(255, 200, 0, .35); color: inherit; border-radius: 3px; }
+  .empty { display: none; text-align: center; color: var(--muted); padding: 30px; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; max-height: none; }
+  }
+  @media print {
+    nav, #q { display: none; }
+    .layout { display: block; }
+    body { background: #fff; color: #000; }
+    section, header.hero { break-inside: avoid; border-color: #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav>
+  <div class="brand">
+    <div class="logo"></div>
+    <div><b>دليل «مسار»</b><small>الإصدار {{VERSION}}</small></div>
+  </div>
+  <input id="q" type="search" placeholder="دوّر في الدليل… (مثلًا: يوتيوب، علامة، F4)" autocomplete="off">
+  <ol id="toc"></ol>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>دليل استخدام «مسار»</h1>
+  <p>«مسار» بيرتّب فيديوهاتك في مكتبة واضحة، وبيكمّل من حيث وقفت، ومعاه أدوات مذاكرة وذكاء اصطناعي.
+  الدليل ده بيشرح كل حاجة في البرنامج، خطوة بخطوة. افتحه في أي وقت من <span class="path">مساعدة ← دليل الاستخدام</span> أو <kbd>F1</kbd>.</p>
+</header>
+
+<!-- ===================================================================== -->
+<section id="intro" data-title="البرنامج بيعمل إيه">
+  <h2>البرنامج بيعمل إيه</h2>
+  <p>«مسار» مشغل فيديو ومكتبة في نفس الوقت. بدل ما تفتح كل فيديو لوحده وتنسى وصلت لفين، بتحط فيديوهاتك في شجرة من 4 مستويات:</p>
+  <div class="tree">
+    <div>🗂️ <b>موضوع</b> <span class="m">مثلًا: البرمجة بـ C#</span></div>
+    <div class="t1">📘 <b>كورس</b> <span class="m">مثلًا: أساسيات C# من الصفر</span></div>
+    <div class="t2">📁 <b>محاضرة</b> <span class="m">(3/12 · 2:10:00) يعني خلصت 3 من 12 فيديو</span></div>
+    <div class="t3">▶ <b>فيديو</b> <span class="m">ملف على الجهاز، أو فيديو من يوتيوب</span></div>
+  </div>
+  <p>الموضوع اختياري: ممكن تحط الكورسات برا أي موضوع لو مش محتاجه.</p>
+  <div class="grid">
+    <div class="item"><b>بيكمّل من حيث وقفت</b><span>كل فيديو بيفتكر الدقيقة اللي وقفت عندها، وكل كورس بيفتكر آخر فيديو.</span></div>
+    <div class="item"><b>بيشغّل أي صيغة</b><span>محرك VLC جوه البرنامج: mp4 وmkv وavi وmov وwebm والصوت.</span></div>
+    <div class="item"><b>يوتيوب جوه البرنامج</b><span>فيديوهات وقوائم تشغيل، وبيجيب الجديد في القوائم لوحده.</span></div>
+    <div class="item"><b>أدوات مذاكرة</b><span>علامات، ملاحظات، مراجعة متباعدة، بومودورو، إحصائيات وهدف يومي.</span></div>
+    <div class="item"><b>ذكاء اصطناعي</b><span>تفريغ الكلام، بحث فيه، ملخصات، اختبارات، واسأل الكورس.</span></div>
+    <div class="item"><b>على أكتر من جهاز</b><span>المكتبة بتتزامن عن طريق OneDrive أو Google Drive.</span></div>
+  </div>
+</section>
+
+<!-- ===================================================================== -->
+<section id="quick" data-title="البداية السريعة">
+  <h2>البداية السريعة</h2>
+  <ol class="steps">
+    <li><b>ضيف كورس:</b> اسحب فولدر الكورس من الويندوز وارميه على القايمة اللي على الجنب، أو <span class="path">الكورسات والمحاضرات ← استيراد فولدر كورس</span> (<kbd>Ctrl+I</kbd>).
+      الفولدر بيبقى كورس، وكل فولدر جواه بيبقى محاضرة، والفيديوهات بتترتب بالأرقام (Part 2 قبل Part 10).</li>
+    <li><b>أو ضيف من يوتيوب:</b> انسخ رابط فيديو أو قائمة تشغيل، واقف على القايمة ودوس <kbd>Ctrl+V</kbd>.</li>
+    <li><b>شغّل:</b> دبل كليك على أي فيديو، أو اقف على الكورس ودوس <kbd>Enter</kbd> عشان يكمّل من آخر مكان.</li>
+    <li><b>ذاكر:</b> <kbd>B</kbd> تحط علامة عند لحظة مهمة، والملاحظات بتتكتب في اللوحة اللي تحت القايمة.</li>
+    <li><b>سيبه وارجع:</b> اقفل البرنامج في أي وقت. كل حاجة بتتحفظ لوحدها، ولما تفتحه تكمّل من نفس النقطة.</li>
+  </ol>
+  <div class="tip">البرنامج بيحفظ المكتبة لوحده كل 10 ثواني وأول ما تقفله، فمش محتاج تدوس حفظ.</div>
+</section>
+
+<!-- ===================================================================== -->
+<section id="ui" data-title="شكل الشاشة">
+  <h2>شكل الشاشة</h2>
+  <table>
+    <tr><th style="width:190px">الجزء</th><th>بيعمل إيه</th></tr>
+    <tr><td><b>شريط الأيقونات</b> (على الطرف)</td><td>
+      📚 القايمة (<kbd>F6</kbd>) · 🔍 بحث في كلام الفيديوهات (<kbd>Ctrl+Shift+F</kbd>) · 🕘 مراجعة النهارده (<kbd>F7</kbd>) ·
+      📊 الإحصائيات (<kbd>F8</kbd>) · 💬 اسأل الكورس (<kbd>Ctrl+K</kbd>) · &lt;/&gt; معمل الكود (<kbd>Ctrl+L</kbd>) · ⏱ وضع التركيز · ⚙ الإعدادات (<kbd>Ctrl+,</kbd>)</td></tr>
+    <tr><td><b>المكتبة</b> (الشجرة)</td><td>الموضوعات والكورسات والمحاضرات والفيديوهات. فوقها اسم المكتبة وأزرار الإضافة (موضوع، كورس، محاضرة، فيديوهات، استيراد، رابط)، وتحتها خانة البحث وزرار الفلتر.
+      جنب كل عنصر: المدة، وعدد اللي خلص منه، وعلامة ✓ للي اتشاف، و«جديد» للفيديوهات الجديدة في قوائم يوتيوب.</td></tr>
+    <tr><td><b>الشاشة الرئيسية</b></td><td>بتظهر لما مفيش فيديو شغال: كروت «كمّل اللي بدأته» (نسبة الإنجاز والوقت الباقي والفيديو الجاي)، وخطة النهارده، والمراجعات المستحقة، والفيديوهات الجديدة. وتقدر تفلترها بالموضوع.
+      ترجعلها من <span class="path">التشغيل ← الشاشة الرئيسية</span>.</td></tr>
+    <tr><td><b>شريط التحكم</b></td><td>شريط التقديم (عليه العلامات كخطوط صفرا والفصول، ومعاينة صورة لما تقف بالماوس)، والوقت، وأزرار: السابق، رجوع، تشغيل، تقديم، التالي، إيقاف، السرعة، الصوت، القايمة، المشغل الصغير، ملء الشاشة.</td></tr>
+    <tr><td><b>العلامات والملاحظات</b></td><td>اللوحة اللي تحت القايمة: علامات الفيديو الشغال (دبل كليك تروح لها) وخانة ملاحظات بتتحفظ لوحدها. بتتقفل وتتفتح من عنوانها.</td></tr>
+    <tr><td><b>شريط الحالة</b></td><td>رسايل البرنامج، واسم ملف المكتبة، ومذاكرة النهارده من الهدف اليومي والسلسلة (🔥).</td></tr>
+  </table>
+</section>
+
+<!-- ===================================================================== -->
+<section id="library" data-title="تنظيم المكتبة">
+  <h2>تنظيم المكتبة</h2>
+
+  <h3>إضافة محتوى</h3>
+  <table>
+    <tr><th style="width:260px">عايز تعمل إيه</th><th>إزاي</th></tr>
+    <tr><td>كورس من فولدر</td><td>اسحب الفولدر على مكان فاضي في القايمة، أو <kbd>Ctrl+I</kbd></td></tr>
+    <tr><td>كذا كورس مرة واحدة</td><td><span class="path">الكورسات والمحاضرات ← استيراد فولدر فيه أكتر من كورس</span> (<kbd>Ctrl+Shift+I</kbd>): كل فولدر جواه بيبقى كورس</td></tr>
+    <tr><td>محاضرات لكورس موجود</td><td>اسحب الفولدر وارميه على الكورس، أو كليك يمين على الكورس ← <span class="path">إضافة فولدر محاضرات للكورس ده</span></td></tr>
+    <tr><td>فيديوهات لمحاضرة</td><td>اسحب الملفات على المحاضرة، أو <kbd>Ctrl+Shift+A</kbd></td></tr>
+    <tr><td>موضوع جديد</td><td><kbd>Ctrl+Shift+N</kbd>، وبعدين انقل الكورسات له بالسحب أو كليك يمين ← <span class="path">نقل لموضوع</span></td></tr>
+    <tr><td>كورس أو محاضرة فاضية</td><td><kbd>Ctrl+Shift+G</kbd> كورس جديد، <kbd>Ctrl+G</kbd> محاضرة جديدة في الكورس المحدد</td></tr>
+    <tr><td>فيديو من الويندوز مباشرة</td><td>كليك يمين على الفيديو في الويندوز ← <span class="path">فتح بواسطة ← مسار</span> (التفاصيل في <a href="#playback">التشغيل</a>)</td></tr>
+  </table>
+
+  <h3>الترتيب والنقل</h3>
+  <ul>
+    <li><b>السحب والإفلات</b> بيعمل كل حاجة: ترتيب الكورسات والمحاضرات والفيديوهات، ونقل فيديو لمحاضرة تانية (حتى في كورس تاني)، ونقل محاضرة لكورس تاني، ونقل كورس لموضوع.</li>
+    <li>بالكيبورد: <kbd>Alt+↑</kbd> / <kbd>Alt+↓</kbd> تحريك لفوق ولتحت.</li>
+    <li>كليك يمين ← <span class="path">ترتيب … بالاسم</span> بيرتّب بالترقيم الطبيعي.</li>
+    <li><b>الفيديوهات كلها في فولدر واحد؟</b> البرنامج بيلاحظ لما الترقيم يرجع لـ Part 01 ويعرض يقسمها لمحاضرات. أو كليك يمين على المحاضرة ← <span class="path">تقسيم تلقائي</span>، أو على فيديو ← <span class="path">ابدأ محاضرة جديدة من هنا</span>.</li>
+    <li><kbd>F2</kbd> إعادة تسمية، <kbd>Delete</kbd> حذف من القايمة (الملف نفسه مش بيتمسح من الجهاز).</li>
+  </ul>
+
+  <h3>بيانات الكورس <kbd>F4</kbd></h3>
+  <p>لكل كورس: <b>الحالة</b> (شغال، مخطط، متوقف، خلص)، و<b>الأولوية</b>، و<b>الوسوم</b> (زي <code>#devops</code>)، و<b>المحاضر</b>، و<b>المصدر</b>، و<b>الهدف</b>، و<b>موعد</b> عايز تخلّصه فيه، و<b>أيام المذاكرة</b>.
+  الموعد والأيام بيستخدمهم البرنامج عشان يحسب خطة النهارده وهل إنت ماشي في معادك ولا متأخر.</p>
+
+  <h3>البحث والفلتر</h3>
+  <ul>
+    <li><kbd>Ctrl+F</kbd> بيدوّر في أسماء الكورسات والمحاضرات والفيديوهات والوسوم.</li>
+    <li>زرار الفلتر جنب البحث: الكورسات الشغالة بس، أو اللي ليها موعد، أو المتوقفة، أو بوسم معيّن.</li>
+  </ul>
+
+  <h3>مرفقات المحاضرة</h3>
+  <p>كليك يمين على المحاضرة ← <span class="path">📎 المرفقات</span>: ضيف ملفات PDF أو سلايدات أو كود أو روابط، وافتحها من نفس المكان.</p>
+
+  <h3>تعليم كمُشاهَد وتصفير التقدم</h3>
+  <ul>
+    <li>أي فيديو بتعدّي 92% منه بيتعلّم ✓ لوحده. وتقدر تعلّمه بإيدك بـ <kbd>W</kbd> وإنت واقف عليه.</li>
+    <li><b>تصفير التقدم:</b> كليك يمين على الفيديو أو المحاضرة أو الكورس أو الموضوع ← <span class="path">↺ تصفير التقدم</span>. الفيديوهات بترجع «لسه» وتبدأ من الأول، والعلامات والملاحظات مش بتتمسح.</li>
+  </ul>
+
+  <div class="tip"><b>غلطت؟</b> <kbd>Ctrl+Z</kbd> بيتراجع عن أي تعديل في القايمة (حذف، نقل، تقسيم، تصفير، إعادة تسمية)، و<kbd>Ctrl+Y</kbd> إعادة.</div>
+</section>
+
+<!-- ===================================================================== -->
+<section id="playback" data-title="التشغيل">
+  <h2>التشغيل</h2>
+  <table>
+    <tr><th style="width:230px">الميزة</th><th>إزاي</th></tr>
+    <tr><td>كمّل من حيث وقفت</td><td>تلقائي. <kbd>Enter</kbd> على كورس بيكمّل آخر فيديو فيه. وكليك يمين على فيديو ← <span class="path">تشغيل من البداية</span> لو عايز تبدأه من الأول</td></tr>
+    <tr><td>الفيديو التالي لوحده</td><td>تلقائي جوه المحاضرة. ولو عايزه يكمّل على المحاضرة اللي بعدها: <span class="path">التشغيل ← بعد آخر فيديو في المحاضرة، كمّل على المحاضرة اللي بعدها</span></td></tr>
+    <tr><td>السرعة</td><td><kbd>C</kbd> أسرع، <kbd>X</kbd> أبطأ، <kbd>Z</kbd> عادية. <b>كل كورس بيفتكر سرعته</b></td></tr>
+    <tr><td>الصوت</td><td><kbd>↑</kbd>/<kbd>↓</kbd> أو عجلة الماوس على الفيديو، <kbd>M</kbd> كتم. النص التاني من شريط الصوت تضخيم لحد 200%. وفيه <span class="path">مذاكرة ← توحيد مستوى الصوت</span></td></tr>
+    <tr><td>التقديم</td><td><kbd>→</kbd>/<kbd>←</kbd> 5 ثواني، ومع <kbd>Ctrl</kbd> 30 ثانية. وكليك على أي مكان في الشريط</td></tr>
+    <tr><td>الترجمة ومسار الصوت</td><td><span class="path">مذاكرة ← الترجمة والصوت</span>: تحميل ملف srt أو اختيار ترجمة/صوت من جوه الفيديو. ملف الترجمة اللي بنفس اسم الفيديو بيتحمّل لوحده</td></tr>
+    <tr><td>ملء الشاشة</td><td><kbd>F11</kbd> أو <kbd>F</kbd> أو دبل كليك على الفيديو، و<kbd>Esc</kbd> للخروج</td></tr>
+    <tr><td>المشغل الصغير</td><td><kbd>P</kbd>: شباك صغير في الركن فوق كل الشبابيك وإنت بتشتغل في حاجة تانية.
+      للرجوع: <kbd>P</kbd> أو <kbd>Esc</kbd> أو دبل كليك على الفيديو أو زرار المشغل الصغير في الشريط أو كليك يمين ← <span class="path">رجوع للمشغل الكامل</span></td></tr>
+    <tr><td>دايمًا فوق</td><td><kbd>T</kbd>: البرنامج يفضل فوق Visual Studio وإنت بتطبّق</td></tr>
+    <tr><td>كليك يمين على الفيديو</td><td>قايمة سريعة: المشغل الصغير، ملء الشاشة، دايمًا فوق</td></tr>
+    <tr><td>فتح بواسطة</td><td>كليك يمين على أي فيديو أو ملف صوت في الويندوز ← <span class="path">فتح بواسطة ← مسار</span>.
+      لو موجود في المكتبة بيشتغل من مكانه ويكمّل، ولو مش موجود بيتضاف لمحاضرة نفس الفولدر أو لكورس جديد باسم الفولدر. ولو البرنامج مفتوح بيتبعت للشباك المفتوح.</td></tr>
+  </table>
+  <div class="note">لو عايز «مسار» هو البرنامج الافتراضي للفيديوهات: <span class="path">فتح بواسطة ← Choose another app ← مسار</span> وعلّم «Always use this app».</div>
+</section>
+
+<!-- ===================================================================== -->
+<section id="online" data-title="يوتيوب والإنترنت">
+  <h2>يوتيوب والإنترنت</h2>
+  <h3>إضافة فيديوهات وقوائم</h3>
+  <ul>
+    <li><kbd>Ctrl+U</kbd> أو زرار الرابط: حط رابط أو أكتر (كل رابط في سطر).</li>
+    <li>أسرع طريقة: انسخ الرابط من المتصفح، واقف على القايمة ودوس <kbd>Ctrl+V</kbd>. أو اسحب الرابط من شريط العنوان وارميه على القايمة.</li>
+    <li><b>قائمة التشغيل</b> بتبقى محاضرة باسمها جوه الكورس المحدد. و<b>الفيديو لوحده</b> بيتضاف للمحاضرة المحددة.</li>
+    <li>أول مرة البرنامج بيطلب ينزّل أداتين مجانيتين من GitHub الرسمي: <b>yt-dlp</b> (بتجيب الفيديو) و<b>Deno</b> (يوتيوب محتاجه).</li>
+  </ul>
+
+  <h3>قوائم يوتيوب «حيّة»</h3>
+  <ul>
+    <li>أي قائمة تشغيل بتضيفها بتفتكر رابطها (🔄 جنب المحاضرة)، والبرنامج بيجيب الفيديوهات الجديدة لوحده كل 12 ساعة (بتتغيّر من الإعدادات).</li>
+    <li>يدويًا: <kbd>Ctrl+R</kbd> لكل القوائم، أو كليك يمين على المحاضرة ← <span class="path">تحديث من يوتيوب</span>.</li>
+    <li>الفيديوهات الجديدة عليها «جديد» أزرق، والمحاضرة بتعرض «3 جديد». والفيديو اللي اتشال من يوتيوب بيفضل عندك بتقدمك وملاحظاتك.</li>
+    <li>قائمة قديمة مش مربوطة؟ كليك يمين على المحاضرة ← <span class="path">ربط بقائمة تشغيل يوتيوب</span>.</li>
+  </ul>
+
+  <h3>الجودة والمشاهدة من غير نت</h3>
+  <ul>
+    <li><span class="path">إنترنت ← جودة فيديوهات النت</span>: 480 أو 720 أو 1080 (الافتراضي) أو أعلى جودة.</li>
+    <li>كليك يمين على فيديو أو محاضرة ← <span class="path">تنزيل للمشاهدة من غير نت</span>. محتاج ffmpeg (بيتنزل بضغطة)، والفيديو بيتشغل من الجهاز بعد كده.</li>
+  </ul>
+
+  <h3>لو فيديو من النت مش راضي يشتغل</h3>
+  <p>البرنامج بيحاول لوحده الأول: بيحدّث yt-dlp لو يوتيوب غيّر حاجة، وبيجرّب طريقة تشغيل تانية، وبيجيب رابط جديد لو الرابط القديم انتهت صلاحيته بعد وقفة طويلة. لو فشل، بيقولك السبب بالعربي وبيعرض الحل:</p>
+  <table>
+    <tr><th style="width:280px">الرسالة</th><th>الحل</th></tr>
+    <tr><td>يوتيوب طالب يتأكد إنك مش روبوت</td><td>الإعدادات ← يوتيوب والإنترنت ← <b>كوكيز المتصفح</b>: اختار المتصفح اللي فاتح بيه يوتيوب (Firefox الأضمن). لو اخترت Chrome أو Edge ومااشتغلش، اقفل المتصفح وجرّب تاني</td></tr>
+    <tr><td>الفيديو محتاج تسجيل دخول / للكبار</td><td>نفس الحل: كوكيز المتصفح</td></tr>
+    <tr><td>الفيديو خاص / اتمسح / للأعضاء بس / مش متاح في بلدك</td><td>مفيش حل من البرنامج، والفيديو مش متاح أصلًا</td></tr>
+    <tr><td>مشكلة في الاتصال / الموقع رفض الطلب</td><td>جرّب تاني، أو <span class="path">إنترنت ← تحديث yt-dlp</span>، أو وافق على «نزّله وشغّله من الجهاز»</td></tr>
+  </table>
+</section>
+
+<!-- ===================================================================== -->
+<section id="study" data-title="أدوات المذاكرة">
+  <h2>أدوات المذاكرة</h2>
+  <table>
+    <tr><th style="width:210px">الأداة</th><th>إزاي</th></tr>
+    <tr><td>علامة</td><td><kbd>B</kbd> علامة عند اللحظة دي، <kbd>Shift+B</kbd> علامة بملاحظة. بتظهر خطوط صفرا على شريط التقديم، وفي لوحة العلامات (دبل كليك يروح لها، <kbd>F2</kbd> تعديل، <kbd>Delete</kbd> حذف)</td></tr>
+    <tr><td>ملاحظات الفيديو</td><td>الخانة اللي في لوحة العلامات والملاحظات، وبتتحفظ لوحدها</td></tr>
+    <tr><td>تكرار جزء (A–B)</td><td><kbd>A</kbd> عند البداية، و<kbd>A</kbd> تاني عند النهاية فيبدأ التكرار، والتالتة بتلغيه</td></tr>
+    <tr><td>لقطة شاشة</td><td><kbd>S</kbd>: صورة في فولدر «لقطات» جنب الفيديو، ومعاها علامة</td></tr>
+    <tr><td>تصدير الملاحظات</td><td><kbd>Ctrl+E</kbd>: ملف Markdown للكورس كله، العلامات والملاحظات مترتبة بالمحاضرات</td></tr>
+    <tr><td>المراجعة المتباعدة</td><td><kbd>R</kbd> وإنت بتتفرج: «علامة مراجعة» بسؤال لنفسك. البرنامج بيرجّعهالك بعد يوم، 3 أيام، أسبوع، 3 أسابيع، شهرين. <kbd>F7</kbd> مراجعة النهارده</td></tr>
+    <tr><td>الأجزاء الصعبة</td><td>البرنامج بيلاحظ لما ترجع لنفس الحتة أكتر من مرة. <span class="path">تركيز ومراجعة ← الأجزاء الصعبة</span>: شغّلها أو حطلها علامة مراجعة</td></tr>
+    <tr><td>بومودورو</td><td><kbd>F9</kbd>: 25 دقيقة تركيز و5 بريك (بتتغيّر من الإعدادات)، والفيديو بيقف لوحده في البريك</td></tr>
+    <tr><td>الهدف اليومي والسلسلة</td><td>شريط الحالة: <code>النهارده 25/60 د 🔥7</code>. البرنامج بيحسب الوقت اللي الفيديو <b>شغال</b> فيه بس. والسلسلة بتسمح بيوم واحد «متجمد» في الأسبوع</td></tr>
+    <tr><td>التذكير</td><td>أيقونة جنب الساعة بتفكّرك لو مخلصتش هدفك (الساعة 9 بالليل افتراضيًا)</td></tr>
+    <tr><td>خطة النهارده</td><td>في الشاشة الرئيسية: الدقايق المطلوبة لكل كورس ليه موعد، والمتأخر بالأحمر</td></tr>
+    <tr><td>الإحصائيات</td><td><kbd>F8</kbd>: خريطة 12 أسبوع، آخر 14 يوم، والكورسات مع توقع هتخلص إمتى و<b>مؤشر الفهم</b>، وتقرير الأسبوع. وتقدر تشوفها لموضوع واحد</td></tr>
+    <tr><td>مؤشر الفهم</td><td>من 100 لكل كورس: المشاهدة، ونتايج الاختبارات، والمراجعة، وبيقل لو فيه أجزاء صعبة مهملة</td></tr>
+    <tr><td>وضع التركيز الصارم</td><td>⏱ من شريط الأيقونات: ملء الشاشة، والقايمة مستخبية، وبومودورو، ومينفعش تخرج قبل الوقت إلا لو كتبت «هسيب التركيز». وممكن يحجب مواقع تشتتك طول الجلسة (بيطلب صلاحيات المسؤول)</td></tr>
+    <tr><td>«اللي فات»</td><td>لما ترجع لكورس بعد غياب (3 أيام افتراضيًا): آخر فيديوهاتك وعلاماتك ووقفت فين</td></tr>
+    <tr><td>صفحة إنجازاتي</td><td><span class="path">تركيز ومراجعة ← صفحة إنجازاتي</span>: صفحة HTML بالساعات والسلسلة وخريطة المذاكرة وشهادة لكل كورس خلص</td></tr>
+  </table>
+</section>
+
+<!-- ===================================================================== -->
+<section id="ai" data-title="الذكاء الاصطناعي">
+  <h2>الذكاء الاصطناعي</h2>
+  <h3>من غير أي اشتراك</h3>
+  <table>
+    <tr><th style="width:210px">الميزة</th><th>إزاي</th></tr>
+    <tr><td>نص الفيديو (تفريغ)</td><td><kbd>Ctrl+T</kbd>. فيديو يوتيوب: بياخد ترجمة يوتيوب نفسها. ملف على الجهاز: بيفرّغ الكلام على جهازك بـ whisper (مجاني ومن غير نت بعد أول تنزيل). وتقدر تفرّغ محاضرة كاملة من منيو «ذكاء»</td></tr>
+    <tr><td>بحث في الكلام</td><td><kbd>Ctrl+Shift+F</kbd>: دوّر على أي كلمة اتقالت في أي فيديو متفرّغ، ودبل كليك يشغّل اللحظة دي. بيفهم اختلافات الكتابة العربي (أ/إ/آ، ة/ه، ى/ي)</td></tr>
+    <tr><td>النص كترجمة</td><td><span class="path">ذكاء ← اعرض النص كترجمة على الفيديو</span></td></tr>
+    <tr><td>نسخ الكود من الشاشة</td><td><kbd>O</kbd>: بيقرا النص أو الكود اللي ظاهر في الفيديو (OCR بمحرك الويندوز ومن غير نت) وينسخه، وتقدر تفتحه في معمل الكود</td></tr>
+    <tr><td>معمل الكود</td><td><kbd>Ctrl+L</kbd>: اكتب أو الصق كود C# أو Python أو JavaScript وشغّله بـ <kbd>F5</kbd>. الـ C# محتاج .NET 10 SDK على الجهاز</td></tr>
+  </table>
+
+  <h3>بـ Claude (محتاج مفتاح API)</h3>
+  <table>
+    <tr><th style="width:210px">الميزة</th><th>إزاي</th></tr>
+    <tr><td>ملخص الفيديو</td><td>نقط أساسية بالأوقات، ومصطلحات، وأكواد، وأسئلة مراجعة. بيتحفظ، وتقدر تحطه في ملاحظات الفيديو</td></tr>
+    <tr><td>فصول تلقائية</td><td>بيقسم الفيديو لفصول وبيحطها علامات 📑 على شريط التقديم</td></tr>
+    <tr><td>اختبرني</td><td><kbd>Ctrl+Q</kbd>: أسئلة اختيار من متعدد على الفيديو، مع الشرح وزرار «روح للجزء ده». النتيجة بتدخل في مؤشر الفهم</td></tr>
+    <tr><td>اسأل الكورس</td><td><kbd>Ctrl+K</kbd>: سؤالك بيتجاوب من كلام فيديوهات الكورس نفسها، مع المصادر، ودبل كليك على المصدر يشغّل اللحظة دي</td></tr>
+  </table>
+  <div class="note">كل مميزات Claude محتاجة الفيديو يكون متفرّغ الأول، والبرنامج بيعمل التفريغ لوحده لو مش موجود.</div>
+  <h3>مفتاح Claude</h3>
+  <ol class="steps">
+    <li>اعمل مفتاح من <code>console.anthropic.com</code>.</li>
+    <li>الإعدادات (<kbd>Ctrl+,</kbd>) ← الذكاء الاصطناعي ← <b>مفتاح API</b>.</li>
+    <li>اختياري: حد أقصى للتوكنز في الشهر عشان تتحكم في التكلفة.</li>
+  </ol>
+  <div class="tip">المفتاح بيتحفظ <b>متشفّر بحساب الويندوز</b> على الجهاز ده بس، ومش بيتكتب في ملف المكتبة ولا بيتزامن لأجهزة تانية.</div>
+</section>
+
+<!-- ===================================================================== -->
+<section id="sync" data-title="أكتر من جهاز والنسخ الاحتياطية">
+  <h2>أكتر من جهاز والنسخ الاحتياطية</h2>
+  <h3>نفس المكتبة على أكتر من جهاز</h3>
+  <ol class="steps">
+    <li><span class="path">ملف ← نقل القائمة لـ OneDrive</span> (أو احفظها بـ «حفظ باسم» في أي فولدر بيتزامن زي Google Drive).</li>
+    <li>على الجهاز التاني: <span class="path">ملف ← فتح قائمة</span> واختار نفس الملف.</li>
+    <li>البرنامج بيدمج لوحده: الاستكمال والمشاهدة والعلامات والملاحظات، والأحدث بيكسب. والحذف بيتزامن كمان.</li>
+    <li>لو الفيديوهات في مكان مختلف على كل جهاز، حدد مكان أي فيديو مرة واحدة (كليك يمين ← <span class="path">الملف مش موجود — حدد مكانه الجديد</span>)، والبرنامج بيلاقي الباقي لوحده.</li>
+  </ol>
+  <h3>أكتر من مكتبة</h3>
+  <p><span class="path">ملف ← قائمة جديدة</span> (<kbd>Ctrl+N</kbd>): كل مكتبة ملف <code>.lpl</code> لوحده، وبتتنقل بينهم من <span class="path">ملف ← القوائم الأخيرة</span>.</p>
+  <h3>النسخ الاحتياطية</h3>
+  <p>البرنامج بياخد نسخة من المكتبة كل 6 ساعات، وبيحتفظ بآخر 10 نسخ. <span class="path">ملف ← استرجاع نسخة احتياطية</span> بيرجّعك لأي واحدة منهم.</p>
+</section>
+
+<!-- ===================================================================== -->
+<section id="settings" data-title="الإعدادات">
+  <h2>الإعدادات <kbd>Ctrl+,</kbd></h2>
+  <table>
+    <tr><th style="width:190px">القسم</th><th>فيه إيه</th></tr>
+    <tr><td>المذاكرة</td><td>الهدف اليومي بالدقايق، والتذكير اليومي وساعته</td></tr>
+    <tr><td>بومودورو</td><td>مدة التركيز ومدة البريك، وهل الفيديو يقف في البريك</td></tr>
+    <tr><td>التشغيل الذكي</td><td>تخطي فترات السكوت تلقائيًا (<kbd>Shift+S</kbd>)، وبعد كام يوم غياب يظهر «اللي فات»</td></tr>
+    <tr><td>يوتيوب والإنترنت</td><td>تحديث قوائم يوتيوب التلقائي وكل قد إيه، وكوكيز المتصفح</td></tr>
+    <tr><td>التحديثات</td><td>اعرض عليّ الإصدارات الجديدة أول ما تنزل</td></tr>
+    <tr><td>الذكاء الاصطناعي</td><td>مفتاح Claude، والموديل، وحد التوكنز في الشهر واستهلاك الشهر ده</td></tr>
+    <tr><td>تفريغ الفيديوهات</td><td>موديل whisper (أصغر = أسرع، أكبر = أدق)، ولغة الفيديوهات</td></tr>
+  </table>
+  <p>وفي المنيوهات إعدادات تانية: الجودة في <span class="path">إنترنت</span>، والتالي التلقائي والاستكمال في <span class="path">التشغيل</span>، وتوحيد مستوى الصوت في <span class="path">مذاكرة</span>، ومعاينة شريط التقديم في <span class="path">أدوات</span>.</p>
+</section>
+
+<!-- ===================================================================== -->
+<section id="updates" data-title="التحديثات">
+  <h2>التحديثات</h2>
+  <ul>
+    <li>البرنامج بيتحقق من الإصدارات الجديدة بعد ما يفتح بثواني. وتقدر تتحقق بنفسك من <span class="path">مساعدة ← التحقق من التحديثات</span>.</li>
+    <li>لما يلاقي إصدار جديد بيعرض «الجديد في الإصدار ده» و3 اختيارات: <b>حدّث دلوقتي</b>، <b>بعدين</b>، <b>تخطّى الإصدار ده</b>.</li>
+    <li>«حدّث دلوقتي» بينزّل التحديث ويتأكد إنه سليم، ويحفظ كل حاجة ويقفل، ويتثبت لوحده، ويفتح تاني.</li>
+    <li>لو بتتفرج ساعتها مش بيقاطعك: بيكتب في شريط الحالة بس.</li>
+    <li><b>مكتبتك وإعداداتك وتقدّمك مش بيتلمسوا</b> في التحديث.</li>
+  </ul>
+</section>
+
+<!-- ===================================================================== -->
+<section id="keys" data-title="اختصارات الكيبورد">
+  <h2>اختصارات الكيبورد</h2>
+  <h3>التشغيل</h3>
+  <table>
+    <tr><td style="width:230px"><kbd>Space</kbd></td><td>تشغيل / إيقاف مؤقت</td></tr>
+    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>رجوع / تقديم 5 ثواني (مع <kbd>Ctrl</kbd> = 30 ثانية)</td></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>الصوت (أو عجلة الماوس على الفيديو)</td></tr>
+    <tr><td><kbd>M</kbd></td><td>كتم الصوت</td></tr>
+    <tr><td><kbd>C</kbd> <kbd>X</kbd> <kbd>Z</kbd></td><td>أسرع / أبطأ / السرعة العادية</td></tr>
+    <tr><td><kbd>PageDown</kbd> <kbd>PageUp</kbd></td><td>الفيديو التالي / السابق</td></tr>
+    <tr><td><kbd>F11</kbd> أو <kbd>F</kbd></td><td>ملء الشاشة (<kbd>Esc</kbd> للخروج)</td></tr>
+    <tr><td><kbd>P</kbd></td><td>المشغل الصغير</td></tr>
+    <tr><td><kbd>T</kbd></td><td>دايمًا فوق الشبابيك التانية</td></tr>
+    <tr><td><kbd>F6</kbd></td><td>إظهار / إخفاء القايمة</td></tr>
+  </table>
+  <h3>المذاكرة والذكاء</h3>
+  <table>
+    <tr><td style="width:230px"><kbd>B</kbd> / <kbd>Shift+B</kbd></td><td>علامة / علامة بملاحظة</td></tr>
+    <tr><td><kbd>A</kbd></td><td>تكرار جزء: بداية ← نهاية ← إلغاء</td></tr>
+    <tr><td><kbd>S</kbd></td><td>لقطة شاشة</td></tr>
+    <tr><td><kbd>R</kbd> / <kbd>F7</kbd></td><td>علامة مراجعة / مراجعة النهارده</td></tr>
+    <tr><td><kbd>Shift+S</kbd></td><td>تخطي السكوت</td></tr>
+    <tr><td><kbd>O</kbd></td><td>نسخ الكود / النص اللي على الشاشة</td></tr>
+    <tr><td><kbd>F4</kbd> / <kbd>F8</kbd> / <kbd>F9</kbd></td><td>بيانات الكورس / الإحصائيات / بومودورو</td></tr>
+    <tr><td><kbd>Ctrl+T</kbd></td><td>نص الفيديو</td></tr>
+    <tr><td><kbd>Ctrl+Shift+F</kbd></td><td>بحث في كلام الفيديوهات</td></tr>
+    <tr><td><kbd>Ctrl+Q</kbd> / <kbd>Ctrl+K</kbd> / <kbd>Ctrl+L</kbd></td><td>اختبرني / اسأل الكورس / معمل الكود</td></tr>
+    <tr><td><kbd>Ctrl+E</kbd></td><td>تصدير ملاحظات الكورس</td></tr>
+    <tr><td><kbd>Ctrl+,</kbd></td><td>الإعدادات</td></tr>
+  </table>
+  <h3>المكتبة (وإنت واقف على القايمة)</h3>
+  <table>
+    <tr><td style="width:230px"><kbd>Enter</kbd></td><td>تشغيل الفيديو / المحاضرة / الكورس</td></tr>
+    <tr><td><kbd>F2</kbd> / <kbd>Delete</kbd> / <kbd>W</kbd></td><td>إعادة تسمية / حذف / تعليم كمُشاهَد</td></tr>
+    <tr><td><kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd></td><td>تحريك لفوق / لتحت</td></tr>
+    <tr><td><kbd>Ctrl+F</kbd></td><td>بحث</td></tr>
+    <tr><td><kbd>Ctrl+U</kbd> / <kbd>Ctrl+V</kbd></td><td>إضافة رابط يوتيوب / لصق رابط</td></tr>
+    <tr><td><kbd>Ctrl+R</kbd></td><td>تحديث قوائم يوتيوب</td></tr>
+    <tr><td><kbd>Ctrl+I</kbd> / <kbd>Ctrl+Shift+I</kbd></td><td>استيراد كورس / استيراد فولدر فيه أكتر من كورس</td></tr>
+    <tr><td><kbd>Ctrl+Shift+N</kbd> / <kbd>Ctrl+Shift+G</kbd> / <kbd>Ctrl+G</kbd></td><td>موضوع / كورس / محاضرة جديدة</td></tr>
+    <tr><td><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd></td><td>تراجع / إعادة</td></tr>
+    <tr><td><kbd>Ctrl+N</kbd> / <kbd>Ctrl+O</kbd> / <kbd>Ctrl+S</kbd></td><td>مكتبة جديدة / فتح مكتبة / حفظ</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>الدليل ده</td></tr>
+  </table>
+</section>
+
+<!-- ===================================================================== -->
+<section id="faq" data-title="حل المشاكل">
+  <h2>حل المشاكل والأسئلة الشائعة</h2>
+  <details><summary>فيديو على الجهاز مش راضي يشتغل</summary>
+    <p>لو جنب الفيديو علامة إنه مش موجود: الملف اتنقل أو اتمسح. كليك يمين ← <span class="path">الملف مش موجود — حدد مكانه الجديد</span>، والبرنامج هيلاقي باقي فيديوهات الفولدر لوحده.
+    ولو الملف موجود ومش شغال، غالبًا الملف نفسه بايظ: جرّب تفتحه ببرنامج تاني.</p></details>
+  <details><summary>فيديو يوتيوب مش شغال</summary>
+    <p>شوف جدول الحلول في <a href="#online">يوتيوب والإنترنت</a>. أشهر حل: <span class="path">إنترنت ← تحديث yt-dlp</span>، و«كوكيز المتصفح» من الإعدادات.</p></details>
+  <details><summary>«مسار» مش ظاهر في «فتح بواسطة»</summary>
+    <p>اختار <span class="path">Choose another app</span>، وهتلاقيه هناك. التسجيل ده بيعمله المثبّت، فلو بتشغّل البرنامج من غير ما تثبّته مش هيظهر.</p></details>
+  <details><summary>الويندوز قال «Windows protected your PC» وأنا بثبّت</summary>
+    <p>ده طبيعي لأي برنامج متنزّل من النت ومش موقّع بشهادة مدفوعة. اضغط <b>More info</b> وبعدين <b>Run anyway</b>.</p></details>
+  <details><summary>بياناتي محفوظة فين؟</summary>
+    <p>الإعدادات والأدوات والنسخ الاحتياطية في فولدر <code>Data</code> جنب البرنامج (<span class="path">ملف ← فتح فولدر البيانات</span>). وملف المكتبة <code>.lpl</code> في المكان اللي اخترته (<span class="path">ملف ← فتح مكان ملف القائمة</span>).
+    مسح البرنامج مش بيمسح الفولدر ده، فلو رجعت ثبّته هتلاقي كل حاجة.</p></details>
+  <details><summary>مسحت حاجة بالغلط</summary>
+    <p><kbd>Ctrl+Z</kbd> فورًا. ولو فات وقت طويل: <span class="path">ملف ← استرجاع نسخة احتياطية</span>.</p></details>
+  <details><summary>المعاينة على شريط التقديم أو تخطي السكوت مش شغالين</summary>
+    <p>الاتنين محتاجين ffmpeg: <span class="path">أدوات ← تنزيل ffmpeg</span> (مرة واحدة).</p></details>
+  <details><summary>إزاي أبلّغ عن مشكلة؟</summary>
+    <p>البرنامج بيسجّل الأخطاء في <span class="path">أدوات ← فتح فولدر سجل الأخطاء</span>. ابعت ملف الشهر ده مع وصف اللي حصل، أو افتح مشكلة على صفحة البرنامج على GitHub.</p></details>
+</section>
+
+<!-- ===================================================================== -->
+<section id="about" data-title="عن البرنامج">
+  <h2>عن البرنامج</h2>
+  <p><b>«مسار» (Masar)</b>، الإصدار {{VERSION}}.</p>
+  <p>فكرة وتطوير: <b>د. وائل عويس (Dr. Wael Owais)</b>.</p>
+  <p>مبني على .NET وVLC (LibVLCSharp)، ويستخدم yt-dlp وDeno لفيديوهات النت، وffmpeg وwhisper.cpp للتفريغ والمعاينة، وClaude للذكاء الاصطناعي.</p>
+</section>
+
+<div class="empty" id="empty">مفيش نتايج. جرّب كلمة تانية.</div>
+<footer>© {{YEAR}} د. وائل عويس — «مسار»</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main section'));
+  var toc = document.getElementById('toc');
+  var links = {};
+  sections.forEach(function (s) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = '#' + s.id;
+    a.textContent = s.getAttribute('data-title');
+    li.appendChild(a);
+    toc.appendChild(li);
+    links[s.id] = a;
+  });
+
+  // الجزء اللي ظاهر دلوقتي يتعلّم في الفهرس
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          Object.keys(links).forEach(function (k) { links[k].classList.remove('active'); });
+          links[e.target.id].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-10% 0px -80% 0px' });
+    sections.forEach(function (s) { obs.observe(s); });
+  }
+
+  // البحث: بيوحّد الهمزات والتاء المربوطة والياء عشان «اضافه» تلاقي «إضافة»
+  function norm(t) {
+    return (t || '').toLowerCase()
+      .replace(/[ً-ْـ]/g, '')
+      .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+  }
+  var originals = sections.map(function (s) { return s.innerHTML; });
+  var q = document.getElementById('q');
+  var empty = document.getElementById('empty');
+  q.addEventListener('input', function () {
+    var term = norm(q.value.trim());
+    var shown = 0;
+    sections.forEach(function (s, i) {
+      s.innerHTML = originals[i];
+      if (!term) { s.classList.remove('hidden'); links[s.id].parentNode.style.display = ''; shown++; return; }
+      var hit = norm(s.textContent).indexOf(term) >= 0;
+      s.classList.toggle('hidden', !hit);
+      links[s.id].parentNode.style.display = hit ? '' : 'none';
+      if (hit) {
+        shown++;
+        s.querySelectorAll('details').forEach(function (d) { if (norm(d.textContent).indexOf(term) >= 0) d.open = true; });
+      }
+    });
+    empty.style.display = shown ? 'none' : 'block';
+  });
+
+  // فتح الدليل على جزء معيّن: guide.html?s=online
+  var m = /[?&]s=([\w-]+)/.exec(location.search);
+  if (m && document.getElementById(m[1])) document.getElementById(m[1]).scrollIntoView();
+})();
+</script>
+</body>
+</html>

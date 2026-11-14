@@ -424,8 +424,11 @@ internal sealed partial class MainForm : Form
         Act(Glyphs.Timer, "وضع التركيز", StartFocusDialog, top);
 
         var bottom = new Panel { Dock = DockStyle.Bottom, Height = LogicalToDeviceUnits(46), BackColor = Theme.Panel };
+        bottom.Height = LogicalToDeviceUnits(92);
         var settings = Act(Glyphs.Settings, "الإعدادات (Ctrl+,)", SettingsDialog, bottom);
-        settings.Dock = DockStyle.Fill;
+        settings.Dock = DockStyle.Bottom;
+        var help = Act(Glyphs.Help, "دليل الاستخدام (F1)", () => HelpGuide.Open(this), bottom);
+        help.Dock = DockStyle.Bottom;
         _activity.Controls.Add(top);
         _activity.Controls.Add(bottom);
     }
@@ -691,7 +694,8 @@ internal sealed partial class MainForm : Form
             Item("التحقق من التحديثات", () => _ = CheckForUpdatesAsync(manual: true)),
             Item("مستودع التحديثات على GitHub…", SetUpdateRepoDialog),
             new ToolStripSeparator(),
-            Item("اختصارات الكيبورد", ShowShortcuts, display: "F1"),
+            Item("دليل الاستخدام", () => HelpGuide.Open(this), display: "F1"),
+            Item("اختصارات الكيبورد", ShowShortcuts),
             Item("عن البرنامج", () => AboutDialog.Show(this, UpdateChecker.CurrentVersion.ToString(3),
                 "محرك التشغيل: VLC (LibVLCSharp)\nفيديوهات النت: yt-dlp + Deno\nمنصة التشغيل: .NET " + Environment.Version.ToString(2) +
                 "\n\nملف القائمة الحالي:\n" + _libraryPath +
@@ -972,7 +976,7 @@ internal sealed partial class MainForm : Form
             case Keys.Escape when _fullscreen: ToggleFullscreen(); return true;
             case Keys.Escape when _miniMode: ToggleMiniMode(); return true;
             case Keys.F6: ToggleSidePanel(); return true;
-            case Keys.F1: ShowShortcuts(); return true;
+            case Keys.F1: HelpGuide.Open(this); return true;
             case Keys.Control | Keys.F: if (_split.Panel2Collapsed) ToggleSidePanel(); _searchBox.Focus(); return true;
 
             case Keys.M: ToggleMute(); return true;
@@ -1040,7 +1044,7 @@ internal sealed partial class MainForm : Form
             "  Ctrl + V  ←  لصق رابط من الحافظة\n" +
             "  السحب والإفلات  ←  نقل فيديو بين المحاضرات، أو محاضرة بين الكورسات،\n" +
             "                         أو ترتيب الكورسات، أو سحب ملفات/فولدرات من الويندوز",
-            "اختصارات الكيبورد");
+            "اختصارات الكيبورد  ·  الدليل الكامل: F1");
     }
 
     // =====================================================================

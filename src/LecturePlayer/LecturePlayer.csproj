@@ -53,6 +53,8 @@
   <ItemGroup>
     <!-- الأيقونة جوه البرنامج نفسه (للشبابيك وأيقونة جنب الساعة) -->
     <EmbeddedResource Include="LecturePlayer.ico" LogicalName="LecturePlayer.ico" />
+    <!-- دليل الاستخدام (مساعدة ← دليل الاستخدام / F1) -->
+    <EmbeddedResource Include="Help\Guide.html" LogicalName="Guide.html" />
   </ItemGroup>
 
   <!-- =====================================================================
