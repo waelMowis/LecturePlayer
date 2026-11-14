@@ -105,6 +105,9 @@ internal sealed partial class MainForm
             TopMost = true;
             ResumeLayout(true);
             RefitVideo();
+            var logLater = new System.Windows.Forms.Timer { Interval = 1200 };
+            logLater.Tick += (_, _) => { logLater.Stop(); logLater.Dispose(); if (_miniMode) Log.Info($"mini player (dpi {DeviceDpi}): {DescribeVideoWindows()}"); };
+            logLater.Start();
             ShowStatus("المشغل الصغير — P أو Esc أو دبل كليك للرجوع");
         }
         else

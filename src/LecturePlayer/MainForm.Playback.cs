@@ -572,6 +572,7 @@ internal sealed partial class MainForm
         UpdatePlayButton();
         TrackTick();
 
+        if (_tick % 4 == 0 && IsActive) HealVideoFit(); // شباك الصورة دايمًا جوه مساحة الفيديو
         if (_tick % 40 == 0 && _dirty) SaveLibrary(); // حفظ تلقائي كل 10 ثواني لو في تغيير
         else if (_tick % 240 == 0 && _positionDirty) SaveLibrary(); // مكان التشغيل بس: كل دقيقة
         else if (_tick % 120 == 0) MergeExternalChanges(); // كل 30 ثانية: هل جهاز تاني عدّل القائمة؟

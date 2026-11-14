@@ -320,6 +320,19 @@ internal sealed partial class MainForm
             if (misfit != null && misfit != "no vlc window") throw new Exception($"video window does not fit after {name}: {misfit}");
         }
         if (_miniMode || _fullscreen) throw new Exception("mini/fullscreen did not toggle back");
+
+        // من شباك مكبّر للآخر (Maximized) للمشغل الصغير — زي ما المستخدم بيستخدمه غالبًا
+        WindowState = FormWindowState.Maximized; Pump(800);
+        DisableVideoFitForTest = true;
+        ToggleMiniMode(); Pump(1000);
+        Console.WriteLine($"SMOKE maximized->mini WITHOUT fix: {VlcWindowsMisfit() ?? "fits"} :: {DescribeVideoWindows()}");
+        DisableVideoFitForTest = false;
+        HealVideoFit(); Pump(500);
+        string? mm = VlcWindowsMisfit();
+        Console.WriteLine($"SMOKE maximized->mini: {mm ?? "fits"} :: {DescribeVideoWindows()}");
+        if (mm != null && mm != "no vlc window") throw new Exception("video window does not fit after maximized->mini: " + mm);
+        ToggleMiniMode(); Pump(800);
+        WindowState = FormWindowState.Normal; Pump(300);
         StopPlayback();
         Application.DoEvents();
     }

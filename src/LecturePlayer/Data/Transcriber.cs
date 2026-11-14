@@ -75,8 +75,36 @@ public static class Transcriber
     public static IReadOnlyList<string> WhisperArgs(string model, string wav, string outPrefix, string lang, int threads) => new[]
     {
         "-m", model, "-f", wav, "-l", string.IsNullOrWhiteSpace(lang) ? "auto" : lang,
-        "-ovtt", "-of", outPrefix, "-pp", "-t", threads.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        "-ovtt", "-of", outPrefix, "-pp", "-t", threads.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        // من غير «سياق» الجمل اللي فاتت: ده اللي بيوقّع الأداة في «لفّة» تكرر نفس الجملة دقايق (خصوصًا عربي + مصطلحات إنجليزي)
+        "-mc", "0",
+        // جملة «مش واثق منها» بتتعاد بإعدادات تانية بدل ما تتكتب غلط
+        "-et", "2.6"
     };
+
+    /// <summary>
+    /// تنضيف التكرار: لو نفس الجملة اتكررت ورا بعضها (لفّة من أداة التحويل)، بنسيب أول مرة بس.
+    /// </summary>
+    public static Transcript RemoveRepeats(Transcript t)
+    {
+        static string Norm(string s) => new string(s.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+        var result = new Transcript();
+        string? last = null;
+        int repeats = 0;
+        foreach (var c in t.Cues)
+        {
+            string n = Norm(c.Text);
+            if (n.Length > 0 && n == last)
+            {
+                repeats++;
+                continue; // نفس الكلام اتعاد: مش بنكتبه تاني
+            }
+            last = n;
+            result.Cues.Add(c);
+        }
+        if (repeats > 0) Log.Info($"transcript: removed {repeats} repeated lines");
+        return result;
+    }
 
     /// <summary>تفريغ ملف على الجهاز بـ whisper.cpp. progress: 0..100.</summary>
     public static async Task<Transcript> WithWhisperAsync(string videoFile, string model, string lang, IProgress<int> progress, CancellationToken ct)
@@ -107,7 +135,7 @@ public static class Transcriber
             if (r.ExitCode != 0 || !File.Exists(vtt))
                 throw new InvalidOperationException("whisper فشل: " + ProcessRunner.LastErrorLine(r.StdErr, "خطأ غير معروف"));
             progress.Report(100);
-            return Transcript.Parse(await File.ReadAllTextAsync(vtt, ct));
+            return RemoveRepeats(Transcript.Parse(await File.ReadAllTextAsync(vtt, ct)));
         }
         finally
         {

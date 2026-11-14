@@ -170,7 +170,14 @@ internal static class SmokeTest
             if (piped.Length != payload.Length || !piped.AsSpan().SequenceEqual(payload)) throw new Exception($"pipe: got {piped.Length} bytes");
             proxy.StopPipes();
             File.Delete(tmp);
-            // 5) تحليل Range
+            // 5) تحويل الكلام لنص: من غير «لفّة» التكرار
+            if (!LecturePlayer.Data.Transcriber.WhisperArgs("m", "w", "o", "auto", 2).Contains("-mc")) throw new Exception("whisper args: -mc missing");
+            var loop = new LecturePlayer.Data.Transcript();
+            loop.Cues.Add(new LecturePlayer.Data.Cue(0, 1000, "أهلا"));
+            for (int i = 1; i <= 5; i++) loop.Cues.Add(new LecturePlayer.Data.Cue(i * 10000, i * 10000 + 2000, "نحن نتحدث عن \"يوزر دفايند فونكشون\""));
+            loop.Cues.Add(new LecturePlayer.Data.Cue(90000, 91000, "خلاص"));
+            if (LecturePlayer.Data.Transcriber.RemoveRepeats(loop).Cues.Count != 3) throw new Exception("RemoveRepeats");
+            // 6) تحليل Range
             if (LecturePlayer.Data.StreamProxy.ParseRange("bytes=10-") != (10, null)) throw new Exception("ParseRange");
         }
         finally

@@ -1,3 +1,4 @@
+using LecturePlayer.Data;
 using System.Runtime.InteropServices;
 
 namespace LecturePlayer;
@@ -49,6 +50,42 @@ internal sealed partial class MainForm
     {
         _videoView.Resize += (_, _) => FitVlcWindows();
         _videoView.SizeChanged += (_, _) => FitVlcWindows();
+        ResizeEnd += (_, _) => FitVlcWindows();
+    }
+
+    private DateTime _videoFitLoggedUtc = DateTime.MinValue;
+
+    /// <summary>
+    /// بيتنده كل ثانية والفيديو شغال: لو شباك الصورة طالع بره مساحة الفيديو (أيًا كان السبب) بنرجّعه،
+    /// ونسجّل شكل الشبابيك في السجل (مرة كل دقيقة بالكتير) عشان لو حصل تاني نعرف السبب بالظبط.
+    /// </summary>
+    private void HealVideoFit()
+    {
+        if (DisableVideoFitForTest) return;
+        string? misfit;
+        try { misfit = VlcWindowsMisfit(); } catch { return; }
+        if (misfit == null || misfit == "no vlc window" || misfit == "no handle") return;
+        if (DateTime.UtcNow - _videoFitLoggedUtc > TimeSpan.FromMinutes(1))
+        {
+            _videoFitLoggedUtc = DateTime.UtcNow;
+            Log.Info($"video window out of place ({(_miniMode ? "mini" : _fullscreen ? "fullscreen" : "normal")}, dpi {DeviceDpi}): {DescribeVideoWindows()}");
+        }
+        FitVlcWindows();
+        // لو شباك VLC الداخلي نفسه لسه طالع بره، نظبطه هو كمان على قد المساحة
+        if (VlcWindowsMisfit() is { } still && still != "no vlc window")
+            try { FitDeep(_videoView.Handle, 0); } catch { }
+    }
+
+    private static void FitDeep(IntPtr parent, int depth)
+    {
+        if (depth > 3 || !GetClientRect(parent, out var rc)) return;
+        int w = rc.Right - rc.Left, h = rc.Bottom - rc.Top;
+        if (w <= 0 || h <= 0) return;
+        for (IntPtr child = GetWindow(parent, GW_CHILD); child != IntPtr.Zero; child = GetWindow(child, GW_HWNDNEXT))
+        {
+            SetWindowPos(child, IntPtr.Zero, 0, 0, w, h, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_ASYNCWINDOWPOS);
+            FitDeep(child, depth + 1);
+        }
     }
 
     /// <summary>كل شبابيك VLC جوه مساحة الفيديو تاخد المساحة كلها بالظبط (من أول ركن).</summary>
