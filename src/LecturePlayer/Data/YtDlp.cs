@@ -101,7 +101,10 @@ public static class YtDlp
         if (Has("confirm your age", "age-restricted", "Sign in to confirm your age"))
             return ("الفيديو ده محتاج تسجيل دخول (للكبار بس).\nالحل: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح».", false);
         if (Has("Sign in to confirm", "not a bot"))
-            return ("يوتيوب طالب يتأكد إنك مش روبوت.\nالحل: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح» واختار المتصفح اللي فاتح بيه يوتيوب (Firefox الأضمن).", false);
+            return ("يوتيوب طالب يتأكد إنك مش روبوت (بيحصل على بعض الشبكات زي شبكات الشغل والمدارس).\n" +
+                    "البرنامج جرّب لوحده كذا طريقة بديلة ومنفعتش.\n" +
+                    "الحل: افتح يوتيوب في Firefox وسجّل دخولك، وبعدين: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح» ← Firefox.\n" +
+                    "(Chrome وEdge الجداد بيمنعوا البرامج تقرا تسجيل الدخول، فـ Firefox هو الأضمن.)", false);
         if (Has("Private video"))
             return ("الفيديو ده خاص (Private) ومش متاح غير لصاحبه.", false);
         if (Has("members-only", "Join this channel", "available to this channel's members"))
@@ -165,9 +168,35 @@ public static class YtDlp
 
         var (code, stdout, stderr) = await RunAsync(args, ct, TimeSpan.FromMinutes(3));
         if (code != 0 || string.IsNullOrWhiteSpace(stdout))
+        {
+            // فيديو واحد ويوتيوب رافض الأداة: نجيب اسمه من يوتيوب مباشرة (oEmbed) ونضيفه — المدة بتتعرف وقت التشغيل
+            if (IsBotCheck(stderr) && await OEmbedTitleAsync(url, ct) is { } title)
+            {
+                Log.Info("added via oEmbed (bot check): " + url);
+                return new OnlineListing(null, false, new List<OnlineEntry> { new(NormalizeUrl(url), title, 0) });
+            }
             throw new InvalidOperationException(ErrorFrom(stderr, "مقدرتش أقرا الرابط"));
+        }
 
         return ParseListing(stdout, url);
+    }
+
+    /// <summary>اسم فيديو يوتيوب من غير أداة يوتيوب (خدمة oEmbed الرسمية). null لو مش فيديو واحد أو فشل.</summary>
+    public static async Task<string?> OEmbedTitleAsync(string url, CancellationToken ct)
+    {
+        string u = NormalizeUrl(url);
+        bool single = u.Contains("youtube.com/watch", StringComparison.OrdinalIgnoreCase) && !u.Contains("list=", StringComparison.OrdinalIgnoreCase)
+                      || u.Contains("youtu.be/", StringComparison.OrdinalIgnoreCase) || u.Contains("/shorts/", StringComparison.OrdinalIgnoreCase);
+        if (!single) return null;
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            string json = await http.GetStringAsync("https://www.youtube.com/oembed?format=json&url=" + Uri.EscapeDataString(u), ct);
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("title", out var t) && t.GetString() is { Length: > 0 } title ? title : null;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { Log.Info("oEmbed failed: " + ex.Message); return null; }
     }
 
     /// <summary>تحليل ناتج yt-dlp -J (public عشان يتجرّب لوحده).</summary>
@@ -447,6 +476,7 @@ public static class YtDlp
         };
         foreach (string a in new[] { "-f", format, "-o", "-", "--no-part", "--no-playlist", "--quiet", "--no-progress" }) psi.ArgumentList.Add(a);
         foreach (string a in CommonArgs()) psi.ArgumentList.Add(a);
+        if (_botWorkaround is { } w) foreach (string a in w) psi.ArgumentList.Add(a);
         psi.ArgumentList.Add(NormalizeUrl(url));
         string path = Environment.GetEnvironmentVariable("PATH") ?? "";
         psi.Environment["PATH"] = ToolsDir + Path.PathSeparator + AppContext.BaseDirectory + Path.PathSeparator + path;
@@ -465,7 +495,97 @@ public static class YtDlp
         return process;
     }
 
+    // =====================================================================
+    //  «Sign in to confirm you're not a bot»
+    // =====================================================================
+
+    /// <summary>يوتيوب طالب يتأكد إن الطلب مش من روبوت (بيحصل على شبكات المدارس والشركات وبعض الـ IPs).</summary>
+    public static bool IsBotCheck(string stderr) =>
+        stderr.Contains("Sign in to confirm", StringComparison.OrdinalIgnoreCase) && stderr.Contains("bot", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>الطريقة اللي نجحت مع فحص الروبوت في الجلسة دي (بتتجرّب الأول المرة الجاية).</summary>
+    private static string[]? _botWorkaround;
+
+    /// <summary>لما البرنامج يلاقي المتصفح اللي تسجيل الدخول منه حل المشكلة (عشان يتحفظ في الإعدادات).</summary>
+    public static event Action<string>? CookiesBrowserFound;
+
+    /// <summary>
+    /// الطرق البديلة بالترتيب: «عملاء» تانيين من يوتيوب (تطبيق النظارة، التليفزيون، الموبايل) غالبًا مش بيطلبوا الفحص ده،
+    /// وبعدين تسجيل دخولك من المتصفحات اللي على الجهاز (Firefox الأول لأنه الأضمن على ويندوز).
+    /// </summary>
+    private static IEnumerable<(string Name, string[] Args)> BotWorkarounds()
+    {
+        yield return ("android_vr", new[] { "--extractor-args", "youtube:player_client=android_vr" });
+        yield return ("tv_simply", new[] { "--extractor-args", "youtube:player_client=tv_simply" });
+        yield return ("mweb", new[] { "--extractor-args", "youtube:player_client=mweb" });
+        if (!string.IsNullOrWhiteSpace(CookiesBrowser)) yield break; // المستخدم مختار متصفح بالفعل
+        string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var browsers = new (string Name, string Profile)[]
+        {
+            ("firefox", Path.Combine(appData, "Mozilla", "Firefox", "Profiles")),
+            ("edge", Path.Combine(local, "Microsoft", "Edge", "User Data")),
+            ("chrome", Path.Combine(local, "Google", "Chrome", "User Data")),
+            ("brave", Path.Combine(local, "BraveSoftware", "Brave-Browser", "User Data")),
+        };
+        foreach (var (name, profile) in browsers)
+            if (Directory.Exists(profile))
+                yield return ("cookies:" + name, new[] { "--cookies-from-browser", name });
+    }
+
+    /// <summary>
+    /// بيشغّل الأداة، ولو يوتيوب طلب «أكّد إنك مش روبوت» بيجرّب الطرق البديلة لوحده (من غير ما يسأل المستخدم)
+    /// ويفتكر اللي نجحت.
+    /// </summary>
     private static async Task<(int Code, string StdOut, string StdErr)> RunAsync(
+        IEnumerable<string> args, CancellationToken ct, TimeSpan timeout)
+    {
+        var list = args.ToList();
+        if (list.Contains("-U")) return await RunOnceAsync(list, ct, timeout);
+
+        if (_botWorkaround is { } known)
+        {
+            var r = await RunOnceAsync(WithExtra(list, known), ct, timeout);
+            if (!IsBotCheck(r.StdErr)) return r;
+            _botWorkaround = null;
+        }
+        var first = await RunOnceAsync(list, ct, timeout);
+        if (!IsBotCheck(first.StdErr)) return first;
+
+        Log.Info("youtube bot check — trying workarounds");
+        foreach (var (name, extra) in BotWorkarounds())
+        {
+            ct.ThrowIfCancellationRequested();
+            var r = await RunOnceAsync(WithExtra(list, extra), ct, timeout);
+            if (r.Code == 0 && !IsBotCheck(r.StdErr))
+            {
+                Log.Info("youtube bot check passed with: " + name);
+                _botWorkaround = extra;
+                if (name.StartsWith("cookies:", StringComparison.Ordinal))
+                {
+                    CookiesBrowser = name[8..];
+                    CookiesBrowserFound?.Invoke(CookiesBrowser);
+                }
+                return r;
+            }
+            Log.Info($"youtube bot workaround {name} failed: {FirstErrorLine(r.StdErr)}");
+        }
+        return first;
+    }
+
+    private static string FirstErrorLine(string stderr) =>
+        stderr.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith("ERROR", StringComparison.Ordinal)) is { } e
+            ? e[..Math.Min(e.Length, 200)] : "";
+
+    private static List<string> WithExtra(List<string> args, string[] extra)
+    {
+        // الإضافات قبل الرابط (آخر حاجة في الأوامر)
+        var r = new List<string>(args);
+        r.InsertRange(Math.Max(0, r.Count - 1), extra);
+        return r;
+    }
+
+    private static async Task<(int Code, string StdOut, string StdErr)> RunOnceAsync(
         IEnumerable<string> args, CancellationToken ct, TimeSpan timeout)
     {
         string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");

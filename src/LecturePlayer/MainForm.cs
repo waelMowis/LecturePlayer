@@ -116,6 +116,13 @@ internal sealed partial class MainForm : Form
             }
         };
         StreamProxy.Trace = Log.Info;
+        // لو تسجيل الدخول من متصفح حل «أكّد إنك مش روبوت» لوحده: نحفظه عشان المرات الجاية
+        YtDlp.CookiesBrowserFound += browser => BeginInvoke(() =>
+        {
+            _settings.OnlineCookiesBrowser = browser;
+            SaveSettings();
+            ShowBanner($"يوتيوب كان طالب يتأكد إنك مش روبوت — استخدمت تسجيل دخولك من {browser} واشتغل ✓", BannerKind.Success, seconds: 10);
+        });
         Log.Info("app started" + (_settings.NormalizeAudio ? " (normvol)" : ""));
         _mp = new MediaPlayer(_libVLC)
         {
