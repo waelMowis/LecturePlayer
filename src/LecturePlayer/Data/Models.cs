@@ -311,6 +311,8 @@ public sealed class AppSettings
     public bool TourShown { get; set; }
     public float Rate { get; set; } = 1f;
     public bool AutoPlayNext { get; set; } = true;
+    /// <summary>التكرار بعد ما الفيديو يخلص: 0 = من غير، 1 = الفيديو ده، 2 = المحاضرة كلها (من أولها تاني).</summary>
+    public int RepeatMode { get; set; }
     public bool ContinueToNextGroup { get; set; } = false;
     public bool ResumePosition { get; set; } = true;
 

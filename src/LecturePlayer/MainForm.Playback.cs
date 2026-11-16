@@ -88,6 +88,7 @@ internal sealed partial class MainForm
         RefreshGroup(_currentGroup);
         _seekBar.Value = 1;
 
+        if (TryRepeatAfterEnd(v)) return;
         if (_settings.AutoPlayNext) PlayNext(auto: true);
         else UpdatePlayButton();
     }

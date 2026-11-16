@@ -170,7 +170,7 @@ internal sealed partial class MainForm
     private void SetMiniControls(bool mini)
     {
         _speedLabel.Visible = _speedCombo.Visible = _volumeBar.Visible = !mini;
-        _btnPlaylist.Visible = _btnStop.Visible = !mini;
+        _btnPlaylist.Visible = _btnStop.Visible = _btnRepeat.Visible = !mini;
         UpdateBookmarkButton();
         _btnMini.Active = mini;
         _btnMini.Text = mini ? Glyphs.FullScreen : Glyphs.MiniPlayer;

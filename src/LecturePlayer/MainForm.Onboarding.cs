@@ -285,6 +285,32 @@ internal sealed partial class MainForm
         Console.WriteLine($"SMOKE playback: state {state}, time {time} ms");
         if (state == VLCState.Error) throw new Exception("playback: VLC error playing a local audio file");
         if (state != VLCState.Playing || time <= 0) throw new Exception($"playback: never started (state {state}, time {time})");
+        // التكرار: ملف صوت قصير (ثانيتين) لازم يتعاد لوحده لما يخلص
+        string shortWav = Path.Combine(dir, "short.wav");
+        WriteToneWav(shortWav, seconds: 2);
+        var shortItem = new VideoItem { Path = shortWav, Title = "Short", DurationMs = 2000 };
+        group0.Videos.Insert(1, shortItem);
+        int oldRepeat = _settings.RepeatMode;
+        _settings.RepeatMode = 1;
+        PlayVideo(group0, shortItem, 0);
+        bool sawEnd = false, repeated = false;
+        long maxTime = 0;
+        var ru = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < ru)
+        {
+            Application.DoEvents(); Thread.Sleep(30);
+            long tnow = _mp.Time;
+            if (_mp.State == VLCState.Ended || (maxTime > 1200 && tnow < 600)) sawEnd = true;
+            maxTime = Math.Max(maxTime, tnow);
+            // اتشغّل من الأول تاني: الوقت رجع صغير بعد ما كان قرب الآخر والملف شغال
+            if (sawEnd && _mp.State == VLCState.Playing && _currentVideo == shortItem && tnow > 0 && tnow < 1500) { repeated = true; break; }
+        }
+        _settings.RepeatMode = oldRepeat;
+        Console.WriteLine($"SMOKE repeat: ended {sawEnd}, replayed {repeated}");
+        if (!repeated) throw new Exception("repeat: the video did not play again after it ended");
+        StopPlayback();
+        Application.DoEvents();
+
         // استخراج الصوت لتحويل الكلام لنص بالمشغل نفسه (من غير ffmpeg)
         string extracted = Path.Combine(dir, "extracted.wav");
         var swx = System.Diagnostics.Stopwatch.StartNew();

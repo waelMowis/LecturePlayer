@@ -213,6 +213,7 @@ internal sealed partial class MainForm : Form
         _radioVisual.MouseUp += (_, e) => { if (e.Button == MouseButtons.Right) ShowVideoMenu(_videoView.PointToClient(_radioVisual.PointToScreen(e.Location))); };
         _radioVisual.MouseWheel += (_, e) => SetVolume(_settings.Volume + (e.Delta > 0 ? 5 : -5));
         BuildBanner();
+        InitRepeat();
         InitVideoFit();
 
         // ---------- القايمة الجانبية ----------
@@ -395,7 +396,7 @@ internal sealed partial class MainForm : Form
         _volumeBar.Height = 24;
         _volumeBar.Margin = new Padding(0, 10, 8, 4);
 
-        right.Controls.AddRange(new Control[] { speedLabel, _speedCombo, _btnMute, _volumeBar, _btnPlaylist, _btnMini, _btnFullscreen });
+        right.Controls.AddRange(new Control[] { speedLabel, _speedCombo, _btnRepeat, _btnMute, _volumeBar, _btnPlaylist, _btnMini, _btnFullscreen });
 
         _nowPlayingLabel.Dock = DockStyle.Fill;
         _nowPlayingLabel.TextAlign = ContentAlignment.MiddleCenter;
@@ -704,6 +705,7 @@ internal sealed partial class MainForm : Form
             Item("السرعة العادية", () => SetRate(1f), display: "Z"),
             new ToolStripSeparator(),
             _autoNextItem, _continueGroupsItem, _resumeItem,
+            SubMenu("التكرار بعد ما الفيديو يخلص", BuildRepeatMenuItems()),
             new ToolStripSeparator(),
             Item("ملء الشاشة", ToggleFullscreen, display: "F11"),
             Item("إظهار / إخفاء المكتبة", ToggleSidePanel, display: "F6"),
@@ -1128,6 +1130,7 @@ internal sealed partial class MainForm : Form
             case Keys.P: ToggleMiniMode(); return true;
             case Keys.O: _ = OcrFrameAsync(); return true;
             case Keys.R: AddReviewBookmark(); return true;
+            case Keys.L: SetRepeatMode(RepeatMode == 1 ? 0 : 1, announce: true); return true;
             case Keys.Shift | Keys.S: ToggleSkipSilence(); return true;
             case Keys.Control | Keys.Z: UndoLast(); return true;
             case Keys.Control | Keys.Y: RedoLast(); return true;
