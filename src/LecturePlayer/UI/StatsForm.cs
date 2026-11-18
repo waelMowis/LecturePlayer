@@ -27,7 +27,7 @@ internal sealed class StatsForm : Form
     private static readonly CultureInfo Ar = CultureInfo.GetCultureInfo("ar-EG");
 
     /// <summary>عنصر في قايمة النطاق: كل المواضيع، موضوع، أو «من غير موضوع».</summary>
-    private sealed record Scope(string Key, string Text, Topic? Topic)
+    private sealed record Scope(string Key, string Text, Topic? Topic, Place? Place = null)
     {
         public override string ToString() => Text;
     }
@@ -60,7 +60,12 @@ internal sealed class StatsForm : Form
         _topicCombo.Dock = DockStyle.Right;
         _topicCombo.Width = 260;
         _scopes.Add(new Scope("", "كل المواضيع", null));
-        _scopes.AddRange(lib.Topics.Select(t => new Scope(t.Id, t.Name, t)));
+        foreach (var t in lib.Topics)
+        {
+            _scopes.Add(new Scope(t.Id, t.Name, t));
+            foreach (var p in lib.PlacesOf(t)) _scopes.Add(new Scope("p:" + p.Id, "      🏫 " + p.Name, t, p));
+        }
+        foreach (var p in lib.PlacesOf(null)) _scopes.Add(new Scope("p:" + p.Id, "🏫 " + p.Name, null, p));
         if (lib.Topics.Count > 0 && lib.CoursesOf(null).Any()) _scopes.Add(new Scope("-", TopicStats.NoTopicName, null));
         _topicCombo.Items.AddRange(_scopes.Select(x => x.Text));
         _topicCombo.SelectedIndex = Math.Max(0, _scopes.FindIndex(x => x.Key == settings.StatsTopicFilter));
@@ -110,7 +115,7 @@ internal sealed class StatsForm : Form
         {
             // دبل كليك على موضوع ← الإحصائيات بتاعته
             if (_topics.SelectedItems.Count == 0 || _topics.SelectedItems[0].Tag is not TopicSummary ts) return;
-            string key = ts.Topic?.Id ?? "-";
+            string key = ts.Place != null ? "p:" + ts.Place.Id : ts.Topic?.Id ?? "-";
             int target = _scopes.FindIndex(x => x.Key == key);
             if (target >= 0) _topicCombo.SelectedIndex = target;
         };
@@ -206,7 +211,9 @@ internal sealed class StatsForm : Form
     {
         var sc = CurrentScope;
         bool all = sc.Key == "";
-        _scope = all ? _entries : TopicStats.EntriesOf(_lib, sc.Topic, _entries, noTopic: sc.Key == "-");
+        _scope = all ? _entries
+            : sc.Place != null ? TopicStats.EntriesOfCourses(_lib.CoursesInPlace(sc.Place), _entries)
+            : TopicStats.EntriesOf(_lib, sc.Topic, _entries, noTopic: sc.Key == "-");
         _daily = StudyStats.DailyMinutes(_scope);
         _cells = StudyStats.Heatmap(_daily, _today, 12);
 
@@ -223,7 +230,9 @@ internal sealed class StatsForm : Form
         }
         else
         {
-            var t = TopicStats.For(_lib, sc.Topic, _entries, _today, _settings.Rate);
+            var t = sc.Place != null
+                ? TopicStats.ForPlace(_lib, sc.Place, _entries, _today, _settings.Rate)
+                : TopicStats.For(_lib, sc.Topic, _entries, _today, _settings.Rate);
             string fc = t.Videos > 0 && t.Watched == t.Videos ? "خلص ✓"
                 : t.FinishDate is { } fd ? $"هتخلص حوالي {fd:yyyy/MM/dd}" : "مفيش معدل كفاية للتوقع";
             _summary.Text = $"{Modern.Bidi(t.Name)}:  {t.Percent}%  ({t.Watched} من {t.Videos} فيديو في {t.Courses} كورس)     {fc}" +
@@ -238,12 +247,12 @@ internal sealed class StatsForm : Form
         {
             _topics.BeginUpdate();
             _topics.Items.Clear();
-            foreach (var t in TopicStats.All(_lib, _entries, _today, _settings.Rate))
+            foreach (var t in TopicStats.AllWithPlaces(_lib, _entries, _today, _settings.Rate))
             {
                 bool done = t.Videos > 0 && t.Watched == t.Videos;
                 var item = new ListViewItem(new[]
                 {
-                    t.Name, t.Courses.ToString(), $"{t.Percent}%  ({t.Watched}/{t.Videos})",
+                    t.Place != null && t.Topic != null ? "      ↳ 🏫 " + t.Place.Name : t.Place != null ? "🏫 " + t.Place.Name : t.Name, t.Courses.ToString(), $"{t.Percent}%  ({t.Watched}/{t.Videos})",
                     StudyStats.FormatMinutes(t.WeekMinutes), StudyStats.FormatMinutes(t.TotalMinutes),
                     StudyStats.FormatMinutes(t.RemainingMinutes),
                     done ? "خلص ✓" : t.FinishDate is { } d ? d.ToString("yyyy/MM/dd") : "—",
@@ -255,7 +264,9 @@ internal sealed class StatsForm : Form
         }
 
         // الكورسات: كلها أو كورسات الموضوع
-        var courses = all ? _lib.Courses : _lib.CoursesOf(sc.Key == "-" ? null : sc.Topic).ToList();
+        var courses = all ? _lib.Courses
+            : sc.Place != null ? _lib.CoursesInPlace(sc.Place).ToList()
+            : _lib.CoursesOf(sc.Key == "-" ? null : sc.Topic).ToList();
         _courses.BeginUpdate();
         _courses.Items.Clear();
         FillCourses(_courses, courses, showTopic: all && _lib.Topics.Count > 0);
@@ -317,7 +328,8 @@ internal sealed class StatsForm : Form
                     _ => $"{StudyStats.FormatMinutes(p.MinutesPerStudyDay)}/يوم"
                 }
                 : "";
-            string name = showTopic && _lib.TopicOf(c) is { } tp ? $"{c.Name}  ‹{tp.Name}›" : c.Name;
+            string where = string.Join(" › ", new[] { _lib.TopicOf(c)?.Name, _lib.PlaceOf(c)?.Name }.Where(x => x != null));
+            string name = showTopic && where.Length > 0 ? $"{c.Name}  ‹{where}›" : c.Name;
             var item = new ListViewItem(new[]
             {
                 name, CourseFilter.StatusText(c.Status), pct, StudyStats.FormatMinutes(f.RemainingMinutes),

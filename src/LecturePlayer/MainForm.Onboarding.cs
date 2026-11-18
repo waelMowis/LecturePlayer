@@ -149,6 +149,7 @@ internal sealed partial class MainForm
         RefreshHome();
         TourForm.SmokeTest(this);
 
+        RunHierarchyUiChecks();
         RunStressAndPlaybackChecks();
 
         // تقرير الأعطال: تسجيل، وقراية، وبناء التقرير، وفتح الشاشة بتاعته

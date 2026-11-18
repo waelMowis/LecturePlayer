@@ -319,4 +319,106 @@ internal sealed partial class MainForm
         RebuildTree();
         SelectItem(place);
     }
+
+    /// <summary>
+    /// فحص تلقائي للهيكل على الواجهة نفسها: شكل الشجرة (موضوع ← مكان ← كورس)، القوايم، السحب والإفلات،
+    /// البحث باسم المكان، فلتر الشاشة الرئيسية، التحويل، والحفظ والفتح.
+    /// </summary>
+    internal void RunHierarchyUiChecks()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("hierarchy ui: " + what); }
+        string dir = Path.Combine(Path.GetTempPath(), "masar-smoke");
+        Directory.CreateDirectory(dir);
+
+        var lib = new CourseLibrary { Name = "هيكل" };
+        var backendT = new Topic { Name = "Backend" };
+        var oldT = new Topic { Name = "Eng Doaa Amin Elfawal" };
+        lib.Topics.Add(backendT);
+        lib.Topics.Add(oldT);
+        lib.Places.Add(new Place { Name = "ROUTE", TopicId = backendT.Id });
+        void Mk(string n, Topic? t, Place? p)
+        {
+            var c = new Course { Name = n, TopicId = t?.Id, PlaceId = p?.Id };
+            c.Groups.Add(new LectureGroup { Name = "Session 01", Videos = { new VideoItem { Path = Path.Combine(dir, n + ".mp4"), Title = n } } });
+            lib.Courses.Add(c);
+        }
+        Mk("C# Basics", backendT, lib.Places[0]);
+        Mk("Direct", backendT, null);
+        Mk("00 Orientation", oldT, null);
+        Mk("Loose", null, null);
+        string path = Path.Combine(dir, "hierarchy.lpl");
+        Storage.SaveLibrary(path, lib);
+
+        LoadLibrary(path, remember: false);
+        Application.DoEvents();
+        var backend = _library.Topics.Single(t => t.Name == "Backend");
+        var old = _library.Topics.Single(t => t.Name.StartsWith("Eng"));
+        var route = _library.Places.Single();
+        var basics = _library.Courses.Single(c => c.Name == "C# Basics");
+        var direct = _library.Courses.Single(c => c.Name == "Direct");
+
+        // شكل الشجرة
+        var tb = _tree.Nodes[0];
+        Check(tb.Tag == backend && tb.Nodes.Count == 2, "topic node");
+        Check(tb.Nodes[0].Tag == route && tb.Nodes[0].Nodes.Count == 1 && tb.Nodes[0].Nodes[0].Tag == basics, "place node");
+        Check(tb.Nodes[1].Tag == direct, "direct course after places");
+        Check(_tree.Nodes[^1].Tag is Course { Name: "Loose" }, "loose course at root");
+        Check(tb.Nodes[0].ImageKey == "place", "place icon");
+
+        // القوايم بتتبني من غير أخطاء، و«انقل لـ…» فيها المكان
+        using (var menu = new ContextMenuStrip())
+        {
+            BuildTopicMenu(backend, menu.Items);
+            BuildPlaceMenu(route, menu.Items);
+            menu.Items.Add(ConvertTopicToPlaceMenu(old));
+            var move = MoveCourseMenu(direct);
+            var sub = move.DropDownItems.OfType<ToolStripMenuItem>().First(i => i.Text.Contains("Backend"));
+            Check(sub.DropDownItems.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("ROUTE")), "move menu lists place");
+            move.Dispose();
+        }
+
+        // السحب والإفلات: كورس على مكان، ومكان على موضوع ورجوعه
+        DropCourse(direct, route);
+        Check(_library.PlaceOf(direct) == route && NodeOf(route)!.Nodes.Count == 2, "drop course on place");
+        DropPlace(route, old);
+        Check(_library.TopicOf(route) == old && direct.TopicId == old.Id && NodeOf(old)!.Nodes[0].Tag == route, "drop place on topic");
+        DropPlace(route, backend);
+        Check(_library.TopicOf(route) == backend && basics.TopicId == backend.Id, "drop place back");
+        _tree.SelectedNode = NodeOf(basics);
+        MoveSelected(+1);
+        Check(_library.CoursesInPlace(route).First() == direct, "move course inside place");
+
+        // البحث باسم المكان بيعرض المكان وكورساته بس
+        _searchBox.Text = "ROUTE";
+        RebuildTree();
+        Check(_tree.Nodes.Count == 1 && _tree.Nodes[0].Nodes.Count == 1 && _tree.Nodes[0].Nodes[0].Nodes.Count == 2, "search by place");
+        _searchBox.Text = "";
+        RebuildTree();
+
+        // الشاشة الرئيسية متفلترة على المكان
+        _settings.HomeTopicFilter = "p:" + route.Id;
+        RefreshHome();
+        Check(_library.Courses.Where(InHomeScope).Count() == 2, "home place filter");
+        _settings.HomeTopicFilter = "";
+        RefreshHome();
+
+        // تحويل الموضوع القديم لمكان
+        ConvertTopicToPlaceCore(_library, old, route);
+        RebuildTree();
+        Check(_tree.Nodes.Cast<TreeNode>().All(n => n.Tag != old) && NodeOf(route)!.Nodes.Count == 3, "convert in tree");
+
+        // حذف المكان: الكورسات تفضل تحت الموضوع
+        _library.RemovePlace(route);
+        RebuildTree();
+        Check(NodeOf(backend)!.Nodes.Count == 3 && _library.Courses.Count == 4, "delete place keeps courses");
+
+        // الحفظ والفتح تاني
+        _library.Places.Add(new Place { Name = "Udemy", TopicId = backend.Id });
+        _library.MoveCourse(basics, null, _library.Places[0]);
+        SaveLibrary();
+        LoadLibrary(path, remember: false);
+        Application.DoEvents();
+        Check(_library.Places.Single().Name == "Udemy" && _library.PlaceOf(_library.Courses.Single(c => c.Name == "C# Basics"))?.Name == "Udemy", "save/load");
+        Console.WriteLine("SMOKE hierarchy ui OK");
+    }
 }

@@ -169,7 +169,7 @@ public static class StudyStats
             sb.AppendLine();
             sb.AppendLine("| الموضوع | وقت الأسبوع | التقدم | التوقع |");
             sb.AppendLine("|---|---:|---:|---|");
-            foreach (var t in TopicStats.All(lib, list, we < now ? we : now))
+            foreach (var t in TopicStats.AllWithPlaces(lib, list, we < now ? we : now))
             {
                 string fc = t.Videos > 0 && t.Watched == t.Videos ? "خلص" : t.FinishDate is { } fd ? $"{fd:yyyy-MM-dd}" : "مفيش معدل كفاية";
                 sb.AppendLine($"| {Escape(t.Name)} | {FormatMinutes(t.WeekMinutes)} | {t.Percent}% | {fc} |");
@@ -214,7 +214,7 @@ public static class StudyStats
 public sealed record TopicSummary(
     Topic? Topic, string Name, int Courses, int Videos, int Watched,
     double RemainingMinutes, double TodayMinutes, double WeekMinutes, double TotalMinutes,
-    double AvgMinutesPerDay, DateOnly? FinishDate, int? Understanding)
+    double AvgMinutesPerDay, DateOnly? FinishDate, int? Understanding, Place? Place = null)
 {
     public int Percent => Videos == 0 ? 0 : Watched * 100 / Videos;
 }
@@ -232,11 +232,33 @@ public static class TopicStats
         return entries.Where(e => e.CourseId != null ? ids.Contains(e.CourseId) : e.VideoPath != null && paths.Contains(e.VideoPath)).ToList();
     }
 
+    /// <summary>سجلات المذاكرة الخاصة بمجموعة كورسات (مثلًا كورسات مكان).</summary>
+    public static List<JournalEntry> EntriesOfCourses(IEnumerable<Course> courses, IEnumerable<JournalEntry> entries)
+    {
+        var list = courses.ToList();
+        var ids = new HashSet<string>(list.Select(c => c.Id), StringComparer.Ordinal);
+        var paths = new HashSet<string>(list.SelectMany(c => c.AllVideos).Select(v => v.Path), StringComparer.OrdinalIgnoreCase);
+        return entries.Where(e => e.CourseId != null ? ids.Contains(e.CourseId) : e.VideoPath != null && paths.Contains(e.VideoPath)).ToList();
+    }
+
     public static TopicSummary For(CourseLibrary lib, Topic? topic, IReadOnlyList<JournalEntry> entries, DateOnly today,
+        float defaultRate = 1f, int lookbackDays = 14) =>
+        Summarize(topic, null, topic?.Name ?? NoTopicName, lib.CoursesOf(topic).ToList(),
+            EntriesOf(lib, topic, entries, noTopic: topic == null), today, defaultRate, lookbackDays);
+
+    /// <summary>ملخص مكان (ROUTE مثلًا): مجموع كورساته. الاسم «Backend › ROUTE».</summary>
+    public static TopicSummary ForPlace(CourseLibrary lib, Place place, IReadOnlyList<JournalEntry> entries, DateOnly today,
         float defaultRate = 1f, int lookbackDays = 14)
     {
-        var courses = lib.CoursesOf(topic).ToList();
-        var mine = EntriesOf(lib, topic, entries, noTopic: topic == null);
+        var courses = lib.CoursesInPlace(place).ToList();
+        var topic = lib.TopicOf(place);
+        string name = topic != null ? $"{topic.Name} › {place.Name}" : place.Name;
+        return Summarize(topic, place, name, courses, EntriesOfCourses(courses, entries), today, defaultRate, lookbackDays);
+    }
+
+    private static TopicSummary Summarize(Topic? topic, Place? place, string name, List<Course> courses, List<JournalEntry> mine,
+        DateOnly today, float defaultRate, int lookbackDays)
+    {
         var daily = StudyStats.DailyMinutes(mine);
         var ws = StudyStats.StartOfWeek(today);
         double week = Enumerable.Range(0, 7).Sum(i => StudyStats.MinutesOn(daily, ws.AddDays(i)));
@@ -250,8 +272,8 @@ public static class TopicStats
         int? understanding = withVideos.Count == 0 ? null
             : (int)Math.Round(withVideos.Sum(c => UnderstandingIndex.For(c, mine).Score * (double)c.VideoCount) / withVideos.Sum(c => c.VideoCount));
 
-        return new TopicSummary(topic, topic?.Name ?? NoTopicName, courses.Count, courses.Sum(c => c.VideoCount), courses.Sum(c => c.WatchedCount),
-            remaining, StudyStats.MinutesOn(daily, today), week, daily.Values.Sum(), avg, finish, understanding);
+        return new TopicSummary(topic, name, courses.Count, courses.Sum(c => c.VideoCount), courses.Sum(c => c.WatchedCount),
+            remaining, StudyStats.MinutesOn(daily, today), week, daily.Values.Sum(), avg, finish, understanding, place);
     }
 
     /// <summary>كل المواضيع بالترتيب، وفي الآخر «من غير موضوع» لو فيه كورسات برا.</summary>
@@ -259,6 +281,20 @@ public static class TopicStats
     {
         var list = lib.Topics.Select(t => For(lib, t, entries, today, defaultRate)).ToList();
         if (lib.CoursesOf(null).Any()) list.Add(For(lib, null, entries, today, defaultRate));
+        return list;
+    }
+
+    /// <summary>زي <see cref="All"/>، وبعد كل موضوع أماكنه (ROUTE، Udemy…).</summary>
+    public static List<TopicSummary> AllWithPlaces(CourseLibrary lib, IReadOnlyList<JournalEntry> entries, DateOnly today, float defaultRate = 1f)
+    {
+        var list = new List<TopicSummary>();
+        foreach (var t in lib.Topics)
+        {
+            list.Add(For(lib, t, entries, today, defaultRate));
+            list.AddRange(lib.PlacesOf(t).Select(p => ForPlace(lib, p, entries, today, defaultRate)));
+        }
+        list.AddRange(lib.PlacesOf(null).Select(p => ForPlace(lib, p, entries, today, defaultRate)));
+        if (lib.CoursesOf(null).Any(c => lib.PlaceOf(c) == null)) list.Add(For(lib, null, entries, today, defaultRate));
         return list;
     }
 }

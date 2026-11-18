@@ -42,13 +42,15 @@ internal sealed partial class MainForm
     {
         "" => true,
         "-" => _library.TopicOf(c) == null,
+        var key when key.StartsWith("p:") => _library.PlaceOf(c)?.Id == key[2..],
         var id => c.TopicId == id && _library.Topics.Any(t => t.Id == id)
     };
 
     /// <summary>أزرار المواضيع فوق الكروت: الكل / كل موضوع / من غير موضوع.</summary>
     private void RefreshHomeTopics()
     {
-        if (_settings.HomeTopicFilter is { Length: > 0 } f && f != "-" && _library.Topics.All(t => t.Id != f))
+        if (_settings.HomeTopicFilter is { Length: > 0 } f && f != "-" &&
+            (f.StartsWith("p:") ? _library.Places.All(p => p.Id != f[2..]) : _library.Topics.All(t => t.Id != f)))
             _settings.HomeTopicFilter = "";
         var old = _homeTopics.Controls.Cast<Control>().ToList();
         _homeTopics.Controls.Clear();
@@ -73,6 +75,19 @@ internal sealed partial class MainForm
             Chip(t.Id, v > 0 ? $"{t.Name}  {w * 100 / v}%" : t.Name);
         }
         if (_library.CoursesOf(null).Any()) Chip("-", TopicStats.NoTopicName);
+
+        // الموضوع المختار (أو مكان جواه) فيه أماكن ← أزرار للأماكن (ROUTE، Udemy…)
+        string sel = _settings.HomeTopicFilter;
+        var selTopic = sel.StartsWith("p:")
+            ? _library.Places.FirstOrDefault(p => p.Id == sel[2..]) is { } sp ? _library.TopicOf(sp) : null
+            : _library.Topics.FirstOrDefault(t => t.Id == sel);
+        if (selTopic == null) return;
+        foreach (var p in _library.PlacesOf(selTopic))
+        {
+            var cs = _library.CoursesInPlace(p).ToList();
+            int v = cs.Sum(c => c.VideoCount), w = cs.Sum(c => c.WatchedCount);
+            Chip("p:" + p.Id, "🏫 " + (v > 0 ? $"{p.Name}  {w * 100 / v}%" : p.Name));
+        }
     }
 
     // =====================================================================
@@ -730,11 +745,16 @@ internal sealed partial class MainForm
             Text = Modern.Bidi(c.Name), TextAlign = ContentAlignment.MiddleRight
         };
         string last = c.LastActivityUtc > DateTime.MinValue ? "  ·  " + RelativeDay(c.LastActivityUtc) : "";
-        if (_settings.HomeTopicFilter == "" && _library.TopicOf(c) is { } topic) last += "  ·  " + Modern.Bidi(topic.Name);
+        // المسار فوق الكورس: «Backend › ROUTE» (من غير اللي متفلتر عليه أصلًا)
+        string filterKey = _settings.HomeTopicFilter;
+        var pathParts = new List<string>();
+        if (filterKey == "" && _library.TopicOf(c) is { } topic) pathParts.Add(topic.Name);
+        if (!filterKey.StartsWith("p:") && _library.PlaceOf(c) is { } place) pathParts.Add(place.Name);
+        string pathText = pathParts.Count > 0 ? Modern.Bidi(string.Join(" › ", pathParts)) + "  ·  " : "";
         var info = new Label
         {
             Dock = DockStyle.Top, Height = 22, ForeColor = Theme.Muted, AutoEllipsis = true,
-            Text = $"{c.WatchedCount} من {c.VideoCount} فيديو  ·  {percent}%" +
+            Text = pathText + $"{c.WatchedCount} من {c.VideoCount} فيديو  ·  {percent}%" +
                    (remaining > 0 ? $"  ·  فاضل {TimeFormat.Format(remaining)}" : "") + last,
             TextAlign = ContentAlignment.MiddleRight
         };
