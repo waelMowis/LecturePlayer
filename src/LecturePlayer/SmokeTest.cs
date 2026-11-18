@@ -217,7 +217,7 @@ internal static class SmokeTest
         manualCourse.Groups.Add(new LecturePlayer.Data.LectureGroup { Name = "LEC4", Videos = { manual } });
         lib.Courses.Add(manualCourse);
 
-        var topic = new LecturePlayer.Data.Topic { Name = "Eng Doaa Amin Elfawal", SourceFolder = root };
+        var topic = new LecturePlayer.Data.Topic { Name = "Eng Doaa Amin Elfawal" };
         lib.Topics.Add(topic);
         var snap = LecturePlayer.Data.FolderLink.Scan(root) ?? throw new Exception("folder link: scan null");
         var r = LecturePlayer.Data.FolderLink.Apply(lib, topic, snap, initial: true);
@@ -336,6 +336,8 @@ internal static class SmokeTest
         var lib = new LecturePlayer.Data.CourseLibrary();
         var old = new LecturePlayer.Data.Topic { Name = "Eng Doaa Amin Elfawal", SourceFolder = doaa };
         lib.Topics.Add(old);
+        lib.MigrateLinks(); // زي فتح ملف من 4.1.30: الربط بيتنقل لقايمة الفولدرات المتابَعة
+        Check(lib.Links.Single().TopicId == old.Id && old.SourceFolder == null, "migrate topic link");
         LecturePlayer.Data.FolderLink.Apply(lib, old, LecturePlayer.Data.FolderLink.Scan(doaa)!, initial: true);
         var intro = lib.AllVideos.Single(v => v.Title == "Part 01 Intro");
         intro.LastPositionMs = 7000;
@@ -349,11 +351,11 @@ internal static class SmokeTest
         int moved = MainForm.ConvertTopicToPlaceCore(lib, old, route);
         Check(moved == 2 && !lib.Topics.Contains(old), "convert moved " + moved);
         Check(lib.CoursesInPlace(route).Select(c => c.Name).SequenceEqual(new[] { "00 Orientation", "01 C# Basics" }), "convert order");
-        Check(route.SourceFolders.Count == 1 && intro.LastPositionMs == 7000, "convert kept link/progress");
+        Check(lib.Links.Single().PlaceId == route.Id && intro.LastPositionMs == 7000, "convert kept link/progress");
         Check(lib.PathOf(lib.Courses.Single(c => c.Name == "01 C# Basics")) == "Backend › ROUTE › 01 C# Basics", "convert path");
 
         // المزامنة بعد التحويل: مفيش تكرار، والجديد يتحط في مكانه
-        Check(!LecturePlayer.Data.FolderLink.Apply(lib, route, LecturePlayer.Data.FolderLink.Scan(doaa)!, initial: false).Changed, "resync changed");
+        Check(!LecturePlayer.Data.FolderLink.Apply(lib, lib.Links[0], LecturePlayer.Data.FolderLink.Scan(doaa)!, initial: false).Changed, "resync changed");
         Touch(@"Eng Doaa Amin Elfawal\01 C# Basics\Session 03\Videos\Part 01 Methods.mp4");
         Touch(@"Eng Doaa Amin Elfawal\02 OOP\Session 01\Videos\Part 01 Classes.mp4");
         var r = LecturePlayer.Data.FolderLink.Apply(lib, route, LecturePlayer.Data.FolderLink.Scan(doaa)!, initial: false);
@@ -361,7 +363,7 @@ internal static class SmokeTest
         Check(lib.CoursesInPlace(route).Count() == 3 && lib.Courses.Count == 3, "place update courses");
 
         // (ب) فولدر تاني في نفس المكان
-        route.SourceFolders.Add(asp);
+        lib.Links.Add(new LecturePlayer.Data.LinkedFolder { Path = asp, TopicId = backend.Id, PlaceId = route.Id });
         var r2 = LecturePlayer.Data.FolderLink.Apply(lib, route, LecturePlayer.Data.FolderLink.Scan(asp)!, initial: true);
         Check(r2.NewCourses == 1 && lib.CoursesInPlace(route).Count() == 4, "second folder");
 
@@ -375,7 +377,40 @@ internal static class SmokeTest
 
         // (د) الحفظ والفتح تاني
         var back = LecturePlayer.Data.Storage.FromJson(LecturePlayer.Data.Storage.Serialize(lib), Path.Combine(drive, "x.lpl"));
-        Check(back.Places.Single(p => p.Name == "ROUTE").SourceFolders.Count == 2, "folders lost on save");
+        Check(back.Links.Count == 2 && back.Links.All(l => l.PlaceId == route.Id), "links lost on save");
+        Check(!LecturePlayer.Data.Storage.Serialize(back).Contains("SourceFolders"), "legacy field written");
+
+        // (هـ) نوع الفولدر: فولدر المدرّس فيه كذا كورس، وفولدر الكورس فيه محاضرات
+        Check(LecturePlayer.Data.FolderLink.LooksLikeManyCourses(doaa), "instructor folder = many courses");
+        string basicsDir = Path.Combine(doaa, "01 C# Basics");
+        Check(!LecturePlayer.Data.FolderLink.LooksLikeManyCourses(basicsDir), "course folder = one course");
+        var one = LecturePlayer.Data.FolderLink.ScanSingle(basicsDir)!;
+        Check(one.Courses.Count == 1 && one.Courses[0].Sessions.Count == 3, "single course scan " + one.Courses.Count);
+
+        // (و) نفس الملف من مسارين للدرايف (My Drive و shortcut-targets): يتعرف بتقدّمه ومايتكررش
+        string myDrive = Path.Combine(drive, "My Drive", "Eng Nada Soliman"), shortcut = Path.Combine(drive, ".shortcut-targets-by-id", "abc", "Eng Nada Soliman");
+        string rel = Path.Combine("01 Intro", "Session 01", "Videos", "Part 01.mp4");
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(myDrive, rel))!);
+        File.WriteAllText(Path.Combine(myDrive, rel), "same video");
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(shortcut, rel))!);
+        File.Copy(Path.Combine(myDrive, rel), Path.Combine(shortcut, rel));
+        File.SetLastWriteTimeUtc(Path.Combine(shortcut, rel), File.GetLastWriteTimeUtc(Path.Combine(myDrive, rel)));
+        var lib2 = new LecturePlayer.Data.CourseLibrary();
+        var manual = LecturePlayer.Data.VideoItem.FromFile(Path.Combine(myDrive, rel));
+        manual.Watched = true;
+        var manualCourse = new LecturePlayer.Data.Course { Name = "NADA" };
+        manualCourse.Groups.Add(new LecturePlayer.Data.LectureGroup { Name = "LEC1", Videos = { manual } });
+        lib2.Courses.Add(manualCourse);
+        var r3 = LecturePlayer.Data.FolderLink.Apply(lib2, (string?)null, null, LecturePlayer.Data.FolderLink.Scan(shortcut)!, initial: true);
+        Check(r3.Moved == 1 && r3.NewVideos.Count == 0 && lib2.AllVideos.Count() == 1 && manual.Watched, $"same file other path: moved {r3.Moved}, new {r3.NewVideos.Count}");
+        Check(LecturePlayer.Data.FolderLink.Norm(manual.Path) == LecturePlayer.Data.FolderLink.Norm(Path.Combine(shortcut, rel)), "path updated to working one");
+        // ملف تاني بنفس الاسم بس محتوى مختلف (نسخة تانية): مايتلخبطش معاه
+        string other = Path.Combine(drive, "Copy", "Eng Nada Soliman");
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(other, rel))!);
+        File.WriteAllText(Path.Combine(other, rel), "a different, longer video file");
+        var r4 = LecturePlayer.Data.FolderLink.Apply(lib2, (string?)null, null, LecturePlayer.Data.FolderLink.Scan(other)!, initial: true);
+        Check(r4.NewVideos.Count == 1 && lib2.AllVideos.Count() == 2 && lib2.Courses.Count == 2, $"different copy merged: courses {lib2.Courses.Count}");
+        Check(lib2.Courses.Count(c => LecturePlayer.Data.FolderLink.Norm(c.SourceFolder!).Contains(".shortcut-targets-by-id")) == 1, "original course lost its folder");
         Directory.Delete(drive, true);
     }
 }

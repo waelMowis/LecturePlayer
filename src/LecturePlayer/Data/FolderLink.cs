@@ -108,25 +108,94 @@ public static class FolderLink
 
         foreach (string courseDir in Dirs(root))
         {
-            string courseName = System.IO.Path.GetFileName(courseDir);
-            var sessions = new List<SessionSnap>();
-
-            // فيديوهات على طول في فولدر الكورس، أو في فولدر «Videos» جوه الكورس ← محاضرة باسم الكورس
-            var direct = SessionOf(courseDir, courseName, recursive: false);
-            var videosDirs = Dirs(courseDir).Where(d => IsVideosFolderName(System.IO.Path.GetFileName(d))).ToList();
-            var directVideos = direct.Videos.Concat(videosDirs.SelectMany(d => FilesUnder(d).Where(MediaFiles.IsMedia))).ToList();
-            if (directVideos.Count > 0)
-                sessions.Add(new SessionSnap(courseDir, courseName, directVideos, direct.Files));
-
-            foreach (string sessionDir in Dirs(courseDir))
-            {
-                if (IsVideosFolderName(System.IO.Path.GetFileName(sessionDir))) continue;
-                var s = SessionOf(sessionDir, System.IO.Path.GetFileName(sessionDir), recursive: true);
-                if (s.Videos.Count > 0 || s.Files.Count > 0) sessions.Add(s);
-            }
-            if (sessions.Count > 0) courses.Add(new CourseSnap(courseDir, courseName, sessions));
+            if (IsVideosFolderName(System.IO.Path.GetFileName(courseDir))) continue;
+            var cs = CourseOf(courseDir);
+            if (cs.Sessions.Count > 0) courses.Add(cs);
         }
         return new Snapshot(root, courses);
+    }
+
+    /// <summary>فولدر كورس واحد: الفيديوهات اللي على طول فيه (أو في Videos) محاضرة باسمه، وكل فولدر جواه محاضرة.</summary>
+    private static CourseSnap CourseOf(string courseDir)
+    {
+        string courseName = System.IO.Path.GetFileName(courseDir.TrimEnd('\\', '/'));
+        var sessions = new List<SessionSnap>();
+        var direct = SessionOf(courseDir, courseName, recursive: false);
+        var videosDirs = Dirs(courseDir).Where(d => IsVideosFolderName(System.IO.Path.GetFileName(d))).ToList();
+        var directVideos = direct.Videos.Concat(videosDirs.SelectMany(d => FilesUnder(d).Where(MediaFiles.IsMedia))).ToList();
+        if (directVideos.Count > 0)
+            sessions.Add(new SessionSnap(courseDir, courseName, directVideos, direct.Files));
+
+        foreach (string sessionDir in Dirs(courseDir))
+        {
+            if (IsVideosFolderName(System.IO.Path.GetFileName(sessionDir))) continue;
+            var s = SessionOf(sessionDir, System.IO.Path.GetFileName(sessionDir), recursive: true);
+            if (s.Videos.Count > 0 || s.Files.Count > 0) sessions.Add(s);
+        }
+        return new CourseSnap(courseDir, courseName, sessions);
+    }
+
+    /// <summary>الفولدر كله كورس واحد (كل فولدر جواه محاضرة).</summary>
+    public static Snapshot? ScanSingle(string root) =>
+        Directory.Exists(root) ? new Snapshot(root, new List<CourseSnap> { CourseOf(root) }.Where(c => c.Sessions.Count > 0).ToList()) : null;
+
+    public static Snapshot? Scan(string root, bool singleCourse) => singleCourse ? ScanSingle(root) : Scan(root);
+
+    /// <summary>
+    /// الفولدر شكله «مجموعة كورسات» (كل فولدر جواه جواه فولدرات فيها فيديوهات) ولا «كورس واحد» (كل فولدر جواه محاضرة)؟
+    /// «Session 01» اللي جواها Videos وPresentation محاضرة مش كورس، لأن Videos بيتعد جزء من المحاضرة.
+    /// </summary>
+    public static bool LooksLikeManyCourses(string root)
+    {
+        int courseLike = 0, sessionLike = 0;
+        foreach (string d in Dirs(root))
+        {
+            if (IsVideosFolderName(System.IO.Path.GetFileName(d))) continue;
+            bool nestedSessions = Dirs(d).Any(sub => !IsVideosFolderName(System.IO.Path.GetFileName(sub)) && FilesUnder(sub).Any(MediaFiles.IsMedia));
+            if (nestedSessions) courseLike++;
+            else if (FilesUnder(d).Any(MediaFiles.IsMedia)) sessionLike++;
+        }
+        return courseLike > 0 && courseLike >= sessionLike;
+    }
+
+    /// <summary>
+    /// آخر أجزاء المسار (مثلًا «01 c# basics\\session 01\\videos\\part 01.mp4»): نفس الملف على Google Drive
+    /// ممكن يبان بمسارين (G:\\My Drive\\… و G:\\.shortcut-targets-by-id\\…)، فبنقارن بآخر المسار لما المسار كله مايتطابقش.
+    /// </summary>
+    /// <summary>
+    /// الملف القديم هو نفس الملف الجديد؟ لو القديم مبقاش موجود (المسار اتغير) ← أيوه.
+    /// لو الاتنين موجودين (نسختين؟) ← بس لو نفس الحجم ونفس وقت التعديل (نفس الملف من مسارين للدرايف).
+    /// </summary>
+    public static bool SameFile(string oldPath, string newPath)
+    {
+        try
+        {
+            if (!File.Exists(oldPath)) return true;
+            var a = new FileInfo(oldPath);
+            var b = new FileInfo(newPath);
+            return b.Exists && a.Length == b.Length && a.LastWriteTimeUtc == b.LastWriteTimeUtc;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>نفس الفولدر من مسار تاني؟ القديم مبقاش موجود، أو أول فيديو في الجديد موجود في القديم بنفس الملف.</summary>
+    public static bool SameFolder(string oldDir, string newDir)
+    {
+        try
+        {
+            if (!Directory.Exists(oldDir)) return true;
+            string? sample = FilesUnder(newDir).FirstOrDefault(MediaFiles.IsMedia);
+            if (sample == null) return false;
+            string twin = System.IO.Path.Combine(oldDir, System.IO.Path.GetRelativePath(newDir, sample));
+            return File.Exists(twin) && SameFile(twin, sample);
+        }
+        catch { return false; }
+    }
+
+    public static string Tail(string path, int parts)
+    {
+        var segs = Norm(path).Split('\\', '/').Where(x => x.Length > 0).ToArray();
+        return segs.Length < parts ? "" : string.Join("\\", segs[^parts..]);
     }
 
     // ---------------- تطبيق الصورة على المكتبة (على ثريد الواجهة) ----------------
@@ -143,27 +212,61 @@ public static class FolderLink
     public static Result Apply(CourseLibrary lib, Topic topic, Snapshot snap, bool initial) =>
         Apply(lib, topic.Id, null, snap, initial);
 
-    /// <summary>فولدر مربوط جوه مكان: كورساته بتتحط في المكان على طول.</summary>
+    /// <summary>فولدر جوه مصدر: كورساته بتتحط في المصدر على طول.</summary>
     public static Result Apply(CourseLibrary lib, Place place, Snapshot snap, bool initial) =>
         Apply(lib, place.TopicId, place.Id, snap, initial);
 
-    private static Result Apply(CourseLibrary lib, string? topicId, string? placeId, Snapshot snap, bool initial)
+    /// <summary>فولدر متابَع: الكورسات الجديدة بتتحط في موضوعه/مصدره الحالي.</summary>
+    public static Result Apply(CourseLibrary lib, LinkedFolder link, Snapshot snap, bool initial)
+    {
+        var (t, p) = lib.TargetOf(link);
+        return Apply(lib, p?.TopicId ?? t?.Id, p?.Id, snap, initial);
+    }
+
+    public static Result Apply(CourseLibrary lib, string? topicId, string? placeId, Snapshot snap, bool initial)
     {
         var r = new Result();
         // كل فيديو في المكتبة بمساره، عشان لو كان متضاف قبل كده بإيدك ننقله بتقدّمه بدل ما نكرره
         var byPath = new Dictionary<string, (VideoItem V, LectureGroup G)>();
+        // وبآخر المسار (لو نفس الملف اتضاف قبل كده من مسار تاني للدرايف) — بس لو مفيش غير ملف واحد بنفس الآخر
+        var byTail = new Dictionary<string, (VideoItem V, LectureGroup G)?>();
         foreach (var c in lib.Courses)
             foreach (var g in c.Groups)
                 foreach (var v in g.Videos)
+                {
+                    if (v.IsOnline) continue;
                     byPath.TryAdd(Norm(v.Path), (v, g));
+                    string tail = Tail(v.Path, 4);
+                    if (tail.Length > 0) byTail[tail] = byTail.ContainsKey(tail) ? null : (v, g);
+                }
+        bool TryFind(string file, out (VideoItem V, LectureGroup G) hit)
+        {
+            if (byPath.TryGetValue(Norm(file), out hit)) return true;
+            string tail = Tail(file, 4);
+            if (tail.Length > 0 && byTail.TryGetValue(tail, out var t) && t is { } found && SameFile(found.V.Path, file))
+            {
+                hit = found;
+                return true;
+            }
+            hit = default;
+            return false;
+        }
 
         var touchedOld = new HashSet<LectureGroup>();
 
         foreach (var cs in snap.Courses)
         {
             string cKey = Norm(cs.Path);
-            // الكورس بفولدره، أيًا كان مكانه (لو نقلته بإيدك لمكان تاني يفضل هناك ومايتكررش)
+            // الكورس بفولدره، أيًا كان مكانه (لو نقلته بإيدك لمكان تاني يفضل هناك ومايتكررش)،
+            // أو بآخر مسار الفولدر لو نفس الفولدر جه من مسار تاني للدرايف
             var course = lib.Courses.FirstOrDefault(c => c.SourceFolder != null && Norm(c.SourceFolder) == cKey);
+            if (course == null)
+            {
+                string ct = Tail(cs.Path, 2);
+                var byTailCourse = ct.Length == 0 ? new List<Course>()
+                    : lib.Courses.Where(c => c.SourceFolder != null && Tail(c.SourceFolder, 2) == ct && SameFolder(c.SourceFolder, cs.Path)).ToList();
+                if (byTailCourse.Count == 1) { course = byTailCourse[0]; course.SourceFolder = cs.Path; }
+            }
             if (course == null)
             {
                 course = new Course { Name = cs.Name, TopicId = topicId, PlaceId = placeId, SourceFolder = cs.Path, Expanded = initial && r.NewCourses == 0 };
@@ -175,6 +278,12 @@ public static class FolderLink
             {
                 string gKey = Norm(ss.Path);
                 var group = course.Groups.FirstOrDefault(g => g.SourceFolder != null && Norm(g.SourceFolder) == gKey);
+                if (group == null && Tail(ss.Path, 2) is { Length: > 0 } gt
+                    && course.Groups.Where(g => g.SourceFolder != null && Tail(g.SourceFolder, 2) == gt && SameFolder(g.SourceFolder, ss.Path)).ToList() is { Count: 1 } sameTail)
+                {
+                    group = sameTail[0];
+                    group.SourceFolder = ss.Path;
+                }
                 if (group == null)
                 {
                     group = new LectureGroup { Name = ss.Name, SourceFolder = ss.Path, Expanded = false };
@@ -187,12 +296,17 @@ public static class FolderLink
                 {
                     string key = Norm(file);
                     if (group.Videos.Any(v => Norm(v.Path) == key)) continue;
-                    if (byPath.TryGetValue(key, out var existing) && existing.G != group)
+                    if (TryFind(file, out var existing))
                     {
-                        // كان متضاف بإيدك في مكان تاني: ننقله هو نفسه (بمكانه وعلاماته وملاحظاته)
-                        existing.G.Videos.Remove(existing.V);
-                        touchedOld.Add(existing.G);
-                        group.Videos.Add(existing.V);
+                        // نفس الملف كان متضاف (بإيدك، أو من مسار تاني للدرايف): ننقله هو نفسه بتقدّمه وعلاماته وملاحظاته
+                        bool samePlace = existing.G == group;
+                        if (Norm(existing.V.Path) != key) existing.V.Path = file;  // المسار الجديد اللي بيشتغل دلوقتي
+                        if (!samePlace)
+                        {
+                            existing.G.Videos.Remove(existing.V);
+                            touchedOld.Add(existing.G);
+                            group.Videos.Add(existing.V);
+                        }
                         byPath[key] = (existing.V, group);
                         r.Moved++;
                         continue;

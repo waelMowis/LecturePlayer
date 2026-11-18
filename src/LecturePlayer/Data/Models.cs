@@ -169,7 +169,8 @@ public sealed class Topic
     public string Name { get; set; } = "";
     public bool Expanded { get; set; } = true;
 
-    /// <summary>فولدر مربوط (غالبًا على Google Drive): البرنامج بيتابعه ويضيف الجديد لوحده.</summary>
+    /// <summary>قديم (4.1.30): بيتنقل لـ <see cref="CourseLibrary.Links"/> وقت الفتح.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceFolder { get; set; }
 
     /// <summary>آخر تعديل للاسم (للدمج بين الأجهزة).</summary>
@@ -192,10 +193,29 @@ public sealed class Place
     public string? TopicId { get; set; }
     public bool Expanded { get; set; } = true;
 
-    /// <summary>فولدرات مربوطة جوه المكان (كل فولدر كورساته بتتحط هنا مباشرة).</summary>
-    public List<string> SourceFolders { get; set; } = new();
+    /// <summary>قديم (4.1.31): بيتنقل لـ <see cref="CourseLibrary.Links"/> وقت الفتح.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? SourceFolders { get; set; }
 
     /// <summary>آخر تعديل للاسم/الموضوع/الفولدرات (للدمج بين الأجهزة).</summary>
+    public DateTime InfoUpdatedUtc { get; set; }
+    public void TouchInfo() => InfoUpdatedUtc = DateTime.UtcNow;
+}
+
+/// <summary>
+/// فولدر متابَع (غالبًا على Google Drive): البرنامج بيقراه كل دقيقتين ويضيف الجديد لوحده.
+/// مكانه في المكتبة (الموضوع/المصدر) هو اللي الكورسات الجديدة بتتحط فيه.
+/// </summary>
+public sealed class LinkedFolder
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Path { get; set; } = "";
+    /// <summary>true = الفولدر كله كورس واحد؛ false = كل فولدر جواه كورس لوحده.</summary>
+    public bool SingleCourse { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TopicId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PlaceId { get; set; }
     public DateTime InfoUpdatedUtc { get; set; }
     public void TouchInfo() => InfoUpdatedUtc = DateTime.UtcNow;
 }
@@ -268,6 +288,8 @@ public sealed class CourseLibrary
     public List<Topic> Topics { get; set; } = new();
     /// <summary>الأماكن بالترتيب (كل مكان بيشاور على موضوعه).</summary>
     public List<Place> Places { get; set; } = new();
+    /// <summary>الفولدرات المتابَعة (الجديد فيها بيتضاف لوحده).</summary>
+    public List<LinkedFolder> Links { get; set; } = new();
     public List<Course> Courses { get; set; } = new();
 
     /// <summary>البث المباشر: المفضلة والقنوات المضافة.</summary>
@@ -346,7 +368,43 @@ public sealed class CourseLibrary
         Places.Remove(p);
     }
 
-    /// <summary>المسار المقروء: «Backend › ROUTE › C# Basics».</summary>
+    /// <summary>الموضوع والمصدر اللي الفولدر المتابَع بيحط فيهم كورساته الجديدة.</summary>
+    public (Topic? Topic, Place? Place) TargetOf(LinkedFolder l)
+    {
+        var p = l.PlaceId == null ? null : Places.FirstOrDefault(x => x.Id == l.PlaceId);
+        if (p != null) return (TopicOf(p), p);
+        return (l.TopicId == null ? null : Topics.FirstOrDefault(t => t.Id == l.TopicId), null);
+    }
+
+    /// <summary>الفولدر المتابَع اللي الكورس جاي منه (null لو مش من فولدر متابَع).</summary>
+    public LinkedFolder? LinkOf(Course c)
+    {
+        if (string.IsNullOrWhiteSpace(c.SourceFolder)) return null;
+        string cp = FolderLink.Norm(c.SourceFolder);
+        return Links.FirstOrDefault(l => { string lp = FolderLink.Norm(l.Path); return cp == lp || cp.StartsWith(lp + "\\") || cp.StartsWith(lp + "/"); });
+    }
+
+    /// <summary>
+    /// ترقية: نسخ 4.1.30/4.1.31 كانت بتحفظ الفولدر المربوط على الموضوع أو المكان؛ دلوقتي كلهم في <see cref="Links"/>.
+    /// </summary>
+    public void MigrateLinks()
+    {
+        foreach (var t in Topics.Where(t => !string.IsNullOrWhiteSpace(t.SourceFolder)))
+        {
+            if (!Links.Any(l => FolderLink.Norm(l.Path) == FolderLink.Norm(t.SourceFolder!)))
+                Links.Add(new LinkedFolder { Path = t.SourceFolder!, TopicId = t.Id, InfoUpdatedUtc = t.InfoUpdatedUtc });
+            t.SourceFolder = null;
+        }
+        foreach (var p in Places)
+        {
+            foreach (string f in (p.SourceFolders ?? new()).Where(f => !string.IsNullOrWhiteSpace(f)))
+                if (!Links.Any(l => FolderLink.Norm(l.Path) == FolderLink.Norm(f)))
+                    Links.Add(new LinkedFolder { Path = f, TopicId = p.TopicId, PlaceId = p.Id, InfoUpdatedUtc = p.InfoUpdatedUtc });
+            p.SourceFolders = null;
+        }
+    }
+
+    /// <summary>المسار المقروء: «البرمجة › Udemy › الكورس».</summary>
     public string PathOf(Course c)
     {
         var parts = new List<string>();

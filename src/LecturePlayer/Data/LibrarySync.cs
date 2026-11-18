@@ -30,6 +30,7 @@ public static class LibrarySync
     public static string CourseKey(Course c) => "c:" + c.Id;
     public static string TopicKey(Topic t) => "t:" + t.Id;
     public static string PlaceKey(Place p) => "p:" + p.Id;
+    public static string LinkKey(LinkedFolder l) => "k:" + l.Id;
     public static string LiveKey(LiveChannel l) => "l:" + l.Id;
 
     public static Result Merge(CourseLibrary local, CourseLibrary remote, ISet<string>? deletedKeys = null)
@@ -55,7 +56,7 @@ public static class LibrarySync
             if (deletedKeys.Contains(TopicKey(rt))) continue;
             var lt = local.Topics.FirstOrDefault(t => t.Id == rt.Id);
             if (lt == null) { local.Topics.Add(rt); result.AddedTopics++; }
-            else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.SourceFolder = rt.SourceFolder; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
+            else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
         }
 
         // 1.55) الأماكن: الجديدة بتتضاف، والأحدث (الاسم والموضوع والفولدرات) يكسب
@@ -66,8 +67,22 @@ public static class LibrarySync
             if (lp == null) { local.Places.Add(rp); result.AddedPlaces++; }
             else if (rp.InfoUpdatedUtc > lp.InfoUpdatedUtc)
             {
-                lp.Name = rp.Name; lp.TopicId = rp.TopicId; lp.SourceFolders = rp.SourceFolders.ToList();
+                lp.Name = rp.Name; lp.TopicId = rp.TopicId;
                 lp.InfoUpdatedUtc = rp.InfoUpdatedUtc; result.UpdatedInfo++;
+            }
+        }
+
+        // 1.57) الفولدرات المتابَعة
+        foreach (var rk in remote.Links ?? new List<LinkedFolder>())
+        {
+            if (deletedKeys.Contains(LinkKey(rk))) continue;
+            var lk = local.Links.FirstOrDefault(x => x.Id == rk.Id)
+                     ?? local.Links.FirstOrDefault(x => FolderLink.Norm(x.Path) == FolderLink.Norm(rk.Path));
+            if (lk == null) { local.Links.Add(rk); result.UpdatedInfo++; }
+            else if (rk.InfoUpdatedUtc > lk.InfoUpdatedUtc)
+            {
+                lk.Path = rk.Path; lk.SingleCourse = rk.SingleCourse; lk.TopicId = rk.TopicId; lk.PlaceId = rk.PlaceId;
+                lk.InfoUpdatedUtc = rk.InfoUpdatedUtc; result.UpdatedInfo++;
             }
         }
 

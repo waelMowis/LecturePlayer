@@ -4,7 +4,7 @@ using LecturePlayer.UI;
 namespace LecturePlayer;
 
 /// <summary>
-/// التفريعة الرئيسية: موضوع (مثلًا «C#» أو «قواعد البيانات») ← كورسات ← محاضرات ← فيديوهات.
+/// التفريعة الرئيسية: موضوع (مثلًا «البرمجة» أو «اللغات») ← مصدر ← كورسات ← محاضرات ← فيديوهات.
 /// الكورس اللي ملوش موضوع بيظهر في أول مستوى زي الأول (الملفات القديمة بتفضل شغالة زي ما هي).
 /// </summary>
 internal sealed partial class MainForm
@@ -32,15 +32,14 @@ internal sealed partial class MainForm
         bool current = _currentGroup != null && courses.Any(c => c.Groups.Contains(_currentGroup));
         node.ForeColor = current ? Theme.Accent : done ? Theme.Success : Theme.Text;
         node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
-            + (_library.PlacesOf(t).Any() ? "\n🏫 " + string.Join(" · ", _library.PlacesOf(t).Select(p => p.Name)) : "")
-            + (string.IsNullOrWhiteSpace(t.SourceFolder) ? "" : $"\n🔗 مربوط بفولدر (الجديد بيتضاف لوحده):\n{t.SourceFolder}");
-        _tree.SetRow(node, new LectureTreeView.RowInfo(string.IsNullOrWhiteSpace(t.SourceFolder) ? "" : "🔗",
+            + (_library.PlacesOf(t).Any() ? "\n🏫 " + string.Join(" · ", _library.PlacesOf(t).Select(p => p.Name)) : "");
+        _tree.SetRow(node, new LectureTreeView.RowInfo("",
             courses.Count == 1 ? "كورس" : $"{courses.Count} كورس", done));
     }
 
     private Topic? AddTopic(string? name = null)
     {
-        name ??= Dialogs.Input(this, "موضوع جديد", "اسم الموضوع (مثلًا: C# أو قواعد البيانات):");
+        name ??= Dialogs.Input(this, "موضوع جديد", "اسم الموضوع (مثلًا: البرمجة، اللغات، التصميم):");
         if (name == null) return null;
         Checkpoint("إضافة موضوع");
         var t = new Topic { Name = name };
@@ -50,7 +49,7 @@ internal sealed partial class MainForm
         MarkDirty();
         RebuildTree();
         SelectItem(t);
-        ShowStatus("اسحب الكورسات وارميها على الموضوع، أو كليك يمين على الكورس ← نقل لموضوع", 6);
+        ShowStatus("اسحب الكورسات وارميها على الموضوع، أو كليك يمين على الكورس ← انقل لـ…", 6);
         return t;
     }
 
@@ -61,7 +60,7 @@ internal sealed partial class MainForm
         int places = _library.PlacesOf(t).Count();
         string msg = courses.Count == 0 && places == 0
             ? $"حذف الموضوع «{t.Name}»؟"
-            : $"حذف الموضوع «{t.Name}»؟\n\n" + (places > 0 ? $"الـ {places} مكان و" : "الـ ") +
+            : $"حذف الموضوع «{t.Name}»؟\n\n" + (places > 0 ? $"الـ {places} مصدر و" : "الـ ") +
               $"{courses.Count} كورس اللي تحته مش هيتمسحوا — هيطلعوا برا أي موضوع.";
         if (!Dialogs.Confirm(this, msg)) return;
         Checkpoint("حذف موضوع");
@@ -139,34 +138,37 @@ internal sealed partial class MainForm
     private void BuildTopicMenu(Topic t, ToolStripItemCollection items)
     {
         items.Add(MenuItem("▶  كمّل الموضوع (آخر كورس كنت فيه)", () => PlayTopic(t)));
+        AddRefreshLinksMenuItem(t, items);
         items.Add(new ToolStripSeparator());
-        items.Add(MenuItem("🏫  مكان جديد هنا (ROUTE، Udemy…)…", () => AddPlace(t)));
-        AddFolderLinkMenuItems(t, items);
-        items.Add(MenuItem("كورس جديد في الموضوع ده…", () => AddCourse(topicFor: t)));
-        items.Add(MenuItem("استيراد فولدر كورس هنا…", () =>
+        items.Add(MenuItem("📁  إضافة كورس من فولدر هنا…", () =>
         {
-            string? path = PickFolder(this, "اختار فولدر الكورس (كل فولدر فرعي فيه فيديوهات هيبقى محاضرة)");
-            if (path == null) return;
-            _tree.SelectedNode = NodeOf(t);
-            ImportFolder(path, into: null);
+            string? path = PickFolder(this, "اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس)");
+            if (path != null) ShowAddFolderDialog(path, t, null, useSelection: false);
         }));
+        items.Add(MenuItem("🏫  مصدر جديد هنا…", () => AddPlace(t)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
-        if (!string.IsNullOrWhiteSpace(t.SourceFolder) || _library.Topics.Count > 1) items.Add(ConvertTopicToPlaceMenu(t));
-        items.Add(MenuItem("↺ تصفير التقدم في الموضوع كله…", () =>
-            ResetWatched(_library.CoursesOf(t).SelectMany(c => c.AllVideos), $"موضوع «{t.Name}»")));
-        items.Add(MenuItem("ترتيب الكورسات بالاسم", () =>
+        var more = new List<ToolStripItem>
         {
-            Checkpoint("ترتيب الكورسات");
-            var mine = _library.CoursesOf(t).OrderBy(c => c.Name, NaturalComparer.Instance).ToList();
-            var slots = _library.Courses.Select((c, i) => (c, i)).Where(x => x.c.TopicId == t.Id).Select(x => x.i).ToList();
-            for (int k = 0; k < slots.Count; k++) _library.Courses[slots[k]] = mine[k];
-            MarkDirty();
-            RebuildTree();
-        }));
-        items.Add(new ToolStripSeparator());
-        items.Add(MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"));
-        items.Add(MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"));
-        items.Add(MenuItem("موضوع جديد بعده…", () => AddTopic()));
+            MenuItem("كورس جديد فاضي هنا…", () => AddCourse(topicFor: t)),
+            MenuItem("ترتيب الكورسات بالاسم", () =>
+            {
+                Checkpoint("ترتيب الكورسات");
+                var mine = _library.DirectCoursesOf(t).OrderBy(c => c.Name, NaturalComparer.Instance).ToList();
+                var slots = _library.Courses.Select((c, i) => (c, i)).Where(x => mine.Contains(x.c)).Select(x => x.i).ToList();
+                for (int k = 0; k < slots.Count; k++) _library.Courses[slots[k]] = mine[k];
+                MarkDirty();
+                RebuildTree();
+            }),
+            MenuItem("تعليم كل فيديوهات الموضوع كمُشاهَدة", ToggleWatchedSelected, "W"),
+            MenuItem("↺ تصفير التقدم في الموضوع كله…", () =>
+                ResetWatched(_library.CoursesOf(t).SelectMany(c => c.AllVideos), $"موضوع «{t.Name}»")),
+            new ToolStripSeparator(),
+            MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"),
+            MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"),
+            MenuItem("موضوع جديد بعده…", () => AddTopic())
+        };
+        if (_library.Topics.Count > 1) more.Add(ConvertTopicToPlaceMenu(t));
+        items.Add(SubMenuOf("المزيد", more.ToArray()));
         items.Add(new ToolStripSeparator());
         items.Add(MenuItem("حذف الموضوع (الكورسات بتفضل)", DeleteSelected, "Delete"));
     }

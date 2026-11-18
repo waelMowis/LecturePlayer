@@ -322,6 +322,7 @@ internal sealed partial class MainForm
         if (!string.IsNullOrWhiteSpace(c.Goal)) lines.Add("الهدف: " + c.Goal);
         if (c.Deadline != null)
             lines.Add($"الموعد: {c.Deadline:yyyy/MM/dd} — " + StudyPlanner.Describe(StudyPlanner.PlanFor(c, JournalEntries, TodayLocal, _settings.Rate)));
+        if (_library.LinkOf(c) != null) lines.Add("🔄 من فولدر متابَع (الجديد بيتضاف لوحده):\n" + c.SourceFolder);
         return string.Join("\n", lines);
     }
 

@@ -5,125 +5,169 @@ using LecturePlayer.UI;
 namespace LecturePlayer;
 
 /// <summary>
-/// «اربط فولدر كورس»: الفولدر (غالبًا على Google Drive) بيتقري لوحده كل دقيقتين في الخلفية،
-/// وأي محاضرة أو فيديو جديد بيظهر في مكانه مع تنبيه.
+/// «إضافة كورس من فولدر» والفولدرات المتابَعة: الفولدر (غالبًا على Google Drive) بيتقري لوحده كل دقيقتين
+/// في الخلفية، وأي محاضرة أو فيديو جديد بيظهر في مكانه مع تنبيه.
 /// </summary>
 internal sealed partial class MainForm
 {
     private bool _folderSyncRunning;
 
-    private void LinkFolderDialog()
+    /// <summary>اختيار فولدر ← شاشة «إضافة كورس» (هيتحط فين، معاينة، متابعة).</summary>
+    private void ImportCourseDialog()
     {
-        // لو المحدد في الشجرة «مكان» (ROUTE مثلًا) ← الفولدر يتربط جواه
-        if (_tree.SelectedNode?.Tag is Place place) { LinkFolderIntoPlaceDialog(place); return; }
-        string? path = PickFolder(this, "اختار فولدر الكورس الكبير (اللي جواه الكورسات الصغيرة، وجوه كل واحد المحاضرات)");
-        if (path == null || AlreadyLinked(path)) return;
-        _ = LinkFolderAsync(path);
+        string? path = PickFolder(this, "اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس)");
+        if (path != null) ShowAddFolderDialog(path);
     }
 
-    /// <summary>الفولدر مربوط بالفعل بموضوع أو مكان؟ (وبيقول للمستخدم فين)</summary>
-    private bool AlreadyLinked(string path)
+    /// <param name="topic">الموضوع المقترح (null = حسب المحدد في الشجرة).</param>
+    /// <param name="source">المصدر المقترح.</param>
+    private void ShowAddFolderDialog(string path, Topic? topic = null, Place? source = null, bool useSelection = true)
     {
+        path = Path.GetFullPath(path);
+
+        // جزء من فولدر متابَع بالفعل؟ ← الجديد فيه بيوصل لوحده
         string key = FolderLink.Norm(path);
-        string? owner =
-            _library.Topics.FirstOrDefault(t => t.SourceFolder != null && FolderLink.Norm(t.SourceFolder) == key) is { } t ? $"بموضوع «{t.Name}»"
-            : _library.Places.FirstOrDefault(p => p.SourceFolders.Any(f => FolderLink.Norm(f) == key)) is { } p ? $"بالمكان «{p.Name}»"
-            : null;
-        if (owner == null) return false;
-        Dialogs.Info(this, $"الفولدر ده مربوط بالفعل {owner}.\nالجديد فيه بيظهر لوحده، أو كليك يمين عليه ← تحديث من الفولدر دلوقتي.");
-        return true;
-    }
-
-    private void LinkFolderIntoPlaceDialog(Place place)
-    {
-        string? path = PickFolder(this, $"اختار الفولدر اللي جواه كورسات «{place.Name}» (مثلًا فولدر المحاضر على الدرايف)");
-        if (path == null || AlreadyLinked(path)) return;
-        _ = LinkFolderIntoPlaceAsync(place, path);
-    }
-
-    private async Task<FolderLink.Snapshot?> ScanForLinkAsync(string path)
-    {
-        ShowStatus("بقرا الفولدر…", 60);
-        Cursor = Cursors.WaitCursor;
-        FolderLink.Snapshot? snap;
-        try { snap = await Task.Run(() => FolderLink.Scan(path)); }
-        finally { Cursor = Cursors.Default; }
-        if (snap == null || snap.Courses.Count == 0)
+        if (_library.Links.FirstOrDefault(l => key.StartsWith(FolderLink.Norm(l.Path) + "\\")) is { } parent)
         {
-            Dialogs.Info(this, "ملقتش فيديوهات ولا ملفات في الفولدر ده.\nاتأكد إنك اخترت فولدر الكورس الكبير، ولو على Google Drive اتأكد إنه ظاهر على الجهاز.");
-            return null;
+            Dialogs.Info(this, $"الفولدر ده جوه فولدر متابَع بالفعل:\n{parent.Path}\n\nأي جديد فيه بيتضاف لوحده في «{TargetText(parent)}».");
+            return;
         }
-        return snap;
+
+        if (useSelection && topic == null && source == null)
+        {
+            source = SelectedPlaceContext();
+            topic = source == null ? SelectedTopicContext() : null;
+        }
+        var result = AddFolderForm.Show(this, _library, path, topic, source);
+        if (result != null) AddFolder(result);
     }
 
-    /// <summary>ربط فولدر جوه مكان: كل فولدر فرعي فيه ← كورس تحت المكان على طول.</summary>
-    private async Task LinkFolderIntoPlaceAsync(Place place, string path)
+    private string TargetText(LinkedFolder l)
     {
-        var snap = await ScanForLinkAsync(path);
-        if (snap == null || !_library.Places.Contains(place)) return;
-        Checkpoint("ربط فولدر بمكان");
-        place.SourceFolders.Add(path);
-        place.TouchInfo();
-        place.Expanded = true;
-        var r = FolderLink.Apply(_library, place, snap, initial: true);
-        Log.Info($"folder linked into place {place.Name}: {path} — courses {r.NewCourses}, lectures {r.NewGroups}, videos {r.NewVideos.Count}, moved {r.Moved}, attachments {r.NewAttachments}");
+        var (t, p) = _library.TargetOf(l);
+        var parts = new[] { t?.Name, p?.Name }.Where(x => x != null).ToList();
+        return parts.Count > 0 ? string.Join(" › ", parts) : "المكتبة";
+    }
+
+    /// <summary>بينفّذ اختيار شاشة «إضافة كورس»: الموضوع/المصدر الجديد، الكورسات، والمتابعة.</summary>
+    private void AddFolder(AddFolderForm.Result r)
+    {
+        Checkpoint("إضافة كورس من فولدر");
+        var (topic, place) = ResolveDestination(r.Topic, r.Source);
+
+        // نفس الفولدر متضاف قبل كده؟ ← يتنقل للمكان الجديد بتقدّمه بدل ما يتكرر
+        string key = FolderLink.Norm(r.Path);
+        var existing = _library.Links.FirstOrDefault(l => FolderLink.Norm(l.Path) == key);
+        int movedCourses = 0;
+        if (existing != null)
+        {
+            foreach (var c in _library.Courses.Where(c => _library.LinkOf(c) == existing).ToList())
+            {
+                PlaceCourseAtEnd(c, topic, place);
+                movedCourses++;
+            }
+            existing.TopicId = topic?.Id;
+            existing.PlaceId = place?.Id;
+            existing.SingleCourse = r.SingleCourse;
+            existing.TouchInfo();
+        }
+
+        var res = FolderLink.Apply(_library, place?.TopicId ?? topic?.Id, place?.Id, r.Snapshot, initial: true);
+        // الكورسات اللي كانت متضافة من الفولدر ده (بمسار تاني أو بإيدك) تيجي في المكان المختار
+        foreach (var cs in r.Snapshot.Courses)
+            if (_library.Courses.FirstOrDefault(c => c.SourceFolder != null && FolderLink.Norm(c.SourceFolder) == FolderLink.Norm(cs.Path)) is { } c
+                && (_library.TopicOf(c) != (place != null ? _library.TopicOf(place) : topic) || _library.PlaceOf(c) != place))
+                PlaceCourseAtEnd(c, topic, place);
+
+        if (r.Follow)
+        {
+            if (existing == null)
+            {
+                // فولدرات متابَعة جوه الفولدر ده بقت جزء منه
+                _library.Links.RemoveAll(l => FolderLink.Norm(l.Path).StartsWith(key + "\\"));
+                var link = new LinkedFolder { Path = r.Path, SingleCourse = r.SingleCourse, TopicId = topic?.Id, PlaceId = place?.Id };
+                link.TouchInfo();
+                _library.Links.Add(link);
+            }
+        }
+        else if (existing != null)
+        {
+            _deletedKeys.Add(LibrarySync.LinkKey(existing));
+            _library.Links.Remove(existing);
+        }
+
+        Log.Info($"folder added: {r.Path} ({(r.SingleCourse ? "one course" : "courses")}, follow={r.Follow}) → {(topic?.Name ?? "-")} / {(place?.Name ?? "-")} — " +
+                 $"courses {res.NewCourses}, lectures {res.NewGroups}, videos {res.NewVideos.Count}, recognized {res.Moved}, attachments {res.NewAttachments}, relinked {movedCourses}");
         MarkDirty();
         RebuildTree();
         SaveLibrary();
-        SelectItem(place);
-        QueueProbe(_library.CoursesInPlace(place).SelectMany(c => c.AllVideos));
-        ShowLinkSummary($"اتربط «{new DirectoryInfo(path).Name}» جوه «{place.Name}» ✓", r);
+
+        var first = r.Snapshot.Courses.Select(cs => _library.Courses.FirstOrDefault(c => c.SourceFolder != null && FolderLink.Norm(c.SourceFolder) == FolderLink.Norm(cs.Path)))
+            .FirstOrDefault(c => c != null);
+        if (first != null) SelectItem(first);
+        QueueProbe(_library.Courses.Where(c => r.Snapshot.Courses.Any(cs => c.SourceFolder != null && FolderLink.Norm(c.SourceFolder) == FolderLink.Norm(cs.Path)))
+            .SelectMany(c => c.AllVideos));
+
+        string where = string.Join(" › ", new[] { topic?.Name, place?.Name }.Where(x => x != null));
+        string msg = $"اتضاف ✓  {r.Snapshot.Courses.Count} كورس · {res.NewGroups} محاضرة · {res.NewVideos.Count + res.Moved} فيديو" +
+                     (where.Length > 0 ? $"  في «{where}»" : "");
+        if (res.Moved > 0) msg += $"\n{res.Moved} فيديو كانوا عندك قبل كده — اتنقلوا بتقدّمك وعلاماتك.";
+        if (r.Follow) msg += "\nوأي جديد ينزل في الفولدر هيتضاف لوحده.";
+        ShowBanner(msg.Replace("\n", "  ·  "), BannerKind.Success, seconds: 10, key: "folder-added");
     }
 
-    private void ShowLinkSummary(string title, FolderLink.Result r)
+    /// <summary>بيحوّل اختيار الشاشة لموضوع/مصدر حقيقي (ويعمل الجديد).</summary>
+    private (Topic? Topic, Place? Place) ResolveDestination(AddFolderForm.Choice<Topic> tc, AddFolderForm.Choice<Place> pc)
     {
-        string moved = r.Moved > 0
-            ? $"\n\nلقيت {r.Moved} فيديو كنت ضايفهم قبل كده بإيدك — نقلتهم للترتيب الجديد بتقدّمك وعلاماتك وملاحظاتك."
-            : "";
-        Dialogs.Info(this,
-            title + "\n\n" +
-            $"{r.NewCourses} كورس · {r.NewGroups} محاضرة · {r.NewVideos.Count + r.Moved} فيديو · {r.NewAttachments} ملف مرفق" + moved +
-            "\n\nمن دلوقتي أي محاضرة أو فيديو جديد ينزل في الفولدر هيظهر هنا لوحده.");
+        Topic? topic = tc.Existing;
+        if (tc.NewName != null)
+        {
+            topic = _library.Topics.FirstOrDefault(t => string.Equals(t.Name, tc.NewName, StringComparison.CurrentCultureIgnoreCase));
+            if (topic == null)
+            {
+                topic = new Topic { Name = tc.NewName };
+                topic.TouchInfo();
+                _library.Topics.Add(topic);
+            }
+        }
+        Place? place = pc.Existing;
+        if (pc.NewName != null)
+        {
+            place = _library.PlacesOf(topic).FirstOrDefault(p => string.Equals(p.Name, pc.NewName, StringComparison.CurrentCultureIgnoreCase));
+            if (place == null)
+            {
+                place = new Place { Name = pc.NewName, TopicId = topic?.Id };
+                place.TouchInfo();
+                _library.Places.Add(place);
+            }
+        }
+        if (topic != null) topic.Expanded = true;
+        if (place != null) place.Expanded = true;
+        return (topic, place);
     }
 
-    private async Task LinkFolderAsync(string path)
+    /// <summary>الفولدرات المتابَعة اللي ليها علاقة بالعنصر ده (موضوع/مصدر/كورس)، أو كلها.</summary>
+    private List<LinkedFolder> LinksFor(object? item)
     {
-        var snap = await ScanForLinkAsync(path);
-        if (snap == null) return;
-
-        Checkpoint("ربط فولدر");
-        var topic = new Topic { Name = new DirectoryInfo(path).Name, SourceFolder = path };
-        topic.TouchInfo();
-        _library.Topics.Add(topic);
-        var r = FolderLink.Apply(_library, topic, snap, initial: true);
-        Log.Info($"folder linked: {path} — courses {r.NewCourses}, lectures {r.NewGroups}, videos {r.NewVideos.Count}, moved {r.Moved}, attachments {r.NewAttachments}");
-        MarkDirty();
-        RebuildTree();
-        SaveLibrary();
-        if (NodeOf(topic) is { } node) { node.Expand(); _tree.SelectedNode = node; }
-        QueueProbe(_library.CoursesOf(topic).SelectMany(c => c.AllVideos));
-
-        ShowLinkSummary($"اتربط «{topic.Name}» ✓", r);
+        bool InTopic(LinkedFolder l, Topic t) => _library.TargetOf(l).Topic == t || _library.Courses.Any(c => _library.LinkOf(c) == l && _library.TopicOf(c) == t);
+        bool InPlace(LinkedFolder l, Place p) => _library.TargetOf(l).Place == p || _library.Courses.Any(c => _library.LinkOf(c) == l && _library.PlaceOf(c) == p);
+        return item switch
+        {
+            null => _library.Links.ToList(),
+            LinkedFolder l => new List<LinkedFolder> { l },
+            Course c => _library.LinkOf(c) is { } l ? new List<LinkedFolder> { l } : new(),
+            Place p => _library.Links.Where(l => InPlace(l, p)).ToList(),
+            Topic t => _library.Links.Where(l => InTopic(l, t)).ToList(),
+            _ => new()
+        };
     }
 
-    /// <summary>بيتنده كل دقيقتين، وأول ما المكتبة تتفتح، ومن «تحديث من الفولدر».</summary>
-    /// <param name="only">موضوع أو مكان بعينه (null = الكل).</param>
+    /// <summary>بيتنده كل دقيقتين، وأول ما المكتبة تتفتح، ومن «هات الجديد من الفولدر».</summary>
+    /// <param name="only">فولدر أو موضوع أو مصدر أو كورس بعينه (null = الكل).</param>
     private async Task SyncLinkedFoldersAsync(object? only = null, bool manual = false)
     {
         if (_folderSyncRunning || _closing) return;
-        // كل فولدر مربوط: بموضوع (الفولدر = الموضوع) أو جوه مكان (الفولدر = كورسات المكان)
-        var links = new List<(string Name, string Root, Func<FolderLink.Snapshot, FolderLink.Result> Apply)>();
-        foreach (var t in _library.Topics.Where(t => !string.IsNullOrWhiteSpace(t.SourceFolder) && (only == null || only == t)))
-        {
-            var topic = t;
-            links.Add((t.Name, t.SourceFolder!, snap => FolderLink.Apply(_library, topic, snap, initial: false)));
-        }
-        foreach (var p in _library.Places.Where(p => only == null || only == p))
-            foreach (string f in p.SourceFolders.ToList())
-            {
-                var place = p;
-                links.Add((p.Name, f, snap => FolderLink.Apply(_library, place, snap, initial: false)));
-            }
+        var links = LinksFor(only);
         if (links.Count == 0) return;
         _folderSyncRunning = true;
         try
@@ -133,18 +177,20 @@ internal sealed partial class MainForm
             bool changed = false;
             foreach (var link in links)
             {
-                string root = link.Root;
-                var snap = await Task.Run(() => FolderLink.Scan(root));
+                string root = link.Path;
+                bool single = link.SingleCourse;
+                var snap = await Task.Run(() => FolderLink.Scan(root, single));
                 if (_closing || library != _library) return; // المكتبة اتغيرت وإحنا بنقرا
+                if (!_library.Links.Contains(link)) continue;
                 if (snap == null)
                 {
-                    if (manual) Dialogs.Info(this, $"الفولدر بتاع «{link.Name}» مش موجود دلوقتي:\n{root}\n\nلو على Google Drive اتأكد إن الدرايف شغال.");
+                    if (manual) Dialogs.Info(this, $"الفولدر ده مش موجود دلوقتي:\n{root}\n\nلو على Google Drive اتأكد إن الدرايف شغال.");
                     continue;
                 }
-                var r = link.Apply(snap);
+                var r = FolderLink.Apply(_library, link, snap, initial: false);
                 if (!r.Changed) continue;
                 changed = true;
-                Log.Info($"folder sync {link.Name} ({root}): courses +{r.NewCourses}, lectures +{r.NewGroups}, videos +{r.NewVideos.Count}, attachments +{r.NewAttachments}");
+                Log.Info($"folder sync {root}: courses +{r.NewCourses}, lectures +{r.NewGroups}, videos +{r.NewVideos.Count}, attachments +{r.NewAttachments}");
                 foreach (var (c, g) in r.GroupsWithNew)
                     foreach (var v in g.Videos.Where(r.NewVideos.Contains)) newOnes.Add((c, g, v));
             }
@@ -167,61 +213,45 @@ internal sealed partial class MainForm
         finally { _folderSyncRunning = false; }
     }
 
-    private void AddFolderLinkMenuItems(Topic t, ToolStripItemCollection items)
+    /// <summary>أوامر الفولدر المتابَع في قايمة الكورس (لو الكورس جاي من فولدر متابَع).</summary>
+    private void AddCourseLinkMenuItems(Course c, ToolStripItemCollection items)
     {
-        if (string.IsNullOrWhiteSpace(t.SourceFolder)) return;
-        items.Add(MenuItem("🔄  تحديث من الفولدر دلوقتي", () => _ = SyncLinkedFoldersAsync(t, manual: true)));
-        items.Add(MenuItem("📂  فتح الفولدر", () =>
-        {
-            try { Process.Start(new ProcessStartInfo(t.SourceFolder!) { UseShellExecute = true }); }
-            catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتح الفولدر:\n" + ex.Message); }
-        }));
-        items.Add(MenuItem("فك الربط بالفولدر (الكورسات بتفضل زي ما هي)", () =>
-        {
-            if (!Dialogs.Confirm(this, $"«{t.Name}» مش هيتابع الفولدر تاني، والجديد مش هيتضاف لوحده.\nالكورسات والتقدّم بيفضلوا زي ما هما. متأكد؟", "فك الربط")) return;
-            t.SourceFolder = null;
-            t.TouchInfo();
-            MarkDirty();
-            RebuildTree();
-        }));
-        items.Add(new ToolStripSeparator());
+        if (_library.LinkOf(c) is not { } link) return;
+        items.Add(MenuItem("🔄  هات الجديد من الفولدر", () => _ = SyncLinkedFoldersAsync(link, manual: true)));
+        items.Add(MenuItem("📂  فتح الفولدر", () => OpenFolder(c.SourceFolder ?? link.Path)));
+        items.Add(MenuItem("بطّل متابعة الفولدر (الكورسات بتفضل)", () => StopFollowing(link)));
     }
 
-    /// <summary>أوامر الربط في قايمة المكان: ربط فولدر جديد، وتحديث، وفتح وفك ربط كل فولدر.</summary>
-    private void AddPlaceFolderLinkMenuItems(Place p, ToolStripItemCollection items)
+    /// <summary>«هات الجديد» في قايمة الموضوع/المصدر (لو فيه فولدرات متابَعة).</summary>
+    private void AddRefreshLinksMenuItem(object item, ToolStripItemCollection items)
     {
-        items.Add(MenuItem("🗂  اربط فولدر من الدرايف هنا…", () => LinkFolderIntoPlaceDialog(p)));
-        if (p.SourceFolders.Count == 0) return;
-        items.Add(MenuItem("🔄  تحديث من الفولدرات دلوقتي", () => _ = SyncLinkedFoldersAsync(p, manual: true)));
-        foreach (string folder in p.SourceFolders.ToList())
-        {
-            string f = folder;
-            var sub = new ToolStripMenuItem("🔗  " + Modern.Bidi(new DirectoryInfo(f).Name)) { ForeColor = Theme.Text, ToolTipText = f };
-            sub.DropDownItems.Add(MenuItem("📂  فتح الفولدر", () =>
-            {
-                try { Process.Start(new ProcessStartInfo(f) { UseShellExecute = true }); }
-                catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتح الفولدر:\n" + ex.Message); }
-            }));
-            sub.DropDownItems.Add(MenuItem("فك الربط بالفولدر ده (الكورسات بتفضل زي ما هي)", () =>
-            {
-                if (!Dialogs.Confirm(this, $"«{p.Name}» مش هيتابع الفولدر ده تاني:\n{f}\n\nالكورسات والتقدّم بيفضلوا زي ما هما. متأكد؟", "فك الربط")) return;
-                Checkpoint("فك ربط فولدر");
-                p.SourceFolders.RemoveAll(x => FolderLink.Norm(x) == FolderLink.Norm(f));
-                p.TouchInfo();
-                MarkDirty();
-                RebuildTree();
-            }));
-            items.Add(sub);
-        }
+        int n = LinksFor(item).Count;
+        if (n > 0) items.Add(MenuItem(n == 1 ? "🔄  هات الجديد من الفولدر" : $"🔄  هات الجديد من الفولدرات ({n})", () => _ = SyncLinkedFoldersAsync(item, manual: true)));
+    }
+
+    private void OpenFolder(string path)
+    {
+        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
+        catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتح الفولدر:\n" + ex.Message); }
+    }
+
+    private void StopFollowing(LinkedFolder link)
+    {
+        if (!Dialogs.Confirm(this, $"البرنامج مش هيتابع الفولدر ده تاني:\n{link.Path}\n\nالكورسات والتقدّم بيفضلوا زي ما هما، بس الجديد مش هيتضاف لوحده. متأكد؟", "بطّل المتابعة")) return;
+        Checkpoint("إيقاف متابعة فولدر");
+        _deletedKeys.Add(LibrarySync.LinkKey(link));
+        _library.Links.Remove(link);
+        MarkDirty();
+        RebuildTree();
     }
 
     /// <summary>
-    /// موضوع مربوط بفولدر (زي «Eng Doaa Amin Elfawal») يتحوّل لمكان جوه موضوع تاني (زي Backend › ROUTE):
-    /// الكورسات بتتنقل بتقدّمها وعلاماتها، والفولدر بيفضل متتابع من المكان.
+    /// موضوع (زي اللي كان بيتعمل من «ربط فولدر» في 4.1.30) يتحوّل لمصدر جوه موضوع تاني:
+    /// الكورسات بتتنقل بتقدّمها وعلاماتها، والفولدرات المتابَعة بتحط الجديد في المصدر.
     /// </summary>
     private ToolStripMenuItem ConvertTopicToPlaceMenu(Topic source)
     {
-        var menu = new ToolStripMenuItem("🏫  حوّله لمكان جوه موضوع…") { ForeColor = Theme.Text };
+        var menu = new ToolStripMenuItem("حوّله لمصدر جوه موضوع تاني…") { ForeColor = Theme.Text };
         foreach (var t in _library.Topics.Where(t => t != source))
         {
             var target = t;
@@ -230,24 +260,24 @@ internal sealed partial class MainForm
         if (menu.DropDownItems.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
         menu.DropDownItems.Add(MenuItem("موضوع جديد…", () =>
         {
-            string? name = Dialogs.Input(this, "موضوع جديد", "اسم الموضوع اللي المكان هيبقى جواه (مثلًا: Backend):");
+            string? name = Dialogs.Input(this, "موضوع جديد", "اسم الموضوع اللي المصدر هيبقى جواه:");
             if (!string.IsNullOrWhiteSpace(name)) ConvertTopicToPlace(source, null, name.Trim());
         }));
         return menu;
     }
 
-    /// <param name="target">الموضوع اللي المكان هيبقى جواه، أو null + newTopicName لموضوع جديد.</param>
+    /// <param name="target">الموضوع اللي المصدر هيبقى جواه، أو null + newTopicName لموضوع جديد.</param>
     private bool ConvertTopicToPlace(Topic source, Topic? target, string? newTopicName = null)
     {
         string targetName = target?.Name ?? newTopicName ?? "";
         var existing = target != null ? _library.PlacesOf(target).ToList() : new List<Place>();
-        string hint = existing.Count > 0 ? $"\n(الأماكن الموجودة: {string.Join("، ", existing.Select(p => p.Name))} — لو كتبت اسم منهم الكورسات هتتحط فيه)" : "";
-        string? name = Dialogs.Input(this, "حوّله لمكان",
-            $"الكورسات اللي في «{source.Name}» هتتنقل جوه «{targetName}» في مكان اسمه (مثلًا: ROUTE):{hint}", existing.FirstOrDefault()?.Name ?? "");
+        string hint = existing.Count > 0 ? $"\n(المصادر الموجودة: {string.Join("، ", existing.Select(p => p.Name))} — لو كتبت اسم منهم الكورسات هتتحط فيه)" : "";
+        string? name = Dialogs.Input(this, "حوّله لمصدر",
+            $"الكورسات اللي في «{source.Name}» هتتنقل جوه «{targetName}» في مصدر اسمه:{hint}", existing.FirstOrDefault()?.Name ?? source.Name);
         if (string.IsNullOrWhiteSpace(name)) return false;
         name = name.Trim();
 
-        Checkpoint("تحويل موضوع لمكان");
+        Checkpoint("تحويل موضوع لمصدر");
         if (target == null)
         {
             target = new Topic { Name = targetName };
@@ -260,7 +290,7 @@ internal sealed partial class MainForm
             place = new Place { Name = name, TopicId = target.Id };
             _library.Places.Add(place);
         }
-        var courses = ConvertTopicToPlaceCore(_library, source, place);
+        int courses = ConvertTopicToPlaceCore(_library, source, place);
         _deletedKeys.Add(LibrarySync.TopicKey(source));
         target.Expanded = true;
         MarkDirty();
@@ -272,8 +302,8 @@ internal sealed partial class MainForm
     }
 
     /// <summary>
-    /// القلب (من غير واجهة، وبيتفحص في الفحص التلقائي): الكورسات تتنقل للمكان بترتيبها،
-    /// والفولدر المربوط يبقى تبع المكان، والأماكن اللي جوه الموضوع القديم تروح للموضوع الجديد، والموضوع القديم يتشال.
+    /// القلب (من غير واجهة، وبيتفحص في الفحص التلقائي): الكورسات تتنقل للمصدر بترتيبها، والفولدرات المتابَعة
+    /// اللي كانت بتحط في الموضوع القديم تحط في المصدر، والمصادر اللي جواه تروح للموضوع الجديد، والموضوع القديم يتشال.
     /// </summary>
     internal static int ConvertTopicToPlaceCore(CourseLibrary lib, Topic source, Place place)
     {
@@ -281,9 +311,13 @@ internal sealed partial class MainForm
         var direct = lib.DirectCoursesOf(source).ToList();
         foreach (var c in direct) lib.MoveCourse(c, target, place);
         foreach (var p in lib.PlacesOf(source).ToList()) lib.MovePlace(p, target);
-        if (!string.IsNullOrWhiteSpace(source.SourceFolder) &&
-            !place.SourceFolders.Any(f => FolderLink.Norm(f) == FolderLink.Norm(source.SourceFolder!)))
-            place.SourceFolders.Add(source.SourceFolder!);
+        foreach (var l in lib.Links.Where(l => l.TopicId == source.Id && l.PlaceId == null))
+        {
+            l.TopicId = target?.Id;
+            l.PlaceId = place.Id;
+            l.TouchInfo();
+        }
+        foreach (var l in lib.Links.Where(l => l.TopicId == source.Id)) { l.TopicId = target?.Id; l.TouchInfo(); }
         place.Expanded = true;
         place.TouchInfo();
         lib.Topics.Remove(source);

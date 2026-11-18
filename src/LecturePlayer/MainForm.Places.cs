@@ -52,7 +52,8 @@ internal sealed partial class MainForm
         int videos = courses.Sum(c => c.VideoCount), watched = courses.Sum(c => c.WatchedCount);
         long duration = courses.Sum(c => c.TotalDurationMs);
         bool done = videos > 0 && watched == videos;
-        bool linked = p.SourceFolders.Count > 0;
+        var links = LinksFor(p);
+        bool linked = links.Count > 0;
         node.Text = Modern.Bidi(p.Name);
         node.NodeFont = _groupNodeFont;
         node.ImageKey = node.SelectedImageKey = done ? "placeDone" : "place";
@@ -61,8 +62,8 @@ internal sealed partial class MainForm
         int doneCourses = courses.Count(c => c.IsCompleted);
         node.ToolTipText = $"🏫 {p.Name}\n{courses.Count} كورس (خلصت {doneCourses}) · {watched} من {videos} فيديو"
             + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
-            + (linked ? "\n🔗 فولدرات مربوطة (الجديد بيتضاف لوحده):\n" + string.Join("\n", p.SourceFolders) : "");
-        _tree.SetRow(node, new LectureTreeView.RowInfo(linked ? "🔗" : "", $"{doneCourses}/{courses.Count}", done));
+            + (linked ? "\n🔄 فولدرات متابَعة (الجديد بيتضاف لوحده):\n" + string.Join("\n", links.Select(l => l.Path)) : "");
+        _tree.SetRow(node, new LectureTreeView.RowInfo(linked ? "🔄" : "", $"{doneCourses}/{courses.Count}", done));
     }
 
     /// <summary>«مكان جديد» من قايمة ＋ إضافة: جوه الموضوع المحدد.</summary>
@@ -71,13 +72,13 @@ internal sealed partial class MainForm
         var topic = SelectedTopicContext();
         if (topic == null && _library.Topics.Count == 0)
         {
-            Dialogs.Info(this, "المكان (ROUTE، Udemy…) بيبقى جوه موضوع (زي Backend).\nاعمل الموضوع الأول، وبعدها المكان جواه.");
+            Dialogs.Info(this, "المصدر (المنصة أو الأكاديمية أو القناة أو المدرّس) بيبقى جوه موضوع.\nاعمل الموضوع الأول، وبعدها المصدر جواه.");
             topic = AddTopic();
             if (topic == null) return;
         }
         else if (topic == null)
         {
-            ShowStatus("حدد الموضوع اللي المكان هيبقى جواه في الشجرة الأول (أو كليك يمين على الموضوع ← مكان جديد)", 6);
+            ShowStatus("حدد الموضوع اللي المصدر هيبقى جواه في الشجرة الأول (أو كليك يمين على الموضوع ← مصدر جديد)", 6);
             return;
         }
         AddPlace(topic);
@@ -85,10 +86,10 @@ internal sealed partial class MainForm
 
     private Place? AddPlace(Topic? topic, string? name = null)
     {
-        name ??= Dialogs.Input(this, "مكان جديد",
-            topic != null ? $"اسم المكان جوه «{topic.Name}» (مثلًا: ROUTE أو Udemy):" : "اسم المكان (مثلًا: ROUTE أو Udemy):");
+        name ??= Dialogs.Input(this, "مصدر جديد",
+            topic != null ? $"اسم المصدر جوه «{topic.Name}» (المنصة أو الأكاديمية أو القناة أو المدرّس):" : "اسم المصدر (المنصة أو الأكاديمية أو القناة أو المدرّس):");
         if (string.IsNullOrWhiteSpace(name)) return null;
-        Checkpoint("إضافة مكان");
+        Checkpoint("إضافة مصدر");
         var p = new Place { Name = name.Trim(), TopicId = topic?.Id };
         p.TouchInfo();
         // بعد المكان المحدد لو في نفس الموضوع، وإلا في آخر أماكن الموضوع
@@ -99,7 +100,7 @@ internal sealed partial class MainForm
         MarkDirty();
         RebuildTree();
         SelectItem(p);
-        ShowStatus("اسحب الكورسات وارميها على المكان، أو كليك يمين على الكورس ← انقل لـ…", 6);
+        ShowStatus("اسحب الكورسات وارميها على المصدر، أو كليك يمين على الكورس ← انقل لـ…", 6);
         return p;
     }
 
@@ -108,13 +109,13 @@ internal sealed partial class MainForm
     {
         var courses = _library.CoursesInPlace(p).ToList();
         var topic = _library.TopicOf(p);
-        string where = topic != null ? $"تحت «{topic.Name}» على طول" : "برا أي مكان";
+        string where = topic != null ? $"تحت «{topic.Name}» على طول" : "برا أي مصدر";
         string msg = courses.Count == 0
-            ? $"حذف المكان «{p.Name}»؟"
-            : $"حذف المكان «{p.Name}»؟\n\nالـ {courses.Count} كورس اللي فيه مش هيتمسحوا — هيفضلوا {where}، بتقدّمهم وعلاماتهم.";
-        if (p.SourceFolders.Count > 0) msg += "\n\nوالبرنامج هيبطّل يتابع الفولدرات المربوطة بيه (الفولدرات نفسها مش هتتمسح).";
+            ? $"حذف المصدر «{p.Name}»؟"
+            : $"حذف المصدر «{p.Name}»؟\n\nالـ {courses.Count} كورس اللي فيه مش هيتمسحوا — هيفضلوا {where}، بتقدّمهم وعلاماتهم.";
+        if (LinksFor(p).Count > 0) msg += "\n\nالفولدرات المتابَعة هتفضل متابَعة، والجديد هيتحط تحت الموضوع.";
         if (!Dialogs.Confirm(this, msg)) return;
-        Checkpoint("حذف مكان");
+        Checkpoint("حذف مصدر");
         _deletedKeys.Add(LibrarySync.PlaceKey(p));
         _library.RemovePlace(p);
         MarkDirty();
@@ -125,7 +126,7 @@ internal sealed partial class MainForm
 
     private void RenamePlace(Place p)
     {
-        string? name = Dialogs.Input(this, "إعادة تسمية", "اسم المكان:", p.Name);
+        string? name = Dialogs.Input(this, "إعادة تسمية", "اسم المصدر:", p.Name);
         if (string.IsNullOrWhiteSpace(name)) return;
         Checkpoint("إعادة تسمية");
         p.Name = name.Trim();
@@ -135,7 +136,7 @@ internal sealed partial class MainForm
     private void MovePlaceToTopic(Place p, Topic? t)
     {
         if (p.TopicId == t?.Id) return;
-        Checkpoint("نقل مكان لموضوع");
+        Checkpoint("نقل مصدر لموضوع");
         _library.Places.Remove(p);
         var last = _library.PlacesOf(t).LastOrDefault();
         int to = last != null ? _library.Places.IndexOf(last) + 1 : _library.Places.Count;
@@ -164,42 +165,42 @@ internal sealed partial class MainForm
     {
         var courses = _library.CoursesInPlace(p).Where(c => c.VideoCount > 0).ToList();
         var c = courses.Where(x => !x.IsCompleted).OrderByDescending(x => x.LastActivityUtc).FirstOrDefault() ?? courses.FirstOrDefault();
-        if (c == null) { ShowStatus("المكان ده لسه مفيهوش كورسات بفيديوهات"); return; }
+        if (c == null) { ShowStatus("المصدر ده لسه مفيهوش كورسات بفيديوهات"); return; }
         PlayCourse(c);
     }
 
     private void BuildPlaceMenu(Place p, ToolStripItemCollection items)
     {
-        items.Add(MenuItem("▶  كمّل آخر كورس في المكان ده", () => PlayPlace(p)));
+        items.Add(MenuItem("▶  كمّل آخر كورس في المصدر ده", () => PlayPlace(p)));
+        AddRefreshLinksMenuItem(p, items);
         items.Add(new ToolStripSeparator());
-        items.Add(MenuItem("كورس جديد هنا…", () => AddCourse(placeFor: p)));
-        AddPlaceFolderLinkMenuItems(p, items);
-        items.Add(MenuItem("استيراد فولدر كورس هنا…", () =>
+        items.Add(MenuItem("📁  إضافة كورس من فولدر هنا…", () =>
         {
-            string? path = PickFolder(this, "اختار فولدر الكورس (كل فولدر فرعي فيه فيديوهات هيبقى محاضرة)");
-            if (path == null) return;
-            _tree.SelectedNode = NodeOf(p);
-            ImportFolder(path, into: null);
+            string? path = PickFolder(this, $"اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس) من «{p.Name}»");
+            if (path != null) ShowAddFolderDialog(path, null, p, useSelection: false);
         }));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
         items.Add(MovePlaceToTopicMenu(p));
-        items.Add(MenuItem("↺ تصفير التقدم في المكان كله…", () =>
-            ResetWatched(_library.CoursesInPlace(p).SelectMany(c => c.AllVideos), $"مكان «{p.Name}»")));
-        items.Add(MenuItem("ترتيب الكورسات بالاسم", () =>
-        {
-            Checkpoint("ترتيب الكورسات");
-            var mine = _library.CoursesInPlace(p).OrderBy(c => c.Name, NaturalComparer.Instance).ToList();
-            var slots = _library.Courses.Select((c, i) => (c, i)).Where(x => mine.Contains(x.c)).Select(x => x.i).ToList();
-            for (int k = 0; k < slots.Count; k++) _library.Courses[slots[k]] = mine[k];
-            MarkDirty();
-            RebuildTree();
-        }));
+        items.Add(SubMenuOf("المزيد",
+            MenuItem("كورس جديد فاضي هنا…", () => AddCourse(placeFor: p)),
+            MenuItem("ترتيب الكورسات بالاسم", () =>
+            {
+                Checkpoint("ترتيب الكورسات");
+                var mine = _library.CoursesInPlace(p).OrderBy(c => c.Name, NaturalComparer.Instance).ToList();
+                var slots = _library.Courses.Select((c, i) => (c, i)).Where(x => mine.Contains(x.c)).Select(x => x.i).ToList();
+                for (int k = 0; k < slots.Count; k++) _library.Courses[slots[k]] = mine[k];
+                MarkDirty();
+                RebuildTree();
+            }),
+            MenuItem("تعليم كل فيديوهات المصدر كمُشاهَدة", ToggleWatchedSelected, "W"),
+            MenuItem("↺ تصفير التقدم في المصدر كله…", () =>
+                ResetWatched(_library.CoursesInPlace(p).SelectMany(c => c.AllVideos), $"«{p.Name}»")),
+            new ToolStripSeparator(),
+            MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"),
+            MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"),
+            MenuItem("مصدر جديد بعده…", () => AddPlace(_library.TopicOf(p)))));
         items.Add(new ToolStripSeparator());
-        items.Add(MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"));
-        items.Add(MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"));
-        items.Add(MenuItem("مكان جديد بعده…", () => AddPlace(_library.TopicOf(p))));
-        items.Add(new ToolStripSeparator());
-        items.Add(MenuItem("حذف المكان (الكورسات بتفضل)", DeleteSelected, "Delete"));
+        items.Add(MenuItem("حذف المصدر (الكورسات بتفضل)", DeleteSelected, "Delete"));
     }
 
     private ToolStripMenuItem MovePlaceToTopicMenu(Place p)
@@ -252,10 +253,10 @@ internal sealed partial class MainForm
                 sub.DropDownItems.Add(pi);
             }
             sub.DropDownItems.Add(new ToolStripSeparator());
-            var direct = MenuItem($"تحت «{t.Name}» على طول (من غير مكان)", () => MoveCourseTo(c, topic, null));
+            var direct = MenuItem($"تحت «{t.Name}» على طول (من غير مصدر)", () => MoveCourseTo(c, topic, null));
             direct.Checked = curTopic == t && curPlace == null;
             sub.DropDownItems.Add(direct);
-            sub.DropDownItems.Add(MenuItem("مكان جديد هنا…", () =>
+            sub.DropDownItems.Add(MenuItem("مصدر جديد هنا…", () =>
             {
                 var np = AddPlace(topic);
                 if (np != null) MoveCourseTo(c, topic, np);
@@ -419,6 +420,54 @@ internal sealed partial class MainForm
         LoadLibrary(path, remember: false);
         Application.DoEvents();
         Check(_library.Places.Single().Name == "Udemy" && _library.PlaceOf(_library.Courses.Single(c => c.Name == "C# Basics"))?.Name == "Udemy", "save/load");
+
+        // شاشة «إضافة كورس» بجد: فولدر مدرّس فيه كورسين ← جوه مصدر، ومتابَع
+        string drive = Path.Combine(dir, "add-folder");
+        if (Directory.Exists(drive)) Directory.Delete(drive, true);
+        void Touch(string rel) { string f = Path.Combine(drive, rel); Directory.CreateDirectory(Path.GetDirectoryName(f)!); File.WriteAllText(f, "x"); }
+        Touch(@"Teacher\Course A\Lesson 1\Videos\Part 1.mp4");
+        Touch(@"Teacher\Course A\Lesson 1\Slides\deck.pdf");
+        Touch(@"Teacher\Course B\Lesson 1\Part 1.mp4");
+        var udemy = _library.Places.Single();
+        var topicB = _library.Topics.Single(t => t.Name == "Backend");
+        AddFolderForm.AutoAcceptForSmoke = true;
+        try { ShowAddFolderDialog(Path.Combine(drive, "Teacher"), null, udemy, useSelection: false); }
+        finally { AddFolderForm.AutoAcceptForSmoke = false; }
+        Check(_library.CoursesInPlace(udemy).Count(c => c.Name is "Course A" or "Course B") == 2, "add dialog: courses in source");
+        Check(_library.Links.Count == 1 && _library.Links[0].PlaceId == udemy.Id && !_library.Links[0].SingleCourse, "add dialog: followed");
+        var courseA = _library.Courses.Single(c => c.Name == "Course A");
+        Check(courseA.Groups.Single().Attachments.Count == 1 && _library.LinkOf(courseA) != null, "add dialog: attachments/link");
+        // نفس الفولدر تاني ← مايتكررش
+        AddFolderForm.AutoAcceptForSmoke = true;
+        try { ShowAddFolderDialog(Path.Combine(drive, "Teacher"), topicB, null, useSelection: false); }
+        finally { AddFolderForm.AutoAcceptForSmoke = false; }
+        Check(_library.Courses.Count(c => c.Name == "Course A") == 1 && _library.Links.Count == 1, "add dialog: same folder duplicated");
+        Check(_library.TopicOf(courseA) == topicB && _library.PlaceOf(courseA) == null, "add dialog: same folder moved to new destination");
+        // كورس واحد (فولدر جواه محاضرات)
+        Touch(@"Single\Week 1\a.mp4");
+        Touch(@"Single\Week 2\b.mp4");
+        AddFolderForm.AutoAcceptForSmoke = true;
+        try { ShowAddFolderDialog(Path.Combine(drive, "Single"), topicB, null, useSelection: false); }
+        finally { AddFolderForm.AutoAcceptForSmoke = false; }
+        var single = _library.Courses.SingleOrDefault(c => c.Name == "Single");
+        Check(single != null && single.Groups.Count == 2 && _library.Links.Any(l => l.SingleCourse), "add dialog: single course");
+        // القوايم الجديدة بتتبني من غير أخطاء
+        {
+            _tree.SelectedNode = NodeOf(courseA);
+            ShowNodeMenu(NodeOf(courseA)!, Point.Empty);
+            _nodeMenu.Close();
+            ShowNodeMenu(NodeOf(courseA.Groups[0])!, Point.Empty);
+            _nodeMenu.Close();
+            ShowNodeMenu(NodeOf(courseA.Groups[0].Videos[0])!, Point.Empty);
+            _nodeMenu.Close();
+            ShowNodeMenu(NodeOf(udemy)!, Point.Empty);
+            _nodeMenu.Close();
+            ShowNodeMenu(NodeOf(topicB)!, Point.Empty);
+            _nodeMenu.Close();
+            ShowEmptyAreaMenu(Point.Empty);
+            _nodeMenu.Close();
+        }
+        Directory.Delete(drive, true);
         Console.WriteLine("SMOKE hierarchy ui OK");
     }
 }

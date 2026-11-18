@@ -515,7 +515,6 @@ internal sealed partial class MainForm : Form
         titleRow.Controls.Add(title);
         var moreMenu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
         ToolStripMenuItem MoreItem(string text, Action click) { var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text }; i.Click += (_, _) => click(); moreMenu.Items.Add(i); return i; }
-        Adv(MoreItem("استيراد فولدر فيه أكتر من كورس…", ImportMultiCourseDialog));
         Adv(MoreItem("تقسيم المحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup())));
         Adv(MoreItem("بيانات الكورس المحدد…  (F4)", () => EditCourseInfo(SelectedCourse())));
         var moreSep = new ToolStripSeparator();
@@ -546,21 +545,28 @@ internal sealed partial class MainForm : Form
             i.Click += (_, _) => click();
             addMenu.Items.Add(i);
         }
-        AddItem("📁  فولدر فيديوهات (كورس)…", "Ctrl+I", ImportCourseDialog);
-        AddItem("🔗  رابط يوتيوب أو قائمة تشغيل…", "Ctrl+U", () => AddUrlsDialog(null));
-        AddItem("🗂  ربط فولدر كورس من الدرايف (الجديد بيتضاف لوحده)…", "", LinkFolderDialog);
-        AddItem("🎬  فيديوهات للمحاضرة المحددة…", "Ctrl+Shift+A", () => AddVideosDialog(SelectedGroup()));
+        // 3 حاجات بس: كورس من فولدر، يوتيوب، وتنظيم المكتبة
+        AddItem("📁  كورس من فولدر على الجهاز أو الدرايف…", "Ctrl+I", ImportCourseDialog);
+        AddItem("🔗  من يوتيوب (فيديو أو قائمة تشغيل)…", "Ctrl+U", () => AddUrlsDialog(null));
         addMenu.Items.Add(new ToolStripSeparator());
-        AddItem("محاضرة جديدة في الكورس المحدد", "Ctrl+G", () => AddGroup());
-        AddItem("كورس جديد", "Ctrl+Shift+G", () => AddCourse());
-        AddItem("🏫  مكان جديد جوه الموضوع المحدد (ROUTE، Udemy…)", "", AddPlaceFromMenu);
-        AddItem("موضوع جديد (تفريعة رئيسية زي «Backend»)", "Ctrl+Shift+N", () => AddTopic());
+        var organize = new ToolStripMenuItem("🗂  تنظيم المكتبة") { ForeColor = Theme.Text };
+        void OrgItem(string text, string keys, Action click)
+        {
+            var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text, ShortcutKeyDisplayString = keys };
+            i.Click += (_, _) => click();
+            organize.DropDownItems.Add(i);
+        }
+        OrgItem("موضوع جديد…", "Ctrl+Shift+N", () => AddTopic());
+        OrgItem("مصدر جديد جوه الموضوع المحدد…", "", AddPlaceFromMenu);
+        OrgItem("كورس فاضي جديد…", "Ctrl+Shift+G", () => AddCourse());
+        OrgItem("محاضرة فاضية جديدة في الكورس المحدد…", "Ctrl+G", () => AddGroup());
+        addMenu.Items.Add(organize);
         var addButton = new PillButton("＋  إضافة", PillStyle.Ghost)
         {
             Dock = DockStyle.Left, Width = LogicalToDeviceUnits(82), Margin = Padding.Empty, TabStop = false
         };
         addButton.Click += (_, _) => addMenu.Show(addButton, new Point(0, addButton.Height + 2));
-        _toolTip.SetToolTip(addButton, "ضيف فولدر، أو رابط يوتيوب، أو فيديوهات، أو محاضرة/كورس جديد");
+        _toolTip.SetToolTip(addButton, "ضيف كورس من فولدر، أو من يوتيوب، أو نظّم المكتبة (موضوع، مصدر)");
         sectionRow.Controls.Add(addButton);
 
         // سطر الأرقام اتشال: الإحصائيات بقت في تلميح اسم المكتبة، والسطر ده بيظهر بس لما فيه فلتر شغال (عشان متتلخبطش ليه حاجات مش ظاهرة)
@@ -654,19 +660,15 @@ internal sealed partial class MainForm : Form
         _recentMenu.DropDownItems.Add(new ToolStripMenuItem("…"));
 
         var groups = SubMenu("الكورسات والمحاضرات",
-            Item("موضوع جديد (تفريعة رئيسية)…", () => AddTopic(), Keys.Control | Keys.Shift | Keys.N),
-            Item("مكان جديد جوه الموضوع المحدد…", AddPlaceFromMenu),
-            Item("كورس جديد…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
-            Item("محاضرة جديدة في الكورس المحدد…", () => AddGroup(), Keys.Control | Keys.G),
-            Item("إضافة فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),
+            Item("إضافة كورس من فولدر…", ImportCourseDialog, Keys.Control | Keys.I),
+            Item("إضافة من يوتيوب…", () => AddUrlsDialog(null), display: "Ctrl+U"),
+            Item("هات الجديد من كل الفولدرات المتابَعة", () => _ = SyncLinkedFoldersAsync(null, manual: true)),
             new ToolStripSeparator(),
-            Item("استيراد فولدر كورس…", ImportCourseDialog, Keys.Control | Keys.I),
-            Adv(Item("استيراد فولدر فيه أكتر من كورس…", ImportMultiCourseDialog, Keys.Control | Keys.Shift | Keys.I)),
-            Item("إضافة فولدر محاضرات للكورس المحدد…", () =>
-            {
-                if (SelectedCourse() is { } c) ImportIntoCourseDialog(c);
-                else Dialogs.Info(this, "حدد كورس الأول.");
-            }),
+            Item("موضوع جديد…", () => AddTopic(), Keys.Control | Keys.Shift | Keys.N),
+            Item("مصدر جديد جوه الموضوع المحدد…", AddPlaceFromMenu),
+            Item("كورس فاضي جديد…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
+            Item("محاضرة فاضية جديدة في الكورس المحدد…", () => AddGroup(), Keys.Control | Keys.G),
+            Item("إضافة فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),
             new ToolStripSeparator(),
             Adv(Item("تقسيم تلقائي للمحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup()))),
             Adv(Item("ترتيب فيديوهات المحاضرة المحددة بالاسم", () => SortGroupVideos(SelectedGroup()))),

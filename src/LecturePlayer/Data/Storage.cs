@@ -127,7 +127,8 @@ public static class Storage
         lib.Topics ??= new List<Topic>();
         lib.Live ??= new List<LiveChannel>();
         lib.Places ??= new List<Place>();
-        foreach (var p in lib.Places) p.SourceFolders ??= new List<string>();
+        lib.Links ??= new List<LinkedFolder>();
+        lib.MigrateLinks();
         if (lib.Groups is { Count: > 0 })
             lib.Courses.Insert(0, new Course { Name = lib.Name, Groups = lib.Groups });
         lib.Groups = null;
