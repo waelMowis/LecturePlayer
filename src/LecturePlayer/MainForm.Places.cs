@@ -4,7 +4,7 @@ using LecturePlayer.UI;
 namespace LecturePlayer;
 
 /// <summary>
-/// المستوى التاني في الشجرة: «مكان» جوه الموضوع (ROUTE، Udemy…).
+/// المستوى التاني في الشجرة: «مصدر» جوه الموضوع (منصة، أكاديمية، قناة، مدرّس). في الكود اسمه Place.
 /// الهيكل: موضوع ← مكان ← كورس ← محاضرة ← فيديو. المكان اختياري: الكورس ممكن يبقى تحت الموضوع على طول.
 /// </summary>
 internal sealed partial class MainForm

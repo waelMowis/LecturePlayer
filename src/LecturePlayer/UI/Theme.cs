@@ -39,7 +39,7 @@ internal static class Theme
     public static readonly Color Folder = Color.FromArgb(220, 182, 122);
     public static readonly Color Danger = Color.FromArgb(241, 76, 76);
     public static readonly Color CourseColor = Color.FromArgb(177, 128, 215);
-    /// <summary>لون «المكان» (ROUTE، Udemy…) في الشجرة.</summary>
+    /// <summary>لون «المصدر» في الشجرة.</summary>
     public static readonly Color PlaceColor = Color.FromArgb(86, 182, 194);
 
     public static readonly Color Input = Color.FromArgb(24, 24, 26);

@@ -76,7 +76,7 @@ internal sealed partial class MainForm
         }
         if (_library.CoursesOf(null).Any()) Chip("-", TopicStats.NoTopicName);
 
-        // الموضوع المختار (أو مكان جواه) فيه أماكن ← أزرار للأماكن (ROUTE، Udemy…)
+        // الموضوع المختار (أو مكان جواه) فيه أماكن ← أزرار للمصادر
         string sel = _settings.HomeTopicFilter;
         var selTopic = sel.StartsWith("p:")
             ? _library.Places.FirstOrDefault(p => p.Id == sel[2..]) is { } sp ? _library.TopicOf(sp) : null
@@ -745,7 +745,7 @@ internal sealed partial class MainForm
             Text = Modern.Bidi(c.Name), TextAlign = ContentAlignment.MiddleRight
         };
         string last = c.LastActivityUtc > DateTime.MinValue ? "  ·  " + RelativeDay(c.LastActivityUtc) : "";
-        // المسار فوق الكورس: «Backend › ROUTE» (من غير اللي متفلتر عليه أصلًا)
+        // المسار فوق الكورس: «الموضوع › المصدر» (من غير اللي متفلتر عليه أصلًا)
         string filterKey = _settings.HomeTopicFilter;
         var pathParts = new List<string>();
         if (filterKey == "" && _library.TopicOf(c) is { } topic) pathParts.Add(topic.Name);

@@ -246,7 +246,7 @@ public static class TopicStats
         Summarize(topic, null, topic?.Name ?? NoTopicName, lib.CoursesOf(topic).ToList(),
             EntriesOf(lib, topic, entries, noTopic: topic == null), today, defaultRate, lookbackDays);
 
-    /// <summary>ملخص مكان (ROUTE مثلًا): مجموع كورساته. الاسم «Backend › ROUTE».</summary>
+    /// <summary>ملخص مصدر: مجموع كورساته. الاسم «الموضوع › المصدر».</summary>
     public static TopicSummary ForPlace(CourseLibrary lib, Place place, IReadOnlyList<JournalEntry> entries, DateOnly today,
         float defaultRate = 1f, int lookbackDays = 14)
     {
@@ -284,7 +284,7 @@ public static class TopicStats
         return list;
     }
 
-    /// <summary>زي <see cref="All"/>، وبعد كل موضوع أماكنه (ROUTE، Udemy…).</summary>
+    /// <summary>زي <see cref="All"/>، وبعد كل موضوع مصادره.</summary>
     public static List<TopicSummary> AllWithPlaces(CourseLibrary lib, IReadOnlyList<JournalEntry> entries, DateOnly today, float defaultRate = 1f)
     {
         var list = new List<TopicSummary>();

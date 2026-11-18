@@ -527,7 +527,7 @@ internal sealed partial class MainForm
                 return cn;
             }
 
-            // مكان (ROUTE، Udemy…) وتحته كورساته
+            // مصدر (منصة، أكاديمية، قناة…) وتحته كورساته
             TreeNode? BuildPlace(Place p, bool forceMatch)
             {
                 bool placeMatches = forceMatch || (filter.Length > 0 && Matches(p.Name, filter));
