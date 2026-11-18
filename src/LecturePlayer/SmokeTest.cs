@@ -314,6 +314,74 @@ internal static class SmokeTest
         Check(lib.AllGroups.Count() == 1, "groups lost");
 
         PlaceLinkSelfTest();
+        SubSourceSelfTest();
+    }
+
+    /// <summary>مصدر فرعي: منصة ← مدرّس ← كورسات (مستويين بس)، والنقل والحذف والحفظ والتوافق.</summary>
+    private static void SubSourceSelfTest()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("sub source: " + what); }
+        var lib = new LecturePlayer.Data.CourseLibrary();
+        var prog = new LecturePlayer.Data.Topic { Name = "Programming" };
+        var other = new LecturePlayer.Data.Topic { Name = "Other" };
+        lib.Topics.Add(prog); lib.Topics.Add(other);
+        var platform = new LecturePlayer.Data.Place { Name = "Platform", TopicId = prog.Id };
+        var t1 = new LecturePlayer.Data.Place { Name = "Teacher 1", TopicId = prog.Id };
+        var t2 = new LecturePlayer.Data.Place { Name = "Teacher 2", TopicId = prog.Id };
+        lib.Places.AddRange(new[] { platform, t1, t2 });
+        lib.NestPlace(t1, platform);
+        lib.NestPlace(t2, platform);
+        var c1 = new LecturePlayer.Data.Course { Name = "C1" };
+        var c2 = new LecturePlayer.Data.Course { Name = "C2" };
+        var c3 = new LecturePlayer.Data.Course { Name = "C3" };
+        lib.Courses.AddRange(new[] { c1, c2, c3 });
+        lib.MoveCourse(c1, null, t1);
+        lib.MoveCourse(c2, null, t2);
+        lib.MoveCourse(c3, null, platform);
+
+        Check(lib.TopPlacesOf(prog).Single() == platform && lib.ChildrenOf(platform).Count() == 2, "nesting");
+        Check(lib.OrderedPlacesOf(prog).Select(x => x.Place.Name + x.Depth).SequenceEqual(new[] { "Platform0", "Teacher 11", "Teacher 21" }), "order");
+        Check(lib.AllCoursesUnder(platform).Count() == 3 && lib.CoursesInPlace(platform).Single() == c3, "courses under");
+        Check(lib.PathOf(c1) == "Programming › Platform › Teacher 1 › C1", "path " + lib.PathOf(c1));
+        Check(!lib.CanNest(t2, t1) && !lib.CanNest(platform, t1) && !lib.CanNest(platform, platform), "two levels only");
+
+        // حفظ وفتح
+        string libPath = Path.Combine(Path.GetTempPath(), "masar-smoke-sub.lpl");
+        var back = LecturePlayer.Data.Storage.FromJson(LecturePlayer.Data.Storage.Serialize(lib), libPath);
+        var bc1 = back.Courses.Single(c => c.Name == "C1");
+        Check(back.PathOf(bc1) == "Programming › Platform › Teacher 1 › C1", "save/load");
+
+        // نقل المنصة لموضوع تاني: المدرّسين والكورسات معاها
+        lib.MovePlace(platform, other);
+        Check(lib.TopicOf(t1) == other && lib.ParentOf(t1) == platform && c1.TopicId == other.Id && lib.PlaceOf(c1) == t1, "move family");
+        lib.MovePlace(platform, prog);
+
+        // طلّع مدرّس برا المنصة، ورجّعه
+        lib.NestPlace(t2, null);
+        Check(lib.ParentOf(t2) == null && lib.TopPlacesOf(prog).Count() == 2 && lib.PlaceOf(c2) == t2, "un-nest");
+        lib.NestPlace(t2, platform);
+
+        // مدرّس في موضوع تاني يتحط جوه المنصة ← بياخد موضوعها
+        var t3 = new LecturePlayer.Data.Place { Name = "Teacher 3", TopicId = other.Id };
+        lib.Places.Add(t3);
+        var c4 = new LecturePlayer.Data.Course { Name = "C4" };
+        lib.Courses.Add(c4);
+        lib.MoveCourse(c4, null, t3);
+        lib.NestPlace(t3, platform);
+        Check(t3.TopicId == prog.Id && c4.TopicId == prog.Id && lib.PlaceOf(c4) == t3, "nest across topics");
+
+        // حذف مدرّس: كورساته تروح للمنصة. حذف المنصة: المدرّسين يبقوا أساسيين بكورساتهم
+        lib.RemovePlace(t3);
+        Check(lib.PlaceOf(c4) == platform, "delete sub → courses to parent");
+        lib.RemovePlace(platform);
+        Check(lib.ParentOf(t1) == null && lib.PlaceOf(c1) == t1 && lib.PlaceOf(c4) == null && c4.TopicId == prog.Id, "delete parent");
+
+        // نسخة قديمة/بيانات بايظة: الأكبر مش موجود ← المصدر يبان أساسي
+        var orphan = new LecturePlayer.Data.Place { Name = "Orphan", TopicId = prog.Id, ParentId = "missing" };
+        lib.Places.Add(orphan);
+        Check(lib.TopPlacesOf(prog).Contains(orphan), "orphan shows at top");
+        // ملف من غير ParentId (نسخة قبل كده) بيفتح عادي
+        Check(!LecturePlayer.Data.Storage.Serialize(new LecturePlayer.Data.CourseLibrary { Places = { new LecturePlayer.Data.Place { Name = "x" } } }).Contains("ParentId"), "ParentId written when null");
     }
 
     /// <summary>

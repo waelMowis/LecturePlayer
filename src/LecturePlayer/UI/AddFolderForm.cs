@@ -15,8 +15,9 @@ internal static class AddFolderForm
         public bool IsNone => Existing == null && NewName == null;
     }
 
+    /// <param name="SubSourceName">لو مش null: الفولدر نفسه يبقى مصدر فرعي بالاسم ده جوه المصدر المختار (مثلًا المدرّس جوه المنصة).</param>
     public sealed record Result(string Path, bool SingleCourse, FolderLink.Snapshot Snapshot,
-        Choice<Topic> Topic, Choice<Place> Source, bool Follow);
+        Choice<Topic> Topic, Choice<Place> Source, bool Follow, string? SubSourceName = null);
 
     private sealed record Item(string Text, object? Tag)
     {
@@ -49,6 +50,7 @@ internal static class AddFolderForm
         kit.Header("📚  هيتحط فين؟");
         var topicBox = kit.Row("الموضوع:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 30);
         var sourceBox = kit.Row("المصدر:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 30);
+        var asSub = kit.Full(new ToggleSwitch { Text = "", Checked = false }, 32);
         kit.Note("الموضوع: التفريعة الكبيرة (مثلًا «البرمجة» أو «اللغات»).\n" +
                  "المصدر: المنصة أو الأكاديمية أو القناة أو المدرّس اللي الكورسات جاية منه. الاتنين اختياريين.", 36);
 
@@ -75,8 +77,8 @@ internal static class AddFolderForm
             sourceBox.Items.Clear();
             sourceBox.Items.Add(new Item("(من غير مصدر)", null));
             var tag = (topicBox.SelectedItem as Item)?.Tag;
-            IEnumerable<Place> places = tag is Topic t ? lib.PlacesOf(t) : tag is string ? Enumerable.Empty<Place>() : lib.PlacesOf(null);
-            foreach (var p in places) sourceBox.Items.Add(new Item("🏫  " + p.Name, p));
+            var places = tag is Topic t ? lib.OrderedPlacesOf(t) : tag is string ? Enumerable.Empty<(Place, int)>() : lib.OrderedPlacesOf(null);
+            foreach (var (p, depth) in places) sourceBox.Items.Add(new Item((depth > 0 ? "        ↳ " : "🏫  ") + p.Name, p));
             if (select is string newName) sourceBox.Items.Add(new Item("🏫  " + newName + "  (جديد)", newName));
             sourceBox.Items.Add(new Item("＋  مصدر جديد…", NewTag));
             int i = Enumerable.Range(0, sourceBox.Items.Count).FirstOrDefault(k => Equals(((Item)sourceBox.Items[k]).Tag, select));
@@ -130,7 +132,29 @@ internal static class AddFolderForm
             preview.Text = $"هيتضاف {snap.Courses.Count} كورس:\r\n" + string.Join("\r\n", lines);
             kit.Ok!.Enabled = true;
         }
-        kind.SelectedIndexChanged += (_, _) => ShowPreview();
+        // «اعمل للفولدر ده مستوى باسمه»: لما الفولدر فيه كذا كورس (فولدر مدرّس مثلًا)
+        bool subTouched = false;
+        void UpdateSub()
+        {
+            string folderName = new DirectoryInfo(currentPath.TrimEnd('\\', '/')).Name;
+            var src = (sourceBox.SelectedItem as Item)?.Tag;
+            string? srcName = src is Place sp ? sp.Name : src is string sn && sn != NewTag ? sn : null;
+            Place? srcPlace = src as Place;
+            bool can = kind.SelectedIndex == 0;
+            asSub.Visible = can;
+            asSub.Text = srcName == null
+                ? $"اعمل للفولدر ده مصدر باسمه «{folderName}» وحط الكورسات جواه"
+                : srcPlace != null && lib.ParentOf(srcPlace) is { } parent
+                    ? $"اعمل للفولدر ده مصدر فرعي باسمه «{folderName}» جوه «{parent.Name}»"
+                    : $"اعمل للفولدر ده مصدر فرعي باسمه «{folderName}» جوه «{srcName}»";
+            // بيتعلّم لوحده لما الفولدر غير المصدر المختار (فولدر المدرّس جوه المنصة)، إلا لو المستخدم غيّره بإيده
+            if (!subTouched) asSub.Checked = can && srcName != null && !string.Equals(folderName, srcName, StringComparison.CurrentCultureIgnoreCase)
+                                             && !(srcPlace != null && lib.ParentOf(srcPlace) != null);
+            asSub.Invalidate();
+        }
+        asSub.Click += (_, _) => subTouched = true;
+        kind.SelectedIndexChanged += (_, _) => { ShowPreview(); UpdateSub(); };
+        sourceBox.SelectedIndexChanged += (_, _) => UpdateSub();
 
         async Task Load(string p)
         {
@@ -161,7 +185,8 @@ internal static class AddFolderForm
         bool isSingle = kind.SelectedIndex == 1;
         var chosen = isSingle ? single : many;
         if (chosen == null) return null;
-        return new Result(currentPath, isSingle, chosen, ToChoice<Topic>(topicBox), ToChoice<Place>(sourceBox), follow.Checked);
+        string? subName = !isSingle && asSub.Visible && asSub.Checked ? new DirectoryInfo(currentPath.TrimEnd('\\', '/')).Name : null;
+        return new Result(currentPath, isSingle, chosen, ToChoice<Topic>(topicBox), ToChoice<Place>(sourceBox), follow.Checked, subName);
     }
 
     private static int IndexOf(ComboBox box, object? tag) =>

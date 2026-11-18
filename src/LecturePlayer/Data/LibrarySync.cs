@@ -67,7 +67,7 @@ public static class LibrarySync
             if (lp == null) { local.Places.Add(rp); result.AddedPlaces++; }
             else if (rp.InfoUpdatedUtc > lp.InfoUpdatedUtc)
             {
-                lp.Name = rp.Name; lp.TopicId = rp.TopicId;
+                lp.Name = rp.Name; lp.TopicId = rp.TopicId; lp.ParentId = rp.ParentId;
                 lp.InfoUpdatedUtc = rp.InfoUpdatedUtc; result.UpdatedInfo++;
             }
         }

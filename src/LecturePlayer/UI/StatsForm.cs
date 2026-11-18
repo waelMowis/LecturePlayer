@@ -63,9 +63,9 @@ internal sealed class StatsForm : Form
         foreach (var t in lib.Topics)
         {
             _scopes.Add(new Scope(t.Id, t.Name, t));
-            foreach (var p in lib.PlacesOf(t)) _scopes.Add(new Scope("p:" + p.Id, "      🏫 " + p.Name, t, p));
+            foreach (var (p, depth) in lib.OrderedPlacesOf(t)) _scopes.Add(new Scope("p:" + p.Id, (depth > 0 ? "            ↳ " : "      🏫 ") + p.Name, t, p));
         }
-        foreach (var p in lib.PlacesOf(null)) _scopes.Add(new Scope("p:" + p.Id, "🏫 " + p.Name, null, p));
+        foreach (var (p, depth) in lib.OrderedPlacesOf(null)) _scopes.Add(new Scope("p:" + p.Id, (depth > 0 ? "      ↳ " : "🏫 ") + p.Name, null, p));
         if (lib.Topics.Count > 0 && lib.CoursesOf(null).Any()) _scopes.Add(new Scope("-", TopicStats.NoTopicName, null));
         _topicCombo.Items.AddRange(_scopes.Select(x => x.Text));
         _topicCombo.SelectedIndex = Math.Max(0, _scopes.FindIndex(x => x.Key == settings.StatsTopicFilter));
@@ -212,7 +212,7 @@ internal sealed class StatsForm : Form
         var sc = CurrentScope;
         bool all = sc.Key == "";
         _scope = all ? _entries
-            : sc.Place != null ? TopicStats.EntriesOfCourses(_lib.CoursesInPlace(sc.Place), _entries)
+            : sc.Place != null ? TopicStats.EntriesOfCourses(_lib.AllCoursesUnder(sc.Place), _entries)
             : TopicStats.EntriesOf(_lib, sc.Topic, _entries, noTopic: sc.Key == "-");
         _daily = StudyStats.DailyMinutes(_scope);
         _cells = StudyStats.Heatmap(_daily, _today, 12);
@@ -252,7 +252,7 @@ internal sealed class StatsForm : Form
                 bool done = t.Videos > 0 && t.Watched == t.Videos;
                 var item = new ListViewItem(new[]
                 {
-                    t.Place != null && t.Topic != null ? "      ↳ 🏫 " + t.Place.Name : t.Place != null ? "🏫 " + t.Place.Name : t.Name, t.Courses.ToString(), $"{t.Percent}%  ({t.Watched}/{t.Videos})",
+                    t.Place != null ? (t.Topic != null ? "      " : "") + (_lib.ParentOf(t.Place) != null ? "      ↳ " : "↳ 🏫 ") + t.Place.Name : t.Name, t.Courses.ToString(), $"{t.Percent}%  ({t.Watched}/{t.Videos})",
                     StudyStats.FormatMinutes(t.WeekMinutes), StudyStats.FormatMinutes(t.TotalMinutes),
                     StudyStats.FormatMinutes(t.RemainingMinutes),
                     done ? "خلص ✓" : t.FinishDate is { } d ? d.ToString("yyyy/MM/dd") : "—",
@@ -265,7 +265,7 @@ internal sealed class StatsForm : Form
 
         // الكورسات: كلها أو كورسات الموضوع
         var courses = all ? _lib.Courses
-            : sc.Place != null ? _lib.CoursesInPlace(sc.Place).ToList()
+            : sc.Place != null ? _lib.AllCoursesUnder(sc.Place).ToList()
             : _lib.CoursesOf(sc.Key == "-" ? null : sc.Topic).ToList();
         _courses.BeginUpdate();
         _courses.Items.Clear();
@@ -328,7 +328,8 @@ internal sealed class StatsForm : Form
                     _ => $"{StudyStats.FormatMinutes(p.MinutesPerStudyDay)}/يوم"
                 }
                 : "";
-            string where = string.Join(" › ", new[] { _lib.TopicOf(c)?.Name, _lib.PlaceOf(c)?.Name }.Where(x => x != null));
+            var cp = _lib.PlaceOf(c);
+            string where = string.Join(" › ", new[] { _lib.TopicOf(c)?.Name, cp != null ? _lib.ParentOf(cp)?.Name : null, cp?.Name }.Where(x => x != null));
             string name = showTopic && where.Length > 0 ? $"{c.Name}  ‹{where}›" : c.Name;
             var item = new ListViewItem(new[]
             {

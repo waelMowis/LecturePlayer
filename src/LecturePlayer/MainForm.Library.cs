@@ -447,7 +447,7 @@ internal sealed partial class MainForm
         var c = g != null ? _library.FindCourseOf(g) : SelectedCourse();
         if (g == null && c == null && _tree.SelectedNode?.Tag is Place pl)
         {
-            var pc = _library.CoursesInPlace(pl).ToList();
+            var pc = _library.AllCoursesUnder(pl).ToList();
             _statusGroup.Text = $"{_library.TopicOf(pl)?.Name} › {pl.Name}:  {pc.Count} كورس  ·  {pc.Sum(x => x.WatchedCount)} من {pc.Sum(x => x.VideoCount)} فيديو خلصوا";
             return;
         }
@@ -532,6 +532,9 @@ internal sealed partial class MainForm
             {
                 bool placeMatches = forceMatch || (filter.Length > 0 && Matches(p.Name, filter));
                 var pn = new TreeNode { Tag = p };
+                // المصادر الفرعية الأول (مثلًا المدرّسين جوه المنصة)، وبعدها الكورسات اللي فيه على طول
+                foreach (var child in _library.ChildrenOf(p))
+                    if (BuildPlace(child, placeMatches) is { } cpn) pn.Nodes.Add(cpn);
                 foreach (var c in _library.CoursesInPlace(p))
                     if (BuildCourse(c, placeMatches) is { } cn) pn.Nodes.Add(cn);
                 if (pn.Nodes.Count == 0 && filtering && !placeMatches) return null;
@@ -546,7 +549,7 @@ internal sealed partial class MainForm
             {
                 bool topicMatches = filter.Length > 0 && Matches(t.Name, filter);
                 var tn = new TreeNode { Tag = t };
-                foreach (var p in _library.PlacesOf(t))
+                foreach (var p in _library.TopPlacesOf(t))
                     if (BuildPlace(p, topicMatches) is { } pn) tn.Nodes.Add(pn);
                 foreach (var c in _library.DirectCoursesOf(t))
                     if (BuildCourse(c, topicMatches) is { } cn) tn.Nodes.Add(cn);
@@ -558,7 +561,7 @@ internal sealed partial class MainForm
             }
 
             // الأماكن والكورسات اللي برا أي موضوع
-            foreach (var p in _library.PlacesOf(null))
+            foreach (var p in _library.TopPlacesOf(null))
                 if (BuildPlace(p, false) is { } pn) _tree.Nodes.Add(pn);
             foreach (var c in _library.DirectCoursesOf(null))
                 if (BuildCourse(c, false) is { } cn) _tree.Nodes.Add(cn);
@@ -677,7 +680,11 @@ internal sealed partial class MainForm
     private void RefreshCourse(Course? c)
     {
         if (c != null && _courseNodes.TryGetValue(c, out var node)) UpdateCourseNode(node, c);
-        if (c != null && _library.PlaceOf(c) is { } p && _placeNodes.TryGetValue(p, out var pn)) UpdatePlaceNode(pn, p);
+        if (c != null && _library.PlaceOf(c) is { } p && _placeNodes.TryGetValue(p, out var pn))
+        {
+            UpdatePlaceNode(pn, p);
+            if (_library.ParentOf(p) is { } pp && _placeNodes.TryGetValue(pp, out var ppn)) UpdatePlaceNode(ppn, pp);
+        }
         if (c != null && _library.TopicOf(c) is { } t && _topicNodes.TryGetValue(t, out var tn)) UpdateTopicNode(tn, t);
     }
 
@@ -972,7 +979,7 @@ internal sealed partial class MainForm
             }
             case Place p:
             {
-                var vids = _library.CoursesInPlace(p).SelectMany(c => c.AllVideos).ToList();
+                var vids = _library.AllCoursesUnder(p).SelectMany(c => c.AllVideos).ToList();
                 bool all = vids.Any(v => !v.Watched);
                 if (all && !Dialogs.Confirm(this, $"تعليم كل فيديوهات «{p.Name}» ({vids.Count}) كمُشاهَدة؟")) return;
                 foreach (var v in vids) SetWatched(v, all, refresh: false);
@@ -1025,7 +1032,8 @@ internal sealed partial class MainForm
                 break;
             case Place p:
             {
-                var siblings = _library.PlacesOf(_library.TopicOf(p)).ToList();
+                var parentOfP = _library.ParentOf(p);
+                var siblings = _library.PlacesOf(_library.TopicOf(p)).Where(x => _library.ParentOf(x) == parentOfP).ToList();
                 int i = siblings.IndexOf(p), j = i + direction;
                 if (i < 0 || j < 0 || j >= siblings.Count) return;
                 int a = _library.Places.IndexOf(p), b = _library.Places.IndexOf(siblings[j]);
@@ -1698,7 +1706,7 @@ internal sealed partial class MainForm
         }
         if (targetTag is Place tp && dragged.Tag is VideoItem or LectureGroup)
         {
-            targetTag = _library.CoursesInPlace(tp).LastOrDefault();
+            targetTag = _library.CoursesInPlace(tp).LastOrDefault() ?? _library.AllCoursesUnder(tp).LastOrDefault();
             if (targetTag == null) { ShowStatus("المصدر ده فاضي — ضيف فيه كورس الأول"); return; }
         }
 

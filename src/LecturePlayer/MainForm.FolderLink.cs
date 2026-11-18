@@ -54,6 +54,7 @@ internal sealed partial class MainForm
     {
         Checkpoint("إضافة كورس من فولدر");
         var (topic, place) = ResolveDestination(r.Topic, r.Source);
+        if (r.SubSourceName != null) place = SubSourceFor(topic, place, r.SubSourceName);
 
         // نفس الفولدر متضاف قبل كده؟ ← يتنقل للمكان الجديد بتقدّمه بدل ما يتكرر
         string key = FolderLink.Norm(r.Path);
@@ -108,7 +109,8 @@ internal sealed partial class MainForm
         QueueProbe(_library.Courses.Where(c => r.Snapshot.Courses.Any(cs => c.SourceFolder != null && FolderLink.Norm(c.SourceFolder) == FolderLink.Norm(cs.Path)))
             .SelectMany(c => c.AllVideos));
 
-        string where = string.Join(" › ", new[] { topic?.Name, place?.Name }.Where(x => x != null));
+        string where = string.Join(" › ", new[] { topic?.Name ?? (place != null ? _library.TopicOf(place)?.Name : null),
+            place != null ? _library.ParentOf(place)?.Name : null, place?.Name }.Where(x => x != null));
         string msg = $"اتضاف ✓  {r.Snapshot.Courses.Count} كورس · {res.NewGroups} محاضرة · {res.NewVideos.Count + res.Moved} فيديو" +
                      (where.Length > 0 ? $"  في «{where}»" : "");
         if (res.Moved > 0) msg += $"\n{res.Moved} فيديو كانوا عندك قبل كده — اتنقلوا بتقدّمك وعلاماتك.";
@@ -146,11 +148,36 @@ internal sealed partial class MainForm
         return (topic, place);
     }
 
+    /// <summary>
+    /// المصدر الفرعي باسم الفولدر (مثلًا المدرّس) جوه المصدر المختار. لو المختار نفسه فرعي، بيتعمل جنبه
+    /// (جوه نفس الأكبر). لو مفيش مصدر مختار، بيبقى مصدر أساسي في الموضوع. لو موجود بنفس الاسم بيتستخدم.
+    /// </summary>
+    private Place SubSourceFor(Topic? topic, Place? chosen, string name)
+    {
+        var parent = chosen == null ? null : _library.ParentOf(chosen) ?? chosen;
+        var t = parent != null ? _library.TopicOf(parent) : topic;
+        var existing = _library.PlacesOf(t).FirstOrDefault(p => _library.ParentOf(p) == parent
+            && string.Equals(p.Name, name, StringComparison.CurrentCultureIgnoreCase));
+        if (existing != null) return existing;
+        var sub = new Place { Name = name, TopicId = t?.Id, ParentId = parent?.Id };
+        sub.TouchInfo();
+        var after = _library.PlacesOf(t).LastOrDefault(p => p == parent || _library.ParentOf(p) == parent);
+        int at = after != null ? _library.Places.IndexOf(after) + 1 : _library.Places.Count;
+        _library.Places.Insert(Math.Clamp(at, 0, _library.Places.Count), sub);
+        if (parent != null) parent.Expanded = true;
+        return sub;
+    }
+
     /// <summary>الفولدرات المتابَعة اللي ليها علاقة بالعنصر ده (موضوع/مصدر/كورس)، أو كلها.</summary>
     private List<LinkedFolder> LinksFor(object? item)
     {
         bool InTopic(LinkedFolder l, Topic t) => _library.TargetOf(l).Topic == t || _library.Courses.Any(c => _library.LinkOf(c) == l && _library.TopicOf(c) == t);
-        bool InPlace(LinkedFolder l, Place p) => _library.TargetOf(l).Place == p || _library.Courses.Any(c => _library.LinkOf(c) == l && _library.PlaceOf(c) == p);
+        bool InPlace(LinkedFolder l, Place p)
+        {
+            var target = _library.TargetOf(l).Place;
+            return target == p || (target != null && _library.ParentOf(target) == p)
+                   || _library.AllCoursesUnder(p).Any(c => _library.LinkOf(c) == l);
+        }
         return item switch
         {
             null => _library.Links.ToList(),

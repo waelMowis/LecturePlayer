@@ -193,6 +193,13 @@ public sealed class Place
     public string? TopicId { get; set; }
     public bool Expanded { get; set; } = true;
 
+    /// <summary>
+    /// المصدر الأكبر لو ده مصدر فرعي (مثلًا منصة ← مدرّس). مستويين بس: المصدر الفرعي مايبقاش جواه مصادر.
+    /// النسخ القديمة بتتجاهله فالمصدر الفرعي بيظهر عندها جنب الأكبر.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ParentId { get; set; }
+
     /// <summary>قديم (4.1.31): بيتنقل لـ <see cref="CourseLibrary.Links"/> وقت الفتح.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? SourceFolders { get; set; }
@@ -336,8 +343,56 @@ public sealed class CourseLibrary
     public IEnumerable<Place> PlacesOf(Topic? t) =>
         t == null ? Places.Where(p => TopicOf(p) == null) : Places.Where(p => p.TopicId == t.Id);
 
-    /// <summary>كورسات المكان بترتيبها.</summary>
+    /// <summary>
+    /// المصدر الأكبر بتاع المصدر الفرعي (null لو مصدر أساسي، أو لو الأكبر اتمسح أو في موضوع تاني،
+    /// أو لو الأكبر نفسه فرعي — مستويين بس).
+    /// </summary>
+    public Place? ParentOf(Place p)
+    {
+        if (p.ParentId == null || p.ParentId == p.Id) return null;
+        var parent = Places.FirstOrDefault(x => x.Id == p.ParentId);
+        if (parent == null || parent.TopicId != p.TopicId || parent.ParentId != null && Places.Any(x => x.Id == parent.ParentId)) return null;
+        return parent;
+    }
+
+    /// <summary>المصادر الأساسية في الموضوع (اللي مش جوه مصدر تاني).</summary>
+    public IEnumerable<Place> TopPlacesOf(Topic? t) => PlacesOf(t).Where(p => ParentOf(p) == null);
+
+    /// <summary>مصادر الموضوع بالترتيب اللي بتظهر بيه: كل مصدر أساسي وبعده الفرعية بتاعته (Depth = 1).</summary>
+    public IEnumerable<(Place Place, int Depth)> OrderedPlacesOf(Topic? t)
+    {
+        foreach (var p in TopPlacesOf(t))
+        {
+            yield return (p, 0);
+            foreach (var c in ChildrenOf(p)) yield return (c, 1);
+        }
+    }
+
+    /// <summary>المصادر الفرعية جوه المصدر.</summary>
+    public IEnumerable<Place> ChildrenOf(Place p) => Places.Where(x => x != p && ParentOf(x) == p);
+
+    /// <summary>كورسات المكان بترتيبها (اللي فيه على طول، من غير المصادر الفرعية).</summary>
     public IEnumerable<Course> CoursesInPlace(Place p) => Courses.Where(c => c.PlaceId == p.Id && PlaceOf(c) == p);
+
+    /// <summary>كل كورسات المصدر: اللي فيه على طول واللي في مصادره الفرعية.</summary>
+    public IEnumerable<Course> AllCoursesUnder(Place p)
+    {
+        var ids = new HashSet<string>(ChildrenOf(p).Select(x => x.Id).Append(p.Id));
+        return Courses.Where(c => c.PlaceId != null && ids.Contains(c.PlaceId) && PlaceOf(c) != null);
+    }
+
+    /// <summary>ينفع المصدر ده يتحط جوه المصدر ده؟ (مستويين بس، ومش جوه نفسه)</summary>
+    public bool CanNest(Place child, Place parent) =>
+        child != parent && ParentOf(parent) == null && !ChildrenOf(child).Any();
+
+    /// <summary>يحط المصدر جوه مصدر تاني (أو يطلّعه منه لو null). بياخد موضوع الأكبر، وكورساته معاه.</summary>
+    public void NestPlace(Place child, Place? parent)
+    {
+        if (parent != null && !CanNest(child, parent)) throw new InvalidOperationException("مستويين بس من المصادر");
+        if (parent != null && parent.TopicId != child.TopicId) MovePlace(child, TopicOf(parent));
+        child.ParentId = parent?.Id;
+        child.TouchInfo();
+    }
 
     /// <summary>كورسات الموضوع اللي مش جوه أي مكان (بتظهر تحت الموضوع على طول).</summary>
     public IEnumerable<Course> DirectCoursesOf(Topic? t) => CoursesOf(t).Where(c => PlaceOf(c) == null);
@@ -352,19 +407,25 @@ public sealed class CourseLibrary
         c.TouchInfo();
     }
 
-    /// <summary>ينقل المكان لموضوع تاني، وكورساته معاه.</summary>
+    /// <summary>ينقل المصدر لموضوع تاني، بمصادره الفرعية وكل الكورسات. بيبقى مصدر أساسي هناك.</summary>
     public void MovePlace(Place p, Topic? topic)
     {
-        var courses = CoursesInPlace(p).ToList();
-        p.TopicId = topic?.Id;
-        p.TouchInfo();
+        var family = ChildrenOf(p).Append(p).ToList();
+        var courses = family.SelectMany(CoursesInPlace).ToList();
+        if (ParentOf(p) != null) p.ParentId = null;
+        foreach (var x in family) { x.TopicId = topic?.Id; x.TouchInfo(); }
         foreach (var c in courses) { c.TopicId = topic?.Id; c.TouchInfo(); }
     }
 
-    /// <summary>يمسح المكان؛ كورساته بتفضل تحت الموضوع على طول.</summary>
+    /// <summary>
+    /// يمسح المصدر: كورساته بتروح للمصدر الأكبر (لو فرعي) أو تحت الموضوع على طول،
+    /// ومصادره الفرعية بتبقى مصادر أساسية.
+    /// </summary>
     public void RemovePlace(Place p)
     {
-        foreach (var c in Courses.Where(c => c.PlaceId == p.Id)) { c.PlaceId = null; c.TouchInfo(); }
+        var parent = ParentOf(p);
+        foreach (var c in Courses.Where(c => c.PlaceId == p.Id)) { c.PlaceId = parent?.Id; c.TouchInfo(); }
+        foreach (var child in ChildrenOf(p).ToList()) { child.ParentId = null; child.TouchInfo(); }
         Places.Remove(p);
     }
 
@@ -409,7 +470,11 @@ public sealed class CourseLibrary
     {
         var parts = new List<string>();
         if (TopicOf(c) is { } t) parts.Add(t.Name);
-        if (PlaceOf(c) is { } p) parts.Add(p.Name);
+        if (PlaceOf(c) is { } p)
+        {
+            if (ParentOf(p) is { } pp) parts.Add(pp.Name);
+            parts.Add(p.Name);
+        }
         parts.Add(c.Name);
         return string.Join(" › ", parts);
     }

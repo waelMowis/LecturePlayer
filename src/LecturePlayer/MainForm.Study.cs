@@ -42,7 +42,7 @@ internal sealed partial class MainForm
     {
         "" => true,
         "-" => _library.TopicOf(c) == null,
-        var key when key.StartsWith("p:") => _library.PlaceOf(c)?.Id == key[2..],
+        var key when key.StartsWith("p:") => _library.PlaceOf(c) is { } cp && (cp.Id == key[2..] || _library.ParentOf(cp)?.Id == key[2..]),
         var id => c.TopicId == id && _library.Topics.Any(t => t.Id == id)
     };
 
@@ -82,11 +82,11 @@ internal sealed partial class MainForm
             ? _library.Places.FirstOrDefault(p => p.Id == sel[2..]) is { } sp ? _library.TopicOf(sp) : null
             : _library.Topics.FirstOrDefault(t => t.Id == sel);
         if (selTopic == null) return;
-        foreach (var p in _library.PlacesOf(selTopic))
+        foreach (var (p, depth) in _library.OrderedPlacesOf(selTopic))
         {
-            var cs = _library.CoursesInPlace(p).ToList();
+            var cs = _library.AllCoursesUnder(p).ToList();
             int v = cs.Sum(c => c.VideoCount), w = cs.Sum(c => c.WatchedCount);
-            Chip("p:" + p.Id, "🏫 " + (v > 0 ? $"{p.Name}  {w * 100 / v}%" : p.Name));
+            Chip("p:" + p.Id, (depth > 0 ? "↳ " : "🏫 ") + (v > 0 ? $"{p.Name}  {w * 100 / v}%" : p.Name));
         }
     }
 
@@ -749,7 +749,13 @@ internal sealed partial class MainForm
         string filterKey = _settings.HomeTopicFilter;
         var pathParts = new List<string>();
         if (filterKey == "" && _library.TopicOf(c) is { } topic) pathParts.Add(topic.Name);
-        if (!filterKey.StartsWith("p:") && _library.PlaceOf(c) is { } place) pathParts.Add(place.Name);
+        if (_library.PlaceOf(c) is { } place)
+        {
+            var pp = _library.ParentOf(place);
+            string fid = filterKey.StartsWith("p:") ? filterKey[2..] : "";
+            if (pp != null && pp.Id != fid && place.Id != fid) pathParts.Add(pp.Name);
+            if (place.Id != fid) pathParts.Add(place.Name);
+        }
         string pathText = pathParts.Count > 0 ? Modern.Bidi(string.Join(" › ", pathParts)) + "  ·  " : "";
         var info = new Label
         {

@@ -250,9 +250,9 @@ public static class TopicStats
     public static TopicSummary ForPlace(CourseLibrary lib, Place place, IReadOnlyList<JournalEntry> entries, DateOnly today,
         float defaultRate = 1f, int lookbackDays = 14)
     {
-        var courses = lib.CoursesInPlace(place).ToList();
+        var courses = lib.AllCoursesUnder(place).ToList();
         var topic = lib.TopicOf(place);
-        string name = topic != null ? $"{topic.Name} › {place.Name}" : place.Name;
+        string name = string.Join(" › ", new[] { topic?.Name, lib.ParentOf(place)?.Name, place.Name }.Where(x => x != null));
         return Summarize(topic, place, name, courses, EntriesOfCourses(courses, entries), today, defaultRate, lookbackDays);
     }
 
@@ -291,9 +291,9 @@ public static class TopicStats
         foreach (var t in lib.Topics)
         {
             list.Add(For(lib, t, entries, today, defaultRate));
-            list.AddRange(lib.PlacesOf(t).Select(p => ForPlace(lib, p, entries, today, defaultRate)));
+            list.AddRange(lib.OrderedPlacesOf(t).Select(x => ForPlace(lib, x.Place, entries, today, defaultRate)));
         }
-        list.AddRange(lib.PlacesOf(null).Select(p => ForPlace(lib, p, entries, today, defaultRate)));
+        list.AddRange(lib.OrderedPlacesOf(null).Select(x => ForPlace(lib, x.Place, entries, today, defaultRate)));
         if (lib.CoursesOf(null).Any(c => lib.PlaceOf(c) == null)) list.Add(For(lib, null, entries, today, defaultRate));
         return list;
     }
