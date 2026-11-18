@@ -132,8 +132,12 @@ internal sealed partial class MainForm
             Check(_courseLabel.Text.Contains("WAEL"), "save-as: header " + _courseLabel.Text);
             Check(LibraryFiles.PeekName(copy) == "WAEL" && LibraryFiles.PeekName(original) == "مكتبتي", "save-as: names in files");
             Check(File.Exists(Path.Combine(dir, "Drive", "WAEL.sessions.PC1.jsonl")), "save-as: journal copied");
-            var recent = RecentLibraries(8);
-            Check(recent.Count(x => x.Text.Contains("WAEL")) == 1 && recent.Count(x => x.Text.Contains("مكتبتي")) == 1, "save-as: both listed with own names");
+            var recent = RecentLibraries(8).Where(x => Path.GetFullPath(x.Path).StartsWith(dir, StringComparison.OrdinalIgnoreCase)).ToList();
+            Check(recent.Count == 2 && recent.Count(x => x.Text.Contains("WAEL")) == 1 && recent.Count(x => x.Text.Contains("مكتبتي")) == 1,
+                "save-as: both listed with own names: " + string.Join(" | ", recent.Select(x => x.Text)));
+            // نفس الاسم في مكانين مختلفين (مكتبتي على الجهاز ومكتبتي هنا) بيبانوا مختلفين بالمكان
+            var all = RecentLibraries(8);
+            Check(all.Select(x => x.Text).Distinct().Count() == all.Count, "two entries look identical: " + string.Join(" | ", all.Select(x => x.Text)));
             Check(recent.Single(x => x.Current).Text.Contains("WAEL"), "save-as: current is WAEL");
 
             // فتح القديمة تاني ← باسمها، والرجوع للجديدة
