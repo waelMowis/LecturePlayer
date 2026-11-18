@@ -209,6 +209,7 @@ internal sealed partial class MainForm
             items.Add(MenuItem("🏫  مصدر فرعي جديد هنا (مدرّس، قناة…)…", () => AddPlace(null, parent: p)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
         items.Add(MovePlaceToTopicMenu(p));
+        items.Add(FoldMenu(p));
         items.Add(SubMenuOf("المزيد",
             MenuItem("كورس جديد فاضي هنا…", () => AddCourse(placeFor: p)),
             MenuItem("ترتيب الكورسات بالاسم", () =>
@@ -571,6 +572,29 @@ internal sealed partial class MainForm
         bool inTopicMenu = _nodeMenu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("يوتيوب"));
         _nodeMenu.Close();
         Check(inPlaceMenu && inTopicMenu, "youtube item in topic/source menus");
+
+        // الطي والتوسيع: YOUTUBE ← ISLAMIC ← سورة البقرة ← Playlist X ← محاضرة
+        TreeNode N(object o) => NodeOf(o) ?? throw new Exception("hierarchy ui: fold: node missing for " + o);
+        ExpandToLevel(0);
+        Check(!N(yt).IsExpanded && !_library.Places.Any(x => x.Expanded) && !_library.Courses.Any(x => x.Expanded), "fold: topics only");
+        ExpandToLevel(1);
+        Check(N(yt).IsExpanded && !N(islamic).IsExpanded, "fold: up to sources");
+        ExpandToLevel(2);
+        Check(N(islamic).IsExpanded && N(baqara).IsExpanded && !N(pc).IsExpanded, "fold: up to courses");
+        ExpandToLevel(3);
+        Check(N(pc).IsExpanded && !N(pc.Groups[0]).IsExpanded, "fold: up to lectures");
+        ExpandToLevel(4);
+        Check(N(pc.Groups[0]).IsExpanded, "fold: all open");
+        SetSubtreeExpanded(islamic, false);
+        Check(N(islamic).IsExpanded && !N(baqara).IsExpanded && !pc.Expanded, "fold: close inside source");
+        SetSubtreeExpanded(islamic, true);
+        Check(N(baqara).IsExpanded && N(pc).IsExpanded && N(pc.Groups[0]).IsExpanded, "fold: open inside source");
+        SetSubtreeExpanded(pc, false);
+        Check(N(pc).IsExpanded && !N(pc.Groups[0]).IsExpanded, "fold: close inside course");
+        ShowNodeMenu(N(islamic), Point.Empty);
+        bool foldInMenu = _nodeMenu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text == "طي وتوسيع");
+        _nodeMenu.Close();
+        Check(foldInMenu, "fold item in source menu");
         Console.WriteLine("SMOKE hierarchy ui OK");
     }
 }

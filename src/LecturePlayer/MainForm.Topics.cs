@@ -148,6 +148,7 @@ internal sealed partial class MainForm
         items.Add(MenuItem("🔗  إضافة من يوتيوب هنا…", () => AddUrlsDialog(null, t)));
         items.Add(MenuItem("🏫  مصدر جديد هنا…", () => AddPlace(t)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
+        items.Add(FoldMenu(t));
         var more = new List<ToolStripItem>
         {
             MenuItem("كورس جديد فاضي هنا…", () => AddCourse(topicFor: t)),

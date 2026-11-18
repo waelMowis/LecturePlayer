@@ -521,8 +521,6 @@ internal sealed partial class MainForm : Form
         moreMenu.Items.Add(moreSep);
         moreMenu.Opening += (_, _) => { foreach (ToolStripItem i in moreMenu.Items) ApplyMode(i, AdvancedMode); TidySeparators(moreMenu.Items); };
         MoreItem("ترتيب الكورسات بالاسم", SortCourses);
-        MoreItem("فتح الكل", () => SetAllExpanded(true));
-        MoreItem("قفل الكل", () => SetAllExpanded(false));
         var more = Icon(Glyphs.More, "المزيد", () => { }, titleRow);
         more.Click += (_, _) => moreMenu.Show(more, new Point(0, more.Height + 2));
 
@@ -589,6 +587,7 @@ internal sealed partial class MainForm : Form
         _searchBox.Font = new Font("Segoe UI", 9.5f);
         var searchHost = new RoundedHost(_searchBox, searchIcon: true, padding: 7) { Dock = DockStyle.Fill };
         BuildFilterButton(searchRow);
+        BuildFoldButton(searchRow);
         searchRow.Controls.Add(searchHost);
         searchHost.BringToFront(); // الـ Fill لازم يترص في الآخر عشان ميغطيش الفلتر
 
@@ -677,8 +676,8 @@ internal sealed partial class MainForm : Form
             Adv(new ToolStripSeparator()),
             Adv(Item("بيانات الكورس المحدد…", () => EditCourseInfo(SelectedCourse()), display: "F4")),
             new ToolStripSeparator(),
-            Item("فتح الكل", () => SetAllExpanded(true)),
-            Item("قفل الكل", () => SetAllExpanded(false)),
+            Item("فتح الكل", () => SetAllExpanded(true), display: "Ctrl+Shift+]"),
+            Item("قفل الكل", () => SetAllExpanded(false), display: "Ctrl+Shift+["),
             new ToolStripSeparator(),
             Item("تصفير المشاهدة للمكتبة كلها…", () => ResetWatched(_library.AllVideos, "كل الكورسات")));
 
@@ -1103,6 +1102,8 @@ internal sealed partial class MainForm : Form
         {
             case Keys.Space: TogglePlay(); return true;
             case Keys.Enter when tree: PlaySelected(); return true;
+            case Keys.Control | Keys.Shift | Keys.OemCloseBrackets: ExpandToLevel(4); return true;   // فتح الكل
+            case Keys.Control | Keys.Shift | Keys.OemOpenBrackets: ExpandToLevel(0); return true;    // قفل الكل
 
             case Keys.Right when !tree: SeekBy(5_000); return true;
             case Keys.Left when !tree: SeekBy(-5_000); return true;

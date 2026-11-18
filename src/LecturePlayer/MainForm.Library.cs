@@ -753,18 +753,6 @@ internal sealed partial class MainForm
 
     private VideoItem? SelectedVideo() => _tree.SelectedNode?.Tag as VideoItem;
 
-    private void SetAllExpanded(bool expanded)
-    {
-        foreach (var t in _library.Topics) t.Expanded = expanded;
-        foreach (var c in _library.Courses)
-        {
-            c.Expanded = expanded;
-            foreach (var g in c.Groups) g.Expanded = expanded;
-        }
-        MarkDirty();
-        RebuildTree();
-    }
-
     // =====================================================================
     //  الكورسات
     // =====================================================================
@@ -1451,6 +1439,7 @@ internal sealed partial class MainForm
                     MenuItem("رابط يوتيوب أو قائمة تشغيل…", () => AddUrlsDialog(null), "Ctrl+U")));
                 items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
                 items.Add(MoveCourseMenu(c));
+                items.Add(FoldMenu(c));
                 if (AdvancedMode) items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
                 {
                     var more = new List<ToolStripItem>();
