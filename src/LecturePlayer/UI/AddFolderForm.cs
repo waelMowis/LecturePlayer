@@ -133,7 +133,7 @@ internal static class AddFolderForm
             kit.Ok!.Enabled = true;
         }
         // «اعمل للفولدر ده مستوى باسمه»: لما الفولدر فيه كذا كورس (فولدر مدرّس مثلًا)
-        bool subTouched = false;
+        bool subTouched = false, subAvailable = false;
         void UpdateSub()
         {
             string folderName = new DirectoryInfo(currentPath.TrimEnd('\\', '/')).Name;
@@ -141,6 +141,7 @@ internal static class AddFolderForm
             string? srcName = src is Place sp ? sp.Name : src is string sn && sn != NewTag ? sn : null;
             Place? srcPlace = src as Place;
             bool can = kind.SelectedIndex == 0;
+            subAvailable = can;   // مش asSub.Visible: بعد ما الشاشة تتقفل Visible بيرجع false دايمًا
             asSub.Visible = can;
             asSub.Text = srcName == null
                 ? $"اعمل للفولدر ده مصدر باسمه «{folderName}» وحط الكورسات جواه"
@@ -185,7 +186,7 @@ internal static class AddFolderForm
         bool isSingle = kind.SelectedIndex == 1;
         var chosen = isSingle ? single : many;
         if (chosen == null) return null;
-        string? subName = !isSingle && asSub.Visible && asSub.Checked ? new DirectoryInfo(currentPath.TrimEnd('\\', '/')).Name : null;
+        string? subName = !isSingle && subAvailable && asSub.Checked ? new DirectoryInfo(currentPath.TrimEnd('\\', '/')).Name : null;
         return new Result(currentPath, isSingle, chosen, ToChoice<Topic>(topicBox), ToChoice<Place>(sourceBox), follow.Checked, subName);
     }
 
