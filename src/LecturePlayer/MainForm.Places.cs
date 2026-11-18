@@ -575,6 +575,8 @@ internal sealed partial class MainForm
 
         // الطي والتوسيع: YOUTUBE ← ISLAMIC ← سورة البقرة ← Playlist X ← محاضرة
         TreeNode N(object o) => NodeOf(o) ?? throw new Exception("hierarchy ui: fold: node missing for " + o);
+        // المحاضرة لازم يبقى فيها فيديو عشان تتفتح في الشجرة (عقدة فاضية مالهاش فتح وقفل)
+        if (pc.Groups[0].Videos.Count == 0) pc.Groups[0].Videos.Add(VideoItem.FromUrl(new OnlineEntry("https://www.youtube.com/watch?v=ddddddddddd", "D", 60)));
         ExpandToLevel(0);
         Check(!N(yt).IsExpanded && !_library.Places.Any(x => x.Expanded) && !_library.Courses.Any(x => x.Expanded), "fold: topics only");
         ExpandToLevel(1);
