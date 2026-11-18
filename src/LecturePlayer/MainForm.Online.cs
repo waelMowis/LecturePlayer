@@ -148,8 +148,10 @@ internal sealed partial class MainForm
     //  إضافة روابط
     // =====================================================================
 
-    private void AddUrlsDialog(string? prefill)
+    /// <param name="target">فين يتحط (موضوع/مصدر/كورس/محاضرة). null = المحدد في الشجرة.</param>
+    private void AddUrlsDialog(string? prefill, object? target = null)
     {
+        target ??= _tree.SelectedNode?.Tag;
         if (prefill == null)
         {
             try
@@ -160,13 +162,21 @@ internal sealed partial class MainForm
             catch { /* الحافظة مشغولة */ }
         }
 
-        var target = SelectedGroup() is { } g ? $"محاضرة «{g.Name}»"
-                   : SelectedCourse() is { } c ? $"كورس «{c.Name}»"
-                   : "كورس جديد";
-        var result = Dialogs.Urls(this, prefill ?? "", target);
+        var result = Dialogs.Urls(this, prefill ?? "", UrlTargetText(target));
         if (result == null) return;
-        _ = AddUrlsAsync(result.Value.Urls, _tree.SelectedNode?.Tag, result.Value.PlayFirst);
+        _ = AddUrlsAsync(result.Value.Urls, target, result.Value.PlayFirst);
     }
+
+    /// <summary>وصف مكان الإضافة اللي بيظهر في شاشة الروابط.</summary>
+    private string UrlTargetText(object? target) => target switch
+    {
+        LectureGroup g => $"محاضرة «{g.Name}»",
+        VideoItem v when _library.FindGroupOf(v) is { } g => $"محاضرة «{g.Name}»",
+        Course c => $"كورس «{c.Name}»",
+        Place p => $"كورس جديد جوه «{p.Name}» (قائمة التشغيل بتبقى كورس باسمها)",
+        Topic t => $"كورس جديد جوه «{t.Name}» (قائمة التشغيل بتبقى كورس باسمها)",
+        _ => "كورس جديد (قائمة التشغيل بتبقى كورس باسمها)"
+    };
 
     private void PasteUrls()
     {
@@ -191,19 +201,7 @@ internal sealed partial class MainForm
         _importingUrls = true;
         UseWaitCursor = true;
 
-        Course? course = targetTag switch
-        {
-            Course c => c,
-            LectureGroup g => _library.FindCourseOf(g),
-            VideoItem v => _library.FindCourseOf(v),
-            _ => null
-        } ?? _library.Courses.LastOrDefault();
-        LectureGroup? singlesGroup = targetTag switch
-        {
-            LectureGroup g => g,
-            VideoItem v => _library.FindGroupOf(v),
-            _ => null
-        };
+        var st = new UrlTarget(this, targetTag);
 
         Checkpoint("إضافة روابط");
         var errors = new List<string>();
@@ -244,35 +242,8 @@ internal sealed partial class MainForm
                 if (_closing) return;
                 if (listing.Entries.Count == 0) { errors.Add(urls[i] + "\n   مفيش فيديوهات متاحة"); continue; }
 
-                if (course == null)
-                {
-                    course = new Course { Name = "من الإنترنت" };
-                    PutInSelectedContext(course);
-                    _library.Courses.Add(course);
-                }
-
-                LectureGroup destination;
-                if (listing.IsPlaylist)
-                {
-                    destination = new LectureGroup
-                    {
-                        Name = listing.Title ?? "قائمة تشغيل",
-                        SourceUrl = urls[i],             // عشان «تحديث» يجيب الجديد بعدين
-                        LastSyncedUtc = DateTime.UtcNow,
-                        InfoUpdatedUtc = DateTime.UtcNow
-                    };
-                    course.Groups.Add(destination);
-                    addedPlaylists++;
-                }
-                else
-                {
-                    if (singlesGroup == null)
-                    {
-                        singlesGroup = new LectureGroup { Name = "فيديوهات من النت" };
-                        course.Groups.Add(singlesGroup);
-                    }
-                    destination = singlesGroup;
-                }
+                var (course_, destination) = st.Place(listing, urls[i]);
+                if (listing.IsPlaylist) addedPlaylists++;
 
                 var existing = new HashSet<string>(destination.Videos.Select(v => v.Path), StringComparer.OrdinalIgnoreCase);
                 foreach (var entry in listing.Entries)
@@ -284,7 +255,7 @@ internal sealed partial class MainForm
                     if (firstVideo == null) { firstVideo = video; firstGroup = destination; }
                 }
                 destination.Expanded = true;
-                course.Expanded = true;
+                course_.Expanded = true;
             }
         }
         finally
@@ -313,6 +284,92 @@ internal sealed partial class MainForm
                                 "\n\nلو اليوتيوب كله وقف فجأة: منيو إنترنت ← تحديث أداة يوتيوب");
 
         if (playFirst && firstGroup != null && firstVideo != null) PlayVideo(firstGroup, firstVideo);
+    }
+
+    /// <summary>
+    /// فين تتحط الروابط: كورس/محاضرة/فيديو محدد ← جوه الكورس ده (القائمة محاضرة جديدة، والفيديو في المحاضرة).
+    /// موضوع/مصدر/مفيش ← القائمة كورس جديد باسمها هناك، والفيديوهات لوحدها في كورس «فيديوهات من يوتيوب» هناك.
+    /// منفصلة عن يوتيوب عشان تتفحص في الفحص التلقائي.
+    /// </summary>
+    internal sealed class UrlTarget
+    {
+        private readonly MainForm _f;
+        private readonly Course? _course;
+        private readonly Place? _place;
+        private readonly Topic? _topic;
+        private Course? _singlesCourse;
+        private LectureGroup? _singlesGroup;
+
+        public UrlTarget(MainForm f, object? targetTag)
+        {
+            _f = f;
+            var lib = f._library;
+            _course = targetTag switch
+            {
+                Course c => c,
+                LectureGroup g => lib.FindCourseOf(g),
+                VideoItem v => lib.FindCourseOf(v),
+                _ => null
+            };
+            _place = targetTag as Place;
+            _topic = targetTag is Topic t ? t : _place != null ? lib.TopicOf(_place) : null;
+            _singlesCourse = _course;
+            _singlesGroup = targetTag switch
+            {
+                LectureGroup g => g,
+                VideoItem v => lib.FindGroupOf(v),
+                _ => null
+            };
+        }
+
+        public (Course Course, LectureGroup Group) Place(OnlineListing listing, string url)
+        {
+            var lib = _f._library;
+            Course course;
+            if (_course != null) course = _course;
+            else if (listing.IsPlaylist)
+            {
+                course = new Course { Name = listing.Title ?? "قائمة تشغيل" };
+                course.TouchInfo();
+                _f.PlaceCourseAtEnd(course, _topic, _place);
+            }
+            else
+            {
+                _singlesCourse ??= (_place != null ? lib.CoursesInPlace(_place) : lib.DirectCoursesOf(_topic))
+                                   .FirstOrDefault(c => c.Name == "فيديوهات من يوتيوب");
+                if (_singlesCourse == null)
+                {
+                    _singlesCourse = new Course { Name = "فيديوهات من يوتيوب" };
+                    _singlesCourse.TouchInfo();
+                    _f.PlaceCourseAtEnd(_singlesCourse, _topic, _place);
+                }
+                course = _singlesCourse;
+                _singlesGroup ??= course.Groups.FirstOrDefault(g => g.SourceUrl == null);
+            }
+
+            LectureGroup group;
+            if (listing.IsPlaylist)
+            {
+                group = new LectureGroup
+                {
+                    Name = listing.Title ?? "قائمة تشغيل",
+                    SourceUrl = url,                 // عشان «تحديث» يجيب الجديد بعدين
+                    LastSyncedUtc = DateTime.UtcNow,
+                    InfoUpdatedUtc = DateTime.UtcNow
+                };
+                course.Groups.Add(group);
+            }
+            else
+            {
+                if (_singlesGroup == null)
+                {
+                    _singlesGroup = new LectureGroup { Name = "فيديوهات من النت" };
+                    course.Groups.Add(_singlesGroup);
+                }
+                group = _singlesGroup;
+            }
+            return (course, group);
+        }
     }
 
     /// <summary>رابط اتسحب من المتصفح (من شريط العنوان أو لينك في صفحة).</summary>

@@ -145,6 +145,7 @@ internal sealed partial class MainForm
             string? path = PickFolder(this, "اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس)");
             if (path != null) ShowAddFolderDialog(path, t, null, useSelection: false);
         }));
+        items.Add(MenuItem("🔗  إضافة من يوتيوب هنا…", () => AddUrlsDialog(null, t)));
         items.Add(MenuItem("🏫  مصدر جديد هنا…", () => AddPlace(t)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
         var more = new List<ToolStripItem>

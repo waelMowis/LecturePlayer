@@ -204,6 +204,7 @@ internal sealed partial class MainForm
             string? path = PickFolder(this, $"اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس) من «{p.Name}»");
             if (path != null) ShowAddFolderDialog(path, null, p, useSelection: false);
         }));
+        items.Add(MenuItem("🔗  إضافة من يوتيوب هنا…", () => AddUrlsDialog(null, p)));
         if (_library.ParentOf(p) == null)
             items.Add(MenuItem("🏫  مصدر فرعي جديد هنا (مدرّس، قناة…)…", () => AddPlace(null, parent: p)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
@@ -536,6 +537,40 @@ internal sealed partial class MainForm
             _nodeMenu.Close();
         }
         Directory.Delete(drive, true);
+
+        // روابط يوتيوب: بتتحط في المكان المختار (نفس شكل المستخدم: YOUTUBE ← ISLAMIC ← سورة البقرة)، مش في آخر كورس في المكتبة
+        var yt = new Topic { Name = "YOUTUBE" };
+        _library.Topics.Add(yt);
+        var islamic = new Place { Name = "ISLAMIC", TopicId = yt.Id };
+        var baqara = new Place { Name = "سورة البقرة", TopicId = yt.Id, ParentId = islamic.Id };
+        _library.Places.Add(islamic);
+        _library.Places.Add(baqara);
+        RebuildTree();
+        var pl = new OnlineListing("Playlist X", true, new List<OnlineEntry> { new("https://www.youtube.com/watch?v=aaaaaaaaaaa", "A", 60) });
+        var one = new OnlineListing(null, false, new List<OnlineEntry> { new("https://www.youtube.com/watch?v=bbbbbbbbbbb", "B", 60) });
+        int before = _library.Courses.Count;
+        var st = new UrlTarget(this, baqara);
+        var (pc, pg) = st.Place(pl, "https://www.youtube.com/playlist?list=PLx");
+        Check(_library.PlaceOf(pc) == baqara && pc.Name == "Playlist X" && pg.SourceUrl != null, "url: playlist → course in sub-source");
+        var (sc1, sg1) = st.Place(one, "https://www.youtube.com/watch?v=bbbbbbbbbbb");
+        var (sc2, sg2) = new UrlTarget(this, baqara).Place(one, "https://www.youtube.com/watch?v=ccccccccccc");
+        Check(_library.PlaceOf(sc1) == baqara && sc1 == sc2 && sg1 == sg2 && sc1.Name == "فيديوهات من يوتيوب", "url: singles → one course in sub-source");
+        var (tc, _) = new UrlTarget(this, yt).Place(one, "u");
+        Check(_library.TopicOf(tc) == yt && _library.PlaceOf(tc) == null, "url: topic → course directly in topic");
+        var (rc, _) = new UrlTarget(this, null).Place(pl, "u");
+        Check(_library.TopicOf(rc) == null && rc.Name == "Playlist X", "url: nothing selected → new course at root");
+        var (cc, cg) = new UrlTarget(this, pc).Place(pl, "u2");
+        Check(cc == pc && pc.Groups.Count == 2 && cg.SourceUrl == "u2", "url: course → new lecture in it");
+        Check(_library.Courses.Count == before + 4, "url: courses created " + (_library.Courses.Count - before));
+        // الأمر موجود في قايمة الموضوع والمصدر
+        RebuildTree();
+        ShowNodeMenu(NodeOf(baqara)!, Point.Empty);
+        bool inPlaceMenu = _nodeMenu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("يوتيوب"));
+        _nodeMenu.Close();
+        ShowNodeMenu(NodeOf(yt)!, Point.Empty);
+        bool inTopicMenu = _nodeMenu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("يوتيوب"));
+        _nodeMenu.Close();
+        Check(inPlaceMenu && inTopicMenu, "youtube item in topic/source menus");
         Console.WriteLine("SMOKE hierarchy ui OK");
     }
 }
