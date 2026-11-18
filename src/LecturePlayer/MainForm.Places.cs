@@ -559,8 +559,8 @@ internal sealed partial class MainForm
         Check(_library.TopicOf(tc) == yt && _library.PlaceOf(tc) == null, "url: topic → course directly in topic");
         var (rc, _) = new UrlTarget(this, null).Place(pl, "u");
         Check(_library.TopicOf(rc) == null && rc.Name == "Playlist X", "url: nothing selected → new course at root");
-        var (cc, cg) = new UrlTarget(this, pc).Place(pl, "u2");
-        Check(cc == pc && pc.Groups.Count == 2 && cg.SourceUrl == "u2", "url: course → new lecture in it");
+        var (ucc, ucg) = new UrlTarget(this, pc).Place(pl, "u2");
+        Check(ucc == pc && pc.Groups.Count == 2 && ucg.SourceUrl == "u2", "url: course → new lecture in it");
         Check(_library.Courses.Count == before + 4, "url: courses created " + (_library.Courses.Count - before));
         // الأمر موجود في قايمة الموضوع والمصدر
         RebuildTree();
