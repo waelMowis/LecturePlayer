@@ -25,6 +25,8 @@ internal static class SmokeTest
         {
             ProxySelfTest().GetAwaiter().GetResult();
             Console.WriteLine("SMOKE proxy OK");
+            FolderLinkSelfTest();
+            Console.WriteLine("SMOKE folder link OK");
             LibVLCSharp.Shared.Core.Initialize();
             using var form = new MainForm(null, Array.Empty<string>());
             form.Shown += (_, _) =>
@@ -189,5 +191,56 @@ internal static class SmokeTest
             stop.Cancel();
             upstream.Stop();
         }
+    }
+
+    /// <summary>ربط فولدر كورس بنفس ترتيب كورس المحاضرة (Eng X / 01 C# Basics / Session 04 / Videos …).</summary>
+    private static void FolderLinkSelfTest()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "masar-smoke-link", "Eng Doaa Amin Elfawal");
+        if (Directory.Exists(Path.GetDirectoryName(root)!)) Directory.Delete(Path.GetDirectoryName(root)!, true);
+        void Touch(string rel) { string f = Path.Combine(root, rel); Directory.CreateDirectory(Path.GetDirectoryName(f)!); File.WriteAllText(f, "x"); }
+        Touch(@"00 Orientation\Videos\Welcome.mp4");
+        Touch(@"01 C# Basics\Session 01\Videos\Part 02 Types.mp4");
+        Touch(@"01 C# Basics\Session 01\Videos\Part 01 Intro.mp4");
+        Touch(@"01 C# Basics\Session 01\Presentation\Session01.pptx");
+        Touch(@"01 C# Basics\Session 01\Demo Link.gdoc");
+        Touch(@"01 C# Basics\Session 02\Videos\Part 01 Arrays.mp4");
+
+        var lib = new LecturePlayer.Data.CourseLibrary();
+        // فيديو كان متضاف بإيدك قبل كده (ومعاه تقدّم وعلامة)
+        var manual = LecturePlayer.Data.VideoItem.FromFile(Path.Combine(root, @"01 C# Basics\Session 02\Videos\Part 01 Arrays.mp4"));
+        manual.LastPositionMs = 5000;
+        manual.Bookmarks.Add(new LecturePlayer.Data.Bookmark { TimeMs = 1000, Note = "مهم" });
+        var manualCourse = new LecturePlayer.Data.Course { Name = "LEC4" };
+        manualCourse.Groups.Add(new LecturePlayer.Data.LectureGroup { Name = "LEC4", Videos = { manual } });
+        lib.Courses.Add(manualCourse);
+
+        var topic = new LecturePlayer.Data.Topic { Name = "Eng Doaa Amin Elfawal", SourceFolder = root };
+        lib.Topics.Add(topic);
+        var snap = LecturePlayer.Data.FolderLink.Scan(root) ?? throw new Exception("folder link: scan null");
+        var r = LecturePlayer.Data.FolderLink.Apply(lib, topic, snap, initial: true);
+        string got = $"courses {r.NewCourses}, lectures {r.NewGroups}, new {r.NewVideos.Count}, moved {r.Moved}, attachments {r.NewAttachments}";
+        Console.WriteLine("SMOKE folder link initial: " + got);
+        if (r.NewCourses != 2 || r.NewGroups != 3 || r.NewVideos.Count != 3 || r.Moved != 1 || r.NewAttachments != 2)
+            throw new Exception("folder link initial: " + got);
+        if (lib.Courses.Contains(manualCourse)) throw new Exception("folder link: empty manual course not removed");
+        var basics = lib.Courses.Single(c => c.Name == "01 C# Basics");
+        var s1 = basics.Groups.Single(g => g.Name == "Session 01");
+        if (s1.Videos[0].Title != "Part 01 Intro") throw new Exception("folder link: wrong order " + s1.Videos[0].Title);
+        var s2 = basics.Groups.Single(g => g.Name == "Session 02");
+        if (s2.Videos.Single() != manual || manual.LastPositionMs != 5000 || manual.Bookmarks.Count != 1) throw new Exception("folder link: progress not kept");
+        if (lib.Courses.Single(c => c.Name == "00 Orientation").Groups.Single().Videos.Count != 1) throw new Exception("folder link: Videos folder of a course");
+
+        // المحاضر رفع حاجات جديدة
+        Touch(@"01 C# Basics\Session 01\Videos\Part 03 Loops.mp4");
+        Touch(@"01 C# Basics\Session 03\Videos\Part 01 Methods.mp4");
+        var r2 = LecturePlayer.Data.FolderLink.Apply(lib, topic, LecturePlayer.Data.FolderLink.Scan(root)!, initial: false);
+        Console.WriteLine($"SMOKE folder link update: lectures +{r2.NewGroups}, videos +{r2.NewVideos.Count}");
+        if (r2.NewGroups != 1 || r2.NewVideos.Count != 2 || !r2.NewVideos.All(v => v.IsNew) || r2.GroupsWithNew.Count != 2)
+            throw new Exception("folder link update wrong");
+        // مفيش جديد: مفيش تغيير
+        if (LecturePlayer.Data.FolderLink.Apply(lib, topic, LecturePlayer.Data.FolderLink.Scan(root)!, initial: false).Changed)
+            throw new Exception("folder link: changed with nothing new");
+        Directory.Delete(Path.GetDirectoryName(root)!, true);
     }
 }

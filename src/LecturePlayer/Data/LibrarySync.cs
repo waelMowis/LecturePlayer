@@ -53,7 +53,7 @@ public static class LibrarySync
             if (deletedKeys.Contains(TopicKey(rt))) continue;
             var lt = local.Topics.FirstOrDefault(t => t.Id == rt.Id);
             if (lt == null) { local.Topics.Add(rt); result.AddedTopics++; }
-            else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
+            else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.SourceFolder = rt.SourceFolder; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
         }
 
         // 1.6) البث المباشر: القنوات الجديدة بتتضاف، والتعديل الأحدث يكسب
@@ -96,6 +96,7 @@ public static class LibrarySync
                 {
                     lg.Attachments = rg.Attachments.Select(CloneAttachment).ToList();
                     lg.SourceUrl = rg.SourceUrl;
+                    lg.SourceFolder = rg.SourceFolder;
                     if (rg.LastSyncedUtc > lg.LastSyncedUtc || lg.LastSyncedUtc == null) lg.LastSyncedUtc = rg.LastSyncedUtc;
                     lg.InfoUpdatedUtc = rg.InfoUpdatedUtc;
                     result.UpdatedInfo++;
@@ -153,6 +154,7 @@ public static class LibrarySync
         to.StudyDays = from.StudyDays.ToList();
         to.Rate = from.Rate;
         to.TopicId = from.TopicId;
+        to.SourceFolder = from.SourceFolder;
         to.InfoUpdatedUtc = from.InfoUpdatedUtc;
     }
 

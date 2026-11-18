@@ -30,8 +30,9 @@ internal sealed partial class MainForm
         node.ImageKey = node.SelectedImageKey = done ? "topicDone" : "topic";
         bool current = _currentGroup != null && courses.Any(c => c.Groups.Contains(_currentGroup));
         node.ForeColor = current ? Theme.Accent : done ? Theme.Success : Theme.Text;
-        node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "");
-        _tree.SetRow(node, new LectureTreeView.RowInfo("",
+        node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
+            + (string.IsNullOrWhiteSpace(t.SourceFolder) ? "" : $"\n🔗 مربوط بفولدر (الجديد بيتضاف لوحده):\n{t.SourceFolder}");
+        _tree.SetRow(node, new LectureTreeView.RowInfo(string.IsNullOrWhiteSpace(t.SourceFolder) ? "" : "🔗",
             courses.Count == 1 ? "كورس" : $"{courses.Count} كورس", done));
     }
 
@@ -133,6 +134,7 @@ internal sealed partial class MainForm
     {
         items.Add(MenuItem("▶  كمّل الموضوع (آخر كورس كنت فيه)", () => PlayTopic(t)));
         items.Add(new ToolStripSeparator());
+        AddFolderLinkMenuItems(t, items);
         items.Add(MenuItem("كورس جديد في الموضوع ده…", () => AddCourse(topicFor: t)));
         items.Add(MenuItem("استيراد فولدر كورس هنا…", () =>
         {

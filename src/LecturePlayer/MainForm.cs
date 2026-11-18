@@ -548,6 +548,7 @@ internal sealed partial class MainForm : Form
         }
         AddItem("📁  فولدر فيديوهات (كورس)…", "Ctrl+I", ImportCourseDialog);
         AddItem("🔗  رابط يوتيوب أو قائمة تشغيل…", "Ctrl+U", () => AddUrlsDialog(null));
+        AddItem("🗂  ربط فولدر كورس من الدرايف (الجديد بيتضاف لوحده)…", "", LinkFolderDialog);
         AddItem("🎬  فيديوهات للمحاضرة المحددة…", "Ctrl+Shift+A", () => AddVideosDialog(SelectedGroup()));
         addMenu.Items.Add(new ToolStripSeparator());
         AddItem("محاضرة جديدة في الكورس المحدد", "Ctrl+G", () => AddGroup());

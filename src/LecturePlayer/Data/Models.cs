@@ -135,6 +135,8 @@ public sealed class LectureGroup
     public string Name { get; set; } = "";
     public bool Expanded { get; set; } = true;
     public List<VideoItem> Videos { get; set; } = new();
+    /// <summary>الفولدر اللي المحاضرة جاية منه (لو تبع فولدر مربوط).</summary>
+    public string? SourceFolder { get; set; }
 
     /// <summary>رابط قائمة التشغيل على يوتيوب اللي المحاضرة دي جاية منها (عشان نجيب الجديد).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -167,6 +169,9 @@ public sealed class Topic
     public string Name { get; set; } = "";
     public bool Expanded { get; set; } = true;
 
+    /// <summary>فولدر مربوط (غالبًا على Google Drive): البرنامج بيتابعه ويضيف الجديد لوحده.</summary>
+    public string? SourceFolder { get; set; }
+
     /// <summary>آخر تعديل للاسم (للدمج بين الأجهزة).</summary>
     public DateTime InfoUpdatedUtc { get; set; }
     public void TouchInfo() => InfoUpdatedUtc = DateTime.UtcNow;
@@ -186,6 +191,8 @@ public sealed class Course
     /// <summary>الموضوع اللي الكورس تحته (null = برا أي موضوع).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TopicId { get; set; }
+    /// <summary>الفولدر اللي الكورس جاي منه (لو تبع فولدر مربوط).</summary>
+    public string? SourceFolder { get; set; }
 
     // ---------- بيانات الكورس (المرحلة 2) ----------
     [JsonConverter(typeof(JsonStringEnumConverter<CourseStatus>))]
