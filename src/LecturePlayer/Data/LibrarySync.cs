@@ -20,14 +20,16 @@ public static class LibrarySync
         public int AddedVideos;
         public int UpdatedInfo;
         public int AddedTopics;
+        public int AddedPlaces;
         public int AddedLive;
-        public int Total => UpdatedVideos + AddedCourses + AddedGroups + AddedVideos + UpdatedInfo + AddedTopics + AddedLive;
+        public int Total => UpdatedVideos + AddedCourses + AddedGroups + AddedVideos + UpdatedInfo + AddedTopics + AddedPlaces + AddedLive;
     }
 
     public static string VideoKey(VideoItem v) => "v:" + v.Path.ToUpperInvariant();
     public static string GroupKey(LectureGroup g) => "g:" + g.Id;
     public static string CourseKey(Course c) => "c:" + c.Id;
     public static string TopicKey(Topic t) => "t:" + t.Id;
+    public static string PlaceKey(Place p) => "p:" + p.Id;
     public static string LiveKey(LiveChannel l) => "l:" + l.Id;
 
     public static Result Merge(CourseLibrary local, CourseLibrary remote, ISet<string>? deletedKeys = null)
@@ -54,6 +56,19 @@ public static class LibrarySync
             var lt = local.Topics.FirstOrDefault(t => t.Id == rt.Id);
             if (lt == null) { local.Topics.Add(rt); result.AddedTopics++; }
             else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.SourceFolder = rt.SourceFolder; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
+        }
+
+        // 1.55) الأماكن: الجديدة بتتضاف، والأحدث (الاسم والموضوع والفولدرات) يكسب
+        foreach (var rp in remote.Places ?? new List<Place>())
+        {
+            if (deletedKeys.Contains(PlaceKey(rp))) continue;
+            var lp = local.Places.FirstOrDefault(p => p.Id == rp.Id);
+            if (lp == null) { local.Places.Add(rp); result.AddedPlaces++; }
+            else if (rp.InfoUpdatedUtc > lp.InfoUpdatedUtc)
+            {
+                lp.Name = rp.Name; lp.TopicId = rp.TopicId; lp.SourceFolders = rp.SourceFolders.ToList();
+                lp.InfoUpdatedUtc = rp.InfoUpdatedUtc; result.UpdatedInfo++;
+            }
         }
 
         // 1.6) البث المباشر: القنوات الجديدة بتتضاف، والتعديل الأحدث يكسب
@@ -154,6 +169,7 @@ public static class LibrarySync
         to.StudyDays = from.StudyDays.ToList();
         to.Rate = from.Rate;
         to.TopicId = from.TopicId;
+        to.PlaceId = from.PlaceId;
         to.SourceFolder = from.SourceFolder;
         to.InfoUpdatedUtc = from.InfoUpdatedUtc;
     }

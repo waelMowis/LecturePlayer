@@ -177,6 +177,29 @@ public sealed class Topic
     public void TouchInfo() => InfoUpdatedUtc = DateTime.UtcNow;
 }
 
+/// <summary>
+/// مكان = الجهة اللي بتاخد منها الكورسات جوه الموضوع (مثلًا ROUTE أو Udemy).
+/// الهيكل: موضوع ← مكان ← كورس ← محاضرة ← فيديو. المكان اختياري: الكورس ممكن يبقى تحت الموضوع على طول.
+/// الكورس بيفضل شايل <see cref="Course.TopicId"/> بتاع موضوعه، وفوقه <see cref="Course.PlaceId"/>؛
+/// عشان كده أي نسخة قديمة تفتح القائمة تشوف الكورسات تحت مواضيعها عادي.
+/// </summary>
+public sealed class Place
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    /// <summary>الموضوع اللي المكان جواه (null = برا أي موضوع).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TopicId { get; set; }
+    public bool Expanded { get; set; } = true;
+
+    /// <summary>فولدرات مربوطة جوه المكان (كل فولدر كورساته بتتحط هنا مباشرة).</summary>
+    public List<string> SourceFolders { get; set; } = new();
+
+    /// <summary>آخر تعديل للاسم/الموضوع/الفولدرات (للدمج بين الأجهزة).</summary>
+    public DateTime InfoUpdatedUtc { get; set; }
+    public void TouchInfo() => InfoUpdatedUtc = DateTime.UtcNow;
+}
+
 /// <summary>كورس = مجموعة محاضرات.</summary>
 public sealed class Course
 {
@@ -191,6 +214,10 @@ public sealed class Course
     /// <summary>الموضوع اللي الكورس تحته (null = برا أي موضوع).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TopicId { get; set; }
+
+    /// <summary>المكان اللي الكورس تحته جوه موضوعه (null = تحت الموضوع على طول).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PlaceId { get; set; }
     /// <summary>الفولدر اللي الكورس جاي منه (لو تبع فولدر مربوط).</summary>
     public string? SourceFolder { get; set; }
 
@@ -239,6 +266,8 @@ public sealed class CourseLibrary
 
     /// <summary>المواضيع بالترتيب (التفريعة الرئيسية).</summary>
     public List<Topic> Topics { get; set; } = new();
+    /// <summary>الأماكن بالترتيب (كل مكان بيشاور على موضوعه).</summary>
+    public List<Place> Places { get; set; } = new();
     public List<Course> Courses { get; set; } = new();
 
     /// <summary>البث المباشر: المفضلة والقنوات المضافة.</summary>
@@ -267,6 +296,65 @@ public sealed class CourseLibrary
     /// <summary>كورسات الموضوع بترتيبها في القايمة (null = الكورسات اللي برا أي موضوع).</summary>
     public IEnumerable<Course> CoursesOf(Topic? t) =>
         t == null ? Courses.Where(c => TopicOf(c) == null) : Courses.Where(c => c.TopicId == t.Id);
+
+    /// <summary>
+    /// مكان الكورس، بس لو المكان موجود وفي نفس موضوع الكورس.
+    /// (لو حد نقل الكورس لموضوع تاني من نسخة قديمة، الكورس يرجع تحت موضوعه على طول.)
+    /// </summary>
+    public Place? PlaceOf(Course c)
+    {
+        if (c.PlaceId == null) return null;
+        var p = Places.FirstOrDefault(x => x.Id == c.PlaceId);
+        return p != null && p.TopicId == TopicOf(c)?.Id ? p : null;
+    }
+
+    public Topic? TopicOf(Place p) => p.TopicId == null ? null : Topics.FirstOrDefault(t => t.Id == p.TopicId);
+
+    /// <summary>أماكن الموضوع بترتيبها (null = الأماكن اللي برا أي موضوع).</summary>
+    public IEnumerable<Place> PlacesOf(Topic? t) =>
+        t == null ? Places.Where(p => TopicOf(p) == null) : Places.Where(p => p.TopicId == t.Id);
+
+    /// <summary>كورسات المكان بترتيبها.</summary>
+    public IEnumerable<Course> CoursesInPlace(Place p) => Courses.Where(c => c.PlaceId == p.Id && PlaceOf(c) == p);
+
+    /// <summary>كورسات الموضوع اللي مش جوه أي مكان (بتظهر تحت الموضوع على طول).</summary>
+    public IEnumerable<Course> DirectCoursesOf(Topic? t) => CoursesOf(t).Where(c => PlaceOf(c) == null);
+
+    /// <summary>
+    /// يحط الكورس في مكان (أو يطلعه منه لو null). الكورس بياخد موضوع المكان.
+    /// </summary>
+    public void MoveCourse(Course c, Topic? topic, Place? place)
+    {
+        c.TopicId = place != null ? place.TopicId : topic?.Id;
+        c.PlaceId = place?.Id;
+        c.TouchInfo();
+    }
+
+    /// <summary>ينقل المكان لموضوع تاني، وكورساته معاه.</summary>
+    public void MovePlace(Place p, Topic? topic)
+    {
+        var courses = CoursesInPlace(p).ToList();
+        p.TopicId = topic?.Id;
+        p.TouchInfo();
+        foreach (var c in courses) { c.TopicId = topic?.Id; c.TouchInfo(); }
+    }
+
+    /// <summary>يمسح المكان؛ كورساته بتفضل تحت الموضوع على طول.</summary>
+    public void RemovePlace(Place p)
+    {
+        foreach (var c in Courses.Where(c => c.PlaceId == p.Id)) { c.PlaceId = null; c.TouchInfo(); }
+        Places.Remove(p);
+    }
+
+    /// <summary>المسار المقروء: «Backend › ROUTE › C# Basics».</summary>
+    public string PathOf(Course c)
+    {
+        var parts = new List<string>();
+        if (TopicOf(c) is { } t) parts.Add(t.Name);
+        if (PlaceOf(c) is { } p) parts.Add(p.Name);
+        parts.Add(c.Name);
+        return string.Join(" › ", parts);
+    }
 
     [JsonIgnore] public int GroupCount => Courses.Sum(c => c.Groups.Count);
     [JsonIgnore] public int VideoCount => Courses.Sum(c => c.VideoCount);

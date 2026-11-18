@@ -27,6 +27,8 @@ internal static class SmokeTest
             Console.WriteLine("SMOKE proxy OK");
             FolderLinkSelfTest();
             Console.WriteLine("SMOKE folder link OK");
+            HierarchySelfTest();
+            Console.WriteLine("SMOKE hierarchy OK");
             LibVLCSharp.Shared.Core.Initialize();
             using var form = new MainForm(null, Array.Empty<string>());
             form.Shown += (_, _) =>
@@ -242,5 +244,73 @@ internal static class SmokeTest
         if (LecturePlayer.Data.FolderLink.Apply(lib, topic, LecturePlayer.Data.FolderLink.Scan(root)!, initial: false).Changed)
             throw new Exception("folder link: changed with nothing new");
         Directory.Delete(Path.GetDirectoryName(root)!, true);
+    }
+
+    /// <summary>الهيكل: موضوع ← مكان ← كورس ← محاضرة ← فيديو، والتوافق مع القوائم القديمة والدمج بين الأجهزة.</summary>
+    private static void HierarchySelfTest()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("hierarchy: " + what); }
+        string libPath = Path.Combine(Path.GetTempPath(), "masar-smoke-hier.lpl");
+
+        // 1) قائمة قديمة (من غير أماكن) بتفتح زي ما هي
+        const string oldJson = """
+        {"Version":2,"Name":"old","Topics":[{"Id":"t1","Name":"Backend"}],
+         "Courses":[{"Id":"c1","Name":"C# Basics","TopicId":"t1","Groups":[{"Id":"g1","Name":"Session 01","Videos":[]}]},
+                    {"Id":"c2","Name":"Loose"}]}
+        """;
+        var lib = LecturePlayer.Data.Storage.FromJson(oldJson, libPath);
+        var backend = lib.Topics.Single();
+        var basics = lib.Courses.Single(c => c.Id == "c1");
+        Check(lib.Places.Count == 0, "old library got places");
+        Check(lib.DirectCoursesOf(backend).Single() == basics, "old course not directly under topic");
+        Check(lib.DirectCoursesOf(null).Single().Id == "c2", "loose course");
+        Check(!LecturePlayer.Data.Storage.Serialize(lib).Contains("PlaceId"), "old course wrote PlaceId");
+
+        // 2) مكان جوه الموضوع، والكورس يتنقل له
+        var route = new LecturePlayer.Data.Place { Name = "ROUTE", TopicId = backend.Id };
+        lib.Places.Add(route);
+        lib.MoveCourse(basics, null, route);
+        Check(basics.TopicId == backend.Id && lib.PlaceOf(basics) == route, "move course into place");
+        Check(!lib.DirectCoursesOf(backend).Any() && lib.CoursesInPlace(route).Single() == basics, "place listing");
+        Check(lib.CoursesOf(backend).Single() == basics, "topic still counts course in place");
+        Check(lib.PathOf(basics) == "Backend › ROUTE › C# Basics", "path " + lib.PathOf(basics));
+
+        // 3) الحفظ والفتح تاني
+        var reloaded = LecturePlayer.Data.Storage.FromJson(LecturePlayer.Data.Storage.Serialize(lib), libPath);
+        var rb = reloaded.Courses.Single(c => c.Id == "c1");
+        Check(reloaded.PlaceOf(rb)?.Name == "ROUTE", "place lost on save");
+
+        // 4) نقل المكان لموضوع تاني: كورساته معاه
+        var dotnet = new LecturePlayer.Data.Topic { Name = ".NET" };
+        lib.Topics.Add(dotnet);
+        lib.MovePlace(route, dotnet);
+        Check(basics.TopicId == dotnet.Id && lib.PlaceOf(basics) == route && !lib.PlacesOf(backend).Any(), "move place");
+
+        // 5) نسخة قديمة نقلت الكورس لموضوع تاني: يرجع تحت موضوعه على طول
+        basics.TopicId = backend.Id;
+        Check(lib.PlaceOf(basics) == null && lib.DirectCoursesOf(backend).Contains(basics), "stale place id");
+        lib.MoveCourse(basics, null, route);
+
+        // 6) الدمج بين جهازين: مكان جديد + نقل كورس على الجهاز التاني
+        var other = LecturePlayer.Data.Storage.FromJson(LecturePlayer.Data.Storage.Serialize(lib), libPath);
+        var udemy = new LecturePlayer.Data.Place { Name = "Udemy", TopicId = backend.Id };
+        udemy.TouchInfo();
+        other.Places.Add(udemy);
+        var loose = other.Courses.Single(c => c.Id == "c2");
+        System.Threading.Thread.Sleep(5);
+        other.MoveCourse(loose, null, udemy);
+        var mr = LecturePlayer.Data.LibrarySync.Merge(lib, other);
+        var localLoose = lib.Courses.Single(c => c.Id == "c2");
+        Check(mr.AddedPlaces == 1 && lib.PlaceOf(localLoose)?.Name == "Udemy", "merge place/move");
+        // مكان اتمسح هنا ميرجعش
+        var deleted = new HashSet<string> { LecturePlayer.Data.LibrarySync.PlaceKey(udemy) };
+        lib.RemovePlace(lib.Places.Single(p => p.Id == udemy.Id));
+        LecturePlayer.Data.LibrarySync.Merge(lib, other, deleted);
+        Check(lib.Places.All(p => p.Id != udemy.Id), "deleted place came back");
+
+        // 7) حذف مكان: الكورسات بتفضل تحت الموضوع
+        lib.RemovePlace(route);
+        Check(lib.Courses.Contains(basics) && lib.PlaceOf(basics) == null && basics.TopicId == dotnet.Id, "delete place keeps courses");
+        Check(lib.AllGroups.Count() == 1, "groups lost");
     }
 }

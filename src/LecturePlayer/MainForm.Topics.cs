@@ -62,6 +62,8 @@ internal sealed partial class MainForm
         if (!Dialogs.Confirm(this, msg)) return;
         Checkpoint("حذف موضوع");
         foreach (var c in courses) { c.TopicId = null; c.TouchInfo(); }
+        // الأماكن اللي جواه بتطلع برا معاه (بكورساتها)
+        foreach (var p in _library.PlacesOf(t).ToList()) { p.TopicId = null; p.TouchInfo(); }
         _deletedKeys.Add(LibrarySync.TopicKey(t));
         _library.Topics.Remove(t);
         MarkDirty();
@@ -71,15 +73,14 @@ internal sealed partial class MainForm
 
     private void MoveCourseToTopic(Course c, Topic? t)
     {
-        if (c.TopicId == t?.Id) return;
+        if (c.TopicId == t?.Id && _library.PlaceOf(c) == null) return;
         Checkpoint("نقل كورس لموضوع");
         // يتحط في آخر كورسات الموضوع الجديد
         _library.Courses.Remove(c);
         var last = _library.CoursesOf(t).LastOrDefault();
         int to = last != null ? _library.Courses.IndexOf(last) + 1 : _library.Courses.Count;
         _library.Courses.Insert(Math.Clamp(to, 0, _library.Courses.Count), c);
-        c.TopicId = t?.Id;
-        c.TouchInfo();
+        _library.MoveCourse(c, t, null);
         if (t != null) t.Expanded = true;
         MarkDirty();
         RebuildTree();
