@@ -229,7 +229,16 @@ public static class Storage
 
     // ---------------- Backups ----------------
 
+    /// <summary>
+    /// فولدر النسخ الاحتياطية للمكتبة: الاسم + بصمة المسار الكامل، عشان مكتبتين بنفس اسم الملف في مكانين مختلفين
+    /// (مثلًا WAEL.lpl على الجهاز وعلى الدرايف) نسخهم متتخلطش.
+    /// </summary>
     public static string BackupDir(string libraryPath) =>
+        Path.Combine(AppDataDir, "backups",
+            Path.GetFileNameWithoutExtension(libraryPath) + "-" + TranscriptStore.Hash(Path.GetFullPath(libraryPath).ToUpperInvariant())[..8]);
+
+    /// <summary>الفولدر القديم (قبل 4.1.37): باسم الملف بس. بيتقري في «استرجاع نسخة احتياطية» عشان النسخ القديمة متضيعش.</summary>
+    public static string LegacyBackupDir(string libraryPath) =>
         Path.Combine(AppDataDir, "backups", Path.GetFileNameWithoutExtension(libraryPath));
 
     /// <summary>نسخة احتياطية من ملف القائمة لو آخر نسخة أقدم من 6 ساعات. بنحتفظ بآخر 10 نسخ.</summary>

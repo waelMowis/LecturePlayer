@@ -86,9 +86,20 @@ internal sealed partial class MainForm
                 ? "مكتبتي"
                 : Path.GetFileNameWithoutExtension(path)
         };
+        if (string.IsNullOrWhiteSpace(_library.Name)) _library.Name = Path.GetFileNameWithoutExtension(path);
+        // إصلاح لمرة واحدة: «حفظ نسخة باسم» قبل 4.1.37 كان بيسيب الاسم الافتراضي «مكتبتي» جوه الملف الجديد،
+        // فمكتبتين بيبانوا بنفس الاسم. المكتبة دي تاخد اسم ملفها.
+        bool healedName = false;
+        if (lib != null && _library.Name == "مكتبتي" && !string.Equals(path, Storage.DefaultLibraryPath, StringComparison.OrdinalIgnoreCase)
+            && Path.GetFileNameWithoutExtension(path) is var fileName && fileName != "مكتبتي")
+        {
+            Log.Info($"library name healed: «مكتبتي» -> «{fileName}» ({path})");
+            _library.Name = fileName;
+            healedName = true;
+        }
         _libraryPath = path;
         InitJournal(path);
-        _dirty = lib == null;
+        _dirty = lib == null || healedName;
         _deletedKeys.Clear();
         _undo.Clear();
         _libraryStampUtc = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
@@ -168,28 +179,81 @@ internal sealed partial class MainForm
     {
         using var dlg = new SaveFileDialog
         {
-            Title = "حفظ المكتبة باسم",
+            Title = "حفظ نسخة من المكتبة باسم تاني",
             Filter = Storage.LibraryFilter,
             DefaultExt = Storage.LibraryExtension,
             FileName = _library.Name + Storage.LibraryExtension,
             InitialDirectory = Path.GetDirectoryName(_libraryPath)
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
-        string target = dlg.FileName;
-        if (string.Equals(target, _libraryPath, StringComparison.OrdinalIgnoreCase)) { SaveLibrary(); ShowStatus("اتحفظ ✓"); return; }
+        RelocateLibrary(dlg.FileName, move: false);
+    }
 
+    /// <summary>
+    /// المزامنة بين الأجهزة: المكتبة تتنقل لفولدر بيتزامن (OneDrive أو Google Drive)، وعلى الجهاز التاني تتفتح من «فتح مكتبة».
+    /// </summary>
+    private void MoveLibraryToCloudDialog()
+    {
+        string? oneDrive = new[] { "OneDrive", "OneDriveConsumer", "OneDriveCommercial" }
+            .Select(Environment.GetEnvironmentVariable)
+            .FirstOrDefault(d => !string.IsNullOrEmpty(d) && Directory.Exists(d));
+        string? gDrive = new[] { @"G:\My Drive", @"H:\My Drive", @"I:\My Drive" }.FirstOrDefault(Directory.Exists);
+        string? cloud = gDrive ?? oneDrive;
+
+        if (!Dialogs.Confirm(this,
+                "عشان تكمّل مذاكرتك على أكتر من جهاز:\n\n" +
+                "1. المكتبة هتتنقل لفولدر بيتزامن (Google Drive أو OneDrive)، ومعاها سجل مذاكرتك.\n" +
+                "2. على الجهاز التاني: «📚 اسم المكتبة ▾» ← «فتح مكتبة من ملف»، واختار نفس الملف.\n" +
+                "3. البرنامج بيدمج التقدم والعلامات والملاحظات من الجهازين لوحده.\n\n" +
+                "الفيديوهات نفسها مش بتتنقل. لو مكانها مختلف على الجهاز التاني، حدد مكان أي فيديو مرة واحدة، " +
+                "والبرنامج هيفتكر المكان ده للجهاز ده بس.\n\n" +
+                (cloud != null ? "لقيت فولدر بيتزامن هنا:\n" + cloud : "ملقتش Google Drive ولا OneDrive على الجهاز ده، اختار أي فولدر بيتزامن.") +
+                "\n\nنكمّل؟", "مزامنة بين الأجهزة"))
+            return;
+
+        string initial = cloud ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        using var dlg = new SaveFileDialog
+        {
+            Title = "مكان المكتبة في فولدر المزامنة",
+            Filter = Storage.LibraryFilter,
+            DefaultExt = Storage.LibraryExtension,
+            FileName = _library.Name + Storage.LibraryExtension,
+            InitialDirectory = initial
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        RelocateLibrary(dlg.FileName, move: true);
+    }
+
+    /// <summary>
+    /// «حفظ نسخة باسم» (move = false) و«نقل لفولدر المزامنة» (move = true) بيعدّوا من هنا:
+    /// • المكتبة تتكتب في الملف الجديد باسم الملف الجديد (عشان متبقاش مكتبتين بنفس الاسم).
+    /// • سجل المذاكرة والنصوص والملخصات بيتنسخوا معاها.
+    /// • البرنامج يكمّل على الملف الجديد (المفتوح دلوقتي)، والعنوان والقوايم بتتحدّث.
+    /// • في النقل: القديمة بتتشال من «مكتباتك» عشان متلخبطش (الملف نفسه مش بيتمسح).
+    /// </summary>
+    private void RelocateLibrary(string target, bool move)
+    {
+        target = Path.GetFullPath(target);
+        if (string.Equals(target, Path.GetFullPath(_libraryPath), StringComparison.OrdinalIgnoreCase)) { SaveLibrary(); ShowStatus("اتحفظ ✓"); return; }
+
+        string oldPath = _libraryPath;
+        string oldName = _library.Name;
+        string newName = Path.GetFileNameWithoutExtension(target);
+        int companions;
         try
         {
-            // الحفظ باسم بيكتب القائمة الحالية زي ما هي. (قبل كده كان بيدمجها مع الملف اللي اخترته لو كان موجود،
-            // فلو حفظت فوق قائمة تانية، الاتنين كانوا بيتخلطوا في بعض)
             SaveCurrentPosition();
             CommitNotes();
-            MergeExternalChanges();
+            FlushSession();
+            SaveLibrary(); // القديمة تتحفظ بآخر حالة الأول
+            _library.Name = newName;
             Storage.SaveLibrary(target, _library);
+            companions = LibraryFiles.CopyCompanions(oldPath, target, _library.AllVideos);
         }
         catch (Exception ex)
         {
-            Log.Error("save-as", ex);
+            _library.Name = oldName;
+            Log.Error(move ? "move library" : "save-as", ex);
             Dialogs.Error(this, "مقدرتش أحفظ المكتبة هنا:\n" + target + "\n\n" + ex.Message);
             return;
         }
@@ -198,65 +262,30 @@ internal sealed partial class MainForm
         _libraryStampUtc = File.GetLastWriteTimeUtc(target);
         _dirty = false;
         _deletedKeys.Clear();
-        InitJournal(target); // سجل المذاكرة يمشي مع القائمة الجديدة
+        InitJournal(target); // سجل المذاكرة يكمّل في المكان الجديد
+        LibraryFiles.ForgetName(target);
+        if (move) _settings.RecentFiles.RemoveAll(f => string.Equals(f, oldPath, StringComparison.OrdinalIgnoreCase));
         _settings.LastLibraryPath = target;
         AddRecent(target);
         SaveSettings();
+        Storage.BackupIfDue(target);
         _statusFile.Text = Path.GetFileName(target);
         _statusFile.ToolTipText = target;
+        UpdateLibraryHeader();
         UpdateTitle();
-        Log.Info("library saved as: " + target);
-        ShowStatus("اتحفظت باسم " + Path.GetFileName(target) + " ✓", 5);
-    }
-
-    /// <summary>
-    /// المزامنة بين الأجهزة: نحط ملف القائمة في OneDrive، وعلى الجهاز التاني نفتحه من «فتح قائمة».
-    /// </summary>
-    private void MoveLibraryToCloudDialog()
-    {
-        string? oneDrive = new[] { "OneDrive", "OneDriveConsumer", "OneDriveCommercial" }
-            .Select(Environment.GetEnvironmentVariable)
-            .FirstOrDefault(d => !string.IsNullOrEmpty(d) && Directory.Exists(d));
-
-        if (!Dialogs.Confirm(this,
-                "عشان تكمّل مذاكرتك على أكتر من جهاز:\n\n" +
-                "1. ملف المكتبة هيتحفظ في فولدر بيتزامن (OneDrive أو Google Drive).\n" +
-                "2. على الجهاز التاني: ملف ← فتح مكتبة، واختار نفس الملف.\n" +
-                "3. البرنامج بيدمج التقدم والعلامات والملاحظات من الجهازين لوحده.\n\n" +
-                "الفيديوهات نفسها مش بتتنقل. لو مكانها مختلف على الجهاز التاني، حدد مكان أي فيديو مرة واحدة، " +
-                "والبرنامج هيفتكر المكان ده للجهاز ده بس.\n\n" +
-                (oneDrive != null ? "لقيت OneDrive هنا:\n" + oneDrive : "ملقتش OneDrive على الجهاز ده، اختار أي فولدر بيتزامن.") +
-                "\n\nنكمّل؟", "مزامنة بين الأجهزة"))
-            return;
-
-        string initial = oneDrive != null ? Path.Combine(oneDrive, "مشغل المحاضرات") : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        try { Directory.CreateDirectory(initial); } catch { }
-
-        using var dlg = new SaveFileDialog
-        {
-            Title = "حفظ المكتبة في فولدر المزامنة",
-            Filter = Storage.LibraryFilter,
-            DefaultExt = Storage.LibraryExtension,
-            FileName = _library.Name + Storage.LibraryExtension,
-            InitialDirectory = initial
-        };
-        if (dlg.ShowDialog(this) != DialogResult.OK) return;
-
-        _libraryPath = dlg.FileName;
-        _settings.LastLibraryPath = _libraryPath;
-        AddRecent(_libraryPath);
-        _libraryStampUtc = DateTime.MinValue;
-        SaveLibrary();
-        _statusFile.Text = Path.GetFileName(_libraryPath);
-        _statusFile.ToolTipText = _libraryPath;
-        Log.Info("library moved to sync folder: " + _libraryPath);
-        ShowStatus("المكتبة بقت في فولدر المزامنة ✓ — افتحها من الجهاز التاني", 8);
+        Log.Info($"library {(move ? "moved" : "saved as")}: {oldPath} -> {target} (name «{newName}», {companions} companion files)");
+        ShowBanner(move
+                ? $"المكتبة «{newName}» بقت في {LibraryFiles.LocationLabel(target)} ✓ — افتحها من الجهاز التاني من «فتح مكتبة من ملف»."
+                : $"اتعملت نسخة باسم «{newName}» في {LibraryFiles.LocationLabel(target)}، وإنت شغال عليها دلوقتي ✓ — النسخة القديمة «{oldName}» لسه موجودة في «مكتباتك».",
+            BannerKind.Success, seconds: 10, key: "library-relocated");
     }
 
     private void RestoreBackupDialog()
     {
+        static bool HasBackups(string d) => Directory.Exists(d) && Directory.GetFiles(d, "*" + Storage.LibraryExtension).Length > 0;
         string dir = Storage.BackupDir(_libraryPath);
-        if (!Directory.Exists(dir) || Directory.GetFiles(dir, "*" + Storage.LibraryExtension).Length == 0)
+        if (!HasBackups(dir)) dir = Storage.LegacyBackupDir(_libraryPath); // نسخ قبل 4.1.37
+        if (!HasBackups(dir))
         {
             Dialogs.Info(this, "لسه مفيش نسخ احتياطية للمكتبة دي.\nالبرنامج بياخد نسخة كل 6 ساعات وبيحتفظ بآخر 10.");
             return;
@@ -387,19 +416,16 @@ internal sealed partial class MainForm
         }
 
         menu.Items.Add(new ToolStripLabel("مكتباتك") { ForeColor = Theme.Muted, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) });
-        var recent = _settings.RecentFiles.Take(8).ToList();
-        if (!recent.Any(f => string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase))) recent.Insert(0, _libraryPath);
-        foreach (string f in recent)
+        bool anyMissing = false;
+        foreach (var e in RecentLibraries(8))
         {
-            string path = f;
-            bool current = string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase);
-            bool exists = current || File.Exists(f);
-            string name = current ? _library.Name : Path.GetFileNameWithoutExtension(f);
-            var item = Add((current ? "✓  " : "      ") + name + (exists ? "" : "  (مش متاحة دلوقتي)"),
-                () => { if (!current) SwitchLibrary(path); }, exists);
-            item.ToolTipText = f;
-            if (current) item.Font = new Font(item.Font, FontStyle.Bold);
+            string path = e.Path;
+            var item = Add((e.Current ? "✓  " : "      ") + e.Text, () => { if (!e.Current) SwitchLibrary(path); }, e.Exists);
+            item.ToolTipText = path;
+            if (e.Current) item.Font = new Font(item.Font, FontStyle.Bold);
+            anyMissing |= !e.Exists;
         }
+        if (anyMissing) Add("🧹  شيل المكتبات اللي مش موجودة من القايمة", RemoveMissingRecent);
         menu.Items.Add(new ToolStripSeparator());
         Add("➕  مكتبة جديدة…", NewLibraryDialog, shortcut: "Ctrl+N");
         Add("📂  فتح مكتبة من ملف…", OpenLibraryDialog, shortcut: "Ctrl+O");
@@ -411,12 +437,46 @@ internal sealed partial class MainForm
         menu.Show(_courseLabel, new Point(_courseLabel.Width, _courseLabel.Height), ToolStripDropDownDirection.BelowLeft);
     }
 
+    /// <summary>سطر في قايمة المكتبات: الاسم الحقيقي (من جوه الملف) ومكانها، وتحذير لو مش موجودة.</summary>
+    private sealed record RecentLibrary(string Path, string Text, bool Current, bool Exists);
+
+    /// <summary>
+    /// المكتبات الأخيرة بأساميها الحقيقية + مكانها («على الجهاز» / «Google Drive»…)، عشان مكتبتين بنفس الاسم
+    /// (أو نفس اسم الملف) يبانوا مختلفين. المفتوحة دايمًا في الأول.
+    /// </summary>
+    private List<RecentLibrary> RecentLibraries(int max)
+    {
+        var files = _settings.RecentFiles.Take(max).ToList();
+        if (!string.IsNullOrEmpty(_libraryPath) && !files.Any(f => string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase)))
+            files.Insert(0, _libraryPath);
+        var list = new List<RecentLibrary>();
+        foreach (string f in files)
+        {
+            bool current = string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase);
+            bool exists = current || File.Exists(f);
+            string name = current ? _library.Name : exists ? LibraryFiles.PeekName(f) : Path.GetFileNameWithoutExtension(f);
+            string text = Modern.Bidi(name) + "   ·   " + LibraryFiles.LocationLabel(f) + (exists ? "" : "  (مش متاحة دلوقتي)");
+            list.Add(new RecentLibrary(f, text, current, exists));
+        }
+        return list;
+    }
+
+    private void RemoveMissingRecent()
+    {
+        int n = _settings.RecentFiles.RemoveAll(f => !string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase) && !File.Exists(f));
+        SaveSettings();
+        ShowStatus(n == 0 ? "مفيش حاجة تتشال" : $"اتشال {n} من القايمة (الملفات نفسها متمسحتش) ✓", 4);
+    }
+
     private void RenameLibrary()
     {
-        string? name = Dialogs.Input(this, "اسم المكتبة", "اكتب اسم المكتبة:", _library.Name);
-        if (name == null) return;
-        _library.Name = name;
+        string? name = Dialogs.Input(this, "اسم المكتبة",
+            "اكتب اسم المكتبة (ده اللي بيظهر فوق الشجرة وفي «مكتباتك»؛ اسم الملف نفسه مش بيتغيّر):", _library.Name);
+        if (string.IsNullOrWhiteSpace(name)) return;
+        _library.Name = name.Trim();
         MarkDirty();
+        SaveLibrary();
+        LibraryFiles.ForgetName(_libraryPath);
         UpdateLibraryHeader();
         UpdateTitle();
     }
@@ -431,7 +491,7 @@ internal sealed partial class MainForm
         int percent = videos == 0 ? 0 : (int)Math.Round(watched * 100.0 / videos);
         string stats = (_library.Topics.Count > 0 ? $"{_library.Topics.Count} موضوع  ·  " : "") +
             $"{_library.Courses.Count} كورس  ·  {videos} فيديو{duration}  ·  {percent}% خلص";
-        _toolTip.SetToolTip(_courseLabel, "المكتبة المفتوحة: " + _library.Name + "\n" + stats + "\n" + _libraryPath +
+        _toolTip.SetToolTip(_courseLabel, "المكتبة المفتوحة: " + _library.Name + "  ·  " + LibraryFiles.LocationLabel(_libraryPath) + "\n" + stats + "\n" + _libraryPath +
                                           "\n\nاضغط عشان تبدّل لمكتبة تانية أو تعمل واحدة جديدة");
         _toolTip.SetToolTip(_libraryProgress, stats);
         // السطر ده بيظهر بس لما فيه فلتر شغال

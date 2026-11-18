@@ -855,21 +855,26 @@ internal sealed partial class MainForm : Form
     private void BuildRecentMenu()
     {
         _recentMenu.DropDownItems.Clear();
-        var files = _settings.RecentFiles.ToList();
-        if (files.Count == 0)
+        var list = RecentLibraries(10);
+        if (list.Count == 0)
         {
             _recentMenu.DropDownItems.Add(new ToolStripMenuItem("(مفيش)") { Enabled = false });
             return;
         }
-        foreach (string f in files)
+        foreach (var e in list)
         {
-            string path = f;
-            bool exists = File.Exists(f);
+            string path = e.Path;
             // الملفات اللي مش متاحة دلوقتي (درايف سحابي مش شغال مثلًا) بتظهر بس متعطلة، عشان المستخدم يعرف إنها لسه موجودة
-            var item = Item(Path.GetFileNameWithoutExtension(f) + (exists ? "" : "  (مش متاحة دلوقتي)") + "    —    " + f, () => SwitchLibrary(path));
-            item.Enabled = exists;
-            item.Checked = string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase);
+            var item = Item(e.Text, () => SwitchLibrary(path));
+            item.Enabled = e.Exists;
+            item.Checked = e.Current;
+            item.ToolTipText = path;
             _recentMenu.DropDownItems.Add(item);
+        }
+        if (list.Any(x => !x.Exists))
+        {
+            _recentMenu.DropDownItems.Add(new ToolStripSeparator());
+            _recentMenu.DropDownItems.Add(Item("🧹  شيل المكتبات اللي مش موجودة من القايمة", RemoveMissingRecent));
         }
     }
 

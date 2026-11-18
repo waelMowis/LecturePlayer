@@ -104,4 +104,66 @@ internal sealed partial class MainForm
         row.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 2, BackColor = Theme.Panel });
         row.Controls.Add(button);
     }
+
+    /// <summary>
+    /// فحص تلقائي لإدارة المكتبات على الواجهة: «حفظ نسخة باسم» بيدّي الاسم الجديد وبينقل سجل المذاكرة،
+    /// والقديمة بتفضل باسمها، والقايمة بتفرّق بينهم، و«النقل» بيشيل القديمة من القايمة، وإصلاح الاسم القديم.
+    /// </summary>
+    internal void RunLibraryFileChecks()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("library ui: " + what); }
+        string dir = Path.Combine(Path.GetTempPath(), "masar-smoke-libui");
+        if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        Directory.CreateDirectory(Path.Combine(dir, "Drive"));
+        string original = Path.Combine(dir, "مكتبتي.lpl");
+        var lib = new CourseLibrary { Name = "مكتبتي" };
+        lib.Courses.Add(new Course { Name = "C1" });
+        Storage.SaveLibrary(original, lib);
+        File.WriteAllText(Path.Combine(dir, "مكتبتي.sessions.PC1.jsonl"), "");
+        var savedRecent = _settings.RecentFiles.ToList();
+        string? savedLast = _settings.LastLibraryPath;
+        try
+        {
+            LoadLibrary(original);
+            // حفظ نسخة باسم WAEL على «الدرايف»
+            string copy = Path.Combine(dir, "Drive", "WAEL.lpl");
+            RelocateLibrary(copy, move: false);
+            Check(_libraryPath == Path.GetFullPath(copy) && _library.Name == "WAEL", "save-as: switched with new name");
+            Check(_courseLabel.Text.Contains("WAEL"), "save-as: header " + _courseLabel.Text);
+            Check(LibraryFiles.PeekName(copy) == "WAEL" && LibraryFiles.PeekName(original) == "مكتبتي", "save-as: names in files");
+            Check(File.Exists(Path.Combine(dir, "Drive", "WAEL.sessions.PC1.jsonl")), "save-as: journal copied");
+            var recent = RecentLibraries(8);
+            Check(recent.Count(x => x.Text.Contains("WAEL")) == 1 && recent.Count(x => x.Text.Contains("مكتبتي")) == 1, "save-as: both listed with own names");
+            Check(recent.Single(x => x.Current).Text.Contains("WAEL"), "save-as: current is WAEL");
+
+            // فتح القديمة تاني ← باسمها، والرجوع للجديدة
+            SwitchLibrary(original);
+            Check(_library.Name == "مكتبتي" && _courseLabel.Text.Contains("مكتبتي"), "reopen old");
+            SwitchLibrary(copy);
+            Check(_library.Name == "WAEL", "reopen new");
+
+            // نقل لفولدر تاني ← القديمة بتتشال من القايمة
+            string moved = Path.Combine(dir, "Drive", "Moved.lpl");
+            RelocateLibrary(moved, move: true);
+            Check(_library.Name == "Moved" && !_settings.RecentFiles.Any(f => string.Equals(f, Path.GetFullPath(copy), StringComparison.OrdinalIgnoreCase)), "move: old removed from list");
+
+            // تغيير الاسم بيظهر في القايمة والعنوان
+            _library.Name = "اسم جديد";
+            UpdateLibraryHeader();
+            Check(_courseLabel.Text.Contains("اسم جديد") && RecentLibraries(8).Single(x => x.Current).Text.Contains("اسم جديد"), "rename shows");
+
+            // إصلاح لمرة واحدة: ملف اسمه X وجواه «مكتبتي» (من حفظ باسم قديم)
+            string old = Path.Combine(dir, "Drive", "Old WAEL.lpl");
+            Storage.SaveLibrary(old, new CourseLibrary { Name = "مكتبتي" });
+            LoadLibrary(old, remember: false);
+            Check(_library.Name == "Old WAEL" && LibraryFiles.PeekName(old) == "Old WAEL", "heal old save-as name");
+        }
+        finally
+        {
+            _settings.RecentFiles = savedRecent;
+            _settings.LastLibraryPath = savedLast;
+            SaveSettings();
+        }
+        Console.WriteLine("SMOKE library files ui OK");
+    }
 }

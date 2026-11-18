@@ -316,6 +316,58 @@ internal static class SmokeTest
         PlaceLinkSelfTest();
         SubSourceSelfTest();
         FollowRulesSelfTest();
+        LibraryFilesSelfTest();
+    }
+
+    /// <summary>ملف المكتبة: الاسم من جوه الملف، المكان بكلام مفهوم، نسخ الملفات التابعة، وفولدرات النسخ الاحتياطية.</summary>
+    private static void LibraryFilesSelfTest()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("library files: " + what); }
+        string dir = Path.Combine(Path.GetTempPath(), "masar-smoke-libfiles");
+        if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        Directory.CreateDirectory(dir);
+        string a = Path.Combine(dir, "A", "lib.lpl"), b = Path.Combine(dir, "B", "lib.lpl");
+
+        var lib = new LecturePlayer.Data.CourseLibrary { Name = "مكتبة الشغل" };
+        var c = new LecturePlayer.Data.Course { Name = "C" };
+        var v = new LecturePlayer.Data.VideoItem { Path = Path.Combine(dir, "v.mp4"), Title = "v" };
+        c.Groups.Add(new LecturePlayer.Data.LectureGroup { Name = "G", Videos = { v } });
+        lib.Courses.Add(c);
+        for (int i = 0; i < 300; i++) lib.Courses.Add(new LecturePlayer.Data.Course { Name = "filler " + i }); // ملف كبير
+        LecturePlayer.Data.Storage.SaveLibrary(a, lib);
+        Check(LecturePlayer.Data.LibraryFiles.PeekName(a) == "مكتبة الشغل", "peek name " + LecturePlayer.Data.LibraryFiles.PeekName(a));
+        Check(LecturePlayer.Data.LibraryFiles.PeekName(Path.Combine(dir, "missing.lpl")) == "missing", "peek missing");
+        File.WriteAllText(Path.Combine(dir, "broken.lpl"), "{ not json");
+        Check(LecturePlayer.Data.LibraryFiles.PeekName(Path.Combine(dir, "broken.lpl")) == "broken", "peek broken");
+
+        Check(LecturePlayer.Data.LibraryFiles.LocationLabel(@"G:\My Drive\WAEL.lpl") == "Google Drive", "loc gdrive");
+        Check(LecturePlayer.Data.LibraryFiles.LocationLabel(@"G:\.shortcut-targets-by-id\x\WAEL.lpl") == "Google Drive", "loc shortcut");
+        Check(LecturePlayer.Data.LibraryFiles.LocationLabel(@"D:\Dropbox\WAEL.lpl") == "Dropbox", "loc dropbox");
+        Check(LecturePlayer.Data.LibraryFiles.LocationLabel(LecturePlayer.Data.Storage.DefaultLibraryPath) == "على الجهاز", "loc local");
+
+        // سجل المذاكرة والنصوص بيتنسخوا، ومش بيكتبوا فوق ملف موجود
+        File.WriteAllText(Path.Combine(dir, "A", "lib.sessions.PC1.jsonl"), "{}");
+        File.WriteAllText(Path.Combine(dir, "A", "lib.sessions.PC2.jsonl"), "{}");
+        string tDir = LecturePlayer.Data.TranscriptStore.Dir(a);
+        Directory.CreateDirectory(tDir);
+        string key = LecturePlayer.Data.TranscriptStore.Key(v);
+        File.WriteAllText(Path.Combine(tDir, key + ".vtt"), "WEBVTT");
+        File.WriteAllText(Path.Combine(tDir, key + ".summary.md"), "s");
+        File.WriteAllText(Path.Combine(tDir, "ffffffffffffffff.vtt"), "other library's video");
+        string target = Path.Combine(dir, "B", "new name.lpl");
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.WriteAllText(Path.Combine(dir, "B", "new name.sessions.PC2.jsonl"), "keep");
+        int n = LecturePlayer.Data.LibraryFiles.CopyCompanions(a, target, lib.AllVideos);
+        Check(File.Exists(Path.Combine(dir, "B", "new name.sessions.PC1.jsonl")), "journal copied");
+        Check(File.ReadAllText(Path.Combine(dir, "B", "new name.sessions.PC2.jsonl")) == "keep", "journal overwritten");
+        string tB = LecturePlayer.Data.TranscriptStore.Dir(target);
+        Check(File.Exists(Path.Combine(tB, key + ".vtt")) && File.Exists(Path.Combine(tB, key + ".summary.md")), "transcripts copied");
+        Check(!File.Exists(Path.Combine(tB, "ffffffffffffffff.vtt")), "copied another library's transcript");
+        Check(n == 3, "companions " + n);
+
+        // نفس اسم الملف في مكانين ← فولدر نسخ احتياطية مختلف
+        Check(LecturePlayer.Data.Storage.BackupDir(a) != LecturePlayer.Data.Storage.BackupDir(b), "backup dirs collide");
+        Directory.Delete(dir, true);
     }
 
     /// <summary>
