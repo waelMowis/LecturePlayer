@@ -246,7 +246,8 @@ internal sealed partial class MainForm
 
                 if (course == null)
                 {
-                    course = new Course { Name = "من الإنترنت", TopicId = SelectedTopicContext()?.Id };
+                    course = new Course { Name = "من الإنترنت" };
+                    PutInSelectedContext(course);
                     _library.Courses.Add(course);
                 }
 

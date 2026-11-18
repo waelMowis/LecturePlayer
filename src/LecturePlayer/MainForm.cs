@@ -553,7 +553,8 @@ internal sealed partial class MainForm : Form
         addMenu.Items.Add(new ToolStripSeparator());
         AddItem("محاضرة جديدة في الكورس المحدد", "Ctrl+G", () => AddGroup());
         AddItem("كورس جديد", "Ctrl+Shift+G", () => AddCourse());
-        AddItem("موضوع جديد (تفريعة رئيسية زي «C#»)", "Ctrl+Shift+N", () => AddTopic());
+        AddItem("🏫  مكان جديد جوه الموضوع المحدد (ROUTE، Udemy…)", "", AddPlaceFromMenu);
+        AddItem("موضوع جديد (تفريعة رئيسية زي «Backend»)", "Ctrl+Shift+N", () => AddTopic());
         var addButton = new PillButton("＋  إضافة", PillStyle.Ghost)
         {
             Dock = DockStyle.Left, Width = LogicalToDeviceUnits(82), Margin = Padding.Empty, TabStop = false
@@ -654,6 +655,7 @@ internal sealed partial class MainForm : Form
 
         var groups = SubMenu("الكورسات والمحاضرات",
             Item("موضوع جديد (تفريعة رئيسية)…", () => AddTopic(), Keys.Control | Keys.Shift | Keys.N),
+            Item("مكان جديد جوه الموضوع المحدد…", AddPlaceFromMenu),
             Item("كورس جديد…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
             Item("محاضرة جديدة في الكورس المحدد…", () => AddGroup(), Keys.Control | Keys.G),
             Item("إضافة فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),

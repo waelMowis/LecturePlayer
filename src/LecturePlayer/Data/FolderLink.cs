@@ -3,7 +3,7 @@ namespace LecturePlayer.Data;
 /// <summary>
 /// «فولدر مربوط»: فولدر كورس على الجهاز (غالبًا Google Drive) البرنامج بيتابعه لوحده.
 ///
-///   الفولدر الرئيسي            ← موضوع
+///   الفولدر الرئيسي            ← موضوع (أو يتحط جوه «مكان» زي ROUTE)
 ///     كورس صغير (فولدر)        ← كورس
 ///       Session 01 (فولدر)    ← محاضرة: كل الفيديوهات اللي جواها (حتى لو في فولدر Videos)،
 ///                               وباقي الملفات (Presentation، Demo Link…) مرفقات
@@ -140,7 +140,14 @@ public static class FolderLink
     }
 
     /// <param name="initial">أول ربط: الفيديوهات مش بتتعلّم «جديد» (كلها جديدة أصلًا).</param>
-    public static Result Apply(CourseLibrary lib, Topic topic, Snapshot snap, bool initial)
+    public static Result Apply(CourseLibrary lib, Topic topic, Snapshot snap, bool initial) =>
+        Apply(lib, topic.Id, null, snap, initial);
+
+    /// <summary>فولدر مربوط جوه مكان: كورساته بتتحط في المكان على طول.</summary>
+    public static Result Apply(CourseLibrary lib, Place place, Snapshot snap, bool initial) =>
+        Apply(lib, place.TopicId, place.Id, snap, initial);
+
+    private static Result Apply(CourseLibrary lib, string? topicId, string? placeId, Snapshot snap, bool initial)
     {
         var r = new Result();
         // كل فيديو في المكتبة بمساره، عشان لو كان متضاف قبل كده بإيدك ننقله بتقدّمه بدل ما نكرره
@@ -155,10 +162,11 @@ public static class FolderLink
         foreach (var cs in snap.Courses)
         {
             string cKey = Norm(cs.Path);
-            var course = lib.Courses.FirstOrDefault(c => c.TopicId == topic.Id && c.SourceFolder != null && Norm(c.SourceFolder) == cKey);
+            // الكورس بفولدره، أيًا كان مكانه (لو نقلته بإيدك لمكان تاني يفضل هناك ومايتكررش)
+            var course = lib.Courses.FirstOrDefault(c => c.SourceFolder != null && Norm(c.SourceFolder) == cKey);
             if (course == null)
             {
-                course = new Course { Name = cs.Name, TopicId = topic.Id, SourceFolder = cs.Path, Expanded = initial && r.NewCourses == 0 };
+                course = new Course { Name = cs.Name, TopicId = topicId, PlaceId = placeId, SourceFolder = cs.Path, Expanded = initial && r.NewCourses == 0 };
                 lib.Courses.Add(course);
                 r.NewCourses++;
             }

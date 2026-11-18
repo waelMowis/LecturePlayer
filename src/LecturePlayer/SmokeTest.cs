@@ -312,5 +312,70 @@ internal static class SmokeTest
         lib.RemovePlace(route);
         Check(lib.Courses.Contains(basics) && lib.PlaceOf(basics) == null && basics.TopicId == dotnet.Id, "delete place keeps courses");
         Check(lib.AllGroups.Count() == 1, "groups lost");
+
+        PlaceLinkSelfTest();
+    }
+
+    /// <summary>
+    /// ربط فولدرات الدرايف جوه مكان (Backend › ROUTE)، وتحويل الربط القديم (موضوع «Eng Doaa…») لمكان
+    /// من غير ما الكورسات تتكرر أو التقدّم يضيع.
+    /// </summary>
+    private static void PlaceLinkSelfTest()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("place link: " + what); }
+        string drive = Path.Combine(Path.GetTempPath(), "masar-smoke-place");
+        if (Directory.Exists(drive)) Directory.Delete(drive, true);
+        void Touch(string rel) { string f = Path.Combine(drive, rel); Directory.CreateDirectory(Path.GetDirectoryName(f)!); File.WriteAllText(f, "x"); }
+        Touch(@"Eng Doaa Amin Elfawal\00 Orientation\Videos\Welcome.mp4");
+        Touch(@"Eng Doaa Amin Elfawal\01 C# Basics\Session 01\Videos\Part 01 Intro.mp4");
+        Touch(@"Eng Doaa Amin Elfawal\01 C# Basics\Session 02\Videos\Part 01 Arrays.mp4");
+        Touch(@"ROUTE - Asp.Net\01 MVC\Session 01\Videos\Part 01 Intro.mp4");
+        string doaa = Path.Combine(drive, "Eng Doaa Amin Elfawal"), asp = Path.Combine(drive, "ROUTE - Asp.Net");
+
+        // (أ) الربط القديم: موضوع «Eng Doaa…» مربوط بالفولدر، وفيه تقدّم
+        var lib = new LecturePlayer.Data.CourseLibrary();
+        var old = new LecturePlayer.Data.Topic { Name = "Eng Doaa Amin Elfawal", SourceFolder = doaa };
+        lib.Topics.Add(old);
+        LecturePlayer.Data.FolderLink.Apply(lib, old, LecturePlayer.Data.FolderLink.Scan(doaa)!, initial: true);
+        var intro = lib.AllVideos.Single(v => v.Title == "Part 01 Intro");
+        intro.LastPositionMs = 7000;
+        Check(lib.CoursesOf(old).Count() == 2, "old link courses");
+
+        // تحويله لمكان ROUTE جوه Backend
+        var backend = new LecturePlayer.Data.Topic { Name = "Backend" };
+        lib.Topics.Add(backend);
+        var route = new LecturePlayer.Data.Place { Name = "ROUTE", TopicId = backend.Id };
+        lib.Places.Add(route);
+        int moved = MainForm.ConvertTopicToPlaceCore(lib, old, route);
+        Check(moved == 2 && !lib.Topics.Contains(old), "convert moved " + moved);
+        Check(lib.CoursesInPlace(route).Select(c => c.Name).SequenceEqual(new[] { "00 Orientation", "01 C# Basics" }), "convert order");
+        Check(route.SourceFolders.Count == 1 && intro.LastPositionMs == 7000, "convert kept link/progress");
+        Check(lib.PathOf(lib.Courses.Single(c => c.Name == "01 C# Basics")) == "Backend › ROUTE › 01 C# Basics", "convert path");
+
+        // المزامنة بعد التحويل: مفيش تكرار، والجديد يتحط في مكانه
+        Check(!LecturePlayer.Data.FolderLink.Apply(lib, route, LecturePlayer.Data.FolderLink.Scan(doaa)!, initial: false).Changed, "resync changed");
+        Touch(@"Eng Doaa Amin Elfawal\01 C# Basics\Session 03\Videos\Part 01 Methods.mp4");
+        Touch(@"Eng Doaa Amin Elfawal\02 OOP\Session 01\Videos\Part 01 Classes.mp4");
+        var r = LecturePlayer.Data.FolderLink.Apply(lib, route, LecturePlayer.Data.FolderLink.Scan(doaa)!, initial: false);
+        Check(r.NewCourses == 1 && r.NewGroups == 2 && r.NewVideos.Count == 2, "place update");
+        Check(lib.CoursesInPlace(route).Count() == 3 && lib.Courses.Count == 3, "place update courses");
+
+        // (ب) فولدر تاني في نفس المكان
+        route.SourceFolders.Add(asp);
+        var r2 = LecturePlayer.Data.FolderLink.Apply(lib, route, LecturePlayer.Data.FolderLink.Scan(asp)!, initial: true);
+        Check(r2.NewCourses == 1 && lib.CoursesInPlace(route).Count() == 4, "second folder");
+
+        // (ج) كورس مربوط اتنقل بإيدك لمكان تاني: المزامنة متكررهوش
+        var udemy = new LecturePlayer.Data.Place { Name = "Udemy", TopicId = backend.Id };
+        lib.Places.Add(udemy);
+        var mvc = lib.Courses.Single(c => c.Name == "01 MVC");
+        lib.MoveCourse(mvc, null, udemy);
+        LecturePlayer.Data.FolderLink.Apply(lib, route, LecturePlayer.Data.FolderLink.Scan(asp)!, initial: false);
+        Check(lib.Courses.Count(c => c.Name == "01 MVC") == 1 && lib.PlaceOf(mvc) == udemy, "moved linked course duplicated");
+
+        // (د) الحفظ والفتح تاني
+        var back = LecturePlayer.Data.Storage.FromJson(LecturePlayer.Data.Storage.Serialize(lib), Path.Combine(drive, "x.lpl"));
+        Check(back.Places.Single(p => p.Name == "ROUTE").SourceFolders.Count == 2, "folders lost on save");
+        Directory.Delete(drive, true);
     }
 }

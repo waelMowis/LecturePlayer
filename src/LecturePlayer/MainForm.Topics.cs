@@ -13,6 +13,7 @@ internal sealed partial class MainForm
     private Topic? SelectedTopicContext() => _tree.SelectedNode?.Tag switch
     {
         Topic t => t,
+        Place p => _library.TopicOf(p),
         Course c => _library.TopicOf(c),
         LectureGroup g when _library.FindCourseOf(g) is { } c => _library.TopicOf(c),
         VideoItem v when _library.FindCourseOf(v) is { } c => _library.TopicOf(c),
@@ -31,6 +32,7 @@ internal sealed partial class MainForm
         bool current = _currentGroup != null && courses.Any(c => c.Groups.Contains(_currentGroup));
         node.ForeColor = current ? Theme.Accent : done ? Theme.Success : Theme.Text;
         node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
+            + (_library.PlacesOf(t).Any() ? "\n🏫 " + string.Join(" · ", _library.PlacesOf(t).Select(p => p.Name)) : "")
             + (string.IsNullOrWhiteSpace(t.SourceFolder) ? "" : $"\n🔗 مربوط بفولدر (الجديد بيتضاف لوحده):\n{t.SourceFolder}");
         _tree.SetRow(node, new LectureTreeView.RowInfo(string.IsNullOrWhiteSpace(t.SourceFolder) ? "" : "🔗",
             courses.Count == 1 ? "كورس" : $"{courses.Count} كورس", done));
@@ -56,9 +58,11 @@ internal sealed partial class MainForm
     private void DeleteTopic(Topic t)
     {
         var courses = _library.CoursesOf(t).ToList();
-        string msg = courses.Count == 0
+        int places = _library.PlacesOf(t).Count();
+        string msg = courses.Count == 0 && places == 0
             ? $"حذف الموضوع «{t.Name}»؟"
-            : $"حذف الموضوع «{t.Name}»؟\n\nالـ {courses.Count} كورس اللي تحته مش هيتمسحوا — هيطلعوا برا أي موضوع.";
+            : $"حذف الموضوع «{t.Name}»؟\n\n" + (places > 0 ? $"الـ {places} مكان و" : "الـ ") +
+              $"{courses.Count} كورس اللي تحته مش هيتمسحوا — هيطلعوا برا أي موضوع.";
         if (!Dialogs.Confirm(this, msg)) return;
         Checkpoint("حذف موضوع");
         foreach (var c in courses) { c.TopicId = null; c.TouchInfo(); }
@@ -90,7 +94,7 @@ internal sealed partial class MainForm
     /// <summary>تحريك كورس لفوق/لتحت جوه موضوعه بس.</summary>
     private bool SwapCourseInTopic(Course c, int direction)
     {
-        var siblings = _library.CoursesOf(_library.TopicOf(c)).ToList();
+        var siblings = SiblingCourses(c);
         int i = siblings.IndexOf(c), j = i + direction;
         if (i < 0 || j < 0 || j >= siblings.Count) return false;
         var other = siblings[j];
@@ -105,6 +109,7 @@ internal sealed partial class MainForm
         Topic? anchor = target switch
         {
             Topic t => t,
+            Place p => _library.TopicOf(p),
             Course c => _library.TopicOf(c),
             LectureGroup g when _library.FindCourseOf(g) is { } c => _library.TopicOf(c),
             VideoItem v when _library.FindCourseOf(v) is { } c => _library.TopicOf(c),
@@ -135,6 +140,7 @@ internal sealed partial class MainForm
     {
         items.Add(MenuItem("▶  كمّل الموضوع (آخر كورس كنت فيه)", () => PlayTopic(t)));
         items.Add(new ToolStripSeparator());
+        items.Add(MenuItem("🏫  مكان جديد هنا (ROUTE، Udemy…)…", () => AddPlace(t)));
         AddFolderLinkMenuItems(t, items);
         items.Add(MenuItem("كورس جديد في الموضوع ده…", () => AddCourse(topicFor: t)));
         items.Add(MenuItem("استيراد فولدر كورس هنا…", () =>
@@ -145,6 +151,7 @@ internal sealed partial class MainForm
             ImportFolder(path, into: null);
         }));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
+        if (!string.IsNullOrWhiteSpace(t.SourceFolder) || _library.Topics.Count > 1) items.Add(ConvertTopicToPlaceMenu(t));
         items.Add(MenuItem("↺ تصفير التقدم في الموضوع كله…", () =>
             ResetWatched(_library.CoursesOf(t).SelectMany(c => c.AllVideos), $"موضوع «{t.Name}»")));
         items.Add(MenuItem("ترتيب الكورسات بالاسم", () =>
@@ -162,26 +169,5 @@ internal sealed partial class MainForm
         items.Add(MenuItem("موضوع جديد بعده…", () => AddTopic()));
         items.Add(new ToolStripSeparator());
         items.Add(MenuItem("حذف الموضوع (الكورسات بتفضل)", DeleteSelected, "Delete"));
-    }
-
-    private ToolStripMenuItem MoveCourseToTopicMenu(Course c)
-    {
-        var current = _library.TopicOf(c);
-        var menu = new ToolStripMenuItem("نقل لموضوع") { ForeColor = Theme.Text };
-        foreach (var t in _library.Topics)
-        {
-            var target = t;
-            var item = MenuItem(Modern.Bidi(t.Name), () => MoveCourseToTopic(c, target));
-            item.Checked = t == current;
-            menu.DropDownItems.Add(item);
-        }
-        if (_library.Topics.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
-        if (current != null) menu.DropDownItems.Add(MenuItem("برا أي موضوع", () => MoveCourseToTopic(c, null)));
-        menu.DropDownItems.Add(MenuItem("موضوع جديد…", () =>
-        {
-            var t = AddTopic();
-            if (t != null) MoveCourseToTopic(c, t);
-        }));
-        return menu;
     }
 }

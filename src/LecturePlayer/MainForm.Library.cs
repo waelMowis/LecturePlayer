@@ -445,6 +445,12 @@ internal sealed partial class MainForm
     {
         var g = _currentGroup ?? SelectedGroup();
         var c = g != null ? _library.FindCourseOf(g) : SelectedCourse();
+        if (g == null && c == null && _tree.SelectedNode?.Tag is Place pl)
+        {
+            var pc = _library.CoursesInPlace(pl).ToList();
+            _statusGroup.Text = $"{_library.TopicOf(pl)?.Name} › {pl.Name}:  {pc.Count} كورس  ·  {pc.Sum(x => x.WatchedCount)} من {pc.Sum(x => x.VideoCount)} فيديو خلصوا";
+            return;
+        }
         if (g == null && c == null && _tree.SelectedNode?.Tag is Topic t)
         {
             var tc = _library.CoursesOf(t).ToList();
@@ -481,6 +487,7 @@ internal sealed partial class MainForm
             _groupNodes.Clear();
             _courseNodes.Clear();
             _topicNodes.Clear();
+            _placeNodes.Clear();
 
             var toExpand = new List<TreeNode>();
             bool filtering = filter.Length > 0 || _settings.CourseFilter != CourseFilter.All;
@@ -520,12 +527,28 @@ internal sealed partial class MainForm
                 return cn;
             }
 
-            // المواضيع (التفريعة الرئيسية) وتحت كل واحد كورساته
+            // مكان (ROUTE، Udemy…) وتحته كورساته
+            TreeNode? BuildPlace(Place p, bool forceMatch)
+            {
+                bool placeMatches = forceMatch || (filter.Length > 0 && Matches(p.Name, filter));
+                var pn = new TreeNode { Tag = p };
+                foreach (var c in _library.CoursesInPlace(p))
+                    if (BuildCourse(c, placeMatches) is { } cn) pn.Nodes.Add(cn);
+                if (pn.Nodes.Count == 0 && filtering && !placeMatches) return null;
+                _placeNodes[p] = pn;
+                UpdatePlaceNode(pn, p);
+                if ((filter.Length > 0 && !forceMatch) || p.Expanded) toExpand.Add(pn);
+                return pn;
+            }
+
+            // المواضيع (التفريعة الرئيسية): جوه كل واحد أماكنه، وبعدها الكورسات اللي تحته على طول
             foreach (var t in _library.Topics)
             {
                 bool topicMatches = filter.Length > 0 && Matches(t.Name, filter);
                 var tn = new TreeNode { Tag = t };
-                foreach (var c in _library.CoursesOf(t))
+                foreach (var p in _library.PlacesOf(t))
+                    if (BuildPlace(p, topicMatches) is { } pn) tn.Nodes.Add(pn);
+                foreach (var c in _library.DirectCoursesOf(t))
                     if (BuildCourse(c, topicMatches) is { } cn) tn.Nodes.Add(cn);
                 if (tn.Nodes.Count == 0 && filtering && !topicMatches) continue;
                 _topicNodes[t] = tn;
@@ -534,8 +557,10 @@ internal sealed partial class MainForm
                 if (filter.Length > 0 || t.Expanded) toExpand.Insert(0, tn);
             }
 
-            // الكورسات اللي برا أي موضوع
-            foreach (var c in _library.CoursesOf(null))
+            // الأماكن والكورسات اللي برا أي موضوع
+            foreach (var p in _library.PlacesOf(null))
+                if (BuildPlace(p, false) is { } pn) _tree.Nodes.Add(pn);
+            foreach (var c in _library.DirectCoursesOf(null))
                 if (BuildCourse(c, false) is { } cn) _tree.Nodes.Add(cn);
 
             foreach (var n in toExpand) n.Expand();
@@ -652,6 +677,7 @@ internal sealed partial class MainForm
     private void RefreshCourse(Course? c)
     {
         if (c != null && _courseNodes.TryGetValue(c, out var node)) UpdateCourseNode(node, c);
+        if (c != null && _library.PlaceOf(c) is { } p && _placeNodes.TryGetValue(p, out var pn)) UpdatePlaceNode(pn, p);
         if (c != null && _library.TopicOf(c) is { } t && _topicNodes.TryGetValue(t, out var tn)) UpdateTopicNode(tn, t);
     }
 
@@ -661,6 +687,7 @@ internal sealed partial class MainForm
         switch (node.Tag)
         {
             case Topic t: t.Expanded = expanded; break;
+            case Place p: p.Expanded = expanded; break;
             case Course c: c.Expanded = expanded; break;
             case LectureGroup g: g.Expanded = expanded; break;
             default: return;
@@ -690,6 +717,7 @@ internal sealed partial class MainForm
         LectureGroup g when _groupNodes.TryGetValue(g, out var n) => n,
         Course c when _courseNodes.TryGetValue(c, out var n) => n,
         Topic t when _topicNodes.TryGetValue(t, out var n) => n,
+        Place p when _placeNodes.TryGetValue(p, out var n) => n,
         _ => null
     };
 
@@ -734,15 +762,20 @@ internal sealed partial class MainForm
     //  الكورسات
     // =====================================================================
 
-    private Course? AddCourse(string? name = null, Course? after = null, Topic? topicFor = null, bool atRoot = false)
+    private Course? AddCourse(string? name = null, Course? after = null, Topic? topicFor = null, bool atRoot = false, Place? placeFor = null)
     {
-        name ??= Dialogs.Input(this, "كورس جديد", "اسم الكورس:", $"كورس {_library.Courses.Count + 1}");
+        name ??= Dialogs.Input(this, "كورس جديد", placeFor != null ? $"اسم الكورس (في «{placeFor.Name}»):" : "اسم الكورس:", $"كورس {_library.Courses.Count + 1}");
         if (name == null) return null;
 
         Checkpoint("إضافة كورس");
-        var topic = atRoot ? null : topicFor ?? (after != null ? _library.TopicOf(after) : SelectedTopicContext());
-        var c = new Course { Name = name, TopicId = topic?.Id };
-        after ??= SelectedCourse() is { } sc && _library.TopicOf(sc) == topic ? sc : _library.CoursesOf(topic).LastOrDefault();
+        Place? place = atRoot || topicFor != null ? null
+            : placeFor ?? (after != null ? _library.PlaceOf(after) : SelectedPlaceContext());
+        var topic = atRoot ? null : place != null ? _library.TopicOf(place)
+            : topicFor ?? (after != null ? _library.TopicOf(after) : SelectedTopicContext());
+        var c = new Course { Name = name, TopicId = topic?.Id, PlaceId = place?.Id };
+        var siblings = place != null ? _library.CoursesInPlace(place) : _library.DirectCoursesOf(topic);
+        after ??= SelectedCourse() is { } sc && siblings.Contains(sc) ? sc : siblings.LastOrDefault();
+        after ??= place != null ? _library.CoursesOf(topic).LastOrDefault() : null;
         int index = after != null ? _library.Courses.IndexOf(after) + 1 : _library.Courses.Count;
         _library.Courses.Insert(Math.Clamp(index, 0, _library.Courses.Count), c);
         MarkDirty();
@@ -816,6 +849,9 @@ internal sealed partial class MainForm
                 t.TouchInfo();
                 break;
             }
+            case Place p:
+                RenamePlace(p);
+                break;
             case Course c:
             {
                 string? name = Dialogs.Input(this, "إعادة تسمية", "اسم الكورس:", c.Name);
@@ -855,6 +891,10 @@ internal sealed partial class MainForm
         {
             case Topic t:
                 DeleteTopic(t);
+                return;
+
+            case Place p:
+                DeletePlace(p);
                 return;
 
             case Course c:
@@ -930,6 +970,15 @@ internal sealed partial class MainForm
                 RebuildTree();
                 break;
             }
+            case Place p:
+            {
+                var vids = _library.CoursesInPlace(p).SelectMany(c => c.AllVideos).ToList();
+                bool all = vids.Any(v => !v.Watched);
+                if (all && !Dialogs.Confirm(this, $"تعليم كل فيديوهات «{p.Name}» ({vids.Count}) كمُشاهَدة؟")) return;
+                foreach (var v in vids) SetWatched(v, all, refresh: false);
+                RebuildTree();
+                break;
+            }
         }
     }
 
@@ -974,6 +1023,15 @@ internal sealed partial class MainForm
             case Topic t:
                 if (!Swap(_library.Topics, t, direction)) return;
                 break;
+            case Place p:
+            {
+                var siblings = _library.PlacesOf(_library.TopicOf(p)).ToList();
+                int i = siblings.IndexOf(p), j = i + direction;
+                if (i < 0 || j < 0 || j >= siblings.Count) return;
+                int a = _library.Places.IndexOf(p), b = _library.Places.IndexOf(siblings[j]);
+                (_library.Places[a], _library.Places[b]) = (_library.Places[b], _library.Places[a]);
+                break;
+            }
             case Course c:
                 if (!SwapCourseInTopic(c, direction)) return;
                 break;
@@ -1207,7 +1265,8 @@ internal sealed partial class MainForm
         Checkpoint("استيراد فولدر");
         if (into == null)
         {
-            course = new Course { Name = new DirectoryInfo(root).Name, Groups = groups, TopicId = SelectedTopicContext()?.Id };
+            course = new Course { Name = new DirectoryInfo(root).Name, Groups = groups };
+            PutInSelectedContext(course);
             _library.Courses.Add(course);
         }
         else
@@ -1259,8 +1318,8 @@ internal sealed partial class MainForm
             _library.Topics.Add(t);
             foreach (var c in courses) c.TopicId = t.Id;
         }
-        else if (SelectedTopicContext() is { } sel)
-            foreach (var c in courses) c.TopicId = sel.Id;
+        else
+            foreach (var c in courses) PutInSelectedContext(c);
         _library.Courses.AddRange(courses);
         MarkDirty();
         RebuildTree();
@@ -1373,6 +1432,10 @@ internal sealed partial class MainForm
                 BuildTopicMenu(t, items);
                 break;
 
+            case Place p:
+                BuildPlaceMenu(p, items);
+                break;
+
             case Course c:
                 items.Add(MenuItem("▶  تشغيل / استكمال الكورس", () => PlayCourse(c)));
                 if (AdvancedMode) items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
@@ -1389,7 +1452,7 @@ internal sealed partial class MainForm
                 items.Add(MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"));
                 items.Add(MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"));
                 items.Add(new ToolStripSeparator());
-                items.Add(MoveCourseToTopicMenu(c));
+                items.Add(MoveCourseMenu(c));
                 items.Add(MenuItem("كورس جديد بعده…", () => AddCourse(after: c)));
                 items.Add(MenuItem("حذف الكورس من المكتبة", DeleteSelected, "Delete"));
                 break;
@@ -1611,6 +1674,11 @@ internal sealed partial class MainForm
             targetTag = _library.CoursesOf(tt).LastOrDefault();
             if (targetTag == null) { ShowStatus("الموضوع ده فاضي — ضيف فيه كورس الأول"); return; }
         }
+        if (targetTag is Place tp && dragged.Tag is VideoItem or LectureGroup)
+        {
+            targetTag = _library.CoursesInPlace(tp).LastOrDefault();
+            if (targetTag == null) { ShowStatus("المكان ده فاضي — ضيف فيه كورس الأول"); return; }
+        }
 
         switch (dragged.Tag)
         {
@@ -1618,6 +1686,7 @@ internal sealed partial class MainForm
             case LectureGroup group: DropGroup(group, targetTag); break;
             case Course course: DropCourse(course, target?.Tag); break;
             case Topic topic: DropTopic(topic, target?.Tag); break;
+            case Place place: DropPlace(place, target?.Tag); break;
         }
     }
 
@@ -1711,38 +1780,41 @@ internal sealed partial class MainForm
     }
 
     /// <summary>
-    /// كورس اتساب على موضوع ← يبقى في آخر الموضوع ده. على كورس تاني ← ياخد موضوعه ومكانه.
-    /// في مكان فاضي ← يطلع برا أي موضوع في الآخر.
+    /// كورس اتساب على موضوع ← آخر الكورسات اللي تحته على طول. على مكان ← آخر كورسات المكان.
+    /// على كورس تاني ← ياخد موضوعه ومكانه ويتحط جنبه. في مكان فاضي ← يطلع برا أي موضوع في الآخر.
     /// </summary>
     private void DropCourse(Course course, object? target)
     {
         Topic? topic;
-        Course? anchor;
+        Place? place = null;
+        Course? anchor = null;
         switch (target)
         {
-            case Topic t: topic = t; anchor = null; break;
-            case Course c: anchor = c; topic = _library.TopicOf(c); break;
-            case LectureGroup g: anchor = _library.FindCourseOf(g); topic = anchor != null ? _library.TopicOf(anchor) : null; break;
-            case VideoItem v: anchor = _library.FindCourseOf(v); topic = anchor != null ? _library.TopicOf(anchor) : null; break;
-            default: topic = null; anchor = null; break;
+            case Topic t: topic = t; break;
+            case Place p: place = p; topic = _library.TopicOf(p); break;
+            case Course c: anchor = c; break;
+            case LectureGroup g: anchor = _library.FindCourseOf(g); break;
+            case VideoItem v: anchor = _library.FindCourseOf(v); break;
+            default: topic = null; break;
         }
         if (anchor == course) return;
+        if (anchor != null) { topic = _library.TopicOf(anchor); place = _library.PlaceOf(anchor); }
+        else topic = place != null ? _library.TopicOf(place) : target is Topic tt ? tt : null;
 
         Checkpoint("سحب وإفلات");
-        int from = _library.Courses.IndexOf(course);
-        int originalAnchor = anchor != null ? _library.Courses.IndexOf(anchor) : -1;
-        _library.Courses.Remove(course);
-        if (course.TopicId != topic?.Id) { course.TopicId = topic?.Id; course.TouchInfo(); }
-
-        int to;
-        if (anchor != null) to = _library.Courses.IndexOf(anchor) + (from < originalAnchor ? 1 : 0);
+        if (anchor == null)
+        {
+            PlaceCourseAtEnd(course, topic, place);
+        }
         else
         {
-            var last = _library.CoursesOf(topic).LastOrDefault();
-            to = last != null ? _library.Courses.IndexOf(last) + 1 : _library.Courses.Count;
+            int from = _library.Courses.IndexOf(course);
+            int originalAnchor = _library.Courses.IndexOf(anchor);
+            _library.Courses.Remove(course);
+            if (course.TopicId != topic?.Id || course.PlaceId != place?.Id) _library.MoveCourse(course, topic, place);
+            int to = _library.Courses.IndexOf(anchor) + (from < originalAnchor ? 1 : 0);
+            _library.Courses.Insert(Math.Clamp(to, 0, _library.Courses.Count), course);
         }
-        _library.Courses.Insert(Math.Clamp(to, 0, _library.Courses.Count), course);
-        if (topic != null) topic.Expanded = true;
 
         MarkDirty();
         RebuildTree();
@@ -1795,7 +1867,8 @@ internal sealed partial class MainForm
             string name = new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(files[0]))!).Name;
             if (targetCourse == null)
             {
-                targetCourse = new Course { Name = name, TopicId = SelectedTopicContext()?.Id };
+                targetCourse = new Course { Name = name };
+                PutInSelectedContext(targetCourse);
                 _library.Courses.Add(targetCourse);
             }
             targetGroup = new LectureGroup { Name = name };

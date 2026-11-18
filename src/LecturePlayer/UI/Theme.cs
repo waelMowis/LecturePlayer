@@ -39,6 +39,8 @@ internal static class Theme
     public static readonly Color Folder = Color.FromArgb(220, 182, 122);
     public static readonly Color Danger = Color.FromArgb(241, 76, 76);
     public static readonly Color CourseColor = Color.FromArgb(177, 128, 215);
+    /// <summary>لون «المكان» (ROUTE، Udemy…) في الشجرة.</summary>
+    public static readonly Color PlaceColor = Color.FromArgb(86, 182, 194);
 
     public static readonly Color Input = Color.FromArgb(24, 24, 26);
     public static readonly Color InputBorder = Color.FromArgb(66, 66, 72);
@@ -68,6 +70,8 @@ internal static class Theme
         var il = new ImageList { ImageSize = new Size(size, size), ColorDepth = ColorDepth.Depth32Bit };
         il.Images.Add("topic", Icon(size, g => DrawStack(g, size, Accent)));
         il.Images.Add("topicDone", Icon(size, g => DrawStack(g, size, Success)));
+        il.Images.Add("place", Icon(size, g => DrawBuilding(g, size, PlaceColor)));
+        il.Images.Add("placeDone", Icon(size, g => DrawBuilding(g, size, Success)));
         il.Images.Add("course", Icon(size, g => DrawBook(g, size, CourseColor)));
         il.Images.Add("courseDone", Icon(size, g => DrawBook(g, size, Success)));
         il.Images.Add("group", Icon(size, g => DrawFolder(g, size, Folder)));
@@ -112,6 +116,18 @@ internal static class Theme
             using var path = RoundRect(r, s * 0.08f);
             g.FillPath(b, path);
         }
+    }
+
+    /// <summary>أيقونة مبنى (للمكان): سقف مثلث وتحته جسم وباب.</summary>
+    private static void DrawBuilding(Graphics g, int s, Color c)
+    {
+        using var roof = new SolidBrush(ControlPaint.Dark(c, 0.15f));
+        g.FillPolygon(roof, new[] { new PointF(s * 0.5f, s * 0.06f), new PointF(s * 0.94f, s * 0.38f), new PointF(s * 0.06f, s * 0.38f) });
+        using (var b = new SolidBrush(c))
+        using (var path = RoundRect(new RectangleF(s * 0.16f, s * 0.38f, s * 0.68f, s * 0.54f), s * 0.06f))
+            g.FillPath(b, path);
+        using var door = new SolidBrush(Color.FromArgb(230, Color.White));
+        g.FillRectangle(door, s * 0.42f, s * 0.6f, s * 0.16f, s * 0.32f);
     }
 
     /// <summary>أيقونة كتاب (للكورس).</summary>
