@@ -315,6 +315,86 @@ internal static class SmokeTest
 
         PlaceLinkSelfTest();
         SubSourceSelfTest();
+        FollowRulesSelfTest();
+    }
+
+    /// <summary>
+    /// قواعد الفولدر المتابَع بعد أول ربط: اللي المستخدم مسحه مايرجعش، واللي نقله أو رتّبه بإيده يفضل زي ما هو،
+    /// والجديد بس هو اللي بيتضاف. وكمان ذاكرة «الملف موجود؟».
+    /// </summary>
+    private static void FollowRulesSelfTest()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("follow rules: " + what); }
+        string root = Path.Combine(Path.GetTempPath(), "masar-smoke-follow", "Teacher");
+        if (Directory.Exists(Path.GetDirectoryName(root)!)) Directory.Delete(Path.GetDirectoryName(root)!, true);
+        void Touch(string rel) { string f = Path.Combine(root, rel); Directory.CreateDirectory(Path.GetDirectoryName(f)!); File.WriteAllText(f, "x"); }
+        Touch(@"Course A\Lesson 1\Part 1.mp4");
+        Touch(@"Course A\Lesson 1\Part 2.mp4");
+        Touch(@"Course A\Lesson 1\Part 3.mp4");
+        Touch(@"Course A\Lesson 2\Part 1.mp4");
+        Touch(@"Course A\Lesson 2\notes.pdf");
+        Touch(@"Course B\Lesson 1\Part 1.mp4");
+
+        var lib = new LecturePlayer.Data.CourseLibrary();
+        var link = new LecturePlayer.Data.LinkedFolder { Path = root };
+        lib.Links.Add(link);
+        LecturePlayer.Data.FolderLink.Snapshot Snap() => LecturePlayer.Data.FolderLink.Scan(root)!;
+        LecturePlayer.Data.FolderLink.Apply(lib, link, Snap(), initial: true);
+        var a = lib.Courses.Single(c => c.Name == "Course A");
+        var l1 = a.Groups.Single(g => g.Name == "Lesson 1");
+        var l2 = a.Groups.Single(g => g.Name == "Lesson 2");
+        Check(lib.Courses.Count == 2 && l1.Videos.Count == 3, "initial");
+
+        // 1) ترتيب يدوي: Part 3 الأول ← المزامنة متغيّروش
+        var p3 = l1.Videos[2];
+        l1.Videos.Remove(p3); l1.Videos.Insert(0, p3);
+        Check(!LecturePlayer.Data.FolderLink.Apply(lib, link, Snap(), initial: false).Changed && l1.Videos[0] == p3, "manual order kept");
+
+        // 2) نقل فيديو بإيدك لمحاضرة تانية ← يفضل هناك
+        var p2 = l1.Videos.Single(v => v.Title == "Part 2");
+        l1.Videos.Remove(p2); l2.Videos.Add(p2);
+        var r = LecturePlayer.Data.FolderLink.Apply(lib, link, Snap(), initial: false);
+        Check(!r.Changed && l2.Videos.Contains(p2) && !l1.Videos.Contains(p2) && lib.AllVideos.Count() == 5, "manual video move kept");
+
+        // 3) نقل محاضرة بإيدك لكورس تاني ← تفضل هناك ومتتكررش
+        var b = lib.Courses.Single(c => c.Name == "Course B");
+        a.Groups.Remove(l2); b.Groups.Add(l2);
+        r = LecturePlayer.Data.FolderLink.Apply(lib, link, Snap(), initial: false);
+        Check(!r.Changed && b.Groups.Contains(l2) && a.Groups.Count == 1, "manual lecture move kept");
+        // والجديد فيها بيوصلها مكان ما هي
+        Touch(@"Course A\Lesson 2\Part 2.mp4");
+        r = LecturePlayer.Data.FolderLink.Apply(lib, link, Snap(), initial: false);
+        Check(r.NewVideos.Count == 1 && l2.Videos.Count == 3 && r.GroupsWithNew.Single().Course == b, "new video goes to moved lecture");
+
+        // 4) حذف فيديو ومحاضرة وكورس ومرفق ← مايرجعوش
+        var p1 = l1.Videos.Single(v => v.Title == "Part 1");
+        l1.Videos.Remove(p1); link.Ignored.Add(p1.Path);
+        var att = l2.Attachments.Single();
+        l2.Attachments.Remove(att); link.Ignored.Add(att.Target);
+        // زي حذف المحاضرة من البرنامج: الفولدر وكل فيديو فيها (منهم Part 2 اللي اتنقل لها من Lesson 1)
+        link.Ignored.Add(l2.SourceFolder!);
+        foreach (var v in l2.Videos) link.Ignored.Add(v.Path);
+        b.Groups.Remove(l2);
+        lib.Courses.Remove(b); link.Ignored.Add(b.SourceFolder!);
+        r = LecturePlayer.Data.FolderLink.Apply(lib, link, Snap(), initial: false);
+        Check(!r.Changed && lib.Courses.Count == 1 && a.Groups.Count == 1 && l1.Videos.Count == 1, $"deleted came back: courses {lib.Courses.Count}, new {r.NewVideos.Count}, groups {r.NewGroups}");
+        // جديد في محاضرة موجودة لسه بيتضاف
+        Touch(@"Course A\Lesson 1\Part 4.mp4");
+        r = LecturePlayer.Data.FolderLink.Apply(lib, link, Snap(), initial: false);
+        Check(r.NewVideos.Count == 1 && r.NewVideos[0].IsNew, "new still added after ignores");
+        // الحفظ والفتح بيحتفظ باللي اتمسح
+        var back = LecturePlayer.Data.Storage.FromJson(LecturePlayer.Data.Storage.Serialize(lib), Path.Combine(root, "x.lpl"));
+        Check(back.Links.Single().Ignored.Count == link.Ignored.Count && link.Ignored.Count >= 6, "ignored lost on save");
+
+        // 5) ذاكرة «الملف موجود؟»
+        string f = Path.Combine(root, "cache.mp4");
+        File.WriteAllText(f, "x");
+        Check(LecturePlayer.Data.FileCache.Exists(f), "cache: exists");
+        File.Delete(f);
+        Check(LecturePlayer.Data.FileCache.Exists(f), "cache: remembered");
+        LecturePlayer.Data.FileCache.Forget(f);
+        Check(!LecturePlayer.Data.FileCache.Exists(f), "cache: forget");
+        Directory.Delete(Path.GetDirectoryName(root)!, true);
     }
 
     /// <summary>مصدر فرعي: منصة ← مدرّس ← كورسات (مستويين بس)، والنقل والحذف والحفظ والتوافق.</summary>

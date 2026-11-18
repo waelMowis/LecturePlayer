@@ -81,7 +81,7 @@ public static class LibrarySync
             if (lk == null) { local.Links.Add(rk); result.UpdatedInfo++; }
             else if (rk.InfoUpdatedUtc > lk.InfoUpdatedUtc)
             {
-                lk.Path = rk.Path; lk.SingleCourse = rk.SingleCourse; lk.TopicId = rk.TopicId; lk.PlaceId = rk.PlaceId;
+                lk.Path = rk.Path; lk.SingleCourse = rk.SingleCourse; lk.TopicId = rk.TopicId; lk.PlaceId = rk.PlaceId; lk.Ignored = (rk.Ignored ?? new()).ToList();
                 lk.InfoUpdatedUtc = rk.InfoUpdatedUtc; result.UpdatedInfo++;
             }
         }

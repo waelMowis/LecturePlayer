@@ -69,7 +69,7 @@ internal static class AddFolderForm
             topicBox.Items.Add(new Item("(من غير موضوع)", null));
             foreach (var t in lib.Topics) topicBox.Items.Add(new Item("📚  " + t.Name, t));
             topicBox.Items.Add(new Item("＋  موضوع جديد…", NewTag));
-            int i = Enumerable.Range(0, topicBox.Items.Count).FirstOrDefault(k => Equals(((Item)topicBox.Items[k]).Tag, select));
+            int i = Enumerable.Range(0, topicBox.Items.Count).FirstOrDefault(k => Equals((topicBox.Items[k] as Item)?.Tag, select));
             topicBox.SelectedIndex = i;
         }
         void FillSources(object? select)
@@ -81,7 +81,7 @@ internal static class AddFolderForm
             foreach (var (p, depth) in places) sourceBox.Items.Add(new Item((depth > 0 ? "        ↳ " : "🏫  ") + p.Name, p));
             if (select is string newName) sourceBox.Items.Add(new Item("🏫  " + newName + "  (جديد)", newName));
             sourceBox.Items.Add(new Item("＋  مصدر جديد…", NewTag));
-            int i = Enumerable.Range(0, sourceBox.Items.Count).FirstOrDefault(k => Equals(((Item)sourceBox.Items[k]).Tag, select));
+            int i = Enumerable.Range(0, sourceBox.Items.Count).FirstOrDefault(k => Equals((sourceBox.Items[k] as Item)?.Tag, select));
             sourceBox.SelectedIndex = i;
         }
         object? lastTopic = topic, lastSource = source;
@@ -191,7 +191,7 @@ internal static class AddFolderForm
     }
 
     private static int IndexOf(ComboBox box, object? tag) =>
-        Math.Max(0, Enumerable.Range(0, box.Items.Count).FirstOrDefault(k => Equals(((Item)box.Items[k]).Tag, tag)));
+        Math.Max(0, Enumerable.Range(0, box.Items.Count).FirstOrDefault(k => Equals((box.Items[k] as Item)?.Tag, tag)));
 
     private static Choice<T> ToChoice<T>(ComboBox box) where T : class => (box.SelectedItem as Item)?.Tag switch
     {

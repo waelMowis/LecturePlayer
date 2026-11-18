@@ -223,6 +223,8 @@ public sealed class LinkedFolder
     public string? TopicId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PlaceId { get; set; }
+    /// <summary>كورسات/محاضرات/فيديوهات من الفولدر ده المستخدم مسحها من المكتبة: المزامنة مش بترجّعها.</summary>
+    public List<string> Ignored { get; set; } = new();
     public DateTime InfoUpdatedUtc { get; set; }
     public void TouchInfo() => InfoUpdatedUtc = DateTime.UtcNow;
 }

@@ -128,6 +128,7 @@ public static class Storage
         lib.Live ??= new List<LiveChannel>();
         lib.Places ??= new List<Place>();
         lib.Links ??= new List<LinkedFolder>();
+        foreach (var l in lib.Links) l.Ignored ??= new List<string>();
         lib.MigrateLinks();
         if (lib.Groups is { Count: > 0 })
             lib.Courses.Insert(0, new Course { Name = lib.Name, Groups = lib.Groups });
@@ -166,7 +167,7 @@ public static class Storage
     /// </summary>
     public static void ResolveLocalPath(VideoItem v, string baseDir, IReadOnlyList<PathMapping>? mappings)
     {
-        if (v.IsOnline || File.Exists(v.Path)) { v.LocalPath = v.Path; return; }
+        if (v.IsOnline || FileCache.Exists(v.Path)) { v.LocalPath = v.Path; return; }
 
         if (mappings != null)
         {
@@ -174,7 +175,7 @@ public static class Storage
             {
                 if (string.IsNullOrEmpty(m.From) || !v.Path.StartsWith(m.From, StringComparison.OrdinalIgnoreCase)) continue;
                 string candidate = m.To + v.Path.Substring(m.From.Length);
-                if (File.Exists(candidate)) { v.LocalPath = candidate; return; }
+                if (FileCache.Exists(candidate)) { v.LocalPath = candidate; return; }
             }
         }
 
@@ -183,7 +184,7 @@ public static class Storage
             try
             {
                 string candidate = Path.GetFullPath(Path.Combine(baseDir, v.RelativePath));
-                if (File.Exists(candidate)) v.LocalPath = candidate;
+                if (FileCache.Exists(candidate)) v.LocalPath = candidate;
             }
             catch { /* مسار نسبي غلط */ }
         }
@@ -211,14 +212,14 @@ public static class Storage
         string baseDir = Path.GetDirectoryName(Path.GetFullPath(path)) ?? "";
         foreach (var a in lib.AllGroups.SelectMany(g => g.Attachments))
         {
-            if (a.IsLink || !File.Exists(a.Target)) continue;
+            if (a.IsLink || !FileCache.Exists(a.Target)) continue;
             string rel = Path.GetRelativePath(baseDir, a.Target);
             a.RelativePath = Path.IsPathRooted(rel) ? null : rel;
         }
         foreach (var v in lib.AllVideos)
         {
             if (v.IsOnline) { v.RelativePath = null; continue; }
-            if (!File.Exists(v.LocalPath)) continue; // ملف مش موجود على الجهاز ده: نسيب المسار النسبي زي ما هو
+            if (!FileCache.Exists(v.LocalPath)) continue; // ملف مش موجود على الجهاز ده: نسيب المسار النسبي زي ما هو
             string rel = Path.GetRelativePath(baseDir, v.LocalPath);
             // المسار النسبي مفيد بس لو الفيديو جنب ملف القائمة (مش في درايف تاني)
             v.RelativePath = Path.IsPathRooted(rel) ? null : rel;

@@ -392,7 +392,7 @@ internal sealed partial class MainForm
         {
             File.WriteAllText(dlg.FileName, AchievementPage.BuildHtml(_library, JournalEntries, _settings.DailyGoalMinutes, TodayLocal),
                 new System.Text.UTF8Encoding(false));
-            Process.Start(new ProcessStartInfo(dlg.FileName) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(dlg.FileName) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex) { Dialogs.Error(this, "مقدرتش أعمل الصفحة:\n" + ex.Message); }
     }

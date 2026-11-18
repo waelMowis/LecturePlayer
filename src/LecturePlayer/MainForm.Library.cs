@@ -365,9 +365,9 @@ internal sealed partial class MainForm
         try
         {
             if (File.Exists(path))
-                Process.Start("explorer.exe", $"/select,\"{path}\"");
+                Process.Start("explorer.exe", $"/select,\"{path}\"")?.Dispose();
             else if (Directory.Exists(Path.GetDirectoryName(path)))
-                Process.Start("explorer.exe", $"\"{Path.GetDirectoryName(path)}\"");
+                Process.Start("explorer.exe", $"\"{Path.GetDirectoryName(path)}\"")?.Dispose();
         }
         catch { }
     }
@@ -906,20 +906,28 @@ internal sealed partial class MainForm
 
             case Course c:
                 if (!Dialogs.Confirm(this, $"حذف الكورس «{c.Name}» من المكتبة؟\n" +
-                                           $"({c.Groups.Count} محاضرة · {c.VideoCount} فيديو — الملفات نفسها مش هتتمسح من الجهاز)"))
+                                           $"({c.Groups.Count} محاضرة · {c.VideoCount} فيديو — الملفات نفسها مش هتتمسح من الجهاز)" +
+                                           FollowedDeleteNote(c.SourceFolder)))
                     return;
                 if (_currentGroup != null && c.Groups.Contains(_currentGroup)) StopPlaybackCore(clearCurrent: true);
                 Checkpoint("حذف كورس");
+                IgnoreInFollowed(c.SourceFolder);
+                foreach (var cv in c.AllVideos) IgnoreInFollowed(cv.Path); // حتى اللي اتنقل له من فولدر تاني
                 _deletedKeys.Add(LibrarySync.CourseKey(c));
                 _library.Courses.Remove(c);
                 break;
 
             case LectureGroup g:
-                if (!Dialogs.Confirm(this, $"حذف المحاضرة «{g.Name}» من المكتبة؟\n({g.Videos.Count} فيديو — الملفات نفسها مش هتتمسح من الجهاز)"))
+                if (!Dialogs.Confirm(this, $"حذف المحاضرة «{g.Name}» من المكتبة؟\n({g.Videos.Count} فيديو — الملفات نفسها مش هتتمسح من الجهاز)" +
+                                           FollowedDeleteNote(g.SourceFolder)))
                     return;
                 if (g == _currentGroup) StopPlaybackCore(clearCurrent: true);
                 var course = _library.FindCourseOf(g);
                 Checkpoint("حذف محاضرة");
+                // محاضرة باسم الكورس (فيديوهات على طول في فولدره) مسارها نفس مسار الكورس: نتجاهل فيديوهاتها بس
+                if (!(g.SourceFolder != null && course?.SourceFolder != null && FolderLink.Norm(g.SourceFolder) == FolderLink.Norm(course.SourceFolder)))
+                    IgnoreInFollowed(g.SourceFolder);
+                foreach (var gv in g.Videos) IgnoreInFollowed(gv.Path); // وكل فيديو فيها (حتى اللي اتنقل لها من محاضرة تانية)
                 _deletedKeys.Add(LibrarySync.GroupKey(g));
                 course?.Groups.Remove(g);
                 MarkDirty();
@@ -933,6 +941,7 @@ internal sealed partial class MainForm
                 if (v == _currentVideo) StopPlaybackCore(clearCurrent: true);
                 int i = owner.Videos.IndexOf(v);
                 Checkpoint("حذف فيديو");
+                IgnoreInFollowed(v.Path);
                 _deletedKeys.Add(LibrarySync.VideoKey(v));
                 owner.Videos.Remove(v);
                 MarkDirty();
@@ -1340,6 +1349,7 @@ internal sealed partial class MainForm
         string oldDir = Path.GetDirectoryName(v.Path) ?? "";
         string newDir = Path.GetDirectoryName(dlg.FileName) ?? "";
         v.LocalPath = dlg.FileName;
+        FileCache.Clear(); // مكان جديد: الفيديوهات التانية ممكن تكون اتنقلت معاه
         int fixedCount = 1;
 
         // المسار المكتوب في القائمة (Path) مش بيتغير عشان الأجهزة التانية؛

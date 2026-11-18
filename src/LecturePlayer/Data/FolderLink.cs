@@ -202,10 +202,10 @@ public static class FolderLink
 
     public sealed class Result
     {
-        public int NewCourses, NewGroups, Moved, NewAttachments;
+        public int NewCourses, NewGroups, Moved, NewAttachments, PathsUpdated;
         public List<VideoItem> NewVideos { get; } = new();
         public List<(Course Course, LectureGroup Group)> GroupsWithNew { get; } = new();
-        public bool Changed => NewCourses + NewGroups + Moved + NewAttachments + NewVideos.Count > 0;
+        public bool Changed => NewCourses + NewGroups + Moved + NewAttachments + PathsUpdated + NewVideos.Count > 0;
     }
 
     /// <param name="initial">أول ربط: الفيديوهات مش بتتعلّم «جديد» (كلها جديدة أصلًا).</param>
@@ -216,22 +216,30 @@ public static class FolderLink
     public static Result Apply(CourseLibrary lib, Place place, Snapshot snap, bool initial) =>
         Apply(lib, place.TopicId, place.Id, snap, initial);
 
-    /// <summary>فولدر متابَع: الكورسات الجديدة بتتحط في موضوعه/مصدره الحالي.</summary>
+    /// <summary>فولدر متابَع: الكورسات الجديدة بتتحط في موضوعه/مصدره الحالي، واللي المستخدم مسحه مش بيرجع.</summary>
     public static Result Apply(CourseLibrary lib, LinkedFolder link, Snapshot snap, bool initial)
     {
         var (t, p) = lib.TargetOf(link);
-        return Apply(lib, p?.TopicId ?? t?.Id, p?.Id, snap, initial);
+        return Apply(lib, p?.TopicId ?? t?.Id, p?.Id, snap, initial, link.Ignored);
     }
 
-    public static Result Apply(CourseLibrary lib, string? topicId, string? placeId, Snapshot snap, bool initial)
+    /// <param name="ignored">مسارات (كورس/محاضرة/فيديو) المستخدم مسحها من المكتبة: مش بترجع تاني في المزامنة.</param>
+    public static Result Apply(CourseLibrary lib, string? topicId, string? placeId, Snapshot snap, bool initial,
+        IEnumerable<string>? ignored = null)
     {
         var r = new Result();
+        var skip = new HashSet<string>((ignored ?? Enumerable.Empty<string>()).Select(Norm));
+
         // كل فيديو في المكتبة بمساره، عشان لو كان متضاف قبل كده بإيدك ننقله بتقدّمه بدل ما نكرره
         var byPath = new Dictionary<string, (VideoItem V, LectureGroup G)>();
         // وبآخر المسار (لو نفس الملف اتضاف قبل كده من مسار تاني للدرايف) — بس لو مفيش غير ملف واحد بنفس الآخر
         var byTail = new Dictionary<string, (VideoItem V, LectureGroup G)?>();
+        // كل محاضرة جاية من فولدر بمسار الفولدر (في أي كورس: لو نقلتها بإيدك لكورس تاني تفضل هناك)
+        var groupByFolder = new Dictionary<string, LectureGroup>();
         foreach (var c in lib.Courses)
             foreach (var g in c.Groups)
+            {
+                if (g.SourceFolder != null) groupByFolder.TryAdd(Norm(g.SourceFolder), g);
                 foreach (var v in g.Videos)
                 {
                     if (v.IsOnline) continue;
@@ -239,6 +247,7 @@ public static class FolderLink
                     string tail = Tail(v.Path, 4);
                     if (tail.Length > 0) byTail[tail] = byTail.ContainsKey(tail) ? null : (v, g);
                 }
+            }
         bool TryFind(string file, out (VideoItem V, LectureGroup G) hit)
         {
             if (byPath.TryGetValue(Norm(file), out hit)) return true;
@@ -257,6 +266,7 @@ public static class FolderLink
         foreach (var cs in snap.Courses)
         {
             string cKey = Norm(cs.Path);
+            if (skip.Contains(cKey)) continue; // المستخدم مسح الكورس ده
             // الكورس بفولدره، أيًا كان مكانه (لو نقلته بإيدك لمكان تاني يفضل هناك ومايتكررش)،
             // أو بآخر مسار الفولدر لو نفس الفولدر جه من مسار تاني للدرايف
             var course = lib.Courses.FirstOrDefault(c => c.SourceFolder != null && Norm(c.SourceFolder) == cKey);
@@ -277,7 +287,9 @@ public static class FolderLink
             foreach (var ss in cs.Sessions)
             {
                 string gKey = Norm(ss.Path);
-                var group = course.Groups.FirstOrDefault(g => g.SourceFolder != null && Norm(g.SourceFolder) == gKey);
+                if (gKey != cKey && skip.Contains(gKey)) continue; // المستخدم مسح المحاضرة دي
+                var group = course.Groups.FirstOrDefault(g => g.SourceFolder != null && Norm(g.SourceFolder) == gKey)
+                            ?? (groupByFolder.TryGetValue(gKey, out var elsewhere) && lib.FindCourseOf(elsewhere) != null ? elsewhere : null);
                 if (group == null && Tail(ss.Path, 2) is { Length: > 0 } gt
                     && course.Groups.Where(g => g.SourceFolder != null && Tail(g.SourceFolder, 2) == gt && SameFolder(g.SourceFolder, ss.Path)).ToList() is { Count: 1 } sameTail)
                 {
@@ -288,47 +300,60 @@ public static class FolderLink
                 {
                     group = new LectureGroup { Name = ss.Name, SourceFolder = ss.Path, Expanded = false };
                     course.Groups.Add(group);
+                    groupByFolder[gKey] = group;
                     r.NewGroups++;
                 }
+                var groupCourse = lib.FindCourseOf(group) ?? course;
 
+                var have = new HashSet<string>(group.Videos.Select(v => Norm(v.Path)));
                 bool addedHere = false;
                 foreach (string file in ss.Videos)
                 {
                     string key = Norm(file);
-                    if (group.Videos.Any(v => Norm(v.Path) == key)) continue;
+                    if (have.Contains(key) || skip.Contains(key)) continue;
                     if (TryFind(file, out var existing))
                     {
-                        // نفس الملف كان متضاف (بإيدك، أو من مسار تاني للدرايف): ننقله هو نفسه بتقدّمه وعلاماته وملاحظاته
-                        bool samePlace = existing.G == group;
-                        if (Norm(existing.V.Path) != key) existing.V.Path = file;  // المسار الجديد اللي بيشتغل دلوقتي
-                        if (!samePlace)
+                        // نفس الملف متضاف بالفعل (بإيدك، أو من مسار تاني للدرايف)
+                        if (Norm(existing.V.Path) != key) { existing.V.Path = file; r.PathsUpdated++; } // المسار اللي بيشتغل دلوقتي
+                        if (initial && existing.G != group)
                         {
+                            // أول ربط بس: ننقله لمكانه في ترتيب الفولدر بتقدّمه وعلاماته وملاحظاته.
+                            // بعد كده لو نقلته بإيدك لمحاضرة تانية، بيفضل مكان ما حطيته.
                             existing.G.Videos.Remove(existing.V);
                             touchedOld.Add(existing.G);
                             group.Videos.Add(existing.V);
+                            byPath[key] = (existing.V, group);
+                            have.Add(key);
+                            r.Moved++;
                         }
-                        byPath[key] = (existing.V, group);
-                        r.Moved++;
+                        else if (initial) r.Moved++;
                         continue;
                     }
                     var nv = VideoItem.FromFile(file);
                     nv.IsNew = !initial;
                     group.Videos.Add(nv);
                     byPath[key] = (nv, group);
+                    have.Add(key);
                     r.NewVideos.Add(nv);
                     addedHere = true;
                 }
-                if (addedHere && !initial) r.GroupsWithNew.Add((course, group));
+                if (addedHere && !initial) r.GroupsWithNew.Add((groupCourse, group));
 
-                // ترتيب الفيديوهات زي ترتيب الملفات (Part 01, Part 02…)
-                var order = ss.Videos.Select((f, i) => (Norm(f), i)).ToDictionary(x => x.Item1, x => x.i);
-                group.Videos = group.Videos
-                    .OrderBy(v => order.TryGetValue(Norm(v.Path), out int i) ? i : int.MaxValue)
-                    .ToList();
+                // ترتيب الفيديوهات زي ترتيب الملفات (Part 01, Part 02…) — أول ربط، أو لما ينزل جديد بس
+                // (عشان لو رتّبتها بإيدك المزامنة متبوّظش ترتيبك كل دقيقتين)
+                if (initial || addedHere)
+                {
+                    var order = new Dictionary<string, int>();
+                    for (int i = 0; i < ss.Videos.Count; i++) order.TryAdd(Norm(ss.Videos[i]), i);
+                    group.Videos = group.Videos
+                        .OrderBy(v => order.TryGetValue(Norm(v.Path), out int i) ? i : int.MaxValue)
+                        .ToList();
+                }
 
+                var attached = new HashSet<string>(group.Attachments.Select(a => Norm(a.Target)));
                 foreach (string file in ss.Files)
                 {
-                    if (group.Attachments.Any(a => Norm(a.Target) == Norm(file))) continue;
+                    if (!attached.Add(Norm(file)) || skip.Contains(Norm(file))) continue;
                     string rel = System.IO.Path.GetRelativePath(ss.Path, file);
                     string name = System.IO.Path.GetFileNameWithoutExtension(rel);
                     string? folder = System.IO.Path.GetDirectoryName(rel);
@@ -346,10 +371,11 @@ public static class FolderLink
                          .GroupBy(g => Norm(g.SourceFolder!)).Where(x => x.Count() > 1).ToList())
             {
                 var keep = dup.First();
+                var keepPaths = new HashSet<string>(keep.Videos.Select(v => Norm(v.Path)));
                 foreach (var extra in dup.Skip(1).ToList())
                 {
                     foreach (var v in extra.Videos)
-                        if (!keep.Videos.Any(k => Norm(k.Path) == Norm(v.Path))) keep.Videos.Add(v);
+                        if (keepPaths.Add(Norm(v.Path))) keep.Videos.Add(v);
                     course.Groups.Remove(extra);
                 }
             }

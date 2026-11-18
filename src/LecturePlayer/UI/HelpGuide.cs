@@ -36,7 +36,7 @@ internal static class HelpGuide
                     $"<!DOCTYPE html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"0;url=guide.html#{section}\">",
                     new System.Text.UTF8Encoding(false));
             }
-            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex)
         {

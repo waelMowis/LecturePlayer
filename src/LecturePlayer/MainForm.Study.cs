@@ -537,7 +537,7 @@ internal sealed partial class MainForm
         string dir = _lastSnapshotDir ?? (_currentVideo != null ? SnapshotDirFor(_currentVideo) : null)
                      ?? Path.Combine(Storage.AppDataDir, "snapshots");
         Directory.CreateDirectory(dir);
-        try { Process.Start("explorer.exe", $"\"{dir}\""); } catch { }
+        try { Process.Start("explorer.exe", $"\"{dir}\"")?.Dispose(); } catch { }
     }
 
     // =====================================================================

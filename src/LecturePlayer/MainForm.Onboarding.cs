@@ -206,7 +206,7 @@ internal sealed partial class MainForm
         var copy = new PillButton("📋  انسخ التقرير", PillStyle.Primary);
         copy.Click += (_, _) => { try { Clipboard.SetText(report); copy.Text = "اتنسخ ✓"; copy.AutoSizeToText(); } catch { } };
         var folder = new PillButton("فتح فولدر السجل");
-        folder.Click += (_, _) => { try { Process.Start(new ProcessStartInfo(Log.LogDir) { UseShellExecute = true }); } catch { } };
+        folder.Click += (_, _) => { try { Process.Start(new ProcessStartInfo(Log.LogDir) { UseShellExecute = true })?.Dispose(); } catch { } };
         var close = new PillButton("قفل", PillStyle.Subtle) { DialogResult = DialogResult.Cancel };
         buttons.Controls.AddRange(new Control[] { copy, folder, close });
         f.CancelButton = close;

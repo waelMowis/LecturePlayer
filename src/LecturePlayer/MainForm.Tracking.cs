@@ -350,6 +350,7 @@ internal sealed partial class MainForm
             item.DropDownItems.Add(MenuItem("شيله من المحاضرة", () =>
             {
                 Checkpoint("حذف مرفق");
+                IgnoreInFollowed(att.Target);
                 g.Attachments.Remove(att); TouchGroupInfo(g);
             }));
             menu.DropDownItems.Add(item);
@@ -403,7 +404,7 @@ internal sealed partial class MainForm
             Dialogs.Error(this, "الملف مش موجود على الجهاز ده:\n" + a.Target);
             return;
         }
-        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); }
+        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتحه:\n" + ex.Message); }
     }
 

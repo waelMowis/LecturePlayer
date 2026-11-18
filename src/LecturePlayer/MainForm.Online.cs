@@ -23,7 +23,7 @@ internal sealed partial class MainForm
     private CancellationTokenSource? _resolveCts;
     private VideoItem? _resolvingVideo;
 
-    private static bool IsAvailable(VideoItem v) => v.IsOnline || File.Exists(v.LocalPath);
+    private static bool IsAvailable(VideoItem v) => v.IsOnline || FileCache.Exists(v.LocalPath);
 
     // =====================================================================
     //  المنيو
@@ -62,7 +62,7 @@ internal sealed partial class MainForm
             Adv(Item("فتح فولدر الأدوات", () =>
             {
                 Directory.CreateDirectory(YtDlp.ToolsDir);
-                try { Process.Start("explorer.exe", $"\"{YtDlp.ToolsDir}\""); } catch { }
+                try { Process.Start("explorer.exe", $"\"{YtDlp.ToolsDir}\"")?.Dispose(); } catch { }
             })));
     }
 
@@ -398,7 +398,7 @@ internal sealed partial class MainForm
 
     private static void OpenInBrowser(string url)
     {
-        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose(); } catch { }
     }
 
     // =====================================================================

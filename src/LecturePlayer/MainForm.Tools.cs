@@ -408,6 +408,6 @@ internal sealed partial class MainForm
     {
         string dir = Path.Combine(Storage.AppDataDir, sub);
         Directory.CreateDirectory(dir);
-        try { Process.Start("explorer.exe", $"\"{dir}\""); } catch { }
+        try { Process.Start("explorer.exe", $"\"{dir}\"")?.Dispose(); } catch { }
     }
 }

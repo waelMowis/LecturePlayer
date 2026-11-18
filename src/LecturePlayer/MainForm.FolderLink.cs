@@ -62,6 +62,7 @@ internal sealed partial class MainForm
         int movedCourses = 0;
         if (existing != null)
         {
+            existing.Ignored.Clear(); // إضافة الفولدر تاني = رجّع كل اللي كان اتمسح منه
             foreach (var c in _library.Courses.Where(c => _library.LinkOf(c) == existing).ToList())
             {
                 PlaceCourseAtEnd(c, topic, place);
@@ -240,6 +241,32 @@ internal sealed partial class MainForm
         finally { _folderSyncRunning = false; }
     }
 
+    /// <summary>الفولدر المتابَع اللي المسار ده جواه (null لو مش من فولدر متابَع).</summary>
+    private LinkedFolder? LinkContaining(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || MediaFiles.IsUrl(path)) return null;
+        string p = FolderLink.Norm(path);
+        return _library.Links.FirstOrDefault(l => { string lp = FolderLink.Norm(l.Path); return p == lp || p.StartsWith(lp + "\\"); });
+    }
+
+    /// <summary>
+    /// المستخدم مسح حاجة جاية من فولدر متابَع: نفتكرها عشان المزامنة مترجّعهاش بعد دقيقتين.
+    /// (لو أضاف الفولدر تاني من «إضافة كورس» كل اللي اتمسح بيرجع.)
+    /// </summary>
+    private void IgnoreInFollowed(string? path)
+    {
+        if (LinkContaining(path) is not { } link) return;
+        string p = FolderLink.Norm(path!);
+        if (link.Ignored.Any(x => FolderLink.Norm(x) == p)) return;
+        link.Ignored.Add(path!);
+        link.TouchInfo();
+    }
+
+    /// <summary>سطر بيتضاف لرسالة الحذف لو الحاجة جاية من فولدر متابَع.</summary>
+    private string FollowedDeleteNote(string? path) => LinkContaining(path) != null
+        ? "\n\nده من فولدر متابَع: البرنامج مش هيرجّعه تاني لوحده (ولو عايزه يرجع، ضيف الفولدر تاني من «إضافة كورس من فولدر»)."
+        : "";
+
     /// <summary>أوامر الفولدر المتابَع في قايمة الكورس (لو الكورس جاي من فولدر متابَع).</summary>
     private void AddCourseLinkMenuItems(Course c, ToolStripItemCollection items)
     {
@@ -258,7 +285,7 @@ internal sealed partial class MainForm
 
     private void OpenFolder(string path)
     {
-        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
+        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتح الفولدر:\n" + ex.Message); }
     }
 
