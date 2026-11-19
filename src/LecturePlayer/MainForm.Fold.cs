@@ -225,9 +225,11 @@ internal sealed partial class MainForm
 
         // التحديد جوه الموضوع التاني (مصدر فرعي ← كورس ← محاضرة ← فيديو)
         _tree.SelectedNode = NodeOf(deep!);
+        Console.WriteLine($"SMOKE fold trace: start sel={_tree.SelectedNode?.Tag} handle={_tree.IsHandleCreated} visible={_tree.Visible}");
         for (int level = 4; level >= 0; level--)
         {
             ExpandToLevel(level);
+            Console.WriteLine($"SMOKE fold trace: level {level} sel={_tree.SelectedNode?.Tag}");
             Consistent("level " + level);
         }
         ExpandToLevel(0);
