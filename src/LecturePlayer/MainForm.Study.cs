@@ -690,6 +690,7 @@ internal sealed partial class MainForm
     private void RefreshHome()
     {
         if (!_welcome.Visible) return;
+        if (!HasLibrary) { RefreshHomeNoLibrary(); return; }
 
         RefreshHomeTopics();
         var courses = _library.Courses
@@ -719,6 +720,92 @@ internal sealed partial class MainForm
         foreach (var c in courses) _homeCards.Controls.Add(CourseCard(c));
         _homeCards.ResumeLayout(true);
         RefreshHomePlan();
+    }
+
+    /// <summary>
+    /// الرئيسية من غير مكتبة مفتوحة: «اختار المكتبة اللي هتشتغل عليها» — كارت لكل مكتبة من مكتباتك
+    /// (باسمها ومكانها)، وأزرار فتح مكتبة من ملف ومكتبة جديدة، والبث المباشر (مش محتاج مكتبة).
+    /// </summary>
+    private void RefreshHomeNoLibrary()
+    {
+        _homeTopics.Visible = false;
+        var oldPlan = _homePlan.Controls.Cast<Control>().ToList();
+        _homePlan.Controls.Clear();
+        foreach (var c in oldPlan) c.Dispose();
+
+        _homeCards.SuspendLayout();
+        var old = _homeCards.Controls.Cast<Control>().ToList();
+        _homeCards.Controls.Clear();
+        foreach (var c in old) c.Dispose();
+        var libs = RecentLibraries(8);
+        foreach (var e in libs) _homeCards.Controls.Add(LibraryCard(e));
+        _homeCards.ResumeLayout(true);
+
+        _homeTitle.Text = libs.Count > 0 ? "اختار المكتبة اللي هتشتغل عليها" : "أهلًا بيك في «مسار» 👋  ابدأ بمكتبة";
+        _homeHint.Visible = true;
+        _homeHint.Text = "المكتبة ملف واحد فيه كورساتك وتقدّمك. تقدر تعمل أكتر من مكتبة (مثلًا للشغل وللمذاكرة)\n" +
+                         "ولو عايز البرنامج يفتح آخر مكتبة على طول: الإعدادات ← المكتبة.";
+
+        _homeActionsBig = null;
+        _homeActions.SuspendLayout();
+        var oldActions = _homeActions.Controls.Cast<Control>().ToList();
+        _homeActions.Controls.Clear();
+        foreach (var c in oldActions) c.Dispose();
+        ActionTile Tile(string glyph, string title, string subtitle, Color color, Action click)
+        {
+            var t = new ActionTile(glyph, title, subtitle)
+            {
+                IconColor = color,
+                Size = new Size(LogicalToDeviceUnits(330), LogicalToDeviceUnits(92)),
+                Margin = new Padding(LogicalToDeviceUnits(8)),
+                AllowDrop = true
+            };
+            t.Click += (_, _) => click();
+            t.DragEnter += OnExternalDragEnter;
+            t.DragDrop += (_, e) => OnExternalDrop(e, null);
+            _toolTip.SetToolTip(t, subtitle);
+            return t;
+        }
+        _homeActions.Controls.Add(Tile(Glyphs.OpenFolder, "فتح مكتبة من ملف", "ملف .lpl على جهازك أو على Google Drive (أو اسحبه وارميه هنا)", Theme.Folder, OpenLibraryDialog));
+        _homeActions.Controls.Add(Tile(Glyphs.Add, "مكتبة جديدة", "ابدأ مكتبة فاضية باسم ومكان تختارهم", Theme.Accent, NewLibraryDialog));
+        _homeActions.Controls.Add(Tile(Glyphs.Radio, "اسمع راديو أو شوف الحرم", "البث المباشر مش محتاج مكتبة", Theme.Success, ShowLiveWindow));
+        _homeActions.ResumeLayout(true);
+    }
+
+    private Control LibraryCard(RecentLibrary e)
+    {
+        var card = new Card
+        {
+            Fill = Theme.PanelLight,
+            Size = new Size(LogicalToDeviceUnits(330), LogicalToDeviceUnits(76)),
+            Margin = new Padding(LogicalToDeviceUnits(8)),
+            Padding = new Padding(14, 10, 14, 8),
+            Cursor = e.Exists ? Cursors.Hand : Cursors.Default
+        };
+        string name = e.Exists ? LibraryFiles.PeekName(e.Path) : Path.GetFileNameWithoutExtension(e.Path);
+        var title = new Label
+        {
+            Dock = DockStyle.Top, Height = 28, AutoEllipsis = true, BackColor = Color.Transparent,
+            Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = e.Exists ? Theme.Text : Theme.Muted,
+            Text = "📚  " + Modern.Bidi(name)
+        };
+        var where = new Label
+        {
+            Dock = DockStyle.Top, Height = 22, AutoEllipsis = true, BackColor = Color.Transparent, ForeColor = Theme.Muted,
+            Text = LibraryFiles.LocationLabel(e.Path) + (e.Exists ? "" : "  ·  مش متاحة دلوقتي")
+        };
+        card.Controls.Add(where);
+        card.Controls.Add(title);
+        _toolTip.SetToolTip(card, e.Path);
+        if (e.Exists)
+        {
+            void Open(object? _, EventArgs __) => SwitchLibrary(e.Path);
+            card.Click += Open;
+            title.Click += Open;
+            where.Click += Open;
+            title.Cursor = where.Cursor = Cursors.Hand;
+        }
+        return card;
     }
 
     private Control CourseCard(Course c)

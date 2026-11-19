@@ -98,6 +98,7 @@ internal sealed partial class MainForm
             healedName = true;
         }
         _libraryPath = path;
+        HideBanner("unsaved-no-library");
         InitJournal(path);
         _dirty = lib == null || healedName;
         _deletedKeys.Clear();
@@ -170,7 +171,7 @@ internal sealed partial class MainForm
         {
             Title = "فتح مكتبة",
             Filter = Storage.LibraryFilter,
-            InitialDirectory = Path.GetDirectoryName(_libraryPath)
+            InitialDirectory = HasLibrary ? Path.GetDirectoryName(_libraryPath) : Storage.AppDataDir
         };
         if (dlg.ShowDialog(this) == DialogResult.OK) SwitchLibrary(dlg.FileName);
     }
@@ -321,7 +322,15 @@ internal sealed partial class MainForm
 
     private void SaveLibrary()
     {
-        if (string.IsNullOrEmpty(_libraryPath)) return;
+        if (!TrySaveLibrary(out string? error))
+            ShowBanner("مقدرتش أحفظ المكتبة: " + error + " — هحاول تاني لوحدي", BannerKind.Error, seconds: 15, key: "save-error");
+    }
+
+    /// <summary>بيحفظ المكتبة (بعد ما يدمج أي تغيير من جهاز تاني). false + السبب لو فشل.</summary>
+    private bool TrySaveLibrary(out string? error)
+    {
+        error = null;
+        if (string.IsNullOrEmpty(_libraryPath)) return true;
         try
         {
             MergeExternalChanges(); // لو الملف اتغير من جهاز تاني، ندمج الأول عشان منمسحش شغله
@@ -330,11 +339,13 @@ internal sealed partial class MainForm
             _dirty = false;
             _positionDirty = false;
             HideBanner("save-error");
+            return true;
         }
         catch (Exception ex)
         {
             Log.Error("save", ex);
-            ShowBanner("مقدرتش أحفظ المكتبة: " + ex.Message + " — هحاول تاني لوحدي", BannerKind.Error, seconds: 15, key: "save-error");
+            error = ex.Message;
+            return false;
         }
     }
 
@@ -373,7 +384,11 @@ internal sealed partial class MainForm
         return true;
     }
 
-    private void MarkDirty() => _dirty = true;
+    private void MarkDirty()
+    {
+        _dirty = true;
+        if (!HasLibrary) WarnUnsavedWithoutLibrary();
+    }
 
     /// <summary>
     /// تغيير مكان التشغيل بس (كل 5 ثواني وإنت بتتفرج): بيتحفظ كل دقيقة بدل كل 10 ثواني،
@@ -430,9 +445,10 @@ internal sealed partial class MainForm
         Add("➕  مكتبة جديدة…", NewLibraryDialog, shortcut: "Ctrl+N");
         Add("📂  فتح مكتبة من ملف…", OpenLibraryDialog, shortcut: "Ctrl+O");
         menu.Items.Add(new ToolStripSeparator());
-        Add("✏️  تغيير اسم المكتبة دي…", RenameLibrary);
-        Add("💾  حفظ نسخة باسم تاني…", SaveLibraryAsDialog, shortcut: "Ctrl+Shift+S");
-        Add("📍  فتح مكان الملف", () => OpenInExplorer(_libraryPath));
+        Add("✏️  تغيير اسم المكتبة دي…", RenameLibrary, HasLibrary);
+        Add("💾  حفظ نسخة باسم تاني…", SaveLibraryAsDialog, HasLibrary, "Ctrl+Shift+S");
+        Add("📍  فتح مكان الملف", () => OpenInExplorer(_libraryPath), HasLibrary);
+        Add("✖  قفل المكتبة (البرنامج يفضل مفتوح)", StartWithoutLibrary, HasLibrary);
         menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
         menu.Show(_courseLabel, new Point(_courseLabel.Width, _courseLabel.Height), ToolStripDropDownDirection.BelowLeft);
     }
@@ -484,6 +500,12 @@ internal sealed partial class MainForm
     private void UpdateLibraryHeader()
     {
         // «📚 الاسم ▾»: واضح إن ده اسم المكتبة المفتوحة وإنه بيتضغط
+        if (!HasLibrary)
+        {
+            _courseLabel.Text = "📚  افتح مكتبة  ▾";
+            _toolTip.SetToolTip(_courseLabel, "مفيش مكتبة مفتوحة — دوس هنا واختار مكتبة من مكتباتك، أو اعمل مكتبة جديدة");
+            return;
+        }
         _courseLabel.Text = "📚  " + Modern.Bidi(_library.Name) + "  ▾";
         int videos = _library.VideoCount, watched = _library.WatchedCount;
         long total = _library.TotalDurationMs;
@@ -819,6 +841,7 @@ internal sealed partial class MainForm
 
     private Course? AddCourse(string? name = null, Course? after = null, Topic? topicFor = null, bool atRoot = false, Place? placeFor = null)
     {
+        if (!EnsureLibrary()) return null;
         name ??= Dialogs.Input(this, "كورس جديد", placeFor != null ? $"اسم الكورس (في «{placeFor.Name}»):" : "اسم الكورس:", $"كورس {_library.Courses.Count + 1}");
         if (name == null) return null;
 
@@ -873,6 +896,7 @@ internal sealed partial class MainForm
 
     private LectureGroup? AddGroup(string? name = null, LectureGroup? after = null, Course? course = null)
     {
+        if (!EnsureLibrary()) return null;
         after ??= course == null ? SelectedGroup() : null;
         course ??= after != null ? _library.FindCourseOf(after) : TargetCourseOrCreate();
         if (course == null) return null;
@@ -1222,6 +1246,7 @@ internal sealed partial class MainForm
 
     private void AddVideosDialog(LectureGroup? target)
     {
+        if (!EnsureLibrary()) return;
         using var dlg = new OpenFileDialog
         {
             Title = target == null ? "اختار فيديوهات المحاضرة الجديدة" : $"إضافة فيديوهات لـ «{target.Name}»",
@@ -1924,6 +1949,14 @@ internal sealed partial class MainForm
     /// </summary>
     private void OnExternalDrop(DragEventArgs e, object? targetTag)
     {
+        // ملف مكتبة (.lpl) اتساب على البرنامج ← تتفتح
+        if (e.Data?.GetData(DataFormats.FileDrop) is string[] dropped &&
+            dropped.FirstOrDefault(p => File.Exists(p) && p.EndsWith(Storage.LibraryExtension, StringComparison.OrdinalIgnoreCase)) is { } libFile)
+        {
+            SwitchLibrary(libFile);
+            return;
+        }
+        if (!EnsureLibrary()) return;
         if (e.Data?.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0)
         {
             var urls = TryGetDroppedUrls(e.Data);

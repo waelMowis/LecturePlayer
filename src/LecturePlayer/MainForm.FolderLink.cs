@@ -15,6 +15,7 @@ internal sealed partial class MainForm
     /// <summary>اختيار فولدر ← شاشة «إضافة كورس» (هيتحط فين، معاينة، متابعة).</summary>
     private void ImportCourseDialog()
     {
+        if (!EnsureLibrary()) return;
         string? path = PickFolder(this, "اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس)");
         if (path != null) ShowAddFolderDialog(path);
     }
@@ -23,6 +24,7 @@ internal sealed partial class MainForm
     /// <param name="source">المصدر المقترح.</param>
     private void ShowAddFolderDialog(string path, Topic? topic = null, Place? source = null, bool useSelection = true)
     {
+        if (!EnsureLibrary()) return;
         path = Path.GetFullPath(path);
 
         // جزء من فولدر متابَع بالفعل؟ ← الجديد فيه بيوصل لوحده

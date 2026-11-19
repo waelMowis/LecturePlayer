@@ -69,6 +69,7 @@ internal sealed partial class MainForm
     /// <summary>«مكان جديد» من قايمة ＋ إضافة: جوه الموضوع المحدد.</summary>
     private void AddPlaceFromMenu()
     {
+        if (!EnsureLibrary()) return;
         var topic = SelectedTopicContext();
         if (topic == null && _library.Topics.Count == 0)
         {

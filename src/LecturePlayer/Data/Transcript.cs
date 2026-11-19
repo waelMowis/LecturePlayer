@@ -190,7 +190,9 @@ public sealed class Transcript
 public static class TranscriptStore
 {
     public static string Dir(string libraryPath) =>
-        Path.Combine(Path.GetDirectoryName(Path.GetFullPath(libraryPath)) ?? ".", "transcripts");
+        string.IsNullOrWhiteSpace(libraryPath)
+            ? Path.Combine(Storage.AppDataDir, "transcripts")   // من غير مكتبة مفتوحة
+            : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(libraryPath)) ?? ".", "transcripts");
 
     public static string Key(VideoItem v) => Hash(v.Path.ToUpperInvariant());
 

@@ -55,6 +55,8 @@ public static class LibraryFiles
     /// <summary>بعد ما اسم مكتبة يتغيّر أو تتحفظ.</summary>
     public static void ForgetName(string path) { lock (NameCache) NameCache.Remove(path); }
 
+    public static void ClearNames() { lock (NameCache) NameCache.Clear(); }
+
     /// <summary>مكان المكتبة بكلام مفهوم: «على الجهاز» أو «Google Drive» أو «OneDrive» أو «Dropbox» أو الفولدر نفسه.</summary>
     public static string LocationLabel(string path)
     {

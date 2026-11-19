@@ -15,6 +15,10 @@ internal static class SettingsDialog
         kit.Note("الوضع البسيط بيعرض الأساسي بس: المكتبة، والتشغيل، والعلامات، ويوتيوب، والبث المباشر.\n" +
                  "المتقدم بيضيف: الذكاء الاصطناعي، والإحصائيات، والمراجعة، ووضع التركيز، ومعمل الكود.", 40);
 
+        kit.Header("المكتبة");
+        var openLast = kit.Row("لما البرنامج يفتح", new ToggleSwitch { Text = "افتح آخر مكتبة على طول", Checked = s.OpenLastLibraryOnStart });
+        kit.Note("لو مقفولة: البرنامج بيفتح فاضي، وتختار المكتبة اللي هتشتغل عليها من «مكتباتك» أو «ملف ← فتح مكتبة».", 24);
+
         kit.Header("المذاكرة");
         var goal = kit.Row("الهدف اليومي (دقيقة)", new NumberBox { Minimum = 5, Maximum = 720, Increment = 5, Value = Math.Clamp(s.DailyGoalMinutes, 5, 720) });
         var remind = kit.Row("تذكير يومي", new ToggleSwitch { Text = "فكّرني لو مخلصتش الهدف", Checked = s.RemindersEnabled });
@@ -92,6 +96,7 @@ internal static class SettingsDialog
         s.AutoSyncPlaylists = autoSync.Checked;
         s.PlaylistSyncHours = (int)syncHours.Value;
         s.CheckUpdates = updates.Checked;
+        s.OpenLastLibraryOnStart = openLast.Checked;
         s.OnlineCookiesBrowser = browsers[Math.Max(0, cookies.SelectedIndex)].Item1;
         if (key != null) s.ClaudeApiKey = key.Text;
         if (model != null) s.AiModel = string.IsNullOrWhiteSpace(model.Text) ? ClaudeClient.DefaultModel : model.Text.Trim();

@@ -39,6 +39,7 @@ internal sealed partial class MainForm
 
     private Topic? AddTopic(string? name = null)
     {
+        if (!EnsureLibrary()) return null;
         name ??= Dialogs.Input(this, "موضوع جديد", "اسم الموضوع (مثلًا: البرمجة، اللغات، التصميم):");
         if (name == null) return null;
         Checkpoint("إضافة موضوع");

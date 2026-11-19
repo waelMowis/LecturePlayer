@@ -493,6 +493,11 @@ public sealed class AppSettings
     public string? LastLibraryPath { get; set; }
     public List<string> RecentFiles { get; set; } = new();
 
+    /// <summary>
+    /// لما البرنامج يفتح: false (الافتراضي) = يفتح فاضي وتختار المكتبة من «مكتباتك» أو «فتح مكتبة»؛ true = يفتح آخر مكتبة على طول.
+    /// </summary>
+    public bool OpenLastLibraryOnStart { get; set; }
+
     /// <summary>الصوت من 0 لـ 200 (أكتر من 100 = تضخيم).</summary>
     public int Volume { get; set; } = 80;
 

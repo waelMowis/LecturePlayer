@@ -139,16 +139,17 @@ internal sealed partial class MainForm : Form
         ApplySettings();
         InitAdvancedMode();
 
-        string path = openPath ?? _settings.LastLibraryPath ?? "";
-        if (string.IsNullOrWhiteSpace(path)) path = Storage.DefaultLibraryPath;
-        if (!File.Exists(path) && !string.Equals(path, Storage.DefaultLibraryPath, StringComparison.OrdinalIgnoreCase))
+        // البرنامج بيفتح فاضي وتختار المكتبة (إلا لو فتحت ملف مكتبة بالدبل كليك، أو اخترت «افتح آخر مكتبة» من الإعدادات)
+        string path = openPath ?? (_settings.OpenLastLibraryOnStart ? _settings.LastLibraryPath ?? "" : "");
+        if (string.IsNullOrWhiteSpace(path)) StartWithoutLibrary();
+        else if (!File.Exists(path))
         {
             // آخر قائمة مش موجودة دلوقتي — غالبًا في Google Drive / OneDrive واللي لسه مااشتغلش بعد تشغيل الجهاز.
             // نفتح «مكتبتي» مؤقتًا من غير مانغيّر «آخر قائمة»، ونفضل مستنيين الملف يظهر ونفتحه لوحده.
             _waitingLibraryPath = path;
             _waitingLibrarySinceUtc = DateTime.UtcNow;
             Log.Info("last library not available yet, waiting: " + path);
-            LoadLibrary(Storage.DefaultLibraryPath, remember: false);
+            StartWithoutLibrary();
             ShowBanner("بستنى مكتبتك «" + Path.GetFileNameWithoutExtension(path) + "» تظهر — غالبًا Google Drive أو OneDrive لسه بيفتح. هفتحها لوحدي أول ما توصل.",
                 BannerKind.Warning, "اختارها بنفسي", OpenLibraryDialog, seconds: 0, key: "waiting-library");
         }
@@ -544,7 +545,7 @@ internal sealed partial class MainForm : Form
             addMenu.Items.Add(i);
         }
         // 3 حاجات بس: كورس من فولدر، يوتيوب، وتنظيم المكتبة
-        AddItem("📁  كورس من فولدر على الجهاز أو الدرايف…", "Ctrl+I", ImportCourseDialog);
+        AddItem("📁  كورس من فولدر على الجهاز أو الدرايف…", "Ctrl+I", ImportCourseDialog);   // الحماية جوه كل أمر (EnsureLibrary)
         AddItem("🔗  من يوتيوب (فيديو أو قائمة تشغيل)…", "Ctrl+U", () => AddUrlsDialog(null));
         addMenu.Items.Add(new ToolStripSeparator());
         var organize = new ToolStripMenuItem("🗂  تنظيم المكتبة") { ForeColor = Theme.Text };
@@ -647,7 +648,8 @@ internal sealed partial class MainForm : Form
             new ToolStripSeparator(),
             _recentMenu = SubMenu("المكتبات الأخيرة"),
             new ToolStripSeparator(),
-            Item("فتح مكان ملف المكتبة", () => OpenInExplorer(_libraryPath)),
+            Item("فتح مكان ملف المكتبة", () => { if (HasLibrary) OpenInExplorer(_libraryPath); }),
+            Item("قفل المكتبة (البرنامج يفضل مفتوح)", () => { if (HasLibrary) StartWithoutLibrary(); }),
             Adv(Item("فتح فولدر البيانات (المكتبات والإعدادات)", () =>
             {
                 Directory.CreateDirectory(Storage.AppDataDir);
@@ -1304,7 +1306,7 @@ internal sealed partial class MainForm : Form
         if (_currentLive != null) { Text = $"{_currentLive.Name}  —  مباشر  —  {AppTitle}"; return; }
         Text = _currentVideo != null
             ? $"{_currentVideo.Title}  —  {_currentGroup?.Name}  —  {AppTitle}"
-            : $"{_library.Name}  —  {AppTitle}";
+            : HasLibrary ? $"{_library.Name}  —  {AppTitle}" : AppTitle;
     }
 
     private void UpdateNowPlaying()
@@ -1336,7 +1338,19 @@ internal sealed partial class MainForm : Form
         SaveCurrentPosition();
         CommitNotes();
         FlushSession();
-        SaveLibrary();
+        // المكتبة لازم تتحفظ على آخر حالة: لو الحفظ فشل (الدرايف مش متاح مثلًا) نسأل بدل ما التغييرات تضيع
+        while (HasLibrary && !TrySaveLibrary(out string? error))
+        {
+            var answer = MessageBox.Show(this,
+                "مقدرتش أحفظ المكتبة قبل القفل:\n" + error + "\n\n" +
+                "إعادة المحاولة: أجرّب تاني (مثلًا بعد ما الدرايف يشتغل)\nتجاهل: اقفل من غير آخر التغييرات\nإلغاء: متقفلش",
+                "حفظ المكتبة", MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2,
+                MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
+            if (answer == DialogResult.Retry) continue;
+            if (answer == DialogResult.Ignore) { Log.Info("closed without saving the last changes"); break; }
+            _closing = false;   // «إلغاء»: البرنامج يفضل مفتوح
+            return;
+        }
         SaveSettings();
         _uiTimer.Stop();
         Log.Info("app closed");
@@ -1344,6 +1358,7 @@ internal sealed partial class MainForm : Form
 
         try { await Task.Run(() => _mp.Stop()).WaitAsync(TimeSpan.FromSeconds(3)); }
         catch { /* لو VLC علّق مش هنستنى أكتر من كده */ }
+        ClearCachesOnExit();
 
         _shutdownDone = true;
         Close();

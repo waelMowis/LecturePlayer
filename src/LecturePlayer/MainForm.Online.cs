@@ -151,6 +151,7 @@ internal sealed partial class MainForm
     /// <param name="target">فين يتحط (موضوع/مصدر/كورس/محاضرة). null = المحدد في الشجرة.</param>
     private void AddUrlsDialog(string? prefill, object? target = null)
     {
+        if (!EnsureLibrary()) return;
         target ??= _tree.SelectedNode?.Tag;
         if (prefill == null)
         {
@@ -185,6 +186,7 @@ internal sealed partial class MainForm
         catch { urls = new List<string>(); }
 
         if (urls.Count == 0) { AddUrlsDialog(null); return; }
+        if (!EnsureLibrary()) return;
         _ = AddUrlsAsync(urls, _tree.SelectedNode?.Tag, playFirst: false);
     }
 
@@ -194,6 +196,7 @@ internal sealed partial class MainForm
     /// </summary>
     private async Task AddUrlsAsync(IReadOnlyList<string> urls, object? targetTag, bool playFirst)
     {
+        if (!EnsureLibrary()) return;
         if (urls.Count == 0) return;
         if (_importingUrls) { ShowStatus("استنى، لسه بجيب الروابط اللي قبل كده…"); return; }
         if (!await EnsureYtDlpAsync()) return;
