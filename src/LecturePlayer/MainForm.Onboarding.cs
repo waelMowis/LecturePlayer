@@ -223,6 +223,25 @@ internal sealed partial class MainForm
     /// فحص الأداء والتشغيل الفعلي: مكتبة كبيرة (آلاف الفيديوهات) بتتفتح وتتبني وتتدوّر فيها في وقت معقول،
     /// وملف صوت حقيقي بيشتغل فعلًا في VLC.
     /// </summary>
+    /// <summary>قياس استهلاك البرنامج: المعالج (% من نواة واحدة)، والذاكرة، وسرعة حجز الذاكرة في .NET.</summary>
+    private void MeasureResources(string label, int ms, Action<int> pump)
+    {
+        using var p = System.Diagnostics.Process.GetCurrentProcess();
+        p.Refresh();
+        var cpu0 = p.TotalProcessorTime;
+        long alloc0 = GC.GetTotalAllocatedBytes();
+        int gc0 = GC.CollectionCount(0);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        pump(ms);
+        sw.Stop();
+        p.Refresh();
+        double cpu = (p.TotalProcessorTime - cpu0).TotalMilliseconds / sw.Elapsed.TotalMilliseconds * 100;
+        double allocMBs = (GC.GetTotalAllocatedBytes() - alloc0) / 1048576.0 / sw.Elapsed.TotalSeconds;
+        Console.WriteLine($"SMOKE resources [{label}]: cpu {cpu:F1}% of one core, working set {p.WorkingSet64 / 1048576} MB, " +
+                          $"private {p.PrivateMemorySize64 / 1048576} MB, managed {GC.GetTotalMemory(false) / 1048576} MB, " +
+                          $"alloc {allocMBs:F2} MB/s, gen0 GCs {GC.CollectionCount(0) - gc0}");
+    }
+
     private void RunStressAndPlaybackChecks()
     {
         string dir = Path.Combine(Path.GetTempPath(), "masar-smoke");
@@ -269,6 +288,8 @@ internal sealed partial class MainForm
         if (loadMs > 15000) throw new Exception($"perf: loading a 5000-video library took {loadMs} ms");
         if (searchMs > 5000) throw new Exception($"perf: search took {searchMs} ms");
         if (saveMs > 5000) throw new Exception($"perf: save took {saveMs} ms");
+        void PumpFor(int ms) { var w = DateTime.UtcNow.AddMilliseconds(ms); while (DateTime.UtcNow < w) { Application.DoEvents(); Thread.Sleep(15); } }
+        MeasureResources("idle, 5000-video library", 5000, PumpFor);
 
         // تشغيل فعلي في VLC
         var group0 = _library.Courses[0].Groups[0];
@@ -287,6 +308,10 @@ internal sealed partial class MainForm
             if (state == VLCState.Playing && time > 500) break;
         }
         Console.WriteLine($"SMOKE playback: state {state}, time {time} ms");
+        MeasureResources("audio playing, vlc log ON", 2500, PumpFor);
+        SetVlcLogCapture(false);
+        MeasureResources("audio playing, vlc log OFF", 2500, PumpFor);
+        SetVlcLogCapture(true);
         if (state == VLCState.Error) throw new Exception("playback: VLC error playing a local audio file");
         if (state != VLCState.Playing || time <= 0) throw new Exception($"playback: never started (state {state}, time {time})");
         // التكرار: ملف صوت قصير (ثانيتين) لازم يتعاد لوحده لما يخلص
@@ -347,6 +372,10 @@ internal sealed partial class MainForm
         while (DateTime.UtcNow < vu && VlcWindowsMisfit() == "no vlc window") Pump(100);
         Pump(500);
         Console.WriteLine($"SMOKE video window (full): {VlcWindowsMisfit() ?? "fits"} :: {DescribeVideoWindows()}");
+        MeasureResources("video playing, vlc log ON", 5000, Pump);
+        SetVlcLogCapture(false);
+        MeasureResources("video playing, vlc log OFF", 5000, Pump);
+        SetVlcLogCapture(true);
 
         // من غير الإصلاح (عشان نتأكد إن ده فعلًا سبب المشكلة)
         DisableVideoFitForTest = true;

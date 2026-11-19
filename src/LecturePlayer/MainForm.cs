@@ -84,6 +84,25 @@ internal sealed partial class MainForm : Form
     private int _tick;
     private DateTime _statusMessageUntil;
     private readonly Queue<string> _vlcLog = new();
+    private bool _vlcLogCapture;
+
+    private void OnVlcLog(object? sender, LogEventArgs e)
+    {
+        if (e.Level < LogLevel.Warning) return;
+        lock (_vlcLog)
+        {
+            _vlcLog.Enqueue($"{e.Level} {e.Module}: {e.Message}");
+            while (_vlcLog.Count > 30) _vlcLog.Dequeue();
+        }
+    }
+
+    /// <summary>تسجيل تحذيرات VLC (عشان نعرف سبب فشل فيديو). للقياس: بنقدر نقفله.</summary>
+    internal void SetVlcLogCapture(bool on)
+    {
+        if (on == _vlcLogCapture) return;
+        if (on) _libVLC.Log += OnVlcLog; else _libVLC.Log -= OnVlcLog;
+        _vlcLogCapture = on;
+    }
 
     /// <summary>بيكتب آخر رسايل VLC في السجل (بيتنده لما فيديو يفشل).</summary>
     private void DumpVlcLog(string why)
@@ -106,15 +125,7 @@ internal sealed partial class MainForm : Form
         if (_settings.NormalizeAudio) vlcOptions.Add("--audio-filter=normvol"); // توحيد مستوى الصوت
         _libVLC = new LibVLC(vlcOptions.ToArray());
         // آخر تحذيرات/أخطاء VLC بتتحفظ في الذاكرة، وبتتكتب في السجل لما فيديو يفشل (عشان نعرف السبب الحقيقي)
-        _libVLC.Log += (_, e) =>
-        {
-            if (e.Level < LogLevel.Warning) return;
-            lock (_vlcLog)
-            {
-                _vlcLog.Enqueue($"{e.Level} {e.Module}: {e.Message}");
-                while (_vlcLog.Count > 30) _vlcLog.Dequeue();
-            }
-        };
+        SetVlcLogCapture(true);
         StreamProxy.Trace = Log.Info;
         // لو تسجيل الدخول من متصفح حل «أكّد إنك مش روبوت» لوحده: نحفظه عشان المرات الجاية
         YtDlp.CookiesBrowserFound += browser => BeginInvoke(() =>
