@@ -374,11 +374,30 @@ internal sealed partial class MainForm
         while (DateTime.UtcNow < vu && VlcWindowsMisfit() == "no vlc window") Pump(100);
         Pump(500);
         Console.WriteLine($"SMOKE video window (full): {VlcWindowsMisfit() ?? "fits"} :: {DescribeVideoWindows()}");
-        SetVlcLogCapture(false);
-        MeasureResources("video playing, vlc log OFF", 5000, Pump);
-        SetVlcLogCapture(true);
-        MeasureResources("video playing, vlc log ON", 5000, Pump);
-        MeasureResources("video playing, vlc log ON (2)", 5000, Pump);
+        MeasureResources("video playing", 4000, Pump);
+
+        // تسريب ذاكرة؟ 40 مرة تبديل بين فيديو وصوت، ونقيس قبل وبعد
+        {
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            using var self = System.Diagnostics.Process.GetCurrentProcess();
+            long priv0 = self.PrivateMemorySize64, managed0 = GC.GetTotalMemory(true);
+            int handles0 = self.HandleCount, threads0 = self.Threads.Count;
+            for (int i = 0; i < 40; i++)
+            {
+                PlayVideo(group0, i % 2 == 0 ? tone : picture, 0);
+                Pump(250);
+            }
+            PlayVideo(group0, picture, 0);
+            Pump(1500);
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            self.Refresh();
+            long privGrow = (self.PrivateMemorySize64 - priv0) / 1048576, managedGrow = (GC.GetTotalMemory(true) - managed0) / 1048576;
+            int handleGrow = self.HandleCount - handles0, threadGrow = self.Threads.Count - threads0;
+            Console.WriteLine($"SMOKE leak (40 switches): private {privGrow:+#;-#;0} MB, .NET {managedGrow:+#;-#;0} MB, handles {handleGrow:+#;-#;0}, threads {threadGrow:+#;-#;0}");
+            if (managedGrow > 50 || handleGrow > 400 || threadGrow > 20)
+                throw new Exception($"leak: 40 video switches grew .NET memory {managedGrow} MB, handles {handleGrow}, threads {threadGrow}");
+        }
+        MeasureResources("video playing after switches", 3000, Pump);
 
         // من غير الإصلاح (عشان نتأكد إن ده فعلًا سبب المشكلة)
         DisableVideoFitForTest = true;

@@ -233,6 +233,7 @@ internal sealed partial class MainForm
 
     private PreviewPopup? _preview;
     private long _previewBucket = -1;
+    private Image? _previewImage;
     private CancellationTokenSource? _previewCts;
 
     /// <summary>بيتنده مع حركة الماوس على الشريط. بيرجّع true لو عرض معاينة.</summary>
@@ -250,13 +251,21 @@ internal sealed partial class MainForm
         _preview ??= new PreviewPopup();
 
         string cache = Path.Combine(Storage.AppDataDir, "cache", "thumbs", StableHash(file), bucket + ".jpg");
+        // نفس الصورة اللي معروضة: نحرّك الشباك بس (من غير ما نقرا الصورة من الديسك مع كل حركة ماوس)
+        if (bucket == _previewBucket && _preview.Visible && _preview.HasImage)
+        {
+            _preview.ShowAt(_previewImage, caption, anchor, imgSize);
+            return true;
+        }
         if (File.Exists(cache))
         {
             _previewBucket = bucket;
-            _preview.ShowAt(LoadImageUnlocked(cache), caption, anchor, imgSize);
+            _previewImage = LoadImageUnlocked(cache);
+            _preview.ShowAt(_previewImage, caption, anchor, imgSize);
             return true;
         }
 
+        _previewImage = null;
         _preview.ShowAt(null, caption, anchor, imgSize);
         if (bucket == _previewBucket) return true;
         _previewBucket = bucket;
@@ -270,7 +279,10 @@ internal sealed partial class MainForm
             Ui(() =>
             {
                 if (_previewBucket == bucket && _preview is { Visible: true } p)
-                    p.ShowAt(LoadImageUnlocked(cache), caption, anchor, imgSize);
+                {
+                    _previewImage = LoadImageUnlocked(cache);
+                    p.ShowAt(_previewImage, caption, anchor, imgSize);
+                }
             });
         }, cts.Token);
         return true;

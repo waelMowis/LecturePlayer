@@ -57,6 +57,18 @@ public static class LibraryFiles
 
     public static void ClearNames() { lock (NameCache) NameCache.Clear(); }
 
+    /// <summary>
+    /// الملف على درايف سحابي (Google Drive / OneDrive / Dropbox)؟ قراية ملف هناك ممكن تخلّي الدرايف ينزّل جزء منه،
+    /// فالبرنامج مش بيقرا مدة فيديوهات الدرايف في الخلفية (بيعرفها لما الفيديو يشتغل).
+    /// </summary>
+    public static bool IsCloudPath(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        string low = path.ToLowerInvariant();
+        return low.Contains(@"\my drive\") || low.Contains("google drive") || low.Contains(".shortcut-targets-by-id")
+               || low.Contains("shared drives") || low.Contains("onedrive") || low.Contains("dropbox");
+    }
+
     /// <summary>مكان المكتبة بكلام مفهوم: «على الجهاز» أو «Google Drive» أو «OneDrive» أو «Dropbox» أو الفولدر نفسه.</summary>
     public static string LocationLabel(string path)
     {

@@ -573,6 +573,7 @@ internal sealed partial class MainForm
         TrackTick();
 
         if (_tick % 4 == 0 && IsActive) HealVideoFit(); // شباك الصورة دايمًا جوه مساحة الفيديو
+        if (_tick % 40 == 7) SampleResources(); // كل 10 ثواني: استهلاك المعالج والذاكرة (بيتسجل كل 5 دقايق)
         if (_tick % 480 == 12) _ = SyncLinkedFoldersAsync(); // الفولدرات المربوطة: أول 3 ثواني وبعدين كل دقيقتين
         if (_tick % 40 == 0 && _dirty) SaveLibrary(); // حفظ تلقائي كل 10 ثواني لو في تغيير
         else if (_tick % 240 == 0 && _positionDirty) SaveLibrary(); // مكان التشغيل بس: كل دقيقة

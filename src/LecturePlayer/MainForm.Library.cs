@@ -1462,10 +1462,19 @@ internal sealed partial class MainForm
     //  قراءة مدة الفيديوهات في الخلفية
     // =====================================================================
 
+    /// <summary>فيديوهات فشلت قراية مدتها مرة: مش بنعيد المحاولة تاني في نفس التشغيلة.</summary>
+    private readonly HashSet<string> _probeFailed = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// مدة الفيديوهات اللي لسه مش معروفة، في الخلفية. مش بيقرا فيديوهات الدرايف السحابي (Google Drive/OneDrive/Dropbox):
+    /// القراية هناك بتخلّي الدرايف ينزّل جزء من كل ملف (نت ومعالج وذاكرة مع كل فتح للبرنامج) — مدتها بتتعرف لما تشتغل.
+    /// </summary>
     private void QueueProbe(IEnumerable<VideoItem> videos)
     {
         foreach (var v in videos)
-            if (v.DurationMs <= 0 && !v.IsOnline && File.Exists(v.LocalPath)) _probeQueue.Enqueue(v);
+            if (v.DurationMs <= 0 && !v.IsOnline && !LibraryFiles.IsCloudPath(v.LocalPath)
+                && !_probeFailed.Contains(v.LocalPath) && FileCache.Exists(v.LocalPath))
+                _probeQueue.Enqueue(v);
         if (!_probing && _probeQueue.Count > 0) _ = ProbeLoopAsync();
     }
 
@@ -1478,6 +1487,8 @@ internal sealed partial class MainForm
             var touchedGroups = new HashSet<LectureGroup>();
             while (_probeQueue.Count > 0 && !_closing)
             {
+                // وإنت بتتفرج: نستنى (القراية بتنافس الفيديو الشغال على الديسك والمعالج)
+                while (IsActive && _mp.State == VLCState.Playing && !_closing) await Task.Delay(2000);
                 var v = _probeQueue.Dequeue();
                 if (v.DurationMs > 0) continue;
                 try
@@ -1485,6 +1496,7 @@ internal sealed partial class MainForm
                     using var media = new Media(_libVLC, v.LocalPath, FromType.FromPath);
                     await media.Parse(MediaParseOptions.ParseLocal, 5000);
                     if (_closing) return;
+                    if (media.Duration <= 0) _probeFailed.Add(v.LocalPath);
                     if (media.Duration > 0)
                     {
                         v.DurationMs = media.Duration;
@@ -1493,7 +1505,8 @@ internal sealed partial class MainForm
                         if (_library.FindGroupOf(v) is { } g) touchedGroups.Add(g);
                     }
                 }
-                catch { /* ملف بايظ أو مش مدعوم — هتتعرف مدته لما يشتغل */ }
+                catch { _probeFailed.Add(v.LocalPath); /* ملف بايظ أو مش مدعوم — هتتعرف مدته لما يشتغل */ }
+                await Task.Delay(30); // نسيب نَفَس للواجهة
 
                 if (++sinceRefresh >= 10 || _probeQueue.Count == 0)
                 {

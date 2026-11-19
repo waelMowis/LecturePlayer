@@ -43,6 +43,8 @@ internal sealed class PreviewPopup : Form
         }
     }
 
+    public bool HasImage => _picture.Image != null;
+
     /// <param name="anchor">نقطة على الشاشة (منتصف تحت الشباك)</param>
     public void ShowAt(Image? image, string caption, Point anchor, Size imageSize)
     {
