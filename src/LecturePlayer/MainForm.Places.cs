@@ -553,17 +553,45 @@ internal sealed partial class MainForm
         int before = _library.Courses.Count;
         var st = new UrlTarget(this, baqara);
         var (pc, pg) = st.Place(pl, "https://www.youtube.com/playlist?list=PLx");
-        Check(_library.PlaceOf(pc) == baqara && pc.Name == "Playlist X" && pg.SourceUrl != null, "url: playlist → course in sub-source");
-        var (sc1, sg1) = st.Place(one, "https://www.youtube.com/watch?v=bbbbbbbbbbb");
-        var (sc2, sg2) = new UrlTarget(this, baqara).Place(one, "https://www.youtube.com/watch?v=ccccccccccc");
-        Check(_library.PlaceOf(sc1) == baqara && sc1 == sc2 && sg1 == sg2 && sc1.Name == "فيديوهات من يوتيوب", "url: singles → one course in sub-source");
-        var (tc, _) = new UrlTarget(this, yt).Place(one, "u");
-        Check(_library.TopicOf(tc) == yt && _library.PlaceOf(tc) == null, "url: topic → course directly in topic");
+        Check(_library.PlaceOf(pc) == baqara && pc.Name == "Playlist X" && pg.SourceUrl != null, "url: playlist → course named after it");
+        // فيديوهات لوحدها + اسم كورس جديد ← كورس واحد بالاسم ده ومحاضرة «الفيديوهات»
+        var named = new UrlTarget(this, baqara, "سورة البقرة");
+        var (nc1, ng1) = named.Place(one, "https://www.youtube.com/watch?v=bbbbbbbbbbb");
+        var (nc2, ng2) = named.Place(one, "https://www.youtube.com/watch?v=ccccccccccc");
+        var (nc3, ng3) = named.Place(pl, "https://www.youtube.com/playlist?list=PLy");
+        Check(nc1 == nc2 && nc2 == nc3 && nc1.Name == "سورة البقرة" && _library.PlaceOf(nc1) == baqara, "url: named course holds everything");
+        Check(ng1 == ng2 && ng1.Name == UrlTarget.SinglesLecture && ng3.Name == "Playlist X" && ng3.SourceUrl != null && nc1.Groups.Count == 2, "url: lectures in named course");
+        Check(!_library.Courses.Any(c => c.Name == "فيديوهات من يوتيوب") && !_library.AllGroups.Any(g => g.Name == "فيديوهات من النت"), "url: no meaningless names");
+        // فيديو لوحده من غير اسم (مثلًا اتسحب على موضوع) ← الكورس باسم الفيديو
+        var (tc, tg) = new UrlTarget(this, yt).Place(one, "u");
+        Check(_library.TopicOf(tc) == yt && _library.PlaceOf(tc) == null && tc.Name == "B" && tg.Name == UrlTarget.SinglesLecture, "url: single without name → named after video");
         var (rc, _) = new UrlTarget(this, null).Place(pl, "u");
         Check(_library.TopicOf(rc) == null && rc.Name == "Playlist X", "url: nothing selected → new course at root");
+        // كورس موجود ← القائمة محاضرة جديدة، والفيديو في «الفيديوهات» (مش في أول محاضرة في الكورس)
         var (ucc, ucg) = new UrlTarget(this, pc).Place(pl, "u2");
         Check(ucc == pc && pc.Groups.Count == 2 && ucg.SourceUrl == "u2", "url: course → new lecture in it");
+        var (vc, vg) = new UrlTarget(this, pc).Place(one, "u3");
+        Check(vc == pc && vg.Name == UrlTarget.SinglesLecture && vg != pc.Groups[0] && pc.Groups.Count == 3, "url: single into existing course → «الفيديوهات»");
         Check(_library.Courses.Count == before + 4, "url: courses created " + (_library.Courses.Count - before));
+
+        // شاشة «إضافة من يوتيوب» نفسها: كورس جديد باسم، وكورس موجود من القايمة، ومحاضرة محددة
+        try
+        {
+            UrlForm.AutoFillForSmoke = ("https://www.youtube.com/watch?v=aaaaaaaaaaa", "سورة الكهف", 0);
+            var r1 = UrlForm.Show(this, "", "«سورة البقرة»", _library.CoursesInPlace(baqara).ToList(), null, null);
+            Check(r1 != null && r1.Course == null && r1.NewCourseName == "سورة الكهف" && r1.Urls.Count == 1, "url form: new named course");
+            UrlForm.AutoFillForSmoke = ("https://www.youtube.com/watch?v=aaaaaaaaaaa", null, 1);
+            var list = _library.CoursesInPlace(baqara).ToList();
+            var r2 = UrlForm.Show(this, "", "«سورة البقرة»", list, null, null);
+            Check(r2 != null && r2.Course == list[0] && r2.NewCourseName == null, "url form: existing course");
+            UrlForm.AutoFillForSmoke = ("https://www.youtube.com/playlist?list=PLz", null, 0);
+            var r3 = UrlForm.Show(this, "", "«سورة البقرة»", list, null, null);
+            Check(r3 != null && r3.Course == null && r3.NewCourseName == null, "url form: playlist without name allowed");
+            UrlForm.AutoFillForSmoke = ("https://www.youtube.com/watch?v=aaaaaaaaaaa", null, 0);
+            var r4 = UrlForm.Show(this, "", "x", list, pc, pc.Groups[0]);
+            Check(r4 != null && r4.Course == null, "url form: lecture target");
+        }
+        finally { UrlForm.AutoFillForSmoke = null; }
         // الأمر موجود في قايمة الموضوع والمصدر
         RebuildTree();
         ShowNodeMenu(NodeOf(baqara)!, Point.Empty);

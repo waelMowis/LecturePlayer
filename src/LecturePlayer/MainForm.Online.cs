@@ -163,9 +163,19 @@ internal sealed partial class MainForm
             catch { /* الحافظة مشغولة */ }
         }
 
-        var result = Dialogs.Urls(this, prefill ?? "", UrlTargetText(target));
+        // المكان اللي الكورس الجديد هيتعمل فيه، والكورسات اللي فيه عشان تختار منها
+        var lecture = target switch { LectureGroup g => g, VideoItem v => _library.FindGroupOf(v), _ => null };
+        var selCourse = target switch { Course c => c, LectureGroup g => _library.FindCourseOf(g), VideoItem v => _library.FindCourseOf(v), _ => null };
+        var place = target as Place ?? (selCourse != null ? _library.PlaceOf(selCourse) : null);
+        var topic = target as Topic ?? (place != null ? _library.TopicOf(place) : selCourse != null ? _library.TopicOf(selCourse) : null);
+        var courses = (place != null ? _library.CoursesInPlace(place) : _library.DirectCoursesOf(topic)).ToList();
+        string where = place != null ? $"«{place.Name}»" : topic != null ? $"«{topic.Name}»" : "المكتبة";
+
+        var result = UrlForm.Show(this, prefill ?? "", where, courses, selCourse, lecture);
         if (result == null) return;
-        _ = AddUrlsAsync(result.Value.Urls, target, result.Value.PlayFirst);
+        // كورس اتختار من القايمة ← جواه. كورس جديد ← في نفس المكان (الموضوع/المصدر) باسمه
+        object? dest = lecture != null ? lecture : result.Course != null ? result.Course : (object?)place ?? topic;
+        _ = AddUrlsAsync(result.Urls, dest, result.PlayFirst, result.NewCourseName);
     }
 
     /// <summary>وصف مكان الإضافة اللي بيظهر في شاشة الروابط.</summary>
@@ -174,9 +184,9 @@ internal sealed partial class MainForm
         LectureGroup g => $"محاضرة «{g.Name}»",
         VideoItem v when _library.FindGroupOf(v) is { } g => $"محاضرة «{g.Name}»",
         Course c => $"كورس «{c.Name}»",
-        Place p => $"كورس جديد جوه «{p.Name}» (قائمة التشغيل بتبقى كورس باسمها)",
-        Topic t => $"كورس جديد جوه «{t.Name}» (قائمة التشغيل بتبقى كورس باسمها)",
-        _ => "كورس جديد (قائمة التشغيل بتبقى كورس باسمها)"
+        Place p => $"كورس جديد جوه «{p.Name}»",
+        Topic t => $"كورس جديد جوه «{t.Name}»",
+        _ => "كورس جديد"
     };
 
     private void PasteUrls()
@@ -194,7 +204,8 @@ internal sealed partial class MainForm
     /// قائمة تشغيل ← محاضرة جديدة باسمها في الكورس المحدد.
     /// فيديو لوحده ← المحاضرة المحددة (أو محاضرة «فيديوهات من النت»).
     /// </summary>
-    private async Task AddUrlsAsync(IReadOnlyList<string> urls, object? targetTag, bool playFirst)
+    /// <param name="newCourseName">اسم كورس جديد تتحط فيه كل الروابط (null = تلقائي).</param>
+    private async Task AddUrlsAsync(IReadOnlyList<string> urls, object? targetTag, bool playFirst, string? newCourseName = null)
     {
         if (!EnsureLibrary()) return;
         if (urls.Count == 0) return;
@@ -204,7 +215,7 @@ internal sealed partial class MainForm
         _importingUrls = true;
         UseWaitCursor = true;
 
-        var st = new UrlTarget(this, targetTag);
+        var st = new UrlTarget(this, targetTag, newCourseName);
 
         Checkpoint("إضافة روابط");
         var errors = new List<string>();
@@ -300,10 +311,16 @@ internal sealed partial class MainForm
         private readonly Course? _course;
         private readonly Place? _place;
         private readonly Topic? _topic;
+        private readonly string? _newName;
+        private Course? _named;
         private Course? _singlesCourse;
         private LectureGroup? _singlesGroup;
 
-        public UrlTarget(MainForm f, object? targetTag)
+        /// <summary>اسم محاضرة الفيديوهات اللي اتضافت لوحدها (مش من قائمة تشغيل).</summary>
+        internal const string SinglesLecture = "الفيديوهات";
+
+        /// <param name="newCourseName">كورس جديد بالاسم ده تتحط فيه كل الروابط (قائمة التشغيل محاضرة جواه).</param>
+        public UrlTarget(MainForm f, object? targetTag, string? newCourseName = null)
         {
             _f = f;
             var lib = f._library;
@@ -316,6 +333,7 @@ internal sealed partial class MainForm
             };
             _place = targetTag as Place;
             _topic = targetTag is Topic t ? t : _place != null ? lib.TopicOf(_place) : null;
+            _newName = string.IsNullOrWhiteSpace(newCourseName) ? null : newCourseName.Trim();
             _singlesCourse = _course;
             _singlesGroup = targetTag switch
             {
@@ -325,29 +343,24 @@ internal sealed partial class MainForm
             };
         }
 
+        private Course NewCourse(string name)
+        {
+            var c = new Course { Name = name };
+            c.TouchInfo();
+            _f.PlaceCourseAtEnd(c, _topic, _place);
+            return c;
+        }
+
         public (Course Course, LectureGroup Group) Place(OnlineListing listing, string url)
         {
-            var lib = _f._library;
             Course course;
             if (_course != null) course = _course;
-            else if (listing.IsPlaylist)
-            {
-                course = new Course { Name = listing.Title ?? "قائمة تشغيل" };
-                course.TouchInfo();
-                _f.PlaceCourseAtEnd(course, _topic, _place);
-            }
+            else if (_newName != null) course = _named ??= NewCourse(_newName);   // كل الروابط في كورس واحد بالاسم اللي اتكتب
+            else if (listing.IsPlaylist) course = NewCourse(listing.Title ?? "قائمة تشغيل"); // القائمة كورس باسمها
             else
             {
-                _singlesCourse ??= (_place != null ? lib.CoursesInPlace(_place) : lib.DirectCoursesOf(_topic))
-                                   .FirstOrDefault(c => c.Name == "فيديوهات من يوتيوب");
-                if (_singlesCourse == null)
-                {
-                    _singlesCourse = new Course { Name = "فيديوهات من يوتيوب" };
-                    _singlesCourse.TouchInfo();
-                    _f.PlaceCourseAtEnd(_singlesCourse, _topic, _place);
-                }
-                course = _singlesCourse;
-                _singlesGroup ??= course.Groups.FirstOrDefault(g => g.SourceUrl == null);
+                // فيديو لوحده من غير اسم (مثلًا اتسحب على موضوع): الكورس بياخد اسم الفيديو
+                course = _singlesCourse ??= NewCourse(listing.Entries.FirstOrDefault()?.Title is { Length: > 0 } title ? title : "فيديو من يوتيوب");
             }
 
             LectureGroup group;
@@ -364,10 +377,15 @@ internal sealed partial class MainForm
             }
             else
             {
-                if (_singlesGroup == null)
+                if (_singlesGroup == null || !course.Groups.Contains(_singlesGroup))
                 {
-                    _singlesGroup = new LectureGroup { Name = "فيديوهات من النت" };
-                    course.Groups.Add(_singlesGroup);
+                    // محاضرة «الفيديوهات» (أو «فيديوهات من النت» من النسخ القديمة) — مش أي محاضرة في الكورس
+                    _singlesGroup = course.Groups.FirstOrDefault(g => g.SourceUrl == null && g.Name is SinglesLecture or "فيديوهات من النت");
+                    if (_singlesGroup == null)
+                    {
+                        _singlesGroup = new LectureGroup { Name = SinglesLecture };
+                        course.Groups.Add(_singlesGroup);
+                    }
                 }
                 group = _singlesGroup;
             }

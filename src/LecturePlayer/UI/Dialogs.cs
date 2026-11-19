@@ -60,30 +60,4 @@ internal static class Dialogs
         return text.Length == 0 ? null : text;
     }
 
-    /// <summary>حوار إضافة روابط (فيديو أو قائمة تشغيل) — رابط في كل سطر.</summary>
-    public static (List<string> Urls, bool PlayFirst)? Urls(IWin32Window owner, string initial, string targetDescription)
-    {
-        using var kit = new FormKit("إضافة من يوتيوب / النت", 580);
-        kit.Header("الروابط");
-        kit.Note("حط رابط فيديو أو قائمة تشغيل (أو كذا رابط، كل واحد في سطر):", 22, Theme.Text);
-        var box = kit.Full(new TextBox
-        {
-            Text = initial, Multiline = true, ScrollBars = ScrollBars.Vertical, WordWrap = false,
-            RightToLeft = RightToLeft.No, Font = new Font("Consolas", 10f), AcceptsReturn = true
-        }, 150);
-        kit.Note("• قائمة التشغيل هتبقى محاضرة جديدة باسمها، وكل فيديو فيها هيبقى جزء منها\n" +
-                 "• الفيديو لوحده هيتضاف في: " + targetDescription, 40);
-        var play = kit.Full(new ToggleSwitch { Text = "شغّل أول فيديو بعد الإضافة", Checked = true }, 32);
-        kit.Buttons("إضافة");
-        kit.Form.Shown += (_, _) => { box.Focus(); box.SelectAll(); };
-        kit.Form.FormClosing += (_, e) =>
-        {
-            if (kit.Form.DialogResult != DialogResult.OK) return;
-            if (Data.MediaFiles.ExtractUrls(box.Text).Count > 0) return;
-            e.Cancel = true;
-            Error(kit.Form, "مفيش رابط صحيح. الرابط لازم يبدأ بـ https://");
-        };
-        if (kit.Show(owner) != DialogResult.OK) return null;
-        return (Data.MediaFiles.ExtractUrls(box.Text), play.Checked);
-    }
 }
