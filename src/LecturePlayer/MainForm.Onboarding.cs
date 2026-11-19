@@ -289,7 +289,9 @@ internal sealed partial class MainForm
         if (searchMs > 5000) throw new Exception($"perf: search took {searchMs} ms");
         if (saveMs > 5000) throw new Exception($"perf: save took {saveMs} ms");
         void PumpFor(int ms) { var w = DateTime.UtcNow.AddMilliseconds(ms); while (DateTime.UtcNow < w) { Application.DoEvents(); Thread.Sleep(15); } }
-        MeasureResources("idle, 5000-video library", 5000, PumpFor);
+        MeasureResources("idle, 5000-video library, 0-5s", 5000, PumpFor);
+        MeasureResources("idle, 5000-video library, 5-10s", 5000, PumpFor);
+        MeasureResources("idle, 5000-video library, 10-15s", 5000, PumpFor);
 
         // تشغيل فعلي في VLC
         var group0 = _library.Courses[0].Groups[0];
@@ -372,10 +374,11 @@ internal sealed partial class MainForm
         while (DateTime.UtcNow < vu && VlcWindowsMisfit() == "no vlc window") Pump(100);
         Pump(500);
         Console.WriteLine($"SMOKE video window (full): {VlcWindowsMisfit() ?? "fits"} :: {DescribeVideoWindows()}");
-        MeasureResources("video playing, vlc log ON", 5000, Pump);
         SetVlcLogCapture(false);
         MeasureResources("video playing, vlc log OFF", 5000, Pump);
         SetVlcLogCapture(true);
+        MeasureResources("video playing, vlc log ON", 5000, Pump);
+        MeasureResources("video playing, vlc log ON (2)", 5000, Pump);
 
         // من غير الإصلاح (عشان نتأكد إن ده فعلًا سبب المشكلة)
         DisableVideoFitForTest = true;

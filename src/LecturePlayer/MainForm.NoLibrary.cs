@@ -160,6 +160,8 @@ internal sealed partial class MainForm
 
         StartWithoutLibrary();
         Check(!HasLibrary && _library.Courses.Count == 0 && _tree.Nodes.Count == 0, "empty state");
+        void PumpFor(int ms) { var w = DateTime.UtcNow.AddMilliseconds(ms); while (DateTime.UtcNow < w) { Application.DoEvents(); Thread.Sleep(15); } }
+        MeasureResources("idle, no library", 4000, PumpFor);
         Check(_courseLabel.Text.Contains("افتح مكتبة") && Text == AppTitle, "header/title: " + _courseLabel.Text + " / " + Text);
         RefreshHome();
         Check(_homeCards.Controls.Count == RecentLibraries(8).Count && _homeTitle.Text.Length > 0, "home lists libraries");
