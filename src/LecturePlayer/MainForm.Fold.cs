@@ -225,7 +225,9 @@ internal sealed partial class MainForm
 
         // التحديد جوه الموضوع التاني (مصدر فرعي ← كورس ← محاضرة ← فيديو)
         _tree.SelectedNode = NodeOf(deep!);
-        Console.WriteLine($"SMOKE fold trace: start sel={_tree.SelectedNode?.Tag} handle={_tree.IsHandleCreated} visible={_tree.Visible}");
+        Console.WriteLine($"SMOKE fold trace: start sel={_tree.SelectedNode?.Tag} node={(NodeOf(deep!) != null)} roots={_tree.Nodes.Count} lib={_library.Name} courses={_library.Courses.Count} " +
+                          $"search='{_searchBox.Text}' filter={_settings.CourseFilter} handle={_tree.IsHandleCreated} visible={_tree.Visible} " +
+                          $"sameObj={_library.AllVideos.Contains(deep!)}");
         for (int level = 4; level >= 0; level--)
         {
             ExpandToLevel(level);
