@@ -170,4 +170,78 @@ internal sealed partial class MainForm
         }
         Console.WriteLine("SMOKE library files ui OK");
     }
+
+    /// <summary>
+    /// فتح الكل / قفل الكل / «اعرض لحد» مع أكتر من موضوع، والتحديد جوه موضوع تاني (زي آخر فيديو اتشغل):
+    /// اللي على الشاشة لازم يطابق اللي البرنامج فاكره، ومفيش موضوع يفتح لوحده.
+    /// </summary>
+    internal void RunFoldChecks()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("fold: " + what); }
+        string dir = Path.Combine(Path.GetTempPath(), "masar-smoke-fold");
+        Directory.CreateDirectory(dir);
+        var lib = new CourseLibrary { Name = "fold" };
+        VideoItem? deep = null;
+        for (int ti = 1; ti <= 3; ti++)
+        {
+            var t = new Topic { Name = "Topic " + ti };
+            lib.Topics.Add(t);
+            var p = new Place { Name = "Source " + ti, TopicId = t.Id };
+            var sub = new Place { Name = "Sub " + ti, TopicId = t.Id, ParentId = p.Id };
+            lib.Places.Add(p);
+            lib.Places.Add(sub);
+            foreach (var (place, name) in new[] { (p, "In source " + ti), (sub, "In sub " + ti), ((Place?)null, "Direct " + ti) })
+            {
+                var c = new Course { Name = name, TopicId = t.Id, PlaceId = place?.Id };
+                for (int gi = 1; gi <= 2; gi++)
+                {
+                    var g = new LectureGroup { Name = "L" + gi };
+                    g.Videos.Add(new VideoItem { Path = Path.Combine(dir, $"{name}-{gi}.mp4"), Title = "v" + gi });
+                    c.Groups.Add(g);
+                }
+                lib.Courses.Add(c);
+                if (ti == 2 && place == sub) deep = c.Groups[1].Videos[0];
+            }
+        }
+        string path = Path.Combine(dir, "fold.lpl");
+        Storage.SaveLibrary(path, lib);
+        LoadLibrary(path, remember: false);
+
+        bool Model(TreeNode n) => n.Tag switch
+        {
+            Topic t => t.Expanded, Place p => p.Expanded, Course c => c.Expanded, LectureGroup g => g.Expanded, _ => false
+        };
+        IEnumerable<TreeNode> All(TreeNodeCollection nodes)
+        {
+            foreach (TreeNode n in nodes) { yield return n; foreach (var x in All(n.Nodes)) yield return x; }
+        }
+        void Consistent(string when)
+        {
+            foreach (var n in All(_tree.Nodes).Where(n => n.Nodes.Count > 0))
+                Check(n.IsExpanded == Model(n), $"{when}: «{n.Tag}» on screen {(n.IsExpanded ? "open" : "closed")} but remembered {(Model(n) ? "open" : "closed")}");
+            var sel = _tree.SelectedNode;
+            for (var a = sel?.Parent; a != null; a = a.Parent) Check(a.IsExpanded, $"{when}: selection hidden inside a closed node");
+        }
+
+        // التحديد جوه الموضوع التاني (مصدر فرعي ← كورس ← محاضرة ← فيديو)
+        _tree.SelectedNode = NodeOf(deep!);
+        for (int level = 4; level >= 0; level--)
+        {
+            ExpandToLevel(level);
+            Consistent("level " + level);
+        }
+        ExpandToLevel(0);
+        Check(All(_tree.Nodes).Count(n => n.Parent == null && n.IsExpanded) == 0, "collapse all left a topic open");
+        Check(_tree.SelectedNode?.Tag is Topic { Name: "Topic 2" }, "selection should move to its topic: " + _tree.SelectedNode?.Tag);
+        ExpandToLevel(4);
+        Consistent("expand all");
+        Check(All(_tree.Nodes).Where(n => n.Nodes.Count > 0).All(n => n.IsExpanded), "expand all left something closed");
+        // اختصارات الكيبورد بتعمل نفس الحاجة
+        var msg = new Message();
+        _tree.Focus();
+        ProcessCmdKey(ref msg, Keys.Control | Keys.Shift | Keys.OemOpenBrackets);
+        Check(_library.Topics.All(t => !t.Expanded) && _tree.Nodes.Cast<TreeNode>().All(n => !n.IsExpanded), "Ctrl+Shift+[");
+        Directory.Delete(dir, true);
+        Console.WriteLine("SMOKE fold OK");
+    }
 }

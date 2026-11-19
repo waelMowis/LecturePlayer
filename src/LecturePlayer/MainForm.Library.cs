@@ -650,7 +650,9 @@ internal sealed partial class MainForm
 
             foreach (var n in toExpand) n.Expand();
 
-            if (selectedTag != null && NodeOf(selectedTag) is { } sel) _tree.SelectedNode = sel;
+            // نرجّع التحديد، بس من غير ما نفتح حاجة اتقفلت: ويندوز بيفتح كل اللي فوق العنصر المحدد عشان يبان،
+            // فلو العنصر جوه موضوع/مصدر/كورس مقفول، التحديد بيروح للحاجة المقفولة نفسها (أعلى واحدة) بدل ما تتفتح لوحدها.
+            if (selectedTag != null && NodeOf(selectedTag) is { } sel) _tree.SelectedNode = VisibleAncestorOrSelf(sel);
         }
         finally
         {
@@ -662,6 +664,15 @@ internal sealed partial class MainForm
         UpdateLibraryHeader();
         UpdateStatusBar();
         RefreshHome();
+    }
+
+    /// <summary>العنصر نفسه لو كل اللي فوقه مفتوح، وإلا أعلى عنصر مقفول فوقه (اللي باين في الشجرة).</summary>
+    private static TreeNode VisibleAncestorOrSelf(TreeNode node)
+    {
+        var result = node;
+        for (var a = node.Parent; a != null; a = a.Parent)
+            if (!a.IsExpanded) result = a;
+        return result;
     }
 
     private static bool Matches(string text, string filter) =>
