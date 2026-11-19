@@ -206,6 +206,8 @@ internal sealed partial class MainForm
         string path = Path.Combine(dir, "fold.lpl");
         Storage.SaveLibrary(path, lib);
         LoadLibrary(path, remember: false);
+        string deepPath = deep!.Path;
+        deep = _library.AllVideos.Single(v => v.Path == deepPath); // نفس الفيديو في المكتبة اللي اتفتحت
 
         bool Model(TreeNode n) => n.Tag switch
         {
@@ -224,14 +226,11 @@ internal sealed partial class MainForm
         }
 
         // التحديد جوه الموضوع التاني (مصدر فرعي ← كورس ← محاضرة ← فيديو)
-        _tree.SelectedNode = NodeOf(deep!);
-        Console.WriteLine($"SMOKE fold trace: start sel={_tree.SelectedNode?.Tag} node={(NodeOf(deep!) != null)} roots={_tree.Nodes.Count} lib={_library.Name} courses={_library.Courses.Count} " +
-                          $"search='{_searchBox.Text}' filter={_settings.CourseFilter} handle={_tree.IsHandleCreated} visible={_tree.Visible} " +
-                          $"sameObj={_library.AllVideos.Contains(deep!)}");
+        _tree.SelectedNode = NodeOf(deep) ?? throw new Exception("fold: deep video not in tree");
+        Check(_tree.SelectedNode.Tag == deep, "start selection");
         for (int level = 4; level >= 0; level--)
         {
             ExpandToLevel(level);
-            Console.WriteLine($"SMOKE fold trace: level {level} sel={_tree.SelectedNode?.Tag}");
             Consistent("level " + level);
         }
         ExpandToLevel(0);
