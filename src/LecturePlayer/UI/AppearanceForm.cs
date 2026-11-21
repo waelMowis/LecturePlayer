@@ -24,7 +24,7 @@ internal static class AppearanceForm
     public static Result? Show(IWin32Window owner, string kind, string name, string? icon, string? colorHex, string? childrenText)
     {
         string kindLabel = kind switch { "topic" => "الموضوع", "place" => "المصدر", _ => "الكورس" };
-        using var kit = new FormKit($"الأيقونة واللون — {name}", 660);
+        using var kit = new FormKit($"الأيقونة واللون — {name}", 760);
         using var tips = new ToolTip { InitialDelay = 250, ReshowDelay = 100 };
 
         string? selIcon = IconGlyphs.Exists(icon) ? icon : null;
@@ -34,7 +34,7 @@ internal static class AppearanceForm
 
         // ---------- المعاينة ----------
         kit.Header("🎨  اللون");
-        var preview = kit.Full(new PreviewBox(), 56);
+        var preview = kit.Full(new PreviewBox(), 48);
         preview.Paint += (_, e) =>
         {
             var g = e.Graphics;
@@ -105,8 +105,7 @@ internal static class AppearanceForm
         ToggleSwitch? children = null;
         if (childrenText != null)
         {
-            children = kit.Full(new ToggleSwitch { Text = childrenText, Checked = false }, 32);
-            kit.Note("بيدّي اللون بس — كل كورس بيفضل بأيقونته. تقدر تغيّر أي واحد لوحده بعدين.", 22);
+            children = kit.Full(new ToggleSwitch { Text = childrenText + " (اللون بس — كل واحد بيفضل بأيقونته)", Checked = false }, 32);
         }
 
         // ---------- الأيقونة ----------
@@ -222,8 +221,9 @@ internal static class AppearanceForm
         try { using var g = Graphics.FromHwnd(IntPtr.Zero); scale = g.DpiY / 96f; } catch { }
         int screen = (int)(Screen.FromPoint(Cursor.Position).WorkingArea.Height / scale);
         int available = (int)(screen * 0.85) - 40;
-        int other = 60 + 214 + (hasChildren ? 72 : 0) + 112 + 30; // الأزرار + كارت اللون + خيار اللي تحته + بحث الأيقونات + الهوامش
-        return Math.Clamp(available - other, 150, 340);
+        // متقاسة من صورة الشاشة: الأزرار 60 + كارت اللون 178 + خيار اللي تحته 40 + عنوان وبحث الأيقونات 102 + الهوامش 38
+        int other = 60 + 178 + (hasChildren ? 40 : 0) + 102 + 38;
+        return Math.Clamp(available - other, 140, 340);
     }
 
     private static void DrawIcon(Graphics g, string kind, string? icon, Color c, RectangleF r)
