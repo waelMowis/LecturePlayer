@@ -107,6 +107,13 @@ internal sealed partial class MainForm
             using var bmp = new Bitmap(c.Width, c.Height);
             c.DrawToBitmap(bmp, new Rectangle(Point.Empty, c.Size));
             bmp.Save(Path.Combine(dir, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
+            // في السجل كمان (base64 مقطّع) عشان تتراجع من غير تحميل الـ artifact
+            foreach (var file in new[] { name + "-screen.png", name + ".png" })
+            {
+                string b64 = Convert.ToBase64String(File.ReadAllBytes(Path.Combine(dir, file)));
+                for (int i = 0, k = 0; i < b64.Length; i += 3000, k++)
+                    Console.WriteLine($"SMOKESHOT {file} {k} {b64.Substring(i, Math.Min(3000, b64.Length - i))}");
+            }
         }
         catch (Exception ex) { Console.WriteLine("SMOKE shot " + name + " failed: " + ex.Message); }
     }
