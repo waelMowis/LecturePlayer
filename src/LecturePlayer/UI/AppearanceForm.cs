@@ -143,16 +143,20 @@ internal static class AppearanceForm
         }
 
         grid.SuspendLayout();
-        var defHead = Head("العادية");
-        var defTile = MakeTile(null, $"أيقونة {kindLabel} العادية");
-        grid.Controls.Add(defHead);
-        grid.Controls.Add(defTile);
-        headers.Add((defHead, new List<Tile> { defTile }));
+        bool first = true;
         foreach (var cat in IconGlyphs.Categories)
         {
             var head = Head(cat);
             grid.Controls.Add(head);
             var list = new List<Tile>();
+            if (first)
+            {
+                // أول خانة: أيقونة النوع العادية (من غير صف لوحدها)
+                var defTile = MakeTile(null, $"أيقونة {kindLabel} العادية");
+                grid.Controls.Add(defTile);
+                list.Add(defTile);
+                first = false;
+            }
             foreach (var g in IconGlyphs.All.Where(x => x.Category == cat))
             {
                 var t = MakeTile(g.Key, g.Label);
