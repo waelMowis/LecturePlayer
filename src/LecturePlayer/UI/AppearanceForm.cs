@@ -33,8 +33,8 @@ internal static class AppearanceForm
         var tiles = new List<Tile>();
 
         // ---------- المعاينة ----------
-        kit.Header("👁  المعاينة");
-        var preview = kit.Full(new PreviewBox(), 64);
+        kit.Header("🎨  اللون");
+        var preview = kit.Full(new PreviewBox(), 56);
         preview.Paint += (_, e) =>
         {
             var g = e.Graphics;
@@ -59,10 +59,10 @@ internal static class AppearanceForm
         };
 
         // ---------- اللون ----------
-        kit.Header("🎨  اللون");
         var colors = kit.Full(new FlowLayoutPanel
         {
-            FlowDirection = FlowDirection.RightToLeft, WrapContents = true, BackColor = Theme.Panel, Padding = new Padding(0, 2, 0, 0)
+            FlowDirection = FlowDirection.LeftToRight, // مع RightToLeft بتاع الشاشة = بتبدأ من اليمين
+            WrapContents = true, BackColor = Theme.Panel, Padding = new Padding(0, 2, 0, 0)
         }, 44);
         var swatches = new List<Swatch>();
         Swatch? customSwatch = null;
@@ -101,13 +101,22 @@ internal static class AppearanceForm
         if (selColor is { } start && !IconGlyphs.Palette.Any(p => p.Color.ToArgb() == start.ToArgb())) customSwatch.Value = start;
         colors.Controls.AddRange(swatches.ToArray());
 
+        // ---------- اللي تحته ----------
+        ToggleSwitch? children = null;
+        if (childrenText != null)
+        {
+            children = kit.Full(new ToggleSwitch { Text = childrenText, Checked = false }, 32);
+            kit.Note("بيدّي اللون بس — كل كورس بيفضل بأيقونته. تقدر تغيّر أي واحد لوحده بعدين.", 22);
+        }
+
         // ---------- الأيقونة ----------
         kit.Header("🔣  الأيقونة");
         var search = kit.Row("دوّر:", new TextBox { PlaceholderText = "مثلًا: كود، قاعدة بيانات، لغات، قرآن…" }, 32);
         var grid = kit.Full(new FlowLayoutPanel
         {
-            FlowDirection = FlowDirection.RightToLeft, WrapContents = true, AutoScroll = true, BackColor = Theme.Panel
-        }, 300);
+            FlowDirection = FlowDirection.LeftToRight, // مع RightToLeft بتاع الشاشة = بتبدأ من اليمين
+            WrapContents = true, AutoScroll = true, BackColor = Theme.Panel
+        }, GridHeight(children != null));
         grid.HandleCreated += (_, _) => NativeMethods.UseDarkExplorerTheme(grid);
 
         var headers = new List<(Label Label, List<Tile> Tiles)>();
@@ -122,7 +131,7 @@ internal static class AppearanceForm
         Label Head(string text) => new()
         {
             Text = text, Width = labelWidth, Height = 24, ForeColor = Theme.Muted, Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            TextAlign = ContentAlignment.BottomRight, RightToLeft = RightToLeft.Yes, Margin = new Padding(0, 4, 4, 2)
+            TextAlign = ContentAlignment.BottomRight, RightToLeft = RightToLeft.No, Margin = new Padding(4, 4, 0, 2)
         };
         Tile MakeTile(string? key, string tip)
         {
@@ -176,15 +185,6 @@ internal static class AppearanceForm
             grid.AutoScrollPosition = Point.Empty;
         };
 
-        // ---------- اللي تحته ----------
-        ToggleSwitch? children = null;
-        if (childrenText != null)
-        {
-            kit.Header("📂  اللي تحته");
-            children = kit.Full(new ToggleSwitch { Text = childrenText, Checked = false }, 32);
-            kit.Note("بيدّي اللون بس — كل كورس بيفضل بأيقونته. تقدر تغيّر أي واحد لوحده بعدين.", 22);
-        }
-
         kit.Buttons("حفظ", "إلغاء", ("↺  رجّع الافتراضي", () => { SelectIcon(null); SelectColor(null); }));
         SelectColor(selColor);
 
@@ -210,6 +210,20 @@ internal static class AppearanceForm
 
         if (kit.Show(owner) != DialogResult.OK) return null;
         return new Result(selIcon, selColor is { } col ? IconGlyphs.ToHex(col) : null, children?.Checked == true);
+    }
+
+    /// <summary>
+    /// طول شبكة الأيقونات: أكبر حاجة تخلي الشاشة كلها تبان من غير سكرول بره (شاشة لابتوب 768 لحد شاشة كبيرة).
+    /// الأرقام بالـ 96 DPI (الشاشة بتتكبر لوحدها مع تكبير الويندوز).
+    /// </summary>
+    private static int GridHeight(bool hasChildren)
+    {
+        float scale = 1f;
+        try { using var g = Graphics.FromHwnd(IntPtr.Zero); scale = g.DpiY / 96f; } catch { }
+        int screen = (int)(Screen.FromPoint(Cursor.Position).WorkingArea.Height / scale);
+        int available = (int)(screen * 0.85) - 40;
+        int other = 60 + 214 + (hasChildren ? 72 : 0) + 112 + 30; // الأزرار + كارت اللون + خيار اللي تحته + بحث الأيقونات + الهوامش
+        return Math.Clamp(available - other, 150, 340);
     }
 
     private static void DrawIcon(Graphics g, string kind, string? icon, Color c, RectangleF r)
