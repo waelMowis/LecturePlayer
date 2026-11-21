@@ -519,6 +519,14 @@ public sealed class AppSettings
     /// </summary>
     public bool OpenLastLibraryOnStart { get; set; }
 
+    /// <summary>
+    /// المكتبة اللي كانت مفتوحة لما البرنامج قفل عشان يثبّت تحديث: بتتفتح مرة واحدة بعد التحديث
+    /// (المثبّت بيشغّل البرنامج من غير ملف). null = مفيش.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReopenAfterUpdate { get; set; }
+    public DateTime ReopenAfterUpdateUtc { get; set; }
+
     /// <summary>الصوت من 0 لـ 200 (أكتر من 100 = تضخيم).</summary>
     public int Volume { get; set; } = 80;
 

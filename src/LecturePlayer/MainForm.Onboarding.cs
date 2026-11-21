@@ -154,6 +154,8 @@ internal sealed partial class MainForm
         RunNoLibraryChecks();
         RunFoldChecks();
         RunAppearanceChecks();
+        RunSplitLayoutChecks();
+        RunUpdateReopenChecks();
         RunStressAndPlaybackChecks();
 
         // تقرير الأعطال: تسجيل، وقراية، وبناء التقرير، وفتح الشاشة بتاعته

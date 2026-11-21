@@ -83,14 +83,102 @@ internal sealed partial class MainForm
     /// وهو يصغر فجأة، الجزء اللي فيه الفيديو (Panel1) بيفضل بمقاسه القديم الكبير — فالفيديو يبان مقصوص ومزاح.
     /// الحل: نخفي ونظهر المكتبة تاني في نفس اللحظة، فالـ SplitContainer يعيد حساب مقاس الجزء ده صح.
     /// </summary>
+    private bool _fixingSplit;
+    /// <summary>للفحص بس: نقفل الإصلاح التلقائي عشان نثبت إن المشكلة بتحصل من غيره.</summary>
+    private bool _splitAutoFixDisabledForTest;
+
     private void FixSplitPanelSize()
     {
-        if (!_split.Panel2Collapsed) return;
+        if (!_split.Panel2Collapsed || _fixingSplit || IsDisposed) return;
+        _fixingSplit = true;
+        try { FixSplitPanelSizeCore(); }
+        finally { _fixingSplit = false; }
+    }
+
+    /// <summary>
+    /// فحص تلقائي لنفس اللي حصل عند المستخدم: القايمة مستخبية والشباك بيفتح بمقاس صغير وبعدين يتكبّر
+    /// ← جزء الفيديو/الرئيسية لازم ياخد الشباك كله (كان بيفضل بعرضه القديم والباقي فاضي).
+    /// </summary>
+    internal void RunSplitLayoutChecks()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("layout: " + what); }
+        var state = WindowState;
+        var bounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+        bool side = _settings.SidePanelVisible;
+        string Sizes() => $"panel1 {_split.Panel1.Width}x{_split.Panel1.Height}, split {_split.ClientSize.Width}x{_split.ClientSize.Height}, home {_welcome.Width}";
+        void Small()
+        {
+            WindowState = FormWindowState.Normal;
+            Bounds = new Rectangle(40, 40, 900, 560);
+            Application.DoEvents();
+        }
+        try
+        {
+            // من غير الإصلاح: نثبت إن المشكلة حقيقية (للسجل بس)
+            _splitAutoFixDisabledForTest = true;
+            Small();
+            _settings.SidePanelVisible = true;
+            _split.Panel2Collapsed = false;
+            ApplySidePanelWidth();
+            Application.DoEvents();
+            _settings.SidePanelVisible = false;
+            _split.Panel2Collapsed = true;   // زي ApplySettings وقت الفتح
+            WindowState = FormWindowState.Maximized;
+            Application.DoEvents();
+            Console.WriteLine("SMOKE layout without fix: " + Sizes());
+
+            // بالإصلاح
+            _splitAutoFixDisabledForTest = false;
+            Small();
+            _split.Panel2Collapsed = false;
+            _split.Panel2Collapsed = true;
+            WindowState = FormWindowState.Maximized;
+            Application.DoEvents();
+            Application.DoEvents();
+            Console.WriteLine("SMOKE layout with fix: " + Sizes());
+            Check(Math.Abs(_split.Panel1.Width - _split.ClientSize.Width) <= 2 && Math.Abs(_split.Panel1.Height - _split.ClientSize.Height) <= 2,
+                "hidden library: home/video must fill the window: " + Sizes());
+
+            // إظهار المكتبة وإخفاها تاني من غير ماتتلخبط
+            ToggleSidePanel();
+            Application.DoEvents();
+            Check(!_split.Panel2Collapsed && _split.Panel2.Width >= LogicalToDeviceUnits(240), "show library: " + _split.Panel2.Width);
+            ToggleSidePanel();
+            Application.DoEvents();
+            Check(_split.Panel2Collapsed && Math.Abs(_split.Panel1.Width - _split.ClientSize.Width) <= 2, "hide library again: " + Sizes());
+
+            // وتصغير الشباك وهي مستخبية
+            WindowState = FormWindowState.Normal;
+            Bounds = new Rectangle(40, 40, 1000, 640);
+            Application.DoEvents();
+            Application.DoEvents();
+            Check(Math.Abs(_split.Panel1.Width - _split.ClientSize.Width) <= 2, "restore down: " + Sizes());
+        }
+        finally
+        {
+            _splitAutoFixDisabledForTest = false;
+            _settings.SidePanelVisible = side;
+            WindowState = FormWindowState.Normal;
+            Bounds = bounds;
+            _split.Panel2Collapsed = !side;
+            WindowState = state;
+            Application.DoEvents();
+            if (side) ApplySidePanelWidth(); else FixSplitPanelSize();
+        }
+        Console.WriteLine("SMOKE layout OK");
+    }
+
+    private void FixSplitPanelSizeCore()
+    {
         var want = _split.ClientSize;
         if (_split.Panel1.Size == want) return;
         _split.SuspendLayout();
-        _split.Panel2Collapsed = false;
-        _split.Panel2Collapsed = true;
+        try
+        {
+            _split.Panel2Collapsed = false;
+            _split.Panel2Collapsed = true;
+        }
+        catch (InvalidOperationException) { _split.Panel2Collapsed = true; /* مقاس مؤقت أثناء التصغير */ }
         _split.ResumeLayout(true);
         if (_split.Panel1.Size != want)
         {

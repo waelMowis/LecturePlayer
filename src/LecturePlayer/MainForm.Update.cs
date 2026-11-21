@@ -155,6 +155,9 @@ internal sealed partial class MainForm
             }
 
             _pendingInstaller = file;
+            // بعد التحديث نرجع لنفس المكتبة (حتى لو «افتح آخر مكتبة» مقفول): ده مش تشغيل جديد، ده كمّلة
+            _settings.ReopenAfterUpdate = HasLibrary ? _libraryPath : null;
+            _settings.ReopenAfterUpdateUtc = DateTime.UtcNow;
             Close(); // القفل العادي بيحفظ المكتبة والإعدادات والمكان، وبعدين OnFormClosed يشغّل المثبّت
         }
         catch (Exception ex)

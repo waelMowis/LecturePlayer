@@ -151,7 +151,7 @@ internal sealed partial class MainForm : Form
         InitAdvancedMode();
 
         // البرنامج بيفتح فاضي وتختار المكتبة (إلا لو فتحت ملف مكتبة بالدبل كليك، أو اخترت «افتح آخر مكتبة» من الإعدادات)
-        string path = openPath ?? (_settings.OpenLastLibraryOnStart ? _settings.LastLibraryPath ?? "" : "");
+        string path = openPath ?? TakeReopenAfterUpdate() ?? (_settings.OpenLastLibraryOnStart ? _settings.LastLibraryPath ?? "" : "");
         if (string.IsNullOrWhiteSpace(path)) StartWithoutLibrary();
         else if (!File.Exists(path))
         {
@@ -168,6 +168,36 @@ internal sealed partial class MainForm : Form
 
         _uiTimer.Tick += (_, _) => OnUiTick();
         _uiTimer.Start();
+    }
+
+    /// <summary>
+    /// أول تشغيل بعد تحديث تلقائي: المكتبة اللي كانت مفتوحة (مرة واحدة، ولو التحديث من أقل من ساعة —
+    /// لو المثبّت فشل وفتحت البرنامج بعدها بيوم، ده تشغيل عادي).
+    /// </summary>
+    private string? TakeReopenAfterUpdate()
+    {
+        string? path = _settings.ReopenAfterUpdate;
+        if (path == null) return null;
+        bool fresh = DateTime.UtcNow - _settings.ReopenAfterUpdateUtc < TimeSpan.FromHours(1);
+        _settings.ReopenAfterUpdate = null;
+        Storage.SaveSettings(_settings);
+        if (!fresh || string.IsNullOrWhiteSpace(path)) return null;
+        Log.Info("reopening library after update: " + path);
+        return path;
+    }
+
+    /// <summary>فحص تلقائي: بعد التحديث المكتبة بترجع مرة واحدة بس، ولو التحديث قديم مابترجعش.</summary>
+    internal void RunUpdateReopenChecks()
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("reopen after update: " + what); }
+        _settings.ReopenAfterUpdate = @"G:\My Drive\WAEL.lpl";
+        _settings.ReopenAfterUpdateUtc = DateTime.UtcNow.AddMinutes(-2);
+        Check(TakeReopenAfterUpdate() == @"G:\My Drive\WAEL.lpl", "fresh update reopens");
+        Check(_settings.ReopenAfterUpdate == null && TakeReopenAfterUpdate() == null, "only once");
+        _settings.ReopenAfterUpdate = @"G:\My Drive\WAEL.lpl";
+        _settings.ReopenAfterUpdateUtc = DateTime.UtcNow.AddHours(-5);
+        Check(TakeReopenAfterUpdate() == null && _settings.ReopenAfterUpdate == null, "stale ignored and cleared");
+        Console.WriteLine("SMOKE reopen after update OK");
     }
 
     private static Icon? TryExeIcon()
@@ -978,6 +1008,14 @@ internal sealed partial class MainForm : Form
         _videoView.MouseClick += (_, _) => _videoView.Focus();
         _videoView.MouseWheel += (_, e) => SetVolume(_settings.Volume + (e.Delta > 0 ? 5 : -5));
 
+        // القايمة مستخبية: SplitContainer مش بيكبّر جزء الفيديو/الرئيسية مع الشباك (مثلًا تكبير الشاشة وقت الفتح)،
+        // فكان بيفضل بعرضه القديم والباقي فاضي. أي تغيير في المقاس ← نظبطه، ومرة كمان بعد ما الويندوز يخلص.
+        _split.SizeChanged += (_, _) =>
+        {
+            if (!_split.Panel2Collapsed || _splitAutoFixDisabledForTest) return;
+            FixSplitPanelSize();
+            if (IsHandleCreated) BeginInvoke(FixSplitPanelSize);
+        };
         _split.SplitterMoved += (_, _) =>
         {
             if (!_applyingLayout && !_split.Panel2Collapsed)
@@ -986,6 +1024,7 @@ internal sealed partial class MainForm : Form
         Shown += (_, _) =>
         {
             ApplySidePanelWidth();
+            FixSplitPanelSize();
             BeginInvoke(new Action(CheckLeftoverFocusBlock));
             bool withFiles = _pendingExternal != null;
             if (_pendingExternal is { } files) { _pendingExternal = null; BeginInvoke(() => OpenExternalFiles(files)); }
@@ -1277,7 +1316,7 @@ internal sealed partial class MainForm : Form
         if (_fullscreen) return;
         _settings.SidePanelVisible = _split.Panel2Collapsed;
         _split.Panel2Collapsed = !_settings.SidePanelVisible;
-        if (_settings.SidePanelVisible) ApplySidePanelWidth();
+        if (_settings.SidePanelVisible) ApplySidePanelWidth(); else FixSplitPanelSize();
         _activityExplorer.Active = _settings.SidePanelVisible;
     }
 
@@ -1360,6 +1399,8 @@ internal sealed partial class MainForm : Form
             if (answer == DialogResult.Retry) continue;
             if (answer == DialogResult.Ignore) { Log.Info("closed without saving the last changes"); break; }
             _closing = false;   // «إلغاء»: البرنامج يفضل مفتوح
+            _pendingInstaller = null;           // والتحديث مايتثبتش في نص الشغل
+            _settings.ReopenAfterUpdate = null;
             return;
         }
         SaveSettings();
