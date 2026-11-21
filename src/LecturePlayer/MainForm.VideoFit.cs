@@ -95,9 +95,13 @@ internal sealed partial class MainForm
         bool fill = !_split.Panel2Collapsed
             ? _split.Panel1.Width + _split.Panel2.Width + _split.SplitterWidth >= _split.ClientSize.Width - 2
             : Math.Abs(_split.Panel1.Width - _split.ClientSize.Width) <= 2 && Math.Abs(_split.Panel1.Height - _split.ClientSize.Height) <= 2;
-        ok = fill && _split.Panel2Collapsed == !_settings.SidePanelVisible;
+        // واللي جوه الجزء (كارت الفيديو/الرئيسية وشريط التحكم) لازم يكون بعرضه
+        bool content = Math.Abs(_videoCard.Width - _split.Panel1.ClientSize.Width) <= 2
+                       && Math.Abs(_controlCard.Width - _split.Panel1.ClientSize.Width) <= 2
+                       && _welcome.Width >= _videoCard.Width - LogicalToDeviceUnits(30);
+        ok = fill && content && _split.Panel2Collapsed == !_settings.SidePanelVisible;
         return $"state {WindowState}, form {Bounds.Size}, split {_split.ClientSize}, panel1 {_split.Panel1.Size}, panel2 {(_split.Panel2Collapsed ? "collapsed" : _split.Panel2.Size.ToString())}, " +
-               $"dist {_split.SplitterDistance}, home {_welcome.Size} visible {_welcome.Visible}, library {(HasLibrary ? _library.Name : "-")}";
+               $"dist {_split.SplitterDistance}, video card {_videoCard.Size}, controls {_controlCard.Size}, home {_welcome.Size} visible {_welcome.Visible}, library {(HasLibrary ? _library.Name : "-")}";
     }
 
     private void FixSplitPanelSize()
@@ -118,7 +122,7 @@ internal sealed partial class MainForm
         var state = WindowState;
         var bounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
         bool side = _settings.SidePanelVisible;
-        string Sizes() => $"panel1 {_split.Panel1.Width}x{_split.Panel1.Height}, split {_split.ClientSize.Width}x{_split.ClientSize.Height}, home {_welcome.Width}";
+        string Sizes() => $"card {_videoCard.Width}, panel1 {_split.Panel1.Width}x{_split.Panel1.Height}, split {_split.ClientSize.Width}x{_split.ClientSize.Height}, home {_welcome.Width}";
         void Small()
         {
             WindowState = FormWindowState.Normal;
@@ -149,7 +153,8 @@ internal sealed partial class MainForm
             Application.DoEvents();
             Application.DoEvents();
             Console.WriteLine("SMOKE layout with fix: " + Sizes());
-            Check(Math.Abs(_split.Panel1.Width - _split.ClientSize.Width) <= 2 && Math.Abs(_split.Panel1.Height - _split.ClientSize.Height) <= 2,
+            Check(Math.Abs(_split.Panel1.Width - _split.ClientSize.Width) <= 2 && Math.Abs(_split.Panel1.Height - _split.ClientSize.Height) <= 2
+                  && Math.Abs(_videoCard.Width - _split.Panel1.ClientSize.Width) <= 2,
                 "hidden library: home/video must fill the window: " + Sizes());
 
             // إظهار المكتبة وإخفاها تاني من غير ماتتلخبط
@@ -184,7 +189,12 @@ internal sealed partial class MainForm
     private void FixSplitPanelSizeCore()
     {
         var want = _split.ClientSize;
-        if (_split.Panel1.Size == want) return;
+        if (_split.Panel1.Size == want)
+        {
+            // الجزء نفسه بمقاسه الصح بس اللي جواه لسه مترصوص على عرض قديم
+            if (Math.Abs(_videoCard.Width - _split.Panel1.ClientSize.Width) > 2) _split.Panel1.PerformLayout();
+            return;
+        }
         _split.SuspendLayout();
         try
         {

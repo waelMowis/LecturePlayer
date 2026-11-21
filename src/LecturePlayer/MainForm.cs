@@ -1054,6 +1054,10 @@ internal sealed partial class MainForm : Form
     private void ApplySidePanelWidth()
     {
         if (_split.Width <= 0) return;
+        // القايمة مستخبية: مفيش عرض نظبطه. تغيير SplitterDistance هنا كان بيرص محتوى جزء الفيديو/الرئيسية
+        // على العرض ده (320) وبعدين SplitContainer يمد الجزء من غير مايعيد رص اللي جواه ← الرئيسية تفضل ضيقة.
+        // العرض المحفوظ بيتطبق لما القايمة تظهر (ToggleSidePanel / الرجوع من ملء الشاشة).
+        if (_split.Panel2Collapsed && !_splitAutoFixDisabledForTest) { FixSplitPanelSize(); return; }
         _applyingLayout = true;
         try
         {
