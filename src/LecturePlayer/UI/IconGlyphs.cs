@@ -10,8 +10,10 @@ namespace LecturePlayer.UI;
 /// </summary>
 internal static partial class IconGlyphs
 {
-    private static readonly Dictionary<string, (string Category, string Label, string Path)> ByKey =
-        All.ToDictionary(x => x.Key, x => (x.Category, x.Label, x.Path), StringComparer.Ordinal);
+    // Lazy: ترتيب تهيئة الحقول الـ static بين ملفات الـ partial مش مضمون (All في الملف التاني)
+    private static readonly Lazy<Dictionary<string, (string Category, string Label, string Path)>> LazyByKey =
+        new(() => All.ToDictionary(x => x.Key, x => (x.Category, x.Label, x.Path), StringComparer.Ordinal));
+    private static Dictionary<string, (string Category, string Label, string Path)> ByKey => LazyByKey.Value;
     private static readonly Dictionary<string, GraphicsPath> Cache = new(StringComparer.Ordinal);
 
     public static bool Exists(string? key) => key != null && ByKey.ContainsKey(key);
