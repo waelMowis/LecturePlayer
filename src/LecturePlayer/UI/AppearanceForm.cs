@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Drawing.Drawing2D;
 
 namespace LecturePlayer.UI;
@@ -237,6 +238,7 @@ internal static class AppearanceForm
         private readonly Func<Color> _color;
         private bool _selected, _hot;
 
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool Selected { get => _selected; set { if (_selected == value) return; _selected = value; Invalidate(); } }
 
         public Tile(string? key, string kind, Func<Color> color)
@@ -270,11 +272,13 @@ internal static class AppearanceForm
     /// <summary>دايرة لون. IsCustom = خانة «لون تاني…» (فيها ＋).</summary>
     private sealed class Swatch : Control
     {
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Color? Value { get; set; }
         public bool IsCustom { get; }
         private readonly Color _shown;
         private bool _selected, _hot;
 
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool Selected { get => _selected; set { if (_selected == value) return; _selected = value; Invalidate(); } }
 
         public Swatch(Color? value, Color shown, bool isCustom)
