@@ -30,3 +30,11 @@ jobs:
           Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue
           Get-ChildItem smoke\Data\logs -ErrorAction SilentlyContinue | Get-Content -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "البرنامج وقع وهو بيفتح (exit $($p.ExitCode))" }
+
+      - name: صور الفحص (للمراجعة)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-shots
+          path: smoke-shots
+          if-no-files-found: ignore

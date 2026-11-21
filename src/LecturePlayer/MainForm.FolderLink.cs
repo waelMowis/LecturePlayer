@@ -343,7 +343,8 @@ internal sealed partial class MainForm
         var place = existing.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.CurrentCultureIgnoreCase));
         if (place == null)
         {
-            place = new Place { Name = name, TopicId = target.Id };
+            // الموضوع اللي بيتحوّل لمصدر بياخد أيقونته ولونه معاه
+            place = new Place { Name = name, TopicId = target.Id, IconKey = source.IconKey, ColorHex = source.ColorHex };
             _library.Places.Add(place);
         }
         int courses = ConvertTopicToPlaceCore(_library, source, place);

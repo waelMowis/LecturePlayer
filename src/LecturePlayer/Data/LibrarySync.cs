@@ -56,7 +56,7 @@ public static class LibrarySync
             if (deletedKeys.Contains(TopicKey(rt))) continue;
             var lt = local.Topics.FirstOrDefault(t => t.Id == rt.Id);
             if (lt == null) { local.Topics.Add(rt); result.AddedTopics++; }
-            else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
+            else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.IconKey = rt.IconKey; lt.ColorHex = rt.ColorHex; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
         }
 
         // 1.55) الأماكن: الجديدة بتتضاف، والأحدث (الاسم والموضوع والفولدرات) يكسب
@@ -67,7 +67,7 @@ public static class LibrarySync
             if (lp == null) { local.Places.Add(rp); result.AddedPlaces++; }
             else if (rp.InfoUpdatedUtc > lp.InfoUpdatedUtc)
             {
-                lp.Name = rp.Name; lp.TopicId = rp.TopicId; lp.ParentId = rp.ParentId;
+                lp.Name = rp.Name; lp.IconKey = rp.IconKey; lp.ColorHex = rp.ColorHex; lp.TopicId = rp.TopicId; lp.ParentId = rp.ParentId;
                 lp.InfoUpdatedUtc = rp.InfoUpdatedUtc; result.UpdatedInfo++;
             }
         }
@@ -176,6 +176,8 @@ public static class LibrarySync
     {
         to.Status = from.Status;
         to.Priority = from.Priority;
+        to.IconKey = from.IconKey;
+        to.ColorHex = from.ColorHex;
         to.Tags = from.Tags.ToList();
         to.Instructor = from.Instructor;
         to.SourceUrl = from.SourceUrl;

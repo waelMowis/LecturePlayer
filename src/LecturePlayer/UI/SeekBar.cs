@@ -376,7 +376,8 @@ internal sealed class LectureTreeView : TreeView
         // الاسم
         var font = node.NodeFont ?? Font;
         var color = node.ForeColor.IsEmpty ? ForeColor : node.ForeColor;
-        if (selected && Focused && color == Theme.Muted) color = Theme.Text;
+        // على صف التحديد الأزرق: أي لون غير الأزرق/الأخضر (باهت أو لون مخصص) بيتقري أبيض
+        if (selected && Focused && color != Theme.Accent && color != Theme.Success && color != Theme.Danger) color = Theme.Text;
         var tr = new Rectangle(x, row.Y, Math.Max(10, right - x), row.Height);
         TextRenderer.DrawText(g, node.Text, font, tr, color,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);

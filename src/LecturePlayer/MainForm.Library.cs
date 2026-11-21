@@ -701,10 +701,10 @@ internal sealed partial class MainForm
         node.Text = CourseMarks(c) + Modern.Bidi(c.Name);
         // رقم واحد بس: خلصت كام من كام (المدة في التلميح)
         _tree.SetRow(node, new LectureTreeView.RowInfo(_library.LinkOf(c) != null ? "🔄" : "", $"{c.WatchedCount}/{c.VideoCount}", c.IsCompleted));
-        node.ImageKey = node.SelectedImageKey = c.IsCompleted ? "courseDone" : "course";
+        node.ImageKey = node.SelectedImageKey = NodeImageKey("course", c.IconKey, c.ColorHex, c.IsCompleted);
         bool current = _currentGroup != null && c.Groups.Contains(_currentGroup);
         node.ForeColor = current ? Theme.Accent : c.IsCompleted ? Theme.Success
-            : c.Status is CourseStatus.Paused or CourseStatus.Planned ? Theme.Muted : Theme.Text;
+            : c.Status is CourseStatus.Paused or CourseStatus.Planned ? Theme.Muted : CustomNameColor(c.ColorHex) ?? Theme.Text;
         node.NodeFont = null; // خط الشجرة (Bold)
         node.ToolTipText = CourseTooltip(c);
     }
@@ -1547,6 +1547,7 @@ internal sealed partial class MainForm
                     MenuItem("فولدر محاضرات من الجهاز…", () => ImportIntoCourseDialog(c)),
                     MenuItem("رابط يوتيوب أو قائمة تشغيل…", () => AddUrlsDialog(null), "Ctrl+U")));
                 items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
+                items.Add(AppearanceMenuItem(c));
                 items.Add(MoveCourseMenu(c));
                 items.Add(FoldMenu(c));
                 if (AdvancedMode) items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));

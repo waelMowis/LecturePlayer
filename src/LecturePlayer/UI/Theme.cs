@@ -85,6 +85,45 @@ internal static class Theme
         return il;
     }
 
+    /// <summary>اللون العادي لأيقونة النوع (topic / place / course).</summary>
+    public static Color DefaultKindColor(string kind) => kind switch
+    {
+        "topic" => Accent,
+        "place" => PlaceColor,
+        _ => CourseColor
+    };
+
+    /// <summary>
+    /// أيقونة مخصصة: شكل المستخدم (أو شكل النوع العادي) باللون اللي اختاره،
+    /// ولو خلص: علامة ✓ خضرا صغيرة في الركن بدل مانقلب الأيقونة كلها أخضر (عشان لونه يفضل باين).
+    /// </summary>
+    public static Bitmap NodeIcon(int size, string kind, string? glyph, Color color, bool done) => Icon(size, g =>
+    {
+        if (IconGlyphs.Exists(glyph)) IconGlyphs.Draw(g, glyph!, new RectangleF(0, 0, size, size), color);
+        else DrawKind(g, size, kind, color);
+        if (done) DrawDoneBadge(g, size);
+    });
+
+    public static void DrawKind(Graphics g, int size, string kind, Color color)
+    {
+        switch (kind)
+        {
+            case "topic": DrawStack(g, size, color); break;
+            case "place": DrawBuilding(g, size, color); break;
+            default: DrawBook(g, size, color); break;
+        }
+    }
+
+    private static void DrawDoneBadge(Graphics g, int s)
+    {
+        float d = Math.Max(7f, s * 0.52f);
+        var r = new RectangleF(s - d, s - d, d, d);
+        using (var ring = new SolidBrush(Panel))
+            g.FillEllipse(ring, RectangleF.Inflate(r, 1f, 1f));
+        using (var b = new SolidBrush(Success)) g.FillEllipse(b, r);
+        DrawCheck(g, r, Color.White);
+    }
+
     private static Bitmap Icon(int size, Action<Graphics> paint)
     {
         var bmp = new Bitmap(size, size);

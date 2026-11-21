@@ -56,9 +56,9 @@ internal sealed partial class MainForm
         bool linked = links.Count > 0;
         node.Text = Modern.Bidi(p.Name);
         node.NodeFont = _groupNodeFont;
-        node.ImageKey = node.SelectedImageKey = done ? "placeDone" : "place";
+        node.ImageKey = node.SelectedImageKey = NodeImageKey("place", p.IconKey, p.ColorHex, done);
         bool current = _currentGroup != null && courses.Any(c => c.Groups.Contains(_currentGroup));
-        node.ForeColor = current ? Theme.Accent : done ? Theme.Success : Theme.Text;
+        node.ForeColor = current ? Theme.Accent : done ? Theme.Success : CustomNameColor(p.ColorHex) ?? Theme.Text;
         int doneCourses = courses.Count(c => c.IsCompleted);
         node.ToolTipText = $"🏫 {p.Name}\n{courses.Count} كورس (خلصت {doneCourses}) · {watched} من {videos} فيديو"
             + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
@@ -209,6 +209,7 @@ internal sealed partial class MainForm
         if (_library.ParentOf(p) == null)
             items.Add(MenuItem("🏫  مصدر فرعي جديد هنا (مدرّس، قناة…)…", () => AddPlace(null, parent: p)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
+        items.Add(AppearanceMenuItem(p));
         items.Add(MovePlaceToTopicMenu(p));
         items.Add(FoldMenu(p));
         items.Add(SubMenuOf("المزيد",

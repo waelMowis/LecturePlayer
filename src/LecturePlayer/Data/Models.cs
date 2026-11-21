@@ -167,6 +167,13 @@ public sealed class Topic
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "";
+    /// <summary>أيقونة مخصصة (مفتاح من <c>IconGlyphs</c>)؛ null = أيقونة النوع العادية.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? IconKey { get; set; }
+    /// <summary>لون مخصص «#RRGGBB» للأيقونة والاسم؛ null = اللون العادي.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ColorHex { get; set; }
+
     public bool Expanded { get; set; } = true;
 
     /// <summary>قديم (4.1.30): بيتنقل لـ <see cref="CourseLibrary.Links"/> وقت الفتح.</summary>
@@ -188,6 +195,13 @@ public sealed class Place
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "";
+    /// <summary>أيقونة مخصصة (مفتاح من <c>IconGlyphs</c>)؛ null = أيقونة النوع العادية.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? IconKey { get; set; }
+    /// <summary>لون مخصص «#RRGGBB» للأيقونة والاسم؛ null = اللون العادي.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ColorHex { get; set; }
+
     /// <summary>الموضوع اللي المكان جواه (null = برا أي موضوع).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TopicId { get; set; }
@@ -234,6 +248,13 @@ public sealed class Course
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "";
+    /// <summary>أيقونة مخصصة (مفتاح من <c>IconGlyphs</c>)؛ null = أيقونة النوع العادية.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? IconKey { get; set; }
+    /// <summary>لون مخصص «#RRGGBB» للأيقونة والاسم؛ null = اللون العادي.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ColorHex { get; set; }
+
     public bool Expanded { get; set; } = true;
     public List<LectureGroup> Groups { get; set; } = new();
 

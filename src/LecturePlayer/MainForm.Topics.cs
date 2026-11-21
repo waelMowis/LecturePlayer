@@ -28,9 +28,9 @@ internal sealed partial class MainForm
         bool done = videos > 0 && watched == videos;
         node.Text = Modern.Bidi(t.Name);
         node.NodeFont = _topicNodeFont;
-        node.ImageKey = node.SelectedImageKey = done ? "topicDone" : "topic";
+        node.ImageKey = node.SelectedImageKey = NodeImageKey("topic", t.IconKey, t.ColorHex, done);
         bool current = _currentGroup != null && courses.Any(c => c.Groups.Contains(_currentGroup));
-        node.ForeColor = current ? Theme.Accent : done ? Theme.Success : Theme.Text;
+        node.ForeColor = current ? Theme.Accent : done ? Theme.Success : CustomNameColor(t.ColorHex) ?? Theme.Text;
         node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
             + (_library.PlacesOf(t).Any() ? "\n🏫 " + string.Join(" · ", _library.PlacesOf(t).Select(p => p.Name)) : "");
         _tree.SetRow(node, new LectureTreeView.RowInfo("",
@@ -149,6 +149,7 @@ internal sealed partial class MainForm
         items.Add(MenuItem("🔗  إضافة من يوتيوب هنا…", () => AddUrlsDialog(null, t)));
         items.Add(MenuItem("🏫  مصدر جديد هنا…", () => AddPlace(t)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
+        items.Add(AppearanceMenuItem(t));
         items.Add(FoldMenu(t));
         var more = new List<ToolStripItem>
         {
