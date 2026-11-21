@@ -44,6 +44,7 @@ internal static class SmokeTest
                 t.Start();
             };
             Application.Run(form);
+            if (failure == null) failure = StartupLayoutCheck();
         }
         catch (Exception ex) { failure ??= ex; }
 
@@ -54,6 +55,67 @@ internal static class SmokeTest
         }
         Console.WriteLine("SMOKE OK");
         return 0;
+    }
+
+    /// <summary>
+    /// نفس فتح المستخدم بالظبط (21/11): المكتبة مستخبية، والشباك متكبّر، ومكانه المحفوظ على شاشة تانية مش موجودة،
+    /// والمكتبة بتتفتح من ملف. الرئيسية لازم تاخد الشباك كله. بيتجرب مرة من غير الإصلاح (للسجل) ومرة بيه.
+    /// </summary>
+    private static Exception? StartupLayoutCheck()
+    {
+        var saved = LecturePlayer.Data.Storage.LoadSettings();
+        string savedJson = System.Text.Json.JsonSerializer.Serialize(saved);
+        string dir = Path.Combine(Path.GetTempPath(), "masar-smoke-startup");
+        Directory.CreateDirectory(dir);
+        string lib = Path.Combine(dir, "WAEL.lpl");
+        var l = new LecturePlayer.Data.CourseLibrary { Name = "WAEL" };
+        var c = new LecturePlayer.Data.Course { Name = "C# Basics" };
+        var g = new LecturePlayer.Data.LectureGroup { Name = "Session 04" };
+        g.Videos.Add(new LecturePlayer.Data.VideoItem { Path = Path.Combine(dir, "Part 06.mp4"), Title = "Part 06", LastPositionMs = 60000, DurationMs = 600000 });
+        g.Videos.Add(new LecturePlayer.Data.VideoItem { Path = Path.Combine(dir, "Part 07.mp4"), Title = "Part 07" });
+        c.Groups.Add(g);
+        l.Courses.Add(c);
+        l.LastGroupId = g.Id;
+        l.LastVideoPath = g.Videos[0].Path;
+        LecturePlayer.Data.Storage.SaveLibrary(lib, l);
+
+        Exception? result = null;
+        try
+        {
+            foreach (bool withFix in new[] { false, true })
+            {
+                var s = System.Text.Json.JsonSerializer.Deserialize<LecturePlayer.Data.AppSettings>(savedJson)!;
+                s.SidePanelVisible = false;
+                s.SidePanelWidth = 431;
+                s.Maximized = true;
+                s.WindowX = -1262; s.WindowY = -18; s.WindowWidth = 900; s.WindowHeight = 560;
+                s.OpenLastLibraryOnStart = false;
+                LecturePlayer.Data.Storage.SaveSettings(s);
+
+                MainForm.DisableSplitFixForSmoke = !withFix;
+                string report = "";
+                bool ok = false;
+                using (var form = new MainForm(lib, Array.Empty<string>()))
+                {
+                    form.Shown += (_, _) =>
+                    {
+                        var t = new System.Windows.Forms.Timer { Interval = 2500 };
+                        t.Tick += (_, _) => { t.Stop(); report = form.StartupLayoutReport(out ok); form.Close(); };
+                        t.Start();
+                    };
+                    Application.Run(form);
+                }
+                Console.WriteLine($"SMOKE startup layout {(withFix ? "with fix" : "WITHOUT fix")}: {(ok ? "OK" : "BROKEN")} — {report}");
+                if (withFix && !ok) result = new Exception("startup layout broken: " + report);
+            }
+        }
+        catch (Exception ex) { result = ex; }
+        finally
+        {
+            MainForm.DisableSplitFixForSmoke = false;
+            LecturePlayer.Data.Storage.SaveSettings(System.Text.Json.JsonSerializer.Deserialize<LecturePlayer.Data.AppSettings>(savedJson)!);
+        }
+        return result;
     }
 
     // =====================================================================

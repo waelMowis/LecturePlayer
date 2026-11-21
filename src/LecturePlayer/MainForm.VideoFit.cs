@@ -85,7 +85,20 @@ internal sealed partial class MainForm
     /// </summary>
     private bool _fixingSplit;
     /// <summary>للفحص بس: نقفل الإصلاح التلقائي عشان نثبت إن المشكلة بتحصل من غيره.</summary>
-    private bool _splitAutoFixDisabledForTest;
+    private bool _splitAutoFixDisabledForTest = DisableSplitFixForSmoke;
+    /// <summary>للفحص بس: نسخة جديدة من الشباك تفتح من غير الإصلاح (عشان نثبت إن المشكلة بتحصل).</summary>
+    internal static bool DisableSplitFixForSmoke;
+
+    /// <summary>للفحص: مقاس جزء الفيديو/الرئيسية قصاد الشباك بعد الفتح.</summary>
+    internal string StartupLayoutReport(out bool ok)
+    {
+        bool fill = !_split.Panel2Collapsed
+            ? _split.Panel1.Width + _split.Panel2.Width + _split.SplitterWidth >= _split.ClientSize.Width - 2
+            : Math.Abs(_split.Panel1.Width - _split.ClientSize.Width) <= 2 && Math.Abs(_split.Panel1.Height - _split.ClientSize.Height) <= 2;
+        ok = fill && _split.Panel2Collapsed == !_settings.SidePanelVisible;
+        return $"state {WindowState}, form {Bounds.Size}, split {_split.ClientSize}, panel1 {_split.Panel1.Size}, panel2 {(_split.Panel2Collapsed ? "collapsed" : _split.Panel2.Size.ToString())}, " +
+               $"dist {_split.SplitterDistance}, home {_welcome.Size} visible {_welcome.Visible}, library {(HasLibrary ? _library.Name : "-")}";
+    }
 
     private void FixSplitPanelSize()
     {

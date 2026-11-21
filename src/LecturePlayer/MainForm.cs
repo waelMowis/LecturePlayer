@@ -1024,7 +1024,7 @@ internal sealed partial class MainForm : Form
         Shown += (_, _) =>
         {
             ApplySidePanelWidth();
-            FixSplitPanelSize();
+            if (!_splitAutoFixDisabledForTest) FixSplitPanelSize();
             BeginInvoke(new Action(CheckLeftoverFocusBlock));
             bool withFiles = _pendingExternal != null;
             if (_pendingExternal is { } files) { _pendingExternal = null; BeginInvoke(() => OpenExternalFiles(files)); }
