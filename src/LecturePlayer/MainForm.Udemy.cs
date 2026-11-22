@@ -17,7 +17,9 @@ internal sealed partial class MainForm
     private const string WebView2Download = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
 
     /// <summary>درس يوديمي هو اللي شغال دلوقتي (الصفحة ظاهرة في مساحة الفيديو).</summary>
-    private bool UdemyActive => _udemyPane is { Visible: true } && _currentVideo is { IsUdemy: true };
+    /// (بفلاج خاص مش Visible: Visible بيرجع false لو أي أب مستخبي، زي وقت تغيير الشكل)
+    private bool UdemyActive => _udemyShown && _udemyPane != null && _currentVideo is { IsUdemy: true };
+    private bool _udemyShown;
 
     /// <summary>فيه تشغيل فعلًا (VLC أو صفحة يوديمي).</summary>
     private bool PlayingNow => UdemyActive ? _udemyPane!.State?.Playing == true : _mp.State == VLCState.Playing;
@@ -63,6 +65,7 @@ internal sealed partial class MainForm
         }
         var pane = EnsureUdemyPane();
         pane.Visible = true;
+        _udemyShown = true;
         pane.BringToFront();
         _videoView.Visible = false;
         HideBanner("udemy");
@@ -91,10 +94,11 @@ internal sealed partial class MainForm
     private void HideUdemyPane()
     {
         if (_udemyPane == null) return;
-        if (_udemyPane.Visible)
+        if (_udemyShown || _udemyPane.Visible)
         {
             _udemyPane.Stop();
             _udemyPane.Visible = false;
+            _udemyShown = false;
         }
         _videoView.Visible = true;
     }

@@ -147,8 +147,9 @@ internal sealed partial class MainForm
             Check(UdemyActive && !_videoView.Visible, "pane replaces the VLC view");
             Check(Until(() => pane.State is { HasVideo: true, DurationSec: > 0, Playing: true }, 30_000), "video plays in the pane: " + pane.State);
             Check(PlayingNow, "PlayingNow follows the page");
-            Pump(600);
-            Check(_btnPlay.Text == Glyphs.Pause, "play button shows pause while the page plays");
+            var trace = new List<string>();
+            for (int i = 0; i < 8; i++) { Pump(100); trace.Add($"{pane.State?.Playing}/{PlayingNow}/{UdemyActive}/{_btnPlay.Text == Glyphs.Pause}"); }
+            Check(_btnPlay.Text == Glyphs.Pause, "play button shows pause while the page plays: " + string.Join(" ", trace) + " state=" + pane.State);
 
             // تنظيف الصفحة (العرض النضيف)
             var hidden = pane.Web.CoreWebView2.ExecuteScriptAsync("getComputedStyle(document.getElementById('hdr')).display");
@@ -187,7 +188,7 @@ internal sealed partial class MainForm
 
             // فيديو عادي بعد يوديمي: الشاشة ترجع لـ VLC والصفحة تتقفل
             StopPlayback();
-            Check(!UdemyActive && !pane.Visible && _videoView.Visible, "stop hides the pane");
+            Check(!UdemyActive && !_udemyShown && _videoView.Visible, "stop hides the pane");
             Console.WriteLine("SMOKE udemy pane: ok (runtime " + UdemyWeb.RuntimeVersion + ")");
         }
         finally
