@@ -245,7 +245,8 @@ internal sealed partial class MainForm
         string mainPath = Path.Combine(dir, "Main.lpl");
         Storage.SaveLibrary(mainPath, lib);
         LoadLibrary(mainPath, remember: false);
-        string before = File.ReadAllText(mainPath);
+        Console.WriteLine($"SMOKE export loaded: links {_library.Links.Count}, topics {_library.Topics.Count}, C2 videos {C0("C2 direct")}");
+        int C0(string n) => _library.Courses.Single(x => x.Name == n).VideoCount;
         Topic T(string n) => _library.Topics.Single(x => x.Name == n);
         Place P(string n) => _library.Places.Single(x => x.Name == n);
         Course C(string n) => _library.Courses.Single(x => x.Name == n);
@@ -277,7 +278,8 @@ internal sealed partial class MainForm
 
         // الأصل ماتلمسش
         SaveLibrary();
-        Check(C("C1 in playlist").AllVideos.First().Watched && C("C2 direct").VideoCount == 2 && _library.Topics.Count == 2 && _library.Links.Count == 2, "original unchanged");
+        Check(C("C1 in playlist").AllVideos.First().Watched && C("C2 direct").VideoCount == 2 && _library.Topics.Count == 2 && _library.Links.Count == 2,
+            $"original unchanged: watched {C("C1 in playlist").AllVideos.First().Watched}, C2 videos {C("C2 direct").VideoCount}, topics {_library.Topics.Count}, links {_library.Links.Count} ({string.Join(" | ", _library.Links.Select(l => l.Path))})");
         Check(C("C1 in playlist").Goal == "finish" && T("YouTube").SourceFolder == @"D:\Courses", "original plan kept");
 
         // 2) نسخة ليا: بكل حاجة (التقدم والملفات المحلية والفولدر المتابَع بتاع الموضوع بس)
