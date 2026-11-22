@@ -14,7 +14,8 @@ internal sealed partial class MainForm
         var mp4 = YtDlp.BuildDownloadArgs(new DownloadOptions(DownloadKind.Mp4, 720, Subtitles: true), "out", "%(title)s.%(ext)s", "ff");
         string a = string.Join(" ", mp4);
         Check(a.Contains("-S res:720,vcodec:h264,acodec:m4a") && a.Contains("--merge-output-format mp4") && a.Contains("--embed-subs")
-              && a.Contains("--embed-thumbnail") && a.Contains("--embed-chapters") && a.Contains("--ffmpeg-location ff") && a.Contains("--continue"), "mp4 args: " + a);
+              && a.Contains("--embed-thumbnail") && a.Contains("--embed-chapters") && a.Contains("--ffmpeg-location ff") && a.Contains("--continue")
+              && a.Contains("--print after_move:filepath --no-quiet"), "mp4 args (progress needs --no-quiet with --print): " + a);
         var mp3 = string.Join(" ", YtDlp.BuildDownloadArgs(new DownloadOptions(DownloadKind.Mp3, Mp3Kbps: 192, Subtitles: true, EmbedCover: false), "o", "t", null));
         Check(mp3.Contains("-x --audio-format mp3 --audio-quality 192K") && !mp3.Contains("--embed-subs") && !mp3.Contains("--embed-thumbnail"), "mp3 args: " + mp3);
         var m4a = string.Join(" ", YtDlp.BuildDownloadArgs(new DownloadOptions(DownloadKind.M4a), "o", "t", null));

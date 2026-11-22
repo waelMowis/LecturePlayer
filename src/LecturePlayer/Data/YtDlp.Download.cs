@@ -54,6 +54,8 @@ public static partial class YtDlp
             "download:" + ProgressTag + " %(progress.downloaded_bytes)s|%(progress.total_bytes)s|%(progress.total_bytes_estimate)s|%(progress.speed)s|%(progress.eta)s",
             "-o", Path.Combine(outDir, template),
             "--print", "after_move:filepath",
+            // --print لوحدها بتخلّي الأداة «ساكتة»: من غير تقدم ولا مراحل ولا أسماء الملفات المؤقتة
+            "--no-quiet",
         };
         switch (o.Kind)
         {
