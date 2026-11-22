@@ -27,15 +27,11 @@ internal sealed class RadioVisual : Control
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         BackColor = Color.Black;
         _anim.Tick += (_, _) => Animate();
+        // الشباك متصغّر: مفيش حد شايف الموجات، فمانصحّيش المعالج 20 مرة في الثانية عشان نرسمها.
+        // الشباك بيتلاقي متأخر: لما الكنترول بيتضاف لأبوه، أبوه نفسه لسه ممكن يكون مش جوه الشباك.
         VisibleChanged += (_, _) => UpdateAnimation();
-        // الشباك متصغّر: مفيش حد شايف الموجات، فمانصحّيش المعالج 20 مرة في الثانية عشان نرسمها
-        ParentChanged += (_, _) =>
-        {
-            if (_hookedForm != null) _hookedForm.Resize -= OnFormResize;
-            _hookedForm = FindForm();
-            if (_hookedForm != null) _hookedForm.Resize += OnFormResize;
-            UpdateAnimation();
-        };
+        ParentChanged += (_, _) => UpdateAnimation();
+        HandleCreated += (_, _) => UpdateAnimation();
     }
 
     private Form? _hookedForm;
@@ -46,7 +42,13 @@ internal sealed class RadioVisual : Control
 
     private void UpdateAnimation()
     {
-        var f = _hookedForm ?? FindForm();
+        var f = FindForm();
+        if (!ReferenceEquals(f, _hookedForm))
+        {
+            if (_hookedForm != null) _hookedForm.Resize -= OnFormResize;
+            _hookedForm = f;
+            if (f != null) f.Resize += OnFormResize;
+        }
         _anim.Enabled = Visible && f is not { WindowState: FormWindowState.Minimized };
     }
 
