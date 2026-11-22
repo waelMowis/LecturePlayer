@@ -137,8 +137,10 @@ public static partial class YtDlp
                 : line.StartsWith("[Metadata]", StringComparison.Ordinal) ? "بيضيف البيانات…"
                 : null;
             if (stage == null) return null;
+            // الأداة بتطبع سطور الغلاف قبل التنزيل كمان: قبل ما يبدأ ماينفعش نقول «بيضيف الغلاف» ولا 100%
+            if (_part < 0) return null;
             Stage = stage;
-            return new DownloadProgress(100, _total, 0, -1, stage);
+            return Now(0, -1, _lastPct);
         }
 
         private DownloadProgress Now(double speed, int eta, double partPct)

@@ -24,6 +24,9 @@ internal sealed partial class MainForm
         Check(best.Contains("-S vcodec:h264,acodec:m4a") && !best.Contains("res:"), "best quality args: " + best);
 
         // ---------- 2) قراية التقدم (صورة + صوت ورا بعض، والترجمة مش جزء) ----------
+        var r0 = new YtDlp.ProgressReader();
+        // سطور الغلاف بتتطبع قبل التنزيل: ماتبقاش 100% ولا «بيضيف الغلاف» (كان الشريط بيقفز لآخره أول ما يبدأ)
+        Check(r0.Read("[ThumbnailsConvertor] There aren't any thumbnails to convert") == null && r0.Stage == "بيبدأ…", "pre-download thumbnail line");
         var r = new YtDlp.ProgressReader();
         Check(r.Read("[info] abc: Downloading subtitles: ar") == null, "subs info line");
         r.Read("[info] abc: Downloading 1 format(s): 137+140");
@@ -35,8 +38,9 @@ internal sealed partial class MainForm
         r.Read("[download] Destination: C:\\x\\v.f140.m4a");
         p = r.Read(YtDlp.ProgressTag + " 50|NA|100|NA|NA");
         Check(p != null && Math.Abs(p.Percent - 75) < 0.1 && p.Stage.Contains("الصوت"), "half of audio = 75%: " + p);
+        r.Read(YtDlp.ProgressTag + " 100|100|NA|NA|NA");
         p = r.Read("[Merger] Merging formats into \"v.mp4\"");
-        Check(p != null && p.Stage.Contains("يدمج") || p != null && p.Stage.Contains("بيدمج"), "merge stage: " + p);
+        Check(p != null && p.Stage.Contains("بيدمج") && Math.Abs(p.Percent - 100) < 0.1, "merge stage keeps 100%: " + p);
         var r1 = new YtDlp.ProgressReader();
         p = r1.Read(YtDlp.ProgressTag + " 30|60|NA|NA|NA");
         Check(p != null && Math.Abs(p.Percent - 50) < 0.1, "single part: " + p);
@@ -152,7 +156,9 @@ internal sealed partial class MainForm
 
             // ---- د) يقف بسبب قفل البرنامج ← يتحفظ ← يكمّل من مكان ماوقف (Range) ----
             var jobD = EnqueuePlan(new DownloadForm.Plan(new DownloadOptions(DownloadKind.Mp3, Mp3Kbps: 128), new() { new(server.Url("long.wav"), "Long lecture", 40_000, null) }, false, Path.Combine(root, "d"), null, 0))[0];
-            Check(WaitFor(() => jobD.Progress?.Percent >= 25, 40), "resume: download started (" + jobD.Progress?.Percent + "%)");
+            string dDir = Path.Combine(root, "d");
+            long PartBytes() => Directory.Exists(dDir) ? Directory.GetFiles(dDir, "*.part").Sum(f => new FileInfo(f).Length) : 0;
+            Check(WaitFor(() => jobD.Progress?.Percent >= 25 && PartBytes() > 500_000, 40), $"resume: download started ({jobD.Progress?.Percent}%, part {PartBytes()} bytes, {jobD.Stage})");
             double before = jobD.Progress!.Percent;
             jobD.StoppedForClose = true;          // نفس اللي بيحصل عند قفل البرنامج
             jobD.Cts?.Cancel();
