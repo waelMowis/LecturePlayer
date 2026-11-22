@@ -49,8 +49,7 @@ internal static class DownloadForm
             urlBox = kit.Row("الرابط:", new TextBox { Text = url ?? "", PlaceholderText = "رابط فيديو أو قايمة تشغيل من يوتيوب" });
             infoLabel = kit.Note("الصق الرابط وهيتقري لوحده.", 34);
             list = kit.Full(DarkList.Setup(new ListView { CheckBoxes = false, MultiSelect = false }), 118);
-            list.Columns.Add("", 34);
-            list.Columns.Add("الفيديو", 470);
+            list.Columns.Add("الفيديو", list.Width - 70 - SystemInformation.VerticalScrollBarWidth - 4);
             list.Columns.Add("المدة", 70);
             DarkList.ReverseColumns(list);
         }
@@ -206,7 +205,7 @@ internal static class DownloadForm
                 if (list.GetItemAt(e.X, e.Y) is not { } it) return;
                 bool on = (string)it.Tag! != "1";
                 it.Tag = on ? "1" : "0";
-                it.SubItems[0].Text = on ? "✓" : "";
+                it.SubItems[0].Text = (on ? "✓  " : "✗  ") + items[it.Index].Title;
                 it.ForeColor = on ? Theme.Text : Theme.Muted;
                 Refresh();
             };
@@ -229,7 +228,7 @@ internal static class DownloadForm
                     list.BeginUpdate();
                     list.Items.Clear();
                     foreach (var e in items)
-                        list.Items.Add(new ListViewItem(new[] { "✓", e.Title, e.DurationMs > 0 ? TimeSpan.FromMilliseconds(e.DurationMs).ToString(e.DurationMs >= 3_600_000 ? @"h\:mm\:ss" : @"m\:ss") : "" }) { Tag = "1", ForeColor = Theme.Text });
+                        list.Items.Add(new ListViewItem(new[] { "✓  " + e.Title, e.DurationMs > 0 ? TimeSpan.FromMilliseconds(e.DurationMs).ToString(e.DurationMs >= 3_600_000 ? @"h\:mm\:ss" : @"m\:ss") : "" }) { Tag = "1", ForeColor = Theme.Text });
                     list.EndUpdate();
                 }
                 if (listing.IsPlaylist)
