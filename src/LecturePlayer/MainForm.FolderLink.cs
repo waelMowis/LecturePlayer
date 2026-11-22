@@ -285,7 +285,7 @@ internal sealed partial class MainForm
         if (n > 0) items.Add(MenuItem(n == 1 ? "🔄  هات الجديد من الفولدر" : $"🔄  هات الجديد من الفولدرات ({n})", () => _ = SyncLinkedFoldersAsync(item, manual: true)));
     }
 
-    private void OpenFolder(string path)
+    internal void OpenFolder(string path)
     {
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتح الفولدر:\n" + ex.Message); }

@@ -546,6 +546,23 @@ public sealed class AppSettings
     /// <summary>فيديوهات يوتيوب المتنزلة على الجهاز ده: الرابط ← الملف.</summary>
     public Dictionary<string, string> OfflineFiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // ---------- التنزيل من يوتيوب ----------
+    /// <summary>آخر اختيارات في شاشة التنزيل (بتتفتكر للمرة الجاية).</summary>
+    public DownloadKind DownloadKind { get; set; } = DownloadKind.Mp4;
+    public int DownloadMaxHeight { get; set; } = 720;
+    public int DownloadMp3Kbps { get; set; } = 192;
+    public bool DownloadEmbedCover { get; set; } = true;
+    public bool DownloadChapters { get; set; } = true;
+    public bool DownloadSubtitles { get; set; }
+    /// <summary>فولدر الحفظ (فاضي = Downloads\مسار).</summary>
+    public string DownloadFolder { get; set; } = "";
+    /// <summary>كام تنزيل مع بعض (1 أو 2) — يوتيوب بيبطّأ اللي بينزّل كتير مع بعض.</summary>
+    public int DownloadParallel { get; set; } = 1;
+    /// <summary>تنبيه الحقوق اتعرض مرة.</summary>
+    public bool DownloadNoticeShown { get; set; }
+    /// <summary>تنزيلات ماخلصتش (بتكمّل في التشغيل الجاي من مكان ماوقفت).</summary>
+    public List<PendingDownload> PendingDownloads { get; set; } = new();
+
     /// <summary>صورة معاينة لما تقف بالماوس على شريط التقديم (محتاجة ffmpeg).</summary>
     public bool SeekPreview { get; set; } = true;
 
@@ -656,6 +673,24 @@ public sealed class AppSettings
     public int WindowWidth { get; set; }
     public int WindowHeight { get; set; }
     public bool Maximized { get; set; }
+}
+
+/// <summary>تنزيل محفوظ عشان يكمّل بعد قفل البرنامج.</summary>
+public sealed class PendingDownload
+{
+    public string Url { get; set; } = "";
+    public string Title { get; set; } = "";
+    public DownloadKind Kind { get; set; }
+    public int MaxHeight { get; set; }
+    public int Mp3Kbps { get; set; } = 192;
+    public bool EmbedCover { get; set; } = true;
+    public bool EmbedChapters { get; set; } = true;
+    public bool Subtitles { get; set; }
+    public string OutDir { get; set; } = "";
+    public string Template { get; set; } = "";
+    /// <summary>رابط فيديو المكتبة (لو التنزيل «جوه المكتبة»): الملف بيتربط بيه.</summary>
+    public string? LibraryUrl { get; set; }
+    public long EstimatedBytes { get; set; }
 }
 
 public sealed class PathMapping

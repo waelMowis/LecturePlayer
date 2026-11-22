@@ -1611,7 +1611,7 @@ internal sealed partial class MainForm
                 };
                 if (AdvancedMode) more.Add(MenuItem("تقسيم تلقائي (عند Part 01)…", () => AutoSplitDialog(g)));
                 if (g.Videos.Any(x => x.IsOnline))
-                    more.Add(MenuItem("تنزيل فيديوهات يوتيوب للمشاهدة من غير نت", () => _ = DownloadOfflineAsync(g.Videos)));
+                    more.Add(MenuItem("⬇  تنزيل فيديوهات يوتيوب (فيديو أو MP3)…", () => DownloadFromLibrary(g.Videos, g.Name)));
                 if (g.SourceUrl != null)
                     more.Add(MenuItem("فك الربط بقائمة يوتيوب", () => { Checkpoint("فك الربط"); g.SourceUrl = null; g.InfoUpdatedUtc = DateTime.UtcNow; MarkDirty(); RefreshGroup(g); }));
                 else more.Add(MenuItem("ربط بقائمة تشغيل يوتيوب (عشان الجديد يتضاف)…", () => LinkPlaylist(g)));
@@ -1655,7 +1655,7 @@ internal sealed partial class MainForm
                 if (v.IsOnline)
                 {
                     if (IsDownloaded(v)) more.Add(MenuItem("مسح النسخة المتنزلة", () => RemoveOffline(v)));
-                    else more.Add(MenuItem("تنزيل للمشاهدة من غير نت", () => _ = DownloadOfflineAsync(new[] { v })));
+                    else more.Add(MenuItem("⬇  تنزيل (فيديو أو MP3)…", () => DownloadFromLibrary(new[] { v }, v.Title)));
                     more.Add(MenuItem("فتح في المتصفح", () => OpenInBrowser(v.Path)));
                     more.Add(MenuItem("نسخ الرابط", () => { try { Clipboard.SetText(v.Path); } catch { } }));
                 }

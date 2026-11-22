@@ -316,7 +316,6 @@ internal sealed partial class MainForm
     //  فيديوهات يوتيوب للمشاهدة من غير نت
     // =====================================================================
 
-    private CancellationTokenSource? _downloadCts;
 
     /// <summary>الملف المحلي اللي يتشغّل: فيديو عادي = مكانه، فيديو نت متنزّل = الملف المتنزّل.</summary>
     private string? PlayableLocalFile(VideoItem v)
@@ -350,54 +349,6 @@ internal sealed partial class MainForm
             return false;
         }
         finally { UseWaitCursor = false; }
-    }
-
-    private async Task DownloadOfflineAsync(IReadOnlyList<VideoItem> videos)
-    {
-        var todo = videos.Where(v => v.IsOnline && !IsDownloaded(v)).ToList();
-        if (todo.Count == 0) { ShowStatus("الفيديوهات دي متنزلة أصلًا"); return; }
-        if (_downloadCts != null) { ShowStatus("فيه تنزيل شغال — استنى لما يخلص أو ألغيه"); return; }
-        if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("دمج الصورة والصوت")) return;
-
-        var cts = _downloadCts = new CancellationTokenSource();
-        int done = 0, failed = 0;
-        try
-        {
-            foreach (var v in todo)
-            {
-                var course = _library.FindCourseOf(v);
-                string dir = Path.Combine(Storage.AppDataDir, "offline", NotesExporter.SafeFileName(course?.Name ?? "فيديوهات"));
-                int index = done + failed + 1;
-                var progress = new Progress<int>(p => ShowStatus($"بنزّل ({index}/{todo.Count}) {v.Title} — {p}%  (أدوات ← إلغاء التنزيل)", 30));
-                try
-                {
-                    string file = await YtDlp.DownloadVideoAsync(v.Path, dir, _settings.OnlineMaxHeight, progress, cts.Token);
-                    _settings.OfflineFiles[v.Path] = file;
-                    done++;
-                    RefreshVideo(v);
-                    Log.Info($"offline: {v.Path} -> {file}");
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
-                {
-                    failed++;
-                    Log.Error("offline-download", ex);
-                }
-            }
-            ShowStatus(failed == 0 ? $"اتنزّل {done} فيديو للمشاهدة من غير نت ✓" : $"اتنزّل {done}، وفشل {failed} (التفاصيل في السجل)", 8);
-        }
-        catch (OperationCanceledException) { ShowStatus("اتلغى التنزيل"); }
-        finally
-        {
-            _downloadCts = null;
-            Storage.SaveSettings(_settings);
-        }
-    }
-
-    private void CancelDownload()
-    {
-        if (_downloadCts == null) { ShowStatus("مفيش تنزيل شغال"); return; }
-        _downloadCts.Cancel();
     }
 
     private void RemoveOffline(VideoItem v)

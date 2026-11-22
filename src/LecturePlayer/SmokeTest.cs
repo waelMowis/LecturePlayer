@@ -58,8 +58,31 @@ internal static class SmokeTest
         return 0;
     }
 
+    /// <summary>
+    /// بيشغّل ملف بـ VLC (عرض وصوت وهميين) لحد آخره ويرجّع عدد فريمات الصورة والصوت اللي اتفكت فعلًا والمدة.
+    /// </summary>
+    internal static (int VideoFrames, int AudioBlocks, long DurationMs, int Width) DecodeCheck(string file)
+    {
+        using var lib = new LibVLCSharp.Shared.LibVLC("--vout=dummy", "--aout=adummy", "--no-video-title-show", "--quiet");
+        using var media = new LibVLCSharp.Shared.Media(lib, file, LibVLCSharp.Shared.FromType.FromPath);
+        using var mp = new LibVLCSharp.Shared.MediaPlayer(media);
+        var ended = new ManualResetEventSlim();
+        mp.EndReached += (_, _) => ended.Set();
+        mp.EncounteredError += (_, _) => ended.Set();
+        mp.Play();
+        // الملفات الطويلة: كفاية 3 ثواني فك
+        var until = DateTime.UtcNow.AddSeconds(6);
+        while (!ended.IsSet && DateTime.UtcNow < until && mp.Time < 3000) Thread.Sleep(40);
+        uint w = 0, h = 0;
+        try { mp.Size(0, ref w, ref h); } catch { }
+        long dur = mp.Length > 0 ? mp.Length : media.Duration;
+        var st = media.Statistics;
+        mp.Stop();
+        return (st.DecodedVideo, st.DecodedAudio, dur, (int)w);
+    }
+
     /// <summary>بيدوّر على فولدر في المستودع (tests/formats، installer) طالع من فولدر التشغيل أو البرنامج.</summary>
-    private static string? RepoPath(string relative)
+    internal static string? RepoPath(string relative)
     {
         foreach (string start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
         {

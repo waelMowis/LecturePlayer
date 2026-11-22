@@ -26,7 +26,7 @@ public sealed record StreamPart(string FormatId, string Url, string Protocol, bo
 /// يوتيوب محتاج كمان Deno (JavaScript runtime) عشان yt-dlp يشتغل كويس.
 /// الأدوات بتتحط في %AppData%\LecturePlayer\tools
 /// </summary>
-public static class YtDlp
+public static partial class YtDlp
 {
     public const string YtDlpDownloadUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe";
     public const string DenoDownloadUrl = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip";

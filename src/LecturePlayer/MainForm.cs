@@ -306,6 +306,7 @@ internal sealed partial class MainForm : Form
         _statusMessage.TextAlign = ContentAlignment.MiddleCenter;
         _statusFile.ForeColor = Theme.Muted;
         _status.Items.AddRange(new ToolStripItem[] { _statusGroup, _statusMessage, _statusFile });
+        SetupDownloadsIndicator();
 
         // ---------- المنيو ----------
         _menu.Renderer = new DarkRenderer();
@@ -804,7 +805,7 @@ internal sealed partial class MainForm : Form
             Adv(seekPreview),
             new ToolStripSeparator(),
             Adv(Item("تنزيل أداة الفيديو (للمعاينة والتنزيل وتحويل الكلام لنص)…", () => _ = EnsureFfmpegAsync("معاينة الشريط وتنزيل يوتيوب وتحويل الكلام لنص"))),
-            Item("إلغاء التنزيل الشغال", CancelDownload),
+            Item("⬇  التنزيلات…", ShowDownloadsPanel),
             new ToolStripSeparator(),
             Adv(Item("فتح فولدر الأدوات", () => OpenDataFolder("tools"))),
             Item("فتح فولدر الفيديوهات المتنزلة", () => OpenDataFolder("offline")),
@@ -1032,6 +1033,7 @@ internal sealed partial class MainForm : Form
             if (tour) BeginInvoke(new Action(StartTour));
             AfterStartupUpdateCheck(firstRunTour: tour);
             CheckLastCrash();
+            BeginInvoke(new Action(OfferResumeDownloads));
         };
         DpiChanged += (_, _) => BeginInvoke(new Action(ApplySidePanelWidth));
 
@@ -1384,6 +1386,8 @@ internal sealed partial class MainForm : Form
         if (_shutdownDone) { base.OnFormClosing(e); return; }
         if (!_closing && FocusActive && e.CloseReason == CloseReason.UserClosing && !ConfirmLeaveFocus()) { e.Cancel = true; return; }
         if (!_closing && _focusBlocked) EndFocus(early: true);
+        // تنزيلات شغالة: نسأل، ولو قفلت بتقف وتكمّل المرة الجاية
+        if (!_closing && !StopDownloadsForClose()) { e.Cancel = true; return; }
 
         // VLC لازم يقف في Thread تاني عشان الواجهة متعلقش
         e.Cancel = true;
