@@ -31,6 +31,7 @@ internal static class SmokeTest
             Console.WriteLine("SMOKE hierarchy OK");
             LibVLCSharp.Shared.Core.Initialize();
             FormatsSelfTest();
+            WebViewDrmProbe();
             using var form = new MainForm(null, Array.Empty<string>());
             form.Shown += (_, _) =>
             {
@@ -79,6 +80,71 @@ internal static class SmokeTest
         var st = media.Statistics;
         mp.Stop();
         return (st.DecodedVideo, st.DecodedAudio, dur, (int)w);
+    }
+
+    /// <summary>
+    /// فحص (بيطبع بس، مش بيوقف البناء): WebView2 جوه البرنامج بيدعم حماية الفيديو Widevine / PlayReady؟
+    /// ده اللي بيحدد هل فيديوهات يوديمي المحمية تشتغل جوه «مسار».
+    /// الصفحة على عنوان آمن (https) لأن المتصفح مابيفعّلش الحماية غير في الصفحات الآمنة.
+    /// </summary>
+    private static void WebViewDrmProbe()
+    {
+        try
+        {
+            string? version = null;
+            try { version = Microsoft.Web.WebView2.Core.CoreWebView2Environment.GetAvailableBrowserVersionString(); } catch { }
+            Console.WriteLine("SMOKE webview2 runtime: " + (version ?? "NOT INSTALLED"));
+            if (version == null) return;
+
+            string dir = Path.Combine(Path.GetTempPath(), "masar-smoke-webview");
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, "drm.html"), """
+                <!doctype html><html><body><script>
+                async function probe(ks) {
+                  const cfg = [{ initDataTypes: ['cenc'],
+                    audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }],
+                    videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"' }] }];
+                  try { const a = await navigator.requestMediaKeySystemAccess(ks, cfg); await a.createMediaKeys(); return 'yes'; }
+                  catch (e) { return 'no (' + e.name + ': ' + e.message + ')'; }
+                }
+                window.drm = null;
+                (async () => { window.drm = { secure: window.isSecureContext,
+                  widevine: await probe('com.widevine.alpha'),
+                  playready: await probe('com.microsoft.playready.recommendation'),
+                  ua: navigator.userAgent }; })();
+                </script></body></html>
+                """);
+
+            using var form = new Form { Width = 400, Height = 300, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Location = new Point(-2000, -2000) };
+            using var web = new Microsoft.Web.WebView2.WinForms.WebView2 { Dock = DockStyle.Fill };
+            form.Controls.Add(web);
+            form.Show();
+            T Wait<T>(Task<T> t, int seconds)
+            {
+                var until = DateTime.UtcNow.AddSeconds(seconds);
+                while (!t.IsCompleted && DateTime.UtcNow < until) { Application.DoEvents(); Thread.Sleep(15); }
+                if (!t.IsCompleted) throw new TimeoutException("webview2 timeout");
+                return t.GetAwaiter().GetResult();
+            }
+            var env = Wait(Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(null, Path.Combine(dir, "profile")), 60);
+            Wait(web.EnsureCoreWebView2Async(env).ContinueWith(_ => 0), 60);
+            web.CoreWebView2.SetVirtualHostNameToFolderMapping("masar.test", dir, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            web.CoreWebView2.Navigate("https://masar.test/drm.html");
+
+            // مكوّن Widevine ممكن يتنزّل في أول تشغيل: نستنى لحد دقيقة ونعيد السؤال
+            string result = "null";
+            var until = DateTime.UtcNow.AddSeconds(60);
+            while (DateTime.UtcNow < until)
+            {
+                Thread.Sleep(500);
+                Application.DoEvents();
+                try { result = Wait(web.CoreWebView2.ExecuteScriptAsync("JSON.stringify(window.drm)"), 10); } catch (Exception ex) { result = "err " + ex.Message; }
+                if (result.Contains("widevine")) break;
+            }
+            Console.WriteLine("SMOKE webview2 drm: " + result);
+            form.Close();
+        }
+        catch (Exception ex) { Console.WriteLine("SMOKE webview2 drm probe failed: " + ex.GetType().Name + ": " + ex.Message); }
     }
 
     /// <summary>بيدوّر على فولدر في المستودع (tests/formats، installer) طالع من فولدر التشغيل أو البرنامج.</summary>

@@ -40,6 +40,7 @@
   <ItemGroup>
     <!-- محرك التشغيل: VLC (يشغل mp4 / mkv / avi / ... أي صيغة) -->
     <PackageReference Include="LibVLCSharp.WinForms" Version="3.*" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.*" />
     <!-- GeneratePathProperty: بيدينا $(PkgVideoLAN_LibVLC_Windows) = مكان الباكدج، عشان خطوة النشر تتأكد إن مكتبات VLC اتنسخت -->
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.*" GeneratePathProperty="true" />
   </ItemGroup>
