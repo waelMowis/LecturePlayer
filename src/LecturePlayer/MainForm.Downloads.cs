@@ -78,6 +78,45 @@ internal sealed partial class MainForm
         if (plan != null) EnqueuePlan(plan);
     }
 
+    /// <summary>
+    /// تنزيل كورس كامل: كل فيديوهات يوتيوب في كل محاضراته بترتيبها. اللي متنزل قبل كده (جوه المكتبة) بيتخطّى،
+    /// وفي فولدر: فولدر باسم الكورس وجواه فولدر لكل محاضرة.
+    /// </summary>
+    internal async void DownloadCourse(Course c)
+    {
+        var items = CourseDownloadItems(c, out int already, out int local);
+        if (items.Count == 0)
+        {
+            ShowStatus(already > 0 ? $"كل فيديوهات «{c.Name}» متنزلة قبل كده ✓" : "مفيش فيديوهات يوتيوب في الكورس ده");
+            return;
+        }
+        if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("تنزيل يوتيوب (دمج الصورة والصوت والتحويل لـ MP3)")) return;
+        string label = c.Name + (already > 0 ? $" — {already} متنزلين قبل كده اتخطّوا" : "") + (local > 0 ? $" — {local} ملف على جهازك مش محتاجين تنزيل" : "");
+        var plan = DownloadForm.Show(this, _settings, null, items, label);
+        if (plan != null) EnqueuePlan(plan with { GroupName = c.Name });
+    }
+
+    /// <summary>فيديوهات يوتيوب الكورس بترتيبها، كل واحد بمحاضرته ورقمه فيها (من غير اللي متنزل).</summary>
+    internal List<DownloadForm.Item> CourseDownloadItems(Course c, out int alreadyDownloaded, out int localFiles)
+    {
+        var items = new List<DownloadForm.Item>();
+        alreadyDownloaded = 0;
+        localFiles = 0;
+        for (int gi = 0; gi < c.Groups.Count; gi++)
+        {
+            var g = c.Groups[gi];
+            string lecture = $"{gi + 1:00} - {g.Name}";
+            for (int vi = 0; vi < g.Videos.Count; vi++)
+            {
+                var v = g.Videos[vi];
+                if (!v.IsOnline) { localFiles++; continue; }
+                if (IsDownloaded(v)) { alreadyDownloaded++; continue; }
+                items.Add(new DownloadForm.Item(v.Path, v.Title, v.DurationMs, v.Path, lecture, vi + 1));
+            }
+        }
+        return items;
+    }
+
     /// <summary>الفيديو مارضيش يشتغل أونلاين: ينزل (بالاختيارات المعتادة) ويشتغل من الجهاز.</summary>
     private async Task DownloadThenPlayAsync(VideoItem v)
     {
@@ -122,9 +161,13 @@ internal sealed partial class MainForm
             long est = each > 0 ? each : YtDlp.EstimateBytes(null, it.DurationMs, plan.Options);
             if (plan.IntoLibrary && it.LibraryUrl != null && _library.AllVideos.FirstOrDefault(v => v.Path == it.LibraryUrl) is { } video)
                 specs.Add(LibrarySpec(video, plan.Options, est));
+            else if (it.SubFolder != null && plan.GroupName != null)
+                // كورس كامل: نفس شكله في المكتبة — فولدر الكورس، وجواه فولدر لكل محاضرة، والفيديوهات مترقمة
+                specs.Add(Spec(it.Url, it.Title, plan.Options, Path.Combine(plan.Folder, NotesExporter.SafeFileName(plan.GroupName), NotesExporter.SafeFileName(it.SubFolder)),
+                    $"{(it.Order > 0 ? it.Order : i + 1):00} - %(title).140B.%(ext)s", null, est));
             else
                 specs.Add(Spec(it.Url, it.Title, plan.Options, folder,
-                    playlist ? $"{i + 1:00} - %(title).140B.%(ext)s" : "%(title).150B.%(ext)s", null, est));
+                    playlist ? $"{(it.Order > 0 ? it.Order : i + 1):00} - %(title).140B.%(ext)s" : "%(title).150B.%(ext)s", null, est));
         }
         Storage.SaveSettings(_settings); // الاختيارات اللي اتفتكرت
         var jobs = Enqueue(specs);

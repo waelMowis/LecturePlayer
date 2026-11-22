@@ -212,6 +212,57 @@ internal sealed partial class MainForm
             try { File.Delete(jobsF[0].File!); } catch { }
             Console.WriteLine("SMOKE download into library OK");
 
+            // ---- ح) كورس كامل: محاضرتين، وملف محلي، وفيديو متنزل قبل كده ----
+            var libH = new CourseLibrary { Name = "course-dl" };
+            var cH = new Course { Name = "C# Basics" };
+            var l1 = new LectureGroup { Name = "Session 01" };
+            l1.Videos.Add(new VideoItem { Path = server.Url("lecture.mp4") + "?c1", Title = "Part 01", DurationMs = 1000 });
+            l1.Videos.Add(new VideoItem { Path = server.Url("lecture.mp4") + "?c2", Title = "Part 02", DurationMs = 1000 });
+            var l2 = new LectureGroup { Name = "Session 02" };
+            l2.Videos.Add(new VideoItem { Path = Path.Combine(formats, "h264-aac.mp4"), Title = "Local part", DurationMs = 1000 });
+            l2.Videos.Add(new VideoItem { Path = server.Url("lecture.mp4") + "?c3", Title = "Part 03", DurationMs = 1000 });
+            cH.Groups.AddRange(new[] { l1, l2 });
+            libH.Courses.Add(cH);
+            string libHPath = Path.Combine(root, "course-dl.lpl");
+            Storage.SaveLibrary(libHPath, libH);
+            LoadLibrary(libHPath, remember: false);
+            var course = _library.Courses[0];
+            string earlier = Path.Combine(root, "earlier.mp4");
+            File.Copy(Path.Combine(formats, "h264-aac.mp4"), earlier, true);
+            _settings.OfflineFiles[course.Groups[0].Videos[1].Path] = earlier;   // Part 02 متنزل قبل كده
+
+            var itemsH = CourseDownloadItems(course, out int already, out int localCount);
+            Check(itemsH.Count == 2 && already == 1 && localCount == 1, $"course items {itemsH.Count}, already {already}, local {localCount}");
+            Check(itemsH[0].SubFolder == "01 - Session 01" && itemsH[0].Order == 1 && itemsH[1].SubFolder == "02 - Session 02" && itemsH[1].Order == 2,
+                "lecture folders and order: " + string.Join(" | ", itemsH.Select(i => $"{i.SubFolder}/{i.Order}")));
+
+            // في فولدر: فولدر الكورس ← فولدر لكل محاضرة ← فيديوهات مترقمة
+            string outH = Path.Combine(root, "h");
+            int jobsBefore = _downloadJobs.Count;
+            DownloadForm.SmokePick = (DownloadKind.Mp3, 128, outH);
+            DownloadCourse(course);
+            Check(WaitFor(() => _downloadJobs.Count == jobsBefore + 2, 60), "course → 2 jobs, got " + (_downloadJobs.Count - jobsBefore));
+            var jobsH = _downloadJobs.Skip(jobsBefore).ToList();
+            Check(WaitFor(() => jobsH.All(j => !j.Active), 120) && jobsH.All(j => j.Status == DownloadStatus.Done), "course jobs: " + string.Join(" | ", jobsH.Select(j => j.Status + " " + j.Error)));
+            string f1 = Path.Combine(outH, "C# Basics", "01 - Session 01"), f2 = Path.Combine(outH, "C# Basics", "02 - Session 02");
+            Check(Path.GetDirectoryName(jobsH[0].File) == f1 && Path.GetFileName(jobsH[0].File!).StartsWith("01 - "), "lecture 1 file: " + jobsH[0].File);
+            Check(Path.GetDirectoryName(jobsH[1].File) == f2 && Path.GetFileName(jobsH[1].File!).StartsWith("02 - "), "lecture 2 file: " + jobsH[1].File);
+            Check(jobsH.All(j => SmokeTest.DecodeCheck(j.File!).AudioBlocks > 0), "course files decode");
+
+            // جوه المكتبة: كل فيديو بيتربط بملفه، وبعدها مفيش حاجة تتنزل تاني
+            DownloadForm.SmokeIntoLibrary = true;
+            DownloadForm.SmokePick = (DownloadKind.Mp4, 720, outH);
+            jobsBefore = _downloadJobs.Count;
+            DownloadCourse(course);
+            Check(WaitFor(() => _downloadJobs.Count == jobsBefore + 2, 60), "course into library → 2 jobs");
+            var jobsL = _downloadJobs.Skip(jobsBefore).ToList();
+            Check(WaitFor(() => jobsL.All(j => !j.Active), 120) && jobsL.All(j => j.Status == DownloadStatus.Done), "course into library: " + string.Join(" | ", jobsL.Select(j => j.Error)));
+            Check(course.AllVideos.Where(v => v.IsOnline).All(IsDownloaded), "every online video now plays offline");
+            Check(CourseDownloadItems(course, out int already2, out _).Count == 0 && already2 == 3, "nothing left to download");
+            DownloadForm.SmokeIntoLibrary = false;
+            foreach (var v in course.AllVideos) _settings.OfflineFiles.Remove(v.Path);
+            Console.WriteLine("SMOKE download whole course OK (folder per lecture, skips already-downloaded, into library)");
+
             // ---- و2) الويندوز ماسك الملف (زي Defender على سطح المكتب): البرنامج بيستنى ويعيد لوحده ----
             string gDir = Path.Combine(root, "lock");
             Directory.CreateDirectory(gDir);
@@ -262,6 +313,7 @@ internal sealed partial class MainForm
         {
             DownloadForm.SmokePick = null;
             DownloadForm.SmokeShot = null;
+            DownloadForm.SmokeIntoLibrary = false;
             foreach (var j in _downloadJobs.Where(j => j.Active).ToList()) j.Cts?.Cancel();
             _downloadJobs.Clear();
             _settings.PendingDownloads.Clear();

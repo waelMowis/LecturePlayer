@@ -9,7 +9,9 @@ namespace LecturePlayer.UI;
 internal static class DownloadForm
 {
     /// <summary>فيديو هيتنزل. LibraryUrl = رابط فيديو المكتبة اللي الملف هيتربط بيه (لو «جوه المكتبة»).</summary>
-    public sealed record Item(string Url, string Title, long DurationMs, string? LibraryUrl);
+    /// <param name="SubFolder">فولدر المحاضرة جوه فولدر الكورس (تنزيل كورس كامل لفولدر)، أو null.</param>
+    /// <param name="Order">رقم الفيديو جوه محاضرته (01، 02…)؛ 0 = حسب الترتيب في القايمة.</param>
+    public sealed record Item(string Url, string Title, long DurationMs, string? LibraryUrl, string? SubFolder = null, int Order = 0);
 
     /// <param name="GroupName">اسم قايمة التشغيل (فولدر فرعي لما تتنزل في فولدر).</param>
     public sealed record Plan(DownloadOptions Options, List<Item> Items, bool IntoLibrary, string Folder, string? GroupName, long EstimatedBytes);
@@ -18,6 +20,8 @@ internal static class DownloadForm
     internal static (DownloadKind Kind, int Quality, string Folder)? SmokePick;
     internal static Action<Form>? SmokeShot;
     internal static string SmokeInfoText = "";
+    /// <summary>للفحص: «جوه المكتبة» بدل «في فولدر».</summary>
+    internal static bool SmokeIntoLibrary;
 
     public static string DefaultFolder =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "مسار");
@@ -317,7 +321,9 @@ internal static class DownloadForm
             FillQuality();
             int qi = qualityValues.IndexOf(sp.Quality);
             if (qi >= 0) quality.SelectedIndex = qi;
-            folder = sp.Folder; folderBox.Text = folder; toFolder.Checked = true;
+            folder = sp.Folder; folderBox.Text = folder;
+            toFolder.Checked = !(SmokeIntoLibrary && fromLibrary);
+            toLibrary.Checked = SmokeIntoLibrary && fromLibrary;
             Refresh();
             Application.DoEvents();
             SmokeShot?.Invoke(kit.Form);
@@ -344,6 +350,7 @@ internal static class DownloadForm
         if (!intoLibrary) settings.DownloadFolder = folder == DefaultFolder ? "" : folder;
         settings.DownloadNoticeShown = true;
 
+        if (fromLibrary && chosen.Count > 1) groupName = libraryName;
         return new Plan(options, chosen, intoLibrary, folder, groupName, Estimate(qv));
     }
 

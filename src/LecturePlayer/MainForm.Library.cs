@@ -1549,6 +1549,8 @@ internal sealed partial class MainForm
                 items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
                 items.Add(AppearanceMenuItem(c));
                 items.Add(ExportMenuItem(c));
+                if (c.AllVideos.Any(v => v.IsOnline))
+                    items.Add(MenuItem("⬇  تنزيل الكورس كله (فيديو أو MP3)…", () => DownloadCourse(c)));
                 items.Add(MoveCourseMenu(c));
                 items.Add(FoldMenu(c));
                 if (AdvancedMode) items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
