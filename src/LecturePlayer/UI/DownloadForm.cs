@@ -49,9 +49,15 @@ internal static class DownloadForm
             urlBox = kit.Row("الرابط:", new TextBox { Text = url ?? "", PlaceholderText = "رابط فيديو أو قايمة تشغيل من يوتيوب" });
             infoLabel = kit.Note("الصق الرابط وهيتقري لوحده.", 34);
             list = kit.Full(DarkList.Setup(new ListView { CheckBoxes = false, MultiSelect = false }), 118);
-            list.Columns.Add("الفيديو", list.Width - 70 - SystemInformation.VerticalScrollBarWidth - 4);
+            list.Columns.Add("الفيديو", 300);
             list.Columns.Add("المدة", 70);
             DarkList.ReverseColumns(list);
+            // العمود ياخد الباقي بالظبط (من غير مساحة بيضا في العناوين ولا سكرول بالعرض) — وبيتعاد لما السكرول يظهر
+            var lv = list;
+            void FitColumns() { if (lv.ClientSize.Width > 120) lv.Columns[0].Width = lv.ClientSize.Width - lv.Columns[1].Width; }
+            lv.ClientSizeChanged += (_, _) => FitColumns();
+            lv.HandleCreated += (_, _) => FitColumns();
+            FitColumns();
         }
         else
         {
@@ -230,6 +236,7 @@ internal static class DownloadForm
                     foreach (var e in items)
                         list.Items.Add(new ListViewItem(new[] { "✓  " + e.Title, e.DurationMs > 0 ? TimeSpan.FromMilliseconds(e.DurationMs).ToString(e.DurationMs >= 3_600_000 ? @"h\:mm\:ss" : @"m\:ss") : "" }) { Tag = "1", ForeColor = Theme.Text });
                     list.EndUpdate();
+                    if (list.ClientSize.Width > 120) list.Columns[0].Width = list.ClientSize.Width - list.Columns[1].Width;
                 }
                 if (listing.IsPlaylist)
                     infoLabel.Text = $"قايمة تشغيل «{listing.Title}» — {items.Count} فيديو. دوس على فيديو عشان تشيله أو ترجّعه.";
