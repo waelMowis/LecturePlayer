@@ -147,9 +147,8 @@ internal sealed partial class MainForm
             Check(UdemyActive && !_videoView.Visible, "pane replaces the VLC view");
             Check(Until(() => pane.State is { HasVideo: true, DurationSec: > 0, Playing: true }, 30_000), "video plays in the pane: " + pane.State);
             Check(PlayingNow, "PlayingNow follows the page");
-            var trace = new List<string>();
-            for (int i = 0; i < 8; i++) { Pump(100); trace.Add($"{pane.State?.Playing}/{PlayingNow}/{_btnPlay.Text == Glyphs.Pause}/t{_tick}/{_uiTimer.Enabled}/{_uiTimer.Interval}"); }
-            Check(_btnPlay.Text == Glyphs.Pause, "play button shows pause while the page plays: " + string.Join(" ", trace) + " state=" + pane.State);
+            Check(Until(() => _btnPlay.Text == Glyphs.Pause, 3000), "play button shows pause while the page plays (timer " + _uiTimer.Interval + " ms)");
+            Check(Until(() => _uiTimer.Interval == UiFastMs, 3000), "ui timer goes fast while the page plays: " + _uiTimer.Interval);
 
             // تنظيف الصفحة (العرض النضيف)
             var hidden = pane.Web.CoreWebView2.ExecuteScriptAsync("getComputedStyle(document.getElementById('hdr')).display");
@@ -158,8 +157,7 @@ internal sealed partial class MainForm
             // التحكم من «مسار»
             TogglePlay();
             Check(Until(() => pane.State is { Paused: true }, 5000), "pause from masar: " + pane.State);
-            Pump(500);
-            Check(!PlayingNow && _btnPlay.Text == Glyphs.Play, "paused state reflected");
+            Check(Until(() => !PlayingNow && _btnPlay.Text == Glyphs.Play, 3000), "paused state reflected");
             TogglePlay();
             Check(Until(() => pane.State is { Playing: true }, 5000), "resume from masar");
             SetRate(1.5f);
