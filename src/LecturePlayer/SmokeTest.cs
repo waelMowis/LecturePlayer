@@ -112,12 +112,17 @@ internal static class SmokeTest
             mp.EncounteredError += (_, _) => { error = true; ended.Set(); };
             mp.EndReached += (_, _) => ended.Set();
             if (!mp.Play()) { problems.Add($"{name}: Play() returned false"); continue; }
-            var until = DateTime.UtcNow.AddSeconds(6);
-            while (!ended.IsSet && DateTime.UtcNow < until && mp.Time < 600) Thread.Sleep(40);
-            long time = mp.Time;
+            // نسيبه يخلص (الملفات ثانية واحدة) عشان عدادات الفك تتحدّث
+            var until = DateTime.UtcNow.AddSeconds(5);
+            while (!ended.IsSet && DateTime.UtcNow < until) Thread.Sleep(40);
+            uint w = 0, h = 0;
+            try { mp.Size(0, ref w, ref h); } catch { }
+            var stats = media.Statistics;
             var tracks = media.Tracks;
-            bool hasVideo = tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Video && t.Data.Video.Width > 0);
-            bool hasAudio = tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Audio);
+            bool fileHasAudio = tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Audio);
+            bool videoDecoded = stats.DecodedVideo > 0 || w > 0
+                                || tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Video && t.Data.Video.Width > 0);
+            bool audioDecoded = stats.DecodedAudio > 0;
             mp.Stop();
             string[] bad = log.Where(m => m.Contains("no suitable decoder", StringComparison.OrdinalIgnoreCase)
                                           || m.Contains("could not identify", StringComparison.OrdinalIgnoreCase)
@@ -125,9 +130,10 @@ internal static class SmokeTest
                                           || m.Contains("cannot decode", StringComparison.OrdinalIgnoreCase)
                                           || m.Contains("no suitable demux", StringComparison.OrdinalIgnoreCase)).Distinct().ToArray();
             string why = error ? "player error" : bad.Length > 0 ? string.Join(" | ", bad.Take(2))
-                : !audioOnly && !hasVideo ? "no decoded video track"
-                : audioOnly && !hasAudio ? "no audio track"
-                : time <= 0 && !ended.IsSet ? "did not play" : "";
+                : !audioOnly && !videoDecoded ? $"video not decoded (decoded {stats.DecodedVideo}, size {w}x{h})"
+                : fileHasAudio && !audioDecoded && !name.StartsWith("dv-") ? $"audio not decoded (decoded {stats.DecodedAudio})"
+                : audioOnly && !fileHasAudio ? "no audio track" : "";
+            Console.WriteLine($"SMOKE format {name}: {(why.Length == 0 ? "OK" : "FAIL " + why)} — video frames {stats.DecodedVideo} ({w}x{h}), audio blocks {stats.DecodedAudio}");
             if (why.Length > 0) problems.Add($"{name}: {why}");
             else ok++;
         }
