@@ -127,36 +127,45 @@ internal static class SmokeTest
         {
             string name = Path.GetFileName(f);
             bool audioOnly = LecturePlayer.Data.MediaFiles.IsAudio(f);
-            while (log.TryDequeue(out _)) { }
-            using var media = new LibVLCSharp.Shared.Media(lib, f, LibVLCSharp.Shared.FromType.FromPath);
-            using var mp = new LibVLCSharp.Shared.MediaPlayer(media);
-            var ended = new ManualResetEventSlim();
-            bool error = false;
-            mp.EncounteredError += (_, _) => { error = true; ended.Set(); };
-            mp.EndReached += (_, _) => ended.Set();
-            if (!mp.Play()) { problems.Add($"{name}: Play() returned false"); continue; }
-            // نسيبه يخلص (الملفات ثانية واحدة) عشان عدادات الفك تتحدّث
-            var until = DateTime.UtcNow.AddSeconds(5);
-            while (!ended.IsSet && DateTime.UtcNow < until) Thread.Sleep(40);
-            uint w = 0, h = 0;
-            try { mp.Size(0, ref w, ref h); } catch { }
-            var stats = media.Statistics;
-            var tracks = media.Tracks;
-            bool fileHasAudio = tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Audio);
-            bool videoDecoded = stats.DecodedVideo > 0 || w > 0
-                                || tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Video && t.Data.Video.Width > 0);
-            bool audioDecoded = stats.DecodedAudio > 0;
-            mp.Stop();
-            string[] bad = log.Where(m => m.Contains("no suitable decoder", StringComparison.OrdinalIgnoreCase)
-                                          || m.Contains("could not identify", StringComparison.OrdinalIgnoreCase)
-                                          || m.Contains("Codec not supported", StringComparison.OrdinalIgnoreCase)
-                                          || m.Contains("cannot decode", StringComparison.OrdinalIgnoreCase)
-                                          || m.Contains("no suitable demux", StringComparison.OrdinalIgnoreCase)).Distinct().ToArray();
-            string why = error ? "player error" : bad.Length > 0 ? string.Join(" | ", bad.Take(2))
-                : !audioOnly && !videoDecoded ? $"video not decoded (decoded {stats.DecodedVideo}, size {w}x{h})"
-                : fileHasAudio && !audioDecoded && !name.StartsWith("dv-") ? $"audio not decoded (decoded {stats.DecodedAudio})"
-                : audioOnly && !fileHasAudio ? "no audio track" : "";
-            Console.WriteLine($"SMOKE format {name}: {(why.Length == 0 ? "OK" : "FAIL " + why)} — video frames {stats.DecodedVideo} ({w}x{h}), audio blocks {stats.DecodedAudio}");
+            // ملف ثانية واحدة ممكن يخلص قبل ما VLC يحدّث عدادات الفك: لو مفيش أي خطأ والعداد صفر، نجرب مرة كمان
+            string why = "";
+            string[] bad = Array.Empty<string>();
+            int shownVideo = 0, shownAudio = 0; uint sw0 = 0, sh0 = 0;
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                while (log.TryDequeue(out _)) { }
+                using var media = new LibVLCSharp.Shared.Media(lib, f, LibVLCSharp.Shared.FromType.FromPath);
+                using var mp = new LibVLCSharp.Shared.MediaPlayer(media);
+                var ended = new ManualResetEventSlim();
+                bool error = false;
+                mp.EncounteredError += (_, _) => { error = true; ended.Set(); };
+                mp.EndReached += (_, _) => ended.Set();
+                if (!mp.Play()) { why = "Play() returned false"; break; }
+                // نسيبه يخلص (الملفات ثانية واحدة) عشان عدادات الفك تتحدّث
+                var until = DateTime.UtcNow.AddSeconds(5);
+                while (!ended.IsSet && DateTime.UtcNow < until) Thread.Sleep(40);
+                uint w = 0, h = 0;
+                try { mp.Size(0, ref w, ref h); } catch { }
+                var stats = media.Statistics;
+                var tracks = media.Tracks;
+                bool fileHasAudio = tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Audio);
+                bool videoDecoded = stats.DecodedVideo > 0 || w > 0
+                                    || tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Video && t.Data.Video.Width > 0);
+                bool audioDecoded = stats.DecodedAudio > 0;
+                mp.Stop();
+                bad = log.Where(m => m.Contains("no suitable decoder", StringComparison.OrdinalIgnoreCase)
+                                              || m.Contains("could not identify", StringComparison.OrdinalIgnoreCase)
+                                              || m.Contains("Codec not supported", StringComparison.OrdinalIgnoreCase)
+                                              || m.Contains("cannot decode", StringComparison.OrdinalIgnoreCase)
+                                              || m.Contains("no suitable demux", StringComparison.OrdinalIgnoreCase)).Distinct().ToArray();
+                why = error ? "player error" : bad.Length > 0 ? string.Join(" | ", bad.Take(2))
+                    : !audioOnly && !videoDecoded ? $"video not decoded (decoded {stats.DecodedVideo}, size {w}x{h})"
+                    : fileHasAudio && !audioDecoded && !name.StartsWith("dv-") ? $"audio not decoded (decoded {stats.DecodedAudio})"
+                    : audioOnly && !fileHasAudio ? "no audio track" : "";
+                shownVideo = stats.DecodedVideo; shownAudio = stats.DecodedAudio; sw0 = w; sh0 = h;
+                if (why.Length == 0 || error || bad.Length > 0) break;
+            }
+            Console.WriteLine($"SMOKE format {name}: {(why.Length == 0 ? "OK" : "FAIL " + why)} — video frames {shownVideo} ({sw0}x{sh0}), audio blocks {shownAudio}");
             if (why.Length > 0) problems.Add($"{name}: {why}");
             else ok++;
         }
