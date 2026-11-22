@@ -245,8 +245,9 @@ internal sealed partial class MainForm
         string mainPath = Path.Combine(dir, "Main.lpl");
         Storage.SaveLibrary(mainPath, lib);
         LoadLibrary(mainPath, remember: false);
-        Console.WriteLine($"SMOKE export loaded: links {_library.Links.Count}, topics {_library.Topics.Count}, C2 videos {C0("C2 direct")}");
-        int C0(string n) => _library.Courses.Single(x => x.Name == n).VideoCount;
+        // الفتح بيحوّل فولدر الموضوع لفولدر متابَع (MigrateLinks): نقارن بعد الفتح
+        int linksAtLoad = _library.Links.Count;
+        var ytLinks = _library.Links.Where(l => l.TopicId == _library.Topics.Single(x => x.Name == "YouTube").Id).Select(l => l.Path).OrderBy(x => x).ToList();
         Topic T(string n) => _library.Topics.Single(x => x.Name == n);
         Place P(string n) => _library.Places.Single(x => x.Name == n);
         Course C(string n) => _library.Courses.Single(x => x.Name == n);
@@ -278,7 +279,7 @@ internal sealed partial class MainForm
 
         // الأصل ماتلمسش
         SaveLibrary();
-        Check(C("C1 in playlist").AllVideos.First().Watched && C("C2 direct").VideoCount == 2 && _library.Topics.Count == 2 && _library.Links.Count == 2,
+        Check(C("C1 in playlist").AllVideos.First().Watched && C("C2 direct").VideoCount == 2 && _library.Topics.Count == 2 && _library.Links.Count == linksAtLoad,
             $"original unchanged: watched {C("C1 in playlist").AllVideos.First().Watched}, C2 videos {C("C2 direct").VideoCount}, topics {_library.Topics.Count}, links {_library.Links.Count} ({string.Join(" | ", _library.Links.Select(l => l.Path))})");
         Check(C("C1 in playlist").Goal == "finish" && T("YouTube").SourceFolder == @"D:\Courses", "original plan kept");
 
@@ -286,7 +287,8 @@ internal sealed partial class MainForm
         var mine = Export(T("YouTube"), new ExportOptions(true, false), "YouTube (mine).lpl");
         Check(mine.VideoCount == 5 && mine.AllVideos.Single(v => v.Title == "V1").Watched && mine.AllVideos.Single(v => v.Title == "V1").Notes == "my note", "progress kept");
         Check(mine.Courses.Single(c => c.Name == "C1 in playlist").Goal == "finish", "plan kept");
-        Check(mine.Links.Count == 1 && mine.Links[0].Path == @"D:\Courses\A", "only this topic's followed folder");
+        Check(mine.Links.Select(l => l.Path).OrderBy(x => x).SequenceEqual(ytLinks) && !mine.Links.Any(l => l.Path == @"D:\Other"),
+            "only this topic's followed folders: " + string.Join(" | ", mine.Links.Select(l => l.Path)));
 
         // 3) مصدر لوحده: بيبقى في أول المكتبة بمصادره الفرعية
         var src = Export(P("Channel A"), new ExportOptions(false, true), "Channel A.lpl");
