@@ -47,13 +47,12 @@ internal static class DownloadForm
         {
             kit.Header("🔗  الرابط");
             urlBox = kit.Row("الرابط:", new TextBox { Text = url ?? "", PlaceholderText = "رابط فيديو أو قايمة تشغيل من يوتيوب" });
-            infoLabel = kit.Note("الصق الرابط وهيتقري لوحده.", 40);
-            list = kit.Full(DarkList.Setup(new ListView { CheckBoxes = false, MultiSelect = false }), 150);
+            infoLabel = kit.Note("الصق الرابط وهيتقري لوحده.", 34);
+            list = kit.Full(DarkList.Setup(new ListView { CheckBoxes = false, MultiSelect = false }), 118);
             list.Columns.Add("", 34);
             list.Columns.Add("الفيديو", 470);
             list.Columns.Add("المدة", 70);
             DarkList.ReverseColumns(list);
-            list.Visible = false;
         }
         else
         {
@@ -68,7 +67,7 @@ internal static class DownloadForm
         {
             (DownloadKind.Mp4, "🎬  فيديو MP4"),
             (DownloadKind.Mp3, "🎧  صوت MP3"),
-            (DownloadKind.M4a, "🎵  صوت M4A (زي الأصل)"),
+            (DownloadKind.M4a, "🎵  صوت M4A"),
         };
         var kindCards = new List<(DownloadKind Kind, OptionCard Card)>();
         int cardW = (kindPanel.Width - 12) / 3;
@@ -94,9 +93,13 @@ internal static class DownloadForm
         toLibrary.Checked = fromLibrary;
         toFolder.Checked = !fromLibrary;
         string folder = string.IsNullOrWhiteSpace(settings.DownloadFolder) ? DefaultFolder : settings.DownloadFolder;
-        var folderBox = kit.Row("الفولدر:", new TextBox { Text = folder, ReadOnly = true });
-        var pick = kit.Full(new PillButton("اختار فولدر…", PillStyle.Ghost), 30);
-        pick.Width = 130;
+        // الفولدر والزرار في سطر واحد
+        var folderRow = kit.Row("الفولدر:", new Panel { BackColor = Theme.Panel });
+        var pick = new PillButton("اختار…", PillStyle.Ghost) { Dock = DockStyle.Left, Width = 90 };
+        var folderBox = new TextBox { Text = folder, ReadOnly = true, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.Input, ForeColor = Theme.Text };
+        folderRow.Controls.Add(folderBox);
+        folderRow.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 8, BackColor = Theme.Panel });
+        folderRow.Controls.Add(pick);
 
         // ---------- إضافات ----------
         kit.Header("✨  إضافات");
@@ -114,7 +117,7 @@ internal static class DownloadForm
         // ---------- المنطق ----------
         List<Item> Selected()
         {
-            if (list == null || !list.Visible) return items;
+            if (list == null || list.Items.Count != items.Count) return items;
             return list.Items.Cast<ListViewItem>().Where(i => (string)i.Tag! == "1").Select(i => items[i.Index]).ToList();
         }
         DownloadOptions Options(int q) => new(Kind(),
@@ -228,10 +231,9 @@ internal static class DownloadForm
                     foreach (var e in items)
                         list.Items.Add(new ListViewItem(new[] { "✓", e.Title, e.DurationMs > 0 ? TimeSpan.FromMilliseconds(e.DurationMs).ToString(e.DurationMs >= 3_600_000 ? @"h\:mm\:ss" : @"m\:ss") : "" }) { Tag = "1", ForeColor = Theme.Text });
                     list.EndUpdate();
-                    list.Visible = listing.IsPlaylist;
                 }
                 if (listing.IsPlaylist)
-                    infoLabel.Text = $"قايمة تشغيل: «{listing.Title}» — {items.Count} فيديو (دوس على فيديو عشان تشيله/ترجّعه)";
+                    infoLabel.Text = $"قايمة تشغيل «{listing.Title}» — {items.Count} فيديو. دوس على فيديو عشان تشيله أو ترجّعه.";
                 else if (items.Count == 1)
                 {
                     infoLabel.Text = $"«{items[0].Title}» — بيجيب الجودات المتاحة…";

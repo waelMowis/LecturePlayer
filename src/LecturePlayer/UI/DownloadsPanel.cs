@@ -182,7 +182,7 @@ internal sealed class DownloadsPanel : Form
                     color = Theme.Accent;
                     break;
                 case DownloadStatus.Done:
-                    line = "✓ خلص — " + (_job.Spec.LibraryUrl != null ? "جوه المكتبة (بيشتغل من غير نت)" : _job.File ?? "");
+                    line = "✓ خلص — " + (_job.Spec.LibraryUrl != null ? "جوه المكتبة (بيشتغل من غير نت)" : Path.GetFileName(_job.File ?? ""));
                     color = Theme.Success;
                     break;
                 case DownloadStatus.Failed:
@@ -208,10 +208,12 @@ internal sealed class DownloadsPanel : Form
                 }
             }
             // الخطأ كامل في التلميح
-            if (_job.Status == DownloadStatus.Failed && _tip == null) { _tip = new ToolTip(); _tip.SetToolTip(this, _job.Error); }
+            string? tip = _job.Status == DownloadStatus.Failed ? _job.Error : _job.Status == DownloadStatus.Done ? _job.File : null;
+            if (tip != null && tip != _tipText) { _tip ??= new ToolTip(); _tip.SetToolTip(this, tip); _tipText = tip; }
         }
 
         private ToolTip? _tip;
+        private string? _tipText;
         protected override void Dispose(bool disposing) { if (disposing) _tip?.Dispose(); base.Dispose(disposing); }
     }
 }
