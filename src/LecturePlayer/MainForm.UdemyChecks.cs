@@ -148,7 +148,7 @@ internal sealed partial class MainForm
             Check(Until(() => pane.State is { HasVideo: true, DurationSec: > 0, Playing: true }, 30_000), "video plays in the pane: " + pane.State);
             Check(PlayingNow, "PlayingNow follows the page");
             var trace = new List<string>();
-            for (int i = 0; i < 8; i++) { Pump(100); trace.Add($"{pane.State?.Playing}/{PlayingNow}/{UdemyActive}/{_btnPlay.Text == Glyphs.Pause}"); }
+            for (int i = 0; i < 8; i++) { Pump(100); trace.Add($"{pane.State?.Playing}/{PlayingNow}/{_btnPlay.Text == Glyphs.Pause}/t{_tick}/{_uiTimer.Enabled}/{_uiTimer.Interval}"); }
             Check(_btnPlay.Text == Glyphs.Pause, "play button shows pause while the page plays: " + string.Join(" ", trace) + " state=" + pane.State);
 
             // تنظيف الصفحة (العرض النضيف)
