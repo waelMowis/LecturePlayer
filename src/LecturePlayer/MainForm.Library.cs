@@ -714,7 +714,7 @@ internal sealed partial class MainForm
         string clip = g.Attachments.Count > 0 ? $"   📎{g.Attachments.Count}" : "";
         node.Text = Modern.Bidi(g.Name) + clip;
         int fresh = g.NewCount;
-        string meta = g.SourceUrl != null ? "🔄" : "";
+        string meta = g.IsPlaylist ? "🔄" : "";
         _tree.SetRow(node, fresh > 0
             ? new LectureTreeView.RowInfo(meta, $"{fresh} جديد", Accent: true)
             : new LectureTreeView.RowInfo(meta, $"{g.WatchedCount}/{g.Videos.Count}", g.IsCompleted));
@@ -1549,8 +1549,10 @@ internal sealed partial class MainForm
                 items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
                 items.Add(AppearanceMenuItem(c));
                 items.Add(ExportMenuItem(c));
-                if (c.AllVideos.Any(v => v.IsOnline))
+                if (c.AllVideos.Any(v => v.IsDownloadable))
                     items.Add(MenuItem("⬇  تنزيل الكورس كله (فيديو أو MP3)…", () => DownloadCourse(c)));
+                if (c.UdemyId != null)
+                    items.Add(MenuItem("🎓  حدّث من يوديمي (الدروس الجديدة واللي خلّصته)", () => UdemyImport(c)));
                 items.Add(MoveCourseMenu(c));
                 items.Add(FoldMenu(c));
                 if (AdvancedMode) items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
@@ -1582,7 +1584,7 @@ internal sealed partial class MainForm
                 items.Add(MenuItem("▶  تشغيل المحاضرة", () => PlayGroup(g)));
                 items.Add(MenuItem("تشغيل من أول فيديو", () => { if (g.Videos.Count > 0) PlayVideo(g, g.Videos[0], 0); }));
                 if (g.Attachments.Count > 0) items.Add(AttachmentsMenu(g));
-                if (g.SourceUrl != null) items.Add(MenuItem("🔄  هات الجديد من يوتيوب", () => _ = SyncPlaylistsAsync(new[] { g }, quiet: false)));
+                if (g.IsPlaylist) items.Add(MenuItem("🔄  هات الجديد من يوتيوب", () => _ = SyncPlaylistsAsync(new[] { g }, quiet: false)));
                 if (g.NewCount > 0) items.Add(MenuItem($"شيل علامة «جديد» ({g.NewCount})", () => ClearNew(g)));
                 items.Add(new ToolStripSeparator());
                 items.Add(SubMenuOf("➕  إضافة للمحاضرة دي",
@@ -1613,9 +1615,10 @@ internal sealed partial class MainForm
                     MenuItem("ترتيب الفيديوهات بالاسم", () => SortGroupVideos(g))
                 };
                 if (AdvancedMode) more.Add(MenuItem("تقسيم تلقائي (عند Part 01)…", () => AutoSplitDialog(g)));
-                if (g.Videos.Any(x => x.IsOnline))
+                if (g.Videos.Any(x => x.IsDownloadable))
                     more.Add(MenuItem("⬇  تنزيل فيديوهات يوتيوب (فيديو أو MP3)…", () => DownloadFromLibrary(g.Videos, g.Name)));
-                if (g.SourceUrl != null)
+                if (g.IsUdemySection) { }
+                else if (g.SourceUrl != null)
                     more.Add(MenuItem("فك الربط بقائمة يوتيوب", () => { Checkpoint("فك الربط"); g.SourceUrl = null; g.InfoUpdatedUtc = DateTime.UtcNow; MarkDirty(); RefreshGroup(g); }));
                 else more.Add(MenuItem("ربط بقائمة تشغيل يوتيوب (عشان الجديد يتضاف)…", () => LinkPlaylist(g)));
                 more.Add(new ToolStripSeparator());
@@ -1658,7 +1661,7 @@ internal sealed partial class MainForm
                 if (v.IsOnline)
                 {
                     if (IsDownloaded(v)) more.Add(MenuItem("مسح النسخة المتنزلة", () => RemoveOffline(v)));
-                    else more.Add(MenuItem("⬇  تنزيل (فيديو أو MP3)…", () => DownloadFromLibrary(new[] { v }, v.Title)));
+                    else if (!v.IsUdemy) more.Add(MenuItem("⬇  تنزيل (فيديو أو MP3)…", () => DownloadFromLibrary(new[] { v }, v.Title)));
                     more.Add(MenuItem("فتح في المتصفح", () => OpenInBrowser(v.Path)));
                     more.Add(MenuItem("نسخ الرابط", () => { try { Clipboard.SetText(v.Path); } catch { } }));
                 }

@@ -368,7 +368,7 @@ internal sealed partial class MainForm
     {
         if (_sleepAtUtc is not { } at || DateTime.UtcNow < at) return;
         _sleepAtUtc = null;
-        if (_mp.IsPlaying) _mp.SetPause(true);
+        PausePlayback();
         UpdatePlayButton();
         ShowBanner("😴 مؤقت النوم وقّف التشغيل", BannerKind.Info, seconds: 0);
     }

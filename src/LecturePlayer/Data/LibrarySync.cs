@@ -177,6 +177,7 @@ public static class LibrarySync
         to.Status = from.Status;
         to.Priority = from.Priority;
         to.IconKey = from.IconKey;
+        to.UdemyId = from.UdemyId;
         to.ColorHex = from.ColorHex;
         to.Tags = from.Tags.ToList();
         to.Instructor = from.Instructor;

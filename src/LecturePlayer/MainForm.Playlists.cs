@@ -15,7 +15,7 @@ internal sealed partial class MainForm
     private async Task SyncPlaylistsAsync(IReadOnlyList<LectureGroup>? groups, bool quiet)
     {
         if (_syncingPlaylists) { if (!quiet) ShowStatus("التحديث شغال بالفعل…"); return; }
-        groups ??= _library.AllGroups.Where(g => !string.IsNullOrWhiteSpace(g.SourceUrl)).ToList();
+        groups ??= _library.AllGroups.Where(g => g.IsPlaylist).ToList();
         if (groups.Count == 0)
         {
             if (!quiet) Dialogs.Info(this, "مفيش محاضرات مربوطة بقوائم يوتيوب لسه.\n\n" +

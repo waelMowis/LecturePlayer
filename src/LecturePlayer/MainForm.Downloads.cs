@@ -70,7 +70,7 @@ internal sealed partial class MainForm
     /// <summary>كليك يمين على فيديو/محاضرة يوتيوب في المكتبة.</summary>
     private async void DownloadFromLibrary(IReadOnlyList<VideoItem> videos, string name)
     {
-        var online = videos.Where(v => v.IsOnline).ToList();
+        var online = videos.Where(v => v.IsDownloadable).ToList();
         if (online.Count == 0) { ShowStatus("مفيش فيديوهات يوتيوب هنا"); return; }
         if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("تنزيل يوتيوب (دمج الصورة والصوت والتحويل لـ MP3)")) return;
         var items = online.Select(v => new DownloadForm.Item(v.Path, v.Title, v.DurationMs, v.Path)).ToList();
@@ -109,7 +109,7 @@ internal sealed partial class MainForm
             for (int vi = 0; vi < g.Videos.Count; vi++)
             {
                 var v = g.Videos[vi];
-                if (!v.IsOnline) { localFiles++; continue; }
+                if (!v.IsDownloadable) { if (!v.IsOnline) localFiles++; continue; }
                 if (IsDownloaded(v)) { alreadyDownloaded++; continue; }
                 items.Add(new DownloadForm.Item(v.Path, v.Title, v.DurationMs, v.Path, lecture, vi + 1));
             }

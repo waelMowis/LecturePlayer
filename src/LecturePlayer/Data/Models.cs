@@ -37,6 +37,10 @@ public sealed class VideoItem
 
     /// <summary>فيديو من النت (يوتيوب وغيره): Path فيه الرابط.</summary>
     [JsonIgnore] public bool IsOnline => MediaFiles.IsUrl(Path);
+    /// <summary>درس يوديمي: بيتشغل جوه صفحة يوديمي (محمي) — مايتنزلش ومايتقراش بـ yt-dlp.</summary>
+    [JsonIgnore] public bool IsUdemy => Udemy.IsLecture(Path);
+    /// <summary>فيديو نت ينفع يتنزل/يتقري بـ yt-dlp (يوتيوب وغيره، مش يوديمي).</summary>
+    [JsonIgnore] public bool IsDownloadable => IsOnline && !IsUdemy;
 
     private string? _localPath;
 
@@ -141,6 +145,10 @@ public sealed class LectureGroup
     /// <summary>رابط قائمة التشغيل على يوتيوب اللي المحاضرة دي جاية منها (عشان نجيب الجديد).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceUrl { get; set; }
+    /// <summary>القسم جاي من يوديمي («udemy-chapter:رقم») — مش قائمة يوتيوب.</summary>
+    [JsonIgnore] public bool IsUdemySection => SourceUrl?.StartsWith("udemy-chapter:", StringComparison.Ordinal) == true;
+    /// <summary>مربوط بقائمة تشغيل (يوتيوب…) بتتحدّث بـ yt-dlp.</summary>
+    [JsonIgnore] public bool IsPlaylist => !string.IsNullOrWhiteSpace(SourceUrl) && !IsUdemySection;
 
     /// <summary>آخر مرة اتجاب فيها الجديد من القائمة.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -279,6 +287,9 @@ public sealed class Course
     public int Priority { get; set; }
     public List<string> Tags { get; set; } = new();
     public string? Instructor { get; set; }
+    /// <summary>رقم الكورس على يوديمي (كورس مستورد من حسابي) — للتحديث ومزامنة التقدّم.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? UdemyId { get; set; }
     public string? SourceUrl { get; set; }
 
     /// <summary>الهدف من الكورس (بيظهر في الشاشة الرئيسية).</summary>

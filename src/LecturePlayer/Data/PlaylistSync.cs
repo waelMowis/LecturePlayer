@@ -64,5 +64,5 @@ public static class PlaylistSync
 
     /// <summary>المحاضرات اللي محتاجة تحديث (عدّى عليها أكتر من المدة).</summary>
     public static List<LectureGroup> Due(CourseLibrary lib, DateTime nowUtc, TimeSpan every) =>
-        lib.AllGroups.Where(g => !string.IsNullOrWhiteSpace(g.SourceUrl) && (g.LastSyncedUtc == null || nowUtc - g.LastSyncedUtc >= every)).ToList();
+        lib.AllGroups.Where(g => g.IsPlaylist && (g.LastSyncedUtc == null || nowUtc - g.LastSyncedUtc >= every)).ToList();
 }

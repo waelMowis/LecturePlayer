@@ -64,7 +64,7 @@ internal sealed partial class MainForm
         double elapsed = now - _lastTrackSec;
         _lastTrackSec = now;
 
-        bool playing = _currentVideo != null && _mp.State == VLCState.Playing;
+        bool playing = _currentVideo != null && PlayingNow;
         var course = _currentGroup != null ? _library.FindCourseOf(_currentGroup) : null;
         var finished = _session.Tick(DateTime.UtcNow, playing, course?.Id, _currentGroup?.Id, _currentVideo?.Path, elapsed);
         if (finished != null) { LogJournal(finished); UpdateStudyStatus(); }
@@ -195,7 +195,7 @@ internal sealed partial class MainForm
         if (_pomoBreak)
         {
             _pomoEndsUtc = DateTime.UtcNow.AddMinutes(Math.Max(1, _settings.PomodoroBreakMinutes));
-            if (_settings.PomodoroPausesVideo && _mp.State == VLCState.Playing) _mp.SetPause(true);
+            if (_settings.PomodoroPausesVideo && PlayingNow) PausePlayback();
             Notify("☕ وقت البريك", $"{_settings.PomodoroBreakMinutes} دقايق راحة. قوم اتحرك واشرب مية.");
         }
         else

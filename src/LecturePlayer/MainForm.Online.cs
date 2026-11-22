@@ -48,12 +48,16 @@ internal sealed partial class MainForm
         whole.Click += (_, _) => { _settings.WholePlaylist = !_settings.WholePlaylist; whole.Checked = _settings.WholePlaylist; };
         whole.Checked = _settings.WholePlaylist;
 
+        var udemy = UdemyMenuItems();
         return SubMenu("إنترنت",
             Item("إضافة رابط فيديو أو قائمة تشغيل…", () => AddUrlsDialog(null), Keys.Control | Keys.U),
             Item("لصق رابط من الحافظة", PasteUrls, display: "Ctrl+V"),
             new ToolStripSeparator(),
             Item("⬇  تنزيل من يوتيوب (فيديو MP4 أو صوت MP3)…", () => OpenDownloadDialog(null), Keys.Control | Keys.D),
             Item("التنزيلات…", ShowDownloadsPanel),
+            new ToolStripSeparator(),
+            udemy[0],
+            udemy[1],
             new ToolStripSeparator(),
             Item("🔄 تحديث قوائم يوتيوب (هات الفيديوهات الجديدة)", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
             new ToolStripSeparator(),

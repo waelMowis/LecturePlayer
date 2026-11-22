@@ -119,6 +119,12 @@ internal sealed partial class MainForm
         if (existing is { IsEmpty: false }) return existing;
 
         Transcript? t = null;
+        if (v.IsUdemy)
+        {
+            // الفيديو محمي جوه صفحة يوديمي: مفيش ملف نقرا منه الصوت
+            if (interactive) ShowStatus("دروس يوديمي مالهاش ترجمة/ملخص من «مسار» (الفيديو محمي جوه يوديمي) — استخدم ترجمة يوديمي نفسها", 6);
+            return null;
+        }
         if (v.IsOnline)
         {
             if (!await EnsureYtDlpAsync()) return null;

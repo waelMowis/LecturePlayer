@@ -1327,6 +1327,7 @@ internal sealed partial class MainForm : Form
         else
         {
             _fullscreen = false;
+            _udemyPane?.ExitPageFullscreen();
             SuspendLayout();
             FormBorderStyle = FormBorderStyle.Sizable;
             Bounds = _prevBounds;

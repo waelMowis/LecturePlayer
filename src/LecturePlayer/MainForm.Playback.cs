@@ -144,8 +144,16 @@ internal sealed partial class MainForm
         _welcome.Visible = false;
         int request = ++_playRequest;
 
-        string? localFile = PlayableLocalFile(v); // فيديو نت متنزّل = يتشغل من الجهاز
-        if (v.IsOnline && localFile == null)
+        string? localFile = v.IsUdemy ? null : PlayableLocalFile(v); // فيديو نت متنزّل = يتشغل من الجهاز
+        if (!v.IsUdemy) HideUdemyPane(); // من درس يوديمي لفيديو عادي: نرجّع شاشة VLC
+        if (v.IsUdemy)
+        {
+            // درس يوديمي: صفحة يوديمي نفسها جوه مساحة الفيديو، و«مسار» بيتحكم فيها
+            _resolveCts?.Cancel();
+            if (_mp.State is not (VLCState.NothingSpecial or VLCState.Stopped)) _mp.Stop();
+            _ = PlayUdemyAsync(request, v, start);
+        }
+        else if (v.IsOnline && localFile == null)
         {
             // فيديو من النت: نوقف اللي شغال ونجيب رابط التشغيل في الخلفية
             if (_mp.State is not (VLCState.NothingSpecial or VLCState.Stopped)) _mp.Stop();
@@ -264,6 +272,7 @@ internal sealed partial class MainForm
     {
         if (_currentLive != null) { ToggleLive(); return; }
         if (_resolvingVideo != null) { ShowStatus("لسه بجهّز الفيديو من النت…"); return; }
+        if (UdemyActive) { UdemyToggle(); return; }
         if (_currentVideo == null || _currentMedia == null) { PlaySelected(); return; }
 
         switch (_mp.State)
@@ -291,6 +300,7 @@ internal sealed partial class MainForm
     {
         SaveCurrentPosition();
         _playRequest++;            // يلغي أي فيديو نت لسه بيتجهّز
+        HideUdemyPane();
         _resolveCts?.Cancel();
         if (_mp.State != VLCState.NothingSpecial && _mp.State != VLCState.Stopped) _mp.Stop();
 
@@ -324,6 +334,7 @@ internal sealed partial class MainForm
     private void SaveCurrentPosition()
     {
         var v = _currentVideo;
+        if (UdemyActive) { SaveUdemyPosition(); return; }
         if (v == null || _currentMedia == null) return;
         if (_mp.State is not (VLCState.Playing or VLCState.Paused)) return;
 
@@ -423,6 +434,12 @@ internal sealed partial class MainForm
 
     private void SeekBy(long deltaMs)
     {
+        if (UdemyActive)
+        {
+            _udemyPane!.SeekBy(deltaMs);
+            ShowStatus((deltaMs > 0 ? "⏩ +" : "⏪ −") + (Math.Abs(deltaMs) / 1000) + " ثانية", 1);
+            return;
+        }
         if (!IsActive || !_mp.IsSeekable) return;
         long len = _mp.Length;
         long t = Math.Max(0, _mp.Time + deltaMs);
@@ -435,6 +452,13 @@ internal sealed partial class MainForm
 
     private void SeekToFraction(double fraction)
     {
+        if (UdemyActive)
+        {
+            long d = _udemyPane!.State?.DurationMs ?? 0;
+            if (d <= 0) d = _currentVideo?.DurationMs ?? 0;
+            if (d > 0) _udemyPane.SeekTo((long)(fraction * d));
+            return;
+        }
         if (IsActive && _mp.Length > 0)
         {
             long target = (long)(fraction * _mp.Length);
@@ -457,7 +481,8 @@ internal sealed partial class MainForm
         volume = Math.Clamp(volume, 0, MaxVolume);
         _settings.Volume = volume;
         _mp.Volume = volume;
-        if (_muted && volume > 0) { _muted = false; _mp.Mute = false; }
+        if (_muted && volume > 0) { _muted = false; _mp.Mute = false; _udemyPane?.SetMuted(false); }
+        _udemyPane?.SetVolume(volume);
         if (!_volumeBar.IsDragging) _volumeBar.Value = volume / (double)MaxVolume;
         _volumeBar.FillColor = volume > 100 ? Theme.Folder : Theme.Accent; // لون مختلف للتضخيم
         UpdateMuteButton();
@@ -468,6 +493,7 @@ internal sealed partial class MainForm
     {
         _muted = !_muted;
         _mp.Mute = _muted;
+        _udemyPane?.SetMuted(_muted);
         UpdateMuteButton();
         ShowStatus(_muted ? "الصوت مكتوم" : $"الصوت {_settings.Volume}%", 1.5);
     }
@@ -487,6 +513,7 @@ internal sealed partial class MainForm
         if (_applyingRate) return;
         _activeRate = rate;
         _mp.SetRate(rate);
+        if (UdemyActive) _udemyPane!.SetRate(rate);
 
         var course = _currentGroup != null ? _library.FindCourseOf(_currentGroup) : null;
         if (course != null)
@@ -525,7 +552,7 @@ internal sealed partial class MainForm
 
     private void UpdatePlayButton()
     {
-        string s = _mp.State == VLCState.Playing ? Glyphs.Pause : Glyphs.Play;
+        string s = PlayingNow ? Glyphs.Pause : Glyphs.Play;
         if (_btnPlay.Text != s) _btnPlay.Text = s;
     }
 
@@ -541,7 +568,8 @@ internal sealed partial class MainForm
         if (Due(ref _dueWaitingLibrary, 2000)) CheckWaitingLibrary();
         var v = _currentVideo;
 
-        if (v != null && IsActive)
+        if (v != null && UdemyActive) UdemyTick(v);
+        else if (v != null && IsActive)
         {
             long len = _mp.Length, t = _mp.Time;
             if (len > 0 && t >= 0)
@@ -621,7 +649,7 @@ internal sealed partial class MainForm
     internal int DesiredUiInterval()
     {
         bool minimized = WindowState == FormWindowState.Minimized || !Visible;
-        bool playing = _mp.State == VLCState.Playing;
+        bool playing = PlayingNow;
         if (playing && !minimized) return UiFastMs;
         if (_fullscreen || _seekBar.IsDragging || (_loopA >= 0 && _loopB > _loopA)) return UiFastMs;
         if (playing && _silence != null) return UiFastMs;   // تخطي الصمت محتاج دقة
