@@ -30,6 +30,7 @@ internal static class SmokeTest
             HierarchySelfTest();
             Console.WriteLine("SMOKE hierarchy OK");
             LibVLCSharp.Shared.Core.Initialize();
+            FormatsSelfTest();
             using var form = new MainForm(null, Array.Empty<string>());
             form.Shown += (_, _) =>
             {
@@ -55,6 +56,102 @@ internal static class SmokeTest
         }
         Console.WriteLine("SMOKE OK");
         return 0;
+    }
+
+    /// <summary>بيدوّر على فولدر في المستودع (tests/formats، installer) طالع من فولدر التشغيل أو البرنامج.</summary>
+    private static string? RepoPath(string relative)
+    {
+        foreach (string start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
+        {
+            var d = new DirectoryInfo(start);
+            for (int i = 0; d != null && i < 8; i++, d = d.Parent)
+            {
+                string p = Path.Combine(d.FullName, relative);
+                if (Directory.Exists(p) || File.Exists(p)) return p;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// كل صيغة في MediaFiles ليها ملف حقيقي في tests/formats، وكل ملف بيتشغّل بـ VLC بتاع البرنامج:
+    /// بيتفتح، وكل التراكات (صورة/صوت) بتتفك من غير «no suitable decoder»، والفيديو ليه صورة بمقاس.
+    /// (العرض والصوت «وهميين» عشان الجهاز مايحتاجش شاشة/سماعات — بس الفك حقيقي.)
+    /// وكمان: المثبّت بيسجّل نفس الصيغ بالظبط في «فتح بواسطة».
+    /// </summary>
+    private static void FormatsSelfTest()
+    {
+        string? dir = RepoPath(Path.Combine("tests", "formats"));
+        if (dir == null) { Console.WriteLine("SMOKE formats skipped (no tests/formats)"); return; }
+
+        var files = Directory.GetFiles(dir).Where(f => !f.EndsWith(".sh", StringComparison.OrdinalIgnoreCase)).OrderBy(f => f).ToList();
+        var problems = new List<string>();
+
+        // 1) القوايم: كل امتداد عنده ملف، وكل ملف امتداده في القايمة
+        var covered = files.Select(Path.GetExtension).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (string e in LecturePlayer.Data.MediaFiles.Extensions.Where(e => !covered.Contains(e)))
+            problems.Add($"{e}: in MediaFiles but no sample file");
+        foreach (string f in files.Where(f => !LecturePlayer.Data.MediaFiles.IsMedia(f)))
+            problems.Add($"{Path.GetFileName(f)}: sample not recognized by MediaFiles");
+
+        // 2) التشغيل الفعلي
+        using var lib = new LibVLCSharp.Shared.LibVLC("--vout=dummy", "--aout=adummy", "--no-video-title-show", "--verbose=1");
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        lib.Log += (_, e) => log.Enqueue(e.Message);
+        int ok = 0;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        foreach (string f in files)
+        {
+            string name = Path.GetFileName(f);
+            bool audioOnly = LecturePlayer.Data.MediaFiles.IsAudio(f);
+            while (log.TryDequeue(out _)) { }
+            using var media = new LibVLCSharp.Shared.Media(lib, f, LibVLCSharp.Shared.FromType.FromPath);
+            using var mp = new LibVLCSharp.Shared.MediaPlayer(media);
+            var ended = new ManualResetEventSlim();
+            bool error = false;
+            mp.EncounteredError += (_, _) => { error = true; ended.Set(); };
+            mp.EndReached += (_, _) => ended.Set();
+            if (!mp.Play()) { problems.Add($"{name}: Play() returned false"); continue; }
+            var until = DateTime.UtcNow.AddSeconds(6);
+            while (!ended.IsSet && DateTime.UtcNow < until && mp.Time < 600) Thread.Sleep(40);
+            long time = mp.Time;
+            var tracks = media.Tracks;
+            bool hasVideo = tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Video && t.Data.Video.Width > 0);
+            bool hasAudio = tracks.Any(t => t.TrackType == LibVLCSharp.Shared.TrackType.Audio);
+            mp.Stop();
+            string[] bad = log.Where(m => m.Contains("no suitable decoder", StringComparison.OrdinalIgnoreCase)
+                                          || m.Contains("could not identify", StringComparison.OrdinalIgnoreCase)
+                                          || m.Contains("Codec not supported", StringComparison.OrdinalIgnoreCase)
+                                          || m.Contains("cannot decode", StringComparison.OrdinalIgnoreCase)
+                                          || m.Contains("no suitable demux", StringComparison.OrdinalIgnoreCase)).Distinct().ToArray();
+            string why = error ? "player error" : bad.Length > 0 ? string.Join(" | ", bad.Take(2))
+                : !audioOnly && !hasVideo ? "no decoded video track"
+                : audioOnly && !hasAudio ? "no audio track"
+                : time <= 0 && !ended.IsSet ? "did not play" : "";
+            if (why.Length > 0) problems.Add($"{name}: {why}");
+            else ok++;
+        }
+        Console.WriteLine($"SMOKE formats: {ok}/{files.Count} played in {sw.Elapsed.TotalSeconds:0.0}s, {LecturePlayer.Data.MediaFiles.VideoExtensions.Count} video + {LecturePlayer.Data.MediaFiles.AudioExtensions.Count} audio extensions");
+
+        // 3) المثبّت ← نفس القوايم
+        string? iss = RepoPath(Path.Combine("installer", "LecturePlayer.iss"));
+        if (iss != null)
+        {
+            string text = File.ReadAllText(iss);
+            var progs = System.Text.RegularExpressions.Regex.Matches(text,
+                    @"Classes\\(\.[a-z0-9]+)\\OpenWithProgids""; ValueType: string; ValueName: ""LecturePlayer\.(Video|Audio)""")
+                .Select(m => (Ext: m.Groups[1].Value, Kind: m.Groups[2].Value)).ToList();
+            foreach (string e in LecturePlayer.Data.MediaFiles.VideoExtensions.Where(e => !progs.Contains((e, "Video"))))
+                problems.Add($"installer: {e} not registered as video");
+            foreach (string e in LecturePlayer.Data.MediaFiles.AudioExtensions.Where(e => !progs.Contains((e, "Audio"))))
+                problems.Add($"installer: {e} not registered as audio");
+            foreach (var (e, _) in progs.Where(p => !LecturePlayer.Data.MediaFiles.IsMedia("x" + p.Ext)))
+                problems.Add($"installer: {e} registered but not in MediaFiles");
+        }
+
+        if (problems.Count > 0)
+            throw new Exception("formats:\n  " + string.Join("\n  ", problems));
+        Console.WriteLine("SMOKE formats OK");
     }
 
     /// <summary>

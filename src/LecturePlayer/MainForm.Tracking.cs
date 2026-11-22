@@ -72,9 +72,10 @@ internal sealed partial class MainForm
         SilenceTick();
         SleepTick();
         FocusTick();
-        if (_tick % 4 == 0) PomodoroTick();
-        if (_tick % 40 == 0) UpdateStudyStatus();
-        if (_tick % 240 == 0) { CheckReminder(); CheckPlaylistSyncDue(); } // كل دقيقة
+        bool second = Due(ref _dueSecond, 1000);
+        if (second) PomodoroTick();
+        if (Due(ref _dueStudyStatus, 10_000)) UpdateStudyStatus();
+        if (Due(ref _dueMinute, 60_000)) { CheckReminder(); CheckPlaylistSyncDue(); } // كل دقيقة
     }
 
     private void FlushSession()
@@ -186,7 +187,7 @@ internal sealed partial class MainForm
         if (!_pomoRunning) return;
         if (DateTime.UtcNow < _pomoEndsUtc)
         {
-            if (_tick % 4 == 0) UpdateStudyStatus();
+            UpdateStudyStatus(); // PomodoroTick نفسها بتتنده كل ثانية
             return;
         }
 

@@ -17,6 +17,7 @@ internal sealed partial class MainForm
     private readonly List<double> _cpuWindow = new();     // عينات آخر 5 دقايق
     private readonly Queue<double> _cpuRecent = new();    // آخر 3 عينات (30 ثانية)
     private DateTime _lastHighLog = DateTime.MinValue;
+    private DateTime _windowStartUtc = DateTime.UtcNow;
 
     /// <summary>بيتنده من OnUiTick كل 10 ثواني.</summary>
     private void SampleResources()
@@ -40,7 +41,12 @@ internal sealed partial class MainForm
                 }
                 if (_cpuWindow.Count >= 30) // 5 دقايق
                 {
+                    double minutes = (now - _windowStartUtc).TotalMinutes;
+                    string wakeups = minutes > 0 ? $"ui {_uiTicksWindow / minutes:F0}/min" : "";
+                    _uiTicksWindow = 0;
+                    _windowStartUtc = now;
                     Log.Info($"resources (5 min): cpu avg {_cpuWindow.Average():F1}% peak {_cpuWindow.Max():F0}% of one core ({Environment.ProcessorCount} cores), " +
+                             $"{(OnBattery ? "battery" : "ac")}, {wakeups}, " +
                              $"memory {_self.WorkingSet64 / 1048576} MB (private {_self.PrivateMemorySize64 / 1048576}, .NET {GC.GetTotalMemory(false) / 1048576}), " +
                              $"threads {_self.Threads.Count}, handles {_self.HandleCount} — {ResourceContext()}");
                     _cpuWindow.Clear();

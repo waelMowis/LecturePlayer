@@ -27,7 +27,27 @@ internal sealed class RadioVisual : Control
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         BackColor = Color.Black;
         _anim.Tick += (_, _) => Animate();
-        VisibleChanged += (_, _) => _anim.Enabled = Visible;
+        VisibleChanged += (_, _) => UpdateAnimation();
+        // الشباك متصغّر: مفيش حد شايف الموجات، فمانصحّيش المعالج 20 مرة في الثانية عشان نرسمها
+        ParentChanged += (_, _) =>
+        {
+            if (_hookedForm != null) _hookedForm.Resize -= OnFormResize;
+            _hookedForm = FindForm();
+            if (_hookedForm != null) _hookedForm.Resize += OnFormResize;
+            UpdateAnimation();
+        };
+    }
+
+    private Form? _hookedForm;
+    private void OnFormResize(object? sender, EventArgs e) => UpdateAnimation();
+
+    /// <summary>الموجات بتتحرك بس لما تكون باينة فعلًا.</summary>
+    internal bool AnimationRunning => _anim.Enabled;
+
+    private void UpdateAnimation()
+    {
+        var f = _hookedForm ?? FindForm();
+        _anim.Enabled = Visible && f is not { WindowState: FormWindowState.Minimized };
     }
 
     /// <summary>محطة جديدة.</summary>
@@ -265,7 +285,12 @@ internal sealed class RadioVisual : Control
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _anim.Dispose(); _logo?.Dispose(); }
+        if (disposing)
+        {
+            if (_hookedForm != null) _hookedForm.Resize -= OnFormResize;
+            _anim.Dispose();
+            _logo?.Dispose();
+        }
         base.Dispose(disposing);
     }
 }

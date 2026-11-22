@@ -227,8 +227,10 @@ internal sealed partial class MainForm
     /// وملف صوت حقيقي بيشتغل فعلًا في VLC.
     /// </summary>
     /// <summary>قياس استهلاك البرنامج: المعالج (% من نواة واحدة)، والذاكرة، وسرعة حجز الذاكرة في .NET.</summary>
-    private void MeasureResources(string label, int ms, Action<int> pump)
+    /// <returns>صحيان تايمر الواجهة في الثانية (كل صحيان بيمنع المعالج ينزل لحالة توفير الطاقة).</returns>
+    private double MeasureResources(string label, int ms, Action<int> pump)
     {
+        int ticks0 = _tick;
         using var p = System.Diagnostics.Process.GetCurrentProcess();
         p.Refresh();
         var cpu0 = p.TotalProcessorTime;
@@ -240,9 +242,67 @@ internal sealed partial class MainForm
         p.Refresh();
         double cpu = (p.TotalProcessorTime - cpu0).TotalMilliseconds / sw.Elapsed.TotalMilliseconds * 100;
         double allocMBs = (GC.GetTotalAllocatedBytes() - alloc0) / 1048576.0 / sw.Elapsed.TotalSeconds;
-        Console.WriteLine($"SMOKE resources [{label}]: cpu {cpu:F1}% of one core, working set {p.WorkingSet64 / 1048576} MB, " +
+        double wakeups = (_tick - ticks0) / sw.Elapsed.TotalSeconds;
+        Console.WriteLine($"SMOKE resources [{label}]: cpu {cpu:F1}% of one core, ui wakeups {wakeups:F1}/s (timer {_uiTimer.Interval} ms), working set {p.WorkingSet64 / 1048576} MB, " +
                           $"private {p.PrivateMemorySize64 / 1048576} MB, managed {GC.GetTotalMemory(false) / 1048576} MB, " +
                           $"alloc {allocMBs:F2} MB/s, gen0 GCs {GC.CollectionCount(0) - gc0}");
+        return wakeups;
+    }
+
+    /// <summary>
+    /// توفير البطارية: التايمر بيهدى لما مفيش حاجة بتتحرك قدامك، والموجات بتقف والشباك متصغّر،
+    /// والمواعيد الدورية بتفضل صح مهما كانت سرعة التايمر. (المفروض فيه صوت شغال لما بتتنده.)
+    /// </summary>
+    private void RunBatteryChecks(Action<int> pump)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("battery: " + what); }
+        var shown = WindowState;
+        try
+        {
+            // شغال والشباك ظاهر: سريع (شريط الوقت لازم يتحرك ناعم)
+            Check(_mp.State == VLCState.Playing, "precondition: audio should be playing, got " + _mp.State);
+            pump(400);
+            Check(_uiTimer.Interval == UiFastMs, $"playing visible should be {UiFastMs} ms, got {_uiTimer.Interval}");
+
+            // شغال والشباك متصغّر: ثانية (حفظ المكان كفاية عليه)
+            WindowState = FormWindowState.Minimized;
+            pump(1500);
+            Check(DesiredUiInterval() == UiIdleMs && _uiTimer.Interval == UiIdleMs, $"playing minimized should be {UiIdleMs} ms, got {_uiTimer.Interval}");
+            double w = MeasureResources("audio playing, window minimized", 4000, pump);
+            Check(w < 1.6, $"minimized playback woke the UI {w:F1}/s");
+
+            // متوقف والشباك متصغّر: ثانيتين
+            _mp.SetPause(true);
+            pump(1500);
+            Check(DesiredUiInterval() == UiBackgroundMs, "paused minimized should be " + UiBackgroundMs + ", got " + DesiredUiInterval());
+            w = MeasureResources("paused, window minimized", 4000, pump);
+            Check(w < 0.9, $"paused minimized woke the UI {w:F1}/s");
+
+            // الموجات (راديو/بث): بتقف والشباك متصغّر وترجع لما يرجع
+            bool radioWas = _radioVisual.Visible;
+            _radioVisual.Visible = true;
+            pump(100);
+            Check(!_radioVisual.AnimationRunning, "radio animation should stop while minimized");
+            WindowState = shown == FormWindowState.Minimized ? FormWindowState.Normal : shown;
+            pump(300);
+            Check(_radioVisual.AnimationRunning, "radio animation should resume after restore");
+            _radioVisual.Visible = radioWas;
+
+            // الرجوع: الواجهة تصحى فورًا
+            _mp.SetPause(false);
+            pump(800);
+            Check(_uiTimer.Interval == UiFastMs, "restored + playing should be fast again, got " + _uiTimer.Interval);
+
+            // المواعيد بالوقت مش بعدد الدقات
+            long due = 0;
+            Check(Due(ref due, 1000) && !Due(ref due, 1000), "Due() should fire once then wait");
+            Console.WriteLine("SMOKE battery OK");
+        }
+        finally
+        {
+            if (WindowState == FormWindowState.Minimized) WindowState = shown == FormWindowState.Minimized ? FormWindowState.Normal : shown;
+            if (_mp.State == VLCState.Paused) _mp.SetPause(false);
+        }
     }
 
     private void RunStressAndPlaybackChecks()
@@ -250,7 +310,7 @@ internal sealed partial class MainForm
         string dir = Path.Combine(Path.GetTempPath(), "masar-smoke");
         Directory.CreateDirectory(dir);
         string wav = Path.Combine(dir, "tone.wav");
-        WriteToneWav(wav, seconds: 8);
+        WriteToneWav(wav, seconds: 40);
 
         // مكتبة كبيرة: 10 كورسات × 20 محاضرة × 25 فيديو = 5000 فيديو
         var lib = new CourseLibrary { Name = "فحص" };
@@ -266,7 +326,7 @@ internal sealed partial class MainForm
             }
             lib.Courses.Add(course);
         }
-        var real = new VideoItem { Path = wav, Title = "Tone", DurationMs = 8000 };
+        var real = new VideoItem { Path = wav, Title = "Tone", DurationMs = 40000 };
         lib.Courses[0].Groups[0].Videos.Insert(0, real);
         string libPath = Path.Combine(dir, "stress.lpl");
         Storage.SaveLibrary(libPath, lib);
@@ -294,7 +354,8 @@ internal sealed partial class MainForm
         void PumpFor(int ms) { var w = DateTime.UtcNow.AddMilliseconds(ms); while (DateTime.UtcNow < w) { Application.DoEvents(); Thread.Sleep(15); } }
         MeasureResources("idle, 5000-video library, 0-5s", 5000, PumpFor);
         MeasureResources("idle, 5000-video library, 5-10s", 5000, PumpFor);
-        MeasureResources("idle, 5000-video library, 10-15s", 5000, PumpFor);
+        double idleWakeups = MeasureResources("idle, 5000-video library, 10-15s", 5000, PumpFor);
+        if (idleWakeups > 1.6) throw new Exception($"battery: idle UI timer woke {idleWakeups:F1}/s (should be ~1/s)");
 
         // تشغيل فعلي في VLC
         var group0 = _library.Courses[0].Groups[0];
@@ -318,6 +379,7 @@ internal sealed partial class MainForm
         MeasureResources("audio playing, vlc log OFF", 2500, PumpFor);
         SetVlcLogCapture(true);
         if (state == VLCState.Error) throw new Exception("playback: VLC error playing a local audio file");
+        RunBatteryChecks(PumpFor);
         if (state != VLCState.Playing || time <= 0) throw new Exception($"playback: never started (state {state}, time {time})");
         // التكرار: ملف صوت قصير (ثانيتين) لازم يتعاد لوحده لما يخلص
         string shortWav = Path.Combine(dir, "short.wav");

@@ -13,6 +13,7 @@ internal sealed partial class MainForm
 {
     // تخطي السكوت
     private List<SilenceDetector.Range>? _silence;
+    private long _dueFocusStatus;
     private VideoItem? _silenceFor;
     private CancellationTokenSource? _silenceCts;
 
@@ -293,7 +294,7 @@ internal sealed partial class MainForm
     {
         if (_focusUntilUtc == null) return;
         if (DateTime.UtcNow >= _focusUntilUtc) { EndFocus(early: false); return; }
-        if (_tick % 4 == 0) UpdateStudyStatus();
+        if (Due(ref _dueFocusStatus, 1000)) UpdateStudyStatus();
     }
 
     /// <summary>true = مسموح يخرج (خلّص أو كتب جملة التأكيد).</summary>

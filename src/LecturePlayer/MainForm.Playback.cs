@@ -24,7 +24,7 @@ internal sealed partial class MainForm
 
     private void WirePlayerEvents()
     {
-        _mp.Playing += (_, _) => Ui(OnPlaying);
+        _mp.Playing += (_, _) => Ui(() => { OnPlaying(); AdaptUiTimer(); });
         _mp.Paused += (_, _) => Ui(UpdatePlayButton);
         _mp.Stopped += (_, _) => Ui(UpdatePlayButton);
         _mp.EndReached += (_, _) => Ui(OnEndReached);
@@ -536,8 +536,9 @@ internal sealed partial class MainForm
     private void OnUiTick()
     {
         _tick++;
+        _uiTicksWindow++;
         UpdateRadioVisual();
-        if (_tick % 8 == 0) CheckWaitingLibrary(); // كل ثانيتين
+        if (Due(ref _dueWaitingLibrary, 2000)) CheckWaitingLibrary();
         var v = _currentVideo;
 
         if (v != null && IsActive)
@@ -553,7 +554,7 @@ internal sealed partial class MainForm
                 }
 
                 // كل 5 ثواني: نحفظ مكانك، ولو عدّيت 92% من الفيديو يتعلّم إنه اتشاف
-                if (_mp.State == VLCState.Playing && _tick % 20 == 0)
+                if (_mp.State == VLCState.Playing && Due(ref _duePosition, 5000))
                 {
                     v.LastPositionMs = t;
                     v.Touch();
@@ -572,17 +573,83 @@ internal sealed partial class MainForm
         UpdatePlayButton();
         TrackTick();
 
-        if (_tick % 4 == 0 && IsActive) HealVideoFit(); // شباك الصورة دايمًا جوه مساحة الفيديو
-        if (_tick % 40 == 7) SampleResources(); // كل 10 ثواني: استهلاك المعالج والذاكرة (بيتسجل كل 5 دقايق)
-        if (_tick % 480 == 12) _ = SyncLinkedFoldersAsync(); // الفولدرات المربوطة: أول 3 ثواني وبعدين كل دقيقتين
-        if (_tick % 40 == 0 && _dirty) SaveLibrary(); // حفظ تلقائي كل 10 ثواني لو في تغيير
-        else if (_tick % 240 == 0 && _positionDirty) SaveLibrary(); // مكان التشغيل بس: كل دقيقة
-        else if (_tick % 120 == 0) MergeExternalChanges(); // كل 30 ثانية: هل جهاز تاني عدّل القائمة؟
+        // شباك الصورة دايمًا جوه مساحة الفيديو (مالوش لازمة والشباك متصغّر)
+        if (IsActive && WindowState != FormWindowState.Minimized && Due(ref _dueHeal, 1000)) HealVideoFit();
+        if (Due(ref _dueResources, 10_000)) SampleResources(); // استهلاك المعالج والذاكرة (بيتسجل كل 5 دقايق)
+        // الفولدرات المربوطة: أول 3 ثواني وبعدين كل دقيقتين (على البطارية كل 10 دقايق: كل مزامنة بتصحّي الديسك/Google Drive)
+        if (Due(ref _dueFolderSync, OnBattery ? 600_000 : 120_000)) _ = SyncLinkedFoldersAsync();
+        if (_dirty && Due(ref _dueSave, 10_000)) SaveLibrary(); // حفظ تلقائي كل 10 ثواني لو في تغيير
+        else if (_positionDirty && Due(ref _duePositionSave, 60_000)) SaveLibrary(); // مكان التشغيل بس: كل دقيقة
+        else if (Due(ref _dueMerge, OnBattery ? 120_000 : 30_000)) MergeExternalChanges(); // هل جهاز تاني عدّل القائمة؟ (وبتتشيك كمان أول ما ترجع للبرنامج)
 
         if (_statusMessage.Text.Length > 0 && DateTime.Now > _statusMessageUntil) _statusMessage.Text = "";
         ExpireToast();
 
         if (_fullscreen) UpdateFullscreenChrome();
         if (_activityHome.Active != _welcome.Visible) _activityHome.Active = _welcome.Visible; // الأيقونة منورة وإنت في الرئيسية
+        AdaptUiTimer();
+    }
+
+    // =====================================================================
+    //  توفير البطارية: التايمر بيصحّي المعالج على قد الحاجة
+    // =====================================================================
+
+    // مواعيد الشغل الدوري (بالوقت مش بعدد الدقات، عشان تفضل صح أيًا كانت سرعة التايمر)
+    private long _dueWaitingLibrary, _duePosition, _dueHeal, _dueSave, _duePositionSave, _dueMerge, _dueStudyStatus, _dueSecond, _dueMinute;
+    private long _dueResources = Environment.TickCount64 + 1750;   // أول عينة بعد ~ثانيتين
+    private long _dueFolderSync = Environment.TickCount64 + 3000;  // أول مزامنة بعد 3 ثواني
+    private int _uiTicksWindow;
+
+    /// <summary>true لو الميعاد جه (وبيحدد الميعاد الجاي).</summary>
+    private static bool Due(ref long due, int periodMs)
+    {
+        long now = Environment.TickCount64;
+        if (now < due) return false;
+        due = now + periodMs;
+        return true;
+    }
+
+    internal const int UiFastMs = 250, UiIdleMs = 1000, UiBackgroundMs = 2000;
+
+    /// <summary>
+    /// السرعة اللي الواجهة محتاجاها دلوقتي:
+    /// 250ms لما فيه حاجة بتتحرك قدامك (فيديو شغال والشباك ظاهر، ملء الشاشة، سحب شريط الوقت، تقطيع A-B، تخطي الصمت)،
+    /// ثانية لما البرنامج واقف أو شغال صوت والشباك متصغّر (حفظ المكان ومؤقت النوم والبومودورو كفاية عليهم ثانية)،
+    /// وثانيتين لما مفيش تشغيل والشباك متصغّر.
+    /// كل صحيان للمعالج بيمنعه ينزل لحالة التوفير العميقة، فده أكبر فرق في البطارية والبرنامج واقف.
+    /// </summary>
+    internal int DesiredUiInterval()
+    {
+        bool minimized = WindowState == FormWindowState.Minimized || !Visible;
+        bool playing = _mp.State == VLCState.Playing;
+        if (playing && !minimized) return UiFastMs;
+        if (_fullscreen || _seekBar.IsDragging || (_loopA >= 0 && _loopB > _loopA)) return UiFastMs;
+        if (playing && _silence != null) return UiFastMs;   // تخطي الصمت محتاج دقة
+        if (playing || _currentLive != null) return UiIdleMs;
+        return minimized ? UiBackgroundMs : UiIdleMs;
+    }
+
+    private bool _onBattery;
+    private long _duePower;
+
+    /// <summary>الجهاز شغال على البطارية (بيتقرا كل 30 ثانية).</summary>
+    internal bool OnBattery
+    {
+        get
+        {
+            if (Due(ref _duePower, 30_000))
+            {
+                try { _onBattery = SystemInformation.PowerStatus.PowerLineStatus == PowerLineStatus.Offline; }
+                catch { _onBattery = false; }
+            }
+            return _onBattery;
+        }
+    }
+
+    private void AdaptUiTimer()
+    {
+        if (_closing || IsDisposed || _mp == null || _seekBar == null) return; // أثناء البناء أو القفل
+        int want = DesiredUiInterval();
+        if (_uiTimer.Interval != want) _uiTimer.Interval = want;
     }
 }

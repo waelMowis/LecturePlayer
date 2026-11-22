@@ -1036,6 +1036,7 @@ internal sealed partial class MainForm : Form
         DpiChanged += (_, _) => BeginInvoke(new Action(ApplySidePanelWidth));
 
         HandleCreated += (_, _) => NativeMethods.UseDarkTitleBar(this);
+        Resize += (_, _) => AdaptUiTimer(); // الرجوع من التصغير: الواجهة تصحى فورًا
 
         // الملاحظات تتبع الفيديو المتحدد لما مفيش حاجة شغالة
         _tree.AfterSelect += (_, _) => { if (_currentVideo == null) RefreshNotesPane(); };

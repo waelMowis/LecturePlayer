@@ -6,16 +6,44 @@ namespace LecturePlayer.Data;
 /// <summary>التعامل مع ملفات الميديا: الامتدادات، قراءة فولدر، ترتيب طبيعي.</summary>
 public static class MediaFiles
 {
-    public static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>
+    /// امتدادات الفيديو. كل واحد هنا متجرب فعلًا بـ VLC بتاع البرنامج في الفحص التلقائي (tests/formats):
+    /// بيتشغّل ويتفك صوته وصورته، فلو صيغة اتضافت هنا لازم ملفها يتضاف هناك.
+    /// </summary>
+    public static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        // فيديو
-        ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg",
-        ".ts", ".m2ts", ".mts", ".3gp", ".ogv", ".vob",
-        // صوت (لو في محاضرات صوتية)
-        ".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg", ".opus", ".wma"
+        // الشائع
+        ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm", ".m4v", ".flv",
+        // MPEG وكاميرات الفيديو
+        ".mpg", ".mpeg", ".m2v", ".vob", ".ts", ".m2ts", ".mts", ".m2t", ".mod", ".tod", ".dv", ".mxf",
+        // موبايلات قديمة
+        ".3gp", ".3g2",
+        // تانية
+        ".asf", ".f4v", ".divx", ".qt", ".ogv", ".ogm", ".rm", ".rmvb", ".mk3d", ".nut", ".y4m",
+        // فيديو خام من غير حاوية
+        ".h264", ".264", ".hevc", ".265"
     };
 
+    /// <summary>امتدادات الصوت (محاضرات صوتية، تسجيلات، كتب مسموعة). نفس الشرط: متجربة في tests/formats.</summary>
+    public static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg", ".oga", ".opus", ".wma", ".weba",
+        // كتب مسموعة ونغمات
+        ".m4b", ".m4r",
+        // تسجيلات الموبايل
+        ".amr", ".3ga",
+        // صوت الأفلام
+        ".mka", ".ac3", ".eac3", ".dts",
+        // ماك / احترافي / من غير ضياع
+        ".aiff", ".aif", ".caf", ".au", ".wv", ".tta",
+        // تانية
+        ".mp2", ".mpa", ".spx"
+    };
+
+    public static readonly HashSet<string> Extensions = new(VideoExtensions.Concat(AudioExtensions), StringComparer.OrdinalIgnoreCase);
+
     public static bool IsMedia(string path) => Extensions.Contains(Path.GetExtension(path));
+    public static bool IsAudio(string path) => AudioExtensions.Contains(Path.GetExtension(path));
 
     /// <summary>رابط http / https.</summary>
     public static bool IsUrl(string? text) =>
@@ -32,7 +60,10 @@ public static class MediaFiles
             .ToList();
 
     public static string DialogFilter =>
-        "ملفات الفيديو والصوت|" + string.Join(";", Extensions.Select(e => "*" + e)) + "|كل الملفات|*.*";
+        "ملفات الفيديو والصوت|" + string.Join(";", Extensions.Select(e => "*" + e)) +
+        "|فيديو|" + string.Join(";", VideoExtensions.Select(e => "*" + e)) +
+        "|صوت|" + string.Join(";", AudioExtensions.Select(e => "*" + e)) +
+        "|كل الملفات|*.*";
 
     /// <summary>ملفات الميديا الموجودة مباشرة في الفولدر (مش الفرعية) بترتيب طبيعي.</summary>
     public static List<string> InDirectory(string dir)
