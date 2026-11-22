@@ -52,6 +52,7 @@ internal sealed class UdemyPane : Panel
     }
 
     /// <summary>العرض النضيف: من غير هيدر يوديمي وقوايمه (الشجرة بتاعتك هي القايمة).</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool CleanView
     {
         get => _clean;
