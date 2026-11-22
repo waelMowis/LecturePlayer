@@ -281,7 +281,8 @@ internal sealed partial class MainForm
         SaveLibrary();
         Check(C("C1 in playlist").AllVideos.First().Watched && C("C2 direct").VideoCount == 2 && _library.Topics.Count == 2 && _library.Links.Count == linksAtLoad,
             $"original unchanged: watched {C("C1 in playlist").AllVideos.First().Watched}, C2 videos {C("C2 direct").VideoCount}, topics {_library.Topics.Count}, links {_library.Links.Count} ({string.Join(" | ", _library.Links.Select(l => l.Path))})");
-        Check(C("C1 in playlist").Goal == "finish" && T("YouTube").SourceFolder == @"D:\Courses", "original plan kept");
+        Check(C("C1 in playlist").Goal == "finish" && C("C1 in playlist").Deadline != null && C("C1 in playlist").AllVideos.First().Notes == "my note", "original plan/notes kept");
+        Check(_library.Links.Select(l => l.Path).OrderBy(x => x).SequenceEqual(ytLinks.Append(@"D:\Other").OrderBy(x => x)), "original followed folders kept");
 
         // 2) نسخة ليا: بكل حاجة (التقدم والملفات المحلية والفولدر المتابَع بتاع الموضوع بس)
         var mine = Export(T("YouTube"), new ExportOptions(true, false), "YouTube (mine).lpl");
