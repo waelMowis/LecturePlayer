@@ -156,6 +156,7 @@ internal sealed partial class MainForm
         RunAppearanceChecks();
         RunSplitLayoutChecks();
         RunUpdateReopenChecks();
+        RunExportChecks();
         RunDownloadChecks();
         RunStressAndPlaybackChecks();
 

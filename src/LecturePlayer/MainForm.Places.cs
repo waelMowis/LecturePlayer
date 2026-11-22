@@ -210,6 +210,7 @@ internal sealed partial class MainForm
             items.Add(MenuItem("🏫  مصدر فرعي جديد هنا (مدرّس، قناة…)…", () => AddPlace(null, parent: p)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
         items.Add(AppearanceMenuItem(p));
+        items.Add(ExportMenuItem(p));
         items.Add(MovePlaceToTopicMenu(p));
         items.Add(FoldMenu(p));
         items.Add(SubMenuOf("المزيد",

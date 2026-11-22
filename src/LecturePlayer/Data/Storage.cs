@@ -9,6 +9,7 @@ public static class Storage
     public const string LibraryExtension = ".lpl";
     public const string LibraryFilter = "مكتبة «مسار» (*.lpl)|*.lpl|كل الملفات|*.*";
 
+    internal static JsonSerializerOptions JsonOptions => Options;
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,

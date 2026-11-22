@@ -556,6 +556,8 @@ public sealed class AppSettings
     public bool DownloadSubtitles { get; set; }
     /// <summary>فولدر الحفظ (فاضي = Downloads\مسار).</summary>
     public string DownloadFolder { get; set; } = "";
+    /// <summary>آخر فولدر اتحفظ فيه «حفظ في مكتبة جديدة».</summary>
+    public string ExportFolder { get; set; } = "";
     /// <summary>كام تنزيل مع بعض (1 أو 2) — يوتيوب بيبطّأ اللي بينزّل كتير مع بعض.</summary>
     public int DownloadParallel { get; set; } = 1;
     /// <summary>تنبيه الحقوق اتعرض مرة.</summary>

@@ -150,6 +150,7 @@ internal sealed partial class MainForm
         items.Add(MenuItem("🏫  مصدر جديد هنا…", () => AddPlace(t)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
         items.Add(AppearanceMenuItem(t));
+        items.Add(ExportMenuItem(t));
         items.Add(FoldMenu(t));
         var more = new List<ToolStripItem>
         {

@@ -1548,6 +1548,7 @@ internal sealed partial class MainForm
                     MenuItem("رابط يوتيوب أو قائمة تشغيل…", () => AddUrlsDialog(null), "Ctrl+U")));
                 items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
                 items.Add(AppearanceMenuItem(c));
+                items.Add(ExportMenuItem(c));
                 items.Add(MoveCourseMenu(c));
                 items.Add(FoldMenu(c));
                 if (AdvancedMode) items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
