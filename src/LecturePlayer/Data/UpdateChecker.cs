@@ -21,15 +21,75 @@ public static class UpdateChecker
     public static Version CurrentVersion =>
         typeof(UpdateChecker).Assembly.GetName().Version ?? new Version(1, 0);
 
+    // اتصال واحد بيتعاد استخدامه: الاتصال نفسه ليه 10 ثواني، والطلب كله 25
+    private static readonly HttpClient Api = new(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(10), PooledConnectionLifetime = TimeSpan.FromMinutes(10) })
+        { Timeout = TimeSpan.FromSeconds(25) };
+    // الطريق التاني: github.com/…/releases/latest بيحوّل لصفحة آخر إصدار (من غير ما نتبع التحويل)
+    private static readonly HttpClient Web = new(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(10), AllowAutoRedirect = false })
+        { Timeout = TimeSpan.FromSeconds(20) };
+
+    /// <summary>للفحص التلقائي بس: بدل النت.</summary>
+    internal static Func<string, CancellationToken, Task<Release?>>? TestFetch;
+
+    /// <summary>
+    /// آخر إصدار. محاولتين، وكل محاولة بطريقين: واجهة GitHub (فيها بصمة المثبّت)، ولو اتأخرت أو رفضت
+    /// (نت مشغول في مكالمة، أو حد الطلبات 60 في الساعة) صفحة github.com نفسها.
+    /// </summary>
     public static async Task<Release?> GetLatestAsync(string repo, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(repo) || !repo.Contains('/')) return null;
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Masar-UpdateCheck");
-        http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-        string json = await http.GetStringAsync($"https://api.github.com/repos/{repo.Trim()}/releases/latest", ct);
-        return ParseRelease(json);
+        if (TestFetch != null) return await TestFetch(repo, ct);
+        repo = repo.Trim().Trim('/');
+        Exception? last = null;
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            try { return await FromApiAsync(repo, ct); }
+            catch (Exception ex) when (IsNetwork(ex, ct)) { last = ex; Log.Info($"update-check api attempt {attempt + 1}: {ex.Message}"); }
+            try { if (await FromRedirectAsync(repo, ct) is { } r) return r; }
+            catch (Exception ex) when (IsNetwork(ex, ct)) { last = ex; Log.Info($"update-check web attempt {attempt + 1}: {ex.Message}"); }
+            if (attempt == 0) await Task.Delay(2000, ct);
+        }
+        throw new UpdateCheckException(last);
     }
+
+    /// <summary>من واجهة GitHub بس (للتأكد من بصمة المثبّت قبل التثبيت).</summary>
+    public static async Task<Release?> FromApiAsync(string repo, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api.github.com/repos/{repo}/releases/latest");
+        req.Headers.UserAgent.ParseAdd("Masar-UpdateCheck");
+        req.Headers.Accept.ParseAdd("application/vnd.github+json");
+        using var resp = await Api.SendAsync(req, ct);
+        resp.EnsureSuccessStatusCode();
+        return ParseRelease(await resp.Content.ReadAsStringAsync(ct));
+    }
+
+    private static async Task<Release?> FromRedirectAsync(string repo, CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Head, $"https://github.com/{repo}/releases/latest");
+        req.Headers.UserAgent.ParseAdd("Masar-UpdateCheck");
+        using var resp = await Web.SendAsync(req, ct);
+        return resp.Headers.Location is { } loc ? ParseLatestRedirect(repo, loc.IsAbsoluteUri ? loc.AbsoluteUri : "https://github.com" + loc.OriginalString) : null;
+    }
+
+    /// <summary>
+    /// «https://github.com/o/r/releases/tag/v4.1.46» ← إصدار (من غير ملاحظات ولا بصمة؛ البصمة بتتجاب قبل التثبيت).
+    /// </summary>
+    public static Release? ParseLatestRedirect(string repo, string location)
+    {
+        int i = location.IndexOf("/releases/tag/", StringComparison.OrdinalIgnoreCase);
+        if (i < 0) return null;
+        string tag = Uri.UnescapeDataString(location[(i + "/releases/tag/".Length)..].Split('?', '#')[0]);
+        if (!TryParseVersion(tag, out var v)) return null;
+        string name = $"Masar-Setup-{v.ToString(3)}.exe";
+        return new Release(v, tag, location, "", null, $"https://github.com/{repo}/releases/download/{tag}/{name}", name);
+    }
+
+    private static bool IsNetwork(Exception ex, CancellationToken ct) =>
+        !ct.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException or TimeoutException or IOException;
+
+    /// <summary>مقدرناش نوصل لـ GitHub (الرسالة للمستخدم بالعربي، والتفاصيل في السجل).</summary>
+    public sealed class UpdateCheckException(Exception? inner)
+        : Exception("مقدرتش أوصل لـ GitHub دلوقتي — النت بطيء أو مشغول (مكالمة؟). هحاول تاني لوحدي المرة الجاية.", inner);
 
     /// <summary>تحليل رد GitHub (public عشان يتجرّب لوحده).</summary>
     public static Release? ParseRelease(string json)

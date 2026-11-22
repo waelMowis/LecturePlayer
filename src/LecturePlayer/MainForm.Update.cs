@@ -46,28 +46,57 @@ internal sealed partial class MainForm
         OpenInBrowser($"https://github.com/{repo}/releases/tag/v{UpdateChecker.CurrentVersion.ToString(3)}");
     }
 
-    private async Task CheckForUpdatesAsync(bool manual)
+    private Task? _updateCheck;
+    private bool _updateCheckManual;
+    internal int UpdateChecksStarted { get; private set; }
+
+    /// <summary>
+    /// تحقق واحد في نفس الوقت: لو فيه تحقق شغال، الضغطة التانية بتستناه (كانت بتعمل تحقق جديد ورسالة خطأ لكل ضغطة).
+    /// </summary>
+    private Task CheckForUpdatesAsync(bool manual)
+    {
+        if (_updateCheck is { IsCompleted: false })
+        {
+            if (manual)
+            {
+                _updateCheckManual = true;
+                ShowBanner("لسه بتحقق من التحديثات… استنى ثواني", BannerKind.Info, seconds: 0, key: "update-check");
+            }
+            return _updateCheck;
+        }
+        _updateCheckManual = manual;
+        return _updateCheck = CheckForUpdatesCoreAsync();
+    }
+
+    private async Task CheckForUpdatesCoreAsync()
     {
         string? repo = UpdateRepo;
         if (repo == null)
         {
-            if (manual) SetUpdateRepoDialog();
+            if (_updateCheckManual) SetUpdateRepoDialog();
             return;
         }
         if (_updating) { ShowStatus("التحديث شغال بالفعل…"); return; }
+        UpdateChecksStarted++;
 
         try
         {
-            if (manual) ShowStatus("بشوف فيه تحديث ولا لأ…", 20);
+            if (_updateCheckManual) ShowBanner("بشوف فيه تحديث ولا لأ…", BannerKind.Info, seconds: 0, key: "update-check");
             var latest = await UpdateChecker.GetLatestAsync(repo, CancellationToken.None);
+            bool manual = _updateCheckManual;
+            HideBanner("update-check");
             if (_closing) return;
             if (latest == null || !UpdateChecker.IsNewer(latest.Version, UpdateChecker.CurrentVersion))
             {
-                if (manual) { ShowStatus(""); Dialogs.Info(this, $"إنت على آخر إصدار ({UpdateChecker.CurrentVersion.ToString(3)}) ✓", "التحديثات"); }
+                if (manual) ShowBanner($"إنت على آخر إصدار ({UpdateChecker.CurrentVersion.ToString(3)}) ✓", BannerKind.Success, seconds: 6, key: "update-check");
                 return;
             }
 
             _availableUpdate = latest;
+            // الطريق التاني (github.com) مابيجيبش الملاحظات: نحاول نجيبها هي والبصمة من الواجهة (لو اتأخرت نكمّل من غيرها)
+            if (latest.SetupSha256 == null)
+                try { if (await UpdateChecker.FromApiAsync(repo.Trim().Trim('/'), CancellationToken.None) is { } full && full.Tag == latest.Tag) latest = _availableUpdate = full; }
+                catch (Exception ex) { Log.Info("update notes: " + ex.Message); }
             // الإصدار اللي المستخدم قال «تخطّاه» مايتعرضش لوحده تاني (لكن يتعرض لو طلب التحقق بنفسه)
             if (!manual && string.Equals(_settings.SkippedUpdate, latest.Tag, StringComparison.OrdinalIgnoreCase))
             {
@@ -100,8 +129,13 @@ internal sealed partial class MainForm
         }
         catch (Exception ex)
         {
-            Log.Error("update-check", ex);
-            if (manual) { ShowStatus(""); Dialogs.Error(this, "مقدرتش أتحقق من التحديثات:\n" + ex.Message + "\n\nاتأكد إن النت شغال."); }
+            // مفيش رسالة بتوقف الشغل: النت البطيء مش غلطة المستخدم. شريط صغير فيه «حاول تاني» لو هو اللي طلب
+            if (ex is UpdateChecker.UpdateCheckException) Log.Info("update-check: " + ex.Message + " / " + ex.InnerException?.Message);
+            else Log.Error("update-check", ex);
+            HideBanner("update-check");
+            if (_updateCheckManual && !_closing)
+                ShowBanner(ex is UpdateChecker.UpdateCheckException ? ex.Message : "مقدرتش أتحقق من التحديثات: " + ex.Message,
+                    BannerKind.Warning, "حاول تاني", () => _ = CheckForUpdatesAsync(manual: true), seconds: 20, key: "update-check");
         }
     }
 
@@ -136,6 +170,18 @@ internal sealed partial class MainForm
     {
         if (r.SetupUrl == null) { OpenInBrowser(r.Url); return; }
         if (_updating) return;
+        if (r.SetupSha256 == null)
+        {
+            // من غير البصمة مش هنثبّت حاجة لوحدنا: نحاول نجيبها تاني، وإلا صفحة التحميل
+            try { if (await UpdateChecker.FromApiAsync(repo.Trim().Trim('/'), CancellationToken.None) is { } full && full.Tag == r.Tag) r = full; }
+            catch (Exception ex) { Log.Info("update fingerprint: " + ex.Message); }
+            if (r.SetupSha256 == null)
+            {
+                ShowBanner("مقدرتش أتأكد من بصمة التحديث من GitHub دلوقتي — نزّله من الصفحة أو جرّب كمان شوية.", BannerKind.Warning,
+                    "صفحة التحميل", () => OpenInBrowser(r.Url), seconds: 20, key: "update");
+                return;
+            }
+        }
         _updating = true;
         try
         {

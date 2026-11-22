@@ -257,6 +257,7 @@ public static partial class YtDlp
         if (_botWorkaround is { } known) attempts.Add(("known", known));
         attempts.Add(("plain", Array.Empty<string>()));
         bool updated = false;
+        int lockRetries = 0;
         string lastErr = "";
 
         for (int i = 0; i < attempts.Count; i++)
@@ -273,11 +274,23 @@ public static partial class YtDlp
             if (r.ExitCode == 0 && file != null)
             {
                 if (attempts[i].Extra.Length > 0 && attempts[i].Name != "known") _botWorkaround = attempts[i].Extra;
+                DeleteTempLeftover(file);
                 return file;
             }
             lastErr = r.StdErr;
             Log.Info($"download attempt {attempts[i].Name} failed: {FirstErrorLine(r.StdErr)}");
 
+            // الملف لسه بيتكتب والويندوز (Defender / الفهرسة / OneDrive) ماسكه لحظة: نستنى ونعيد
+            // (الأداة بتكمّل من اللي خلص — مابتنزّلش تاني)
+            if (IsFileLock(r.StdErr) && lockRetries < 3)
+            {
+                lockRetries++;
+                Interlocked.Increment(ref FileLockRetries);
+                onUpdate?.Invoke("الويندوز ماسك الملف لحظة… بيحاول تاني");
+                await Task.Delay(TimeSpan.FromSeconds(2 * lockRetries), ct);
+                attempts.Add(($"file-lock-{lockRetries}", attempts[i].Extra));
+                continue;
+            }
             if (IsBotCheck(r.StdErr) && attempts.Count <= 2)
             {
                 foreach (var w in BotWorkarounds()) attempts.Add(w);
@@ -293,6 +306,26 @@ public static partial class YtDlp
             }
         }
         throw new InvalidOperationException(Explain(ErrorFrom(lastErr, "مقدرتش أنزّل الفيديو")).Message);
+    }
+
+    /// <summary>عدد مرات الاستنى بسبب ملف ممسوك (للفحص والسجل).</summary>
+    public static int FileLockRetries;
+
+    /// <summary>«Access is denied» / «being used by another process» وقت تسمية أو كتابة الملف.</summary>
+    public static bool IsFileLock(string stderr) =>
+        stderr.Contains("WinError 5]", StringComparison.Ordinal) || stderr.Contains("WinError 32]", StringComparison.Ordinal)
+        || stderr.Contains("PermissionError", StringComparison.Ordinal)
+        || stderr.Contains("being used by another process", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>بعد نجاح متأخر: «اسم.temp.mp3» اللي فضل من المحاولة اللي اتمسكت.</summary>
+    private static void DeleteTempLeftover(string file)
+    {
+        try
+        {
+            string temp = Path.Combine(Path.GetDirectoryName(file) ?? "", Path.GetFileNameWithoutExtension(file) + ".temp" + Path.GetExtension(file));
+            if (File.Exists(temp)) File.Delete(temp);
+        }
+        catch (Exception ex) { Log.Info("download temp cleanup: " + ex.Message); }
     }
 
     private static double Num(JsonElement e, string name) =>

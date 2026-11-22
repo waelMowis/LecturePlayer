@@ -65,6 +65,10 @@ internal sealed partial class MainForm
         Check(YtDlp.EstimateBytes(info, 0, new DownloadOptions(DownloadKind.Mp3, Mp3Kbps: 192)) == 14_400_000, "mp3 192 for 10 min");
         Check(YtDlp.EstimateBytes(info, 0, new DownloadOptions(DownloadKind.M4a)) == 5_000_000, "m4a = original audio");
         Check(YtDlp.EstimateBytes(null, 3_600_000, new DownloadOptions(DownloadKind.Mp4, 720)) > 500_000_000, "no info: estimate from duration");
+        // رسالة الخطأ الحقيقية من جهاز المستخدم (22/11): الويندوز ماسك الملف وقت التسمية بعد إضافة الغلاف
+        Check(YtDlp.IsFileLock(@"ERROR: [WinError 5] Access is denied: 'C:\Users\x\Desktop\a.temp.mp3' -> 'C:\Users\x\Desktop\a.mp3'")
+              && YtDlp.IsFileLock("PermissionError: [WinError 32] The process cannot access the file because it is being used by another process")
+              && !YtDlp.IsFileLock("ERROR: [youtube] x: Video unavailable"), "file-lock detection");
         Console.WriteLine("SMOKE download units OK");
 
         // ---------- 4) تنزيل حقيقي (على جهاز الفحص بس: محتاج ينزّل الأدوات من النت) ----------
@@ -207,6 +211,40 @@ internal sealed partial class MainForm
             _settings.OfflineFiles.Remove(v.Path);
             try { File.Delete(jobsF[0].File!); } catch { }
             Console.WriteLine("SMOKE download into library OK");
+
+            // ---- و2) الويندوز ماسك الملف (زي Defender على سطح المكتب): البرنامج بيستنى ويعيد لوحده ----
+            string gDir = Path.Combine(root, "lock");
+            Directory.CreateDirectory(gDir);
+            string target = Path.Combine(gDir, "lecture.mp3");
+            int retriesBefore = YtDlp.FileLockRetries;
+            var holder = Task.Run(() =>
+            {
+                // أول ما ملف الصوت يتعمل ويتقفل من ffmpeg: نمسكه 4 ثواني من غير ما نسمح بمسحه/استبداله
+                var until = DateTime.UtcNow.AddSeconds(60);
+                while (DateTime.UtcNow < until)
+                {
+                    if (File.Exists(target))
+                    {
+                        try
+                        {
+                            using var fs = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.Read);
+                            Thread.Sleep(4000);
+                            return true;
+                        }
+                        catch (IOException) { /* ffmpeg لسه بيكتب */ }
+                    }
+                    Thread.Sleep(1);
+                }
+                return false;
+            });
+            var jobG = EnqueuePlan(new DownloadForm.Plan(new DownloadOptions(DownloadKind.Mp3, Mp3Kbps: 128, EmbedCover: true), new() { new(server.Url("lecture.mp4") + "?lock", "lecture", 1000, null) }, false, gDir, null, 0))[0];
+            Check(WaitFor(() => !jobG.Active, 90), "locked-file job finished");
+            Check(holder.IsCompleted && holder.Result, "test could not hold the file");
+            Check(jobG.Status == DownloadStatus.Done, "locked file: should wait and retry, got " + jobG.Status + " " + jobG.Error);
+            Check(YtDlp.FileLockRetries > retriesBefore, "the lock was not hit (test did not reproduce it)");
+            Check(!File.Exists(Path.Combine(gDir, "lecture.temp.mp3")), "temp leftover deleted");
+            Check(SmokeTest.DecodeCheck(jobG.File!).AudioBlocks > 0, "locked-file result decodes");
+            Console.WriteLine($"SMOKE download file-lock OK (waited and retried {YtDlp.FileLockRetries - retriesBefore}x)");
 
             // ---- ز) اللوحة ----
             ShowDownloadsPanel();

@@ -198,6 +198,43 @@ internal sealed partial class MainForm : Form
         _settings.ReopenAfterUpdateUtc = DateTime.UtcNow.AddHours(-5);
         Check(TakeReopenAfterUpdate() == null && _settings.ReopenAfterUpdate == null, "stale ignored and cleared");
         Console.WriteLine("SMOKE reopen after update OK");
+
+        // التحقق من التحديثات والنت بطيء (22/11): 3 ضغطات ورا بعض ← تحقق واحد، ومفيش رسالة بتوقف الشغل
+        int fetches = 0;
+        try
+        {
+            UpdateChecker.TestFetch = async (_, ct) =>
+            {
+                Interlocked.Increment(ref fetches);
+                await Task.Delay(1500, ct);
+                throw new UpdateChecker.UpdateCheckException(new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 20 seconds elapsing."));
+            };
+            int started = UpdateChecksStarted;
+            _ = CheckForUpdatesAsync(manual: true);
+            Application.DoEvents();
+            _ = CheckForUpdatesAsync(manual: true);
+            _ = CheckForUpdatesAsync(manual: true);
+            var until = DateTime.UtcNow.AddSeconds(5);
+            while (DateTime.UtcNow < until && _updateCheck is { IsCompleted: false }) { Application.DoEvents(); Thread.Sleep(20); }
+            Application.DoEvents();
+            Check(fetches == 1 && UpdateChecksStarted - started == 1, $"one check for 3 clicks, got {fetches}");
+            Check(_bannerKey == "update-check", "failure shown as a bar with «حاول تاني», got banner " + _bannerKey);
+
+            // ونت كويس: «إنت على آخر إصدار» في شريط مش رسالة
+            UpdateChecker.TestFetch = (_, _) => Task.FromResult<UpdateChecker.Release?>(new UpdateChecker.Release(UpdateChecker.CurrentVersion, "v" + UpdateChecker.CurrentVersion.ToString(3), "u", "", null));
+            var t = CheckForUpdatesAsync(manual: true);
+            while (!t.IsCompleted) { Application.DoEvents(); Thread.Sleep(20); }
+            Check(_bannerKey == "update-check", "up to date shown as a bar");
+            HideBanner("update-check");
+
+            // تحويل github.com ← الإصدار ورابط المثبّت
+            var redirect = UpdateChecker.ParseLatestRedirect("waelMowis/LecturePlayer", "https://github.com/waelMowis/LecturePlayer/releases/tag/v4.1.46");
+            Check(redirect?.Version == new Version(4, 1, 46) && redirect.SetupUrl == "https://github.com/waelMowis/LecturePlayer/releases/download/v4.1.46/Masar-Setup-4.1.46.exe"
+                  && redirect.SetupSha256 == null, "redirect parse: " + redirect);
+            Check(UpdateChecker.ParseLatestRedirect("o/r", "https://github.com/o/r/releases") == null, "non-tag redirect");
+        }
+        finally { UpdateChecker.TestFetch = null; }
+        Console.WriteLine("SMOKE update check OK (3 clicks → 1 check, no blocking dialog)");
     }
 
     private static Icon? TryExeIcon()
