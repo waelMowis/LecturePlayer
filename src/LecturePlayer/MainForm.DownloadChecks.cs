@@ -213,7 +213,7 @@ internal sealed partial class MainForm
             Console.WriteLine("SMOKE download into library OK");
 
             // ---- ح) كورس كامل: محاضرتين، وملف محلي، وفيديو متنزل قبل كده ----
-            var libH = new CourseLibrary { Name = "course-dl" };
+            var libH = new CourseLibrary { Name = "courseH-dl" };
             var cH = new Course { Name = "C# Basics" };
             var l1 = new LectureGroup { Name = "Session 01" };
             l1.Videos.Add(new VideoItem { Path = server.Url("lecture.mp4") + "?c1", Title = "Part 01", DurationMs = 1000 });
@@ -223,16 +223,16 @@ internal sealed partial class MainForm
             l2.Videos.Add(new VideoItem { Path = server.Url("lecture.mp4") + "?c3", Title = "Part 03", DurationMs = 1000 });
             cH.Groups.AddRange(new[] { l1, l2 });
             libH.Courses.Add(cH);
-            string libHPath = Path.Combine(root, "course-dl.lpl");
+            string libHPath = Path.Combine(root, "courseH-dl.lpl");
             Storage.SaveLibrary(libHPath, libH);
             LoadLibrary(libHPath, remember: false);
-            var course = _library.Courses[0];
+            var courseH = _library.Courses[0];
             string earlier = Path.Combine(root, "earlier.mp4");
             File.Copy(Path.Combine(formats, "h264-aac.mp4"), earlier, true);
-            _settings.OfflineFiles[course.Groups[0].Videos[1].Path] = earlier;   // Part 02 متنزل قبل كده
+            _settings.OfflineFiles[courseH.Groups[0].Videos[1].Path] = earlier;   // Part 02 متنزل قبل كده
 
-            var itemsH = CourseDownloadItems(course, out int already, out int localCount);
-            Check(itemsH.Count == 2 && already == 1 && localCount == 1, $"course items {itemsH.Count}, already {already}, local {localCount}");
+            var itemsH = CourseDownloadItems(courseH, out int already, out int localCount);
+            Check(itemsH.Count == 2 && already == 1 && localCount == 1, $"courseH items {itemsH.Count}, already {already}, local {localCount}");
             Check(itemsH[0].SubFolder == "01 - Session 01" && itemsH[0].Order == 1 && itemsH[1].SubFolder == "02 - Session 02" && itemsH[1].Order == 2,
                 "lecture folders and order: " + string.Join(" | ", itemsH.Select(i => $"{i.SubFolder}/{i.Order}")));
 
@@ -240,28 +240,28 @@ internal sealed partial class MainForm
             string outH = Path.Combine(root, "h");
             int jobsBefore = _downloadJobs.Count;
             DownloadForm.SmokePick = (DownloadKind.Mp3, 128, outH);
-            DownloadCourse(course);
-            Check(WaitFor(() => _downloadJobs.Count == jobsBefore + 2, 60), "course → 2 jobs, got " + (_downloadJobs.Count - jobsBefore));
+            DownloadCourse(courseH);
+            Check(WaitFor(() => _downloadJobs.Count == jobsBefore + 2, 60), "courseH → 2 jobs, got " + (_downloadJobs.Count - jobsBefore));
             var jobsH = _downloadJobs.Skip(jobsBefore).ToList();
-            Check(WaitFor(() => jobsH.All(j => !j.Active), 120) && jobsH.All(j => j.Status == DownloadStatus.Done), "course jobs: " + string.Join(" | ", jobsH.Select(j => j.Status + " " + j.Error)));
+            Check(WaitFor(() => jobsH.All(j => !j.Active), 120) && jobsH.All(j => j.Status == DownloadStatus.Done), "courseH jobs: " + string.Join(" | ", jobsH.Select(j => j.Status + " " + j.Error)));
             string f1 = Path.Combine(outH, "C# Basics", "01 - Session 01"), f2 = Path.Combine(outH, "C# Basics", "02 - Session 02");
             Check(Path.GetDirectoryName(jobsH[0].File) == f1 && Path.GetFileName(jobsH[0].File!).StartsWith("01 - "), "lecture 1 file: " + jobsH[0].File);
             Check(Path.GetDirectoryName(jobsH[1].File) == f2 && Path.GetFileName(jobsH[1].File!).StartsWith("02 - "), "lecture 2 file: " + jobsH[1].File);
-            Check(jobsH.All(j => SmokeTest.DecodeCheck(j.File!).AudioBlocks > 0), "course files decode");
+            Check(jobsH.All(j => SmokeTest.DecodeCheck(j.File!).AudioBlocks > 0), "courseH files decode");
 
             // جوه المكتبة: كل فيديو بيتربط بملفه، وبعدها مفيش حاجة تتنزل تاني
             DownloadForm.SmokeIntoLibrary = true;
             DownloadForm.SmokePick = (DownloadKind.Mp4, 720, outH);
             jobsBefore = _downloadJobs.Count;
-            DownloadCourse(course);
-            Check(WaitFor(() => _downloadJobs.Count == jobsBefore + 2, 60), "course into library → 2 jobs");
+            DownloadCourse(courseH);
+            Check(WaitFor(() => _downloadJobs.Count == jobsBefore + 2, 60), "courseH into library → 2 jobs");
             var jobsL = _downloadJobs.Skip(jobsBefore).ToList();
-            Check(WaitFor(() => jobsL.All(j => !j.Active), 120) && jobsL.All(j => j.Status == DownloadStatus.Done), "course into library: " + string.Join(" | ", jobsL.Select(j => j.Error)));
-            Check(course.AllVideos.Where(v => v.IsOnline).All(IsDownloaded), "every online video now plays offline");
-            Check(CourseDownloadItems(course, out int already2, out _).Count == 0 && already2 == 3, "nothing left to download");
+            Check(WaitFor(() => jobsL.All(j => !j.Active), 120) && jobsL.All(j => j.Status == DownloadStatus.Done), "courseH into library: " + string.Join(" | ", jobsL.Select(j => j.Error)));
+            Check(courseH.AllVideos.Where(v => v.IsOnline).All(IsDownloaded), "every online video now plays offline");
+            Check(CourseDownloadItems(courseH, out int already2, out _).Count == 0 && already2 == 3, "nothing left to download");
             DownloadForm.SmokeIntoLibrary = false;
-            foreach (var v in course.AllVideos) _settings.OfflineFiles.Remove(v.Path);
-            Console.WriteLine("SMOKE download whole course OK (folder per lecture, skips already-downloaded, into library)");
+            foreach (var vh in courseH.AllVideos) _settings.OfflineFiles.Remove(vh.Path);
+            Console.WriteLine("SMOKE download whole courseH OK (folder per lecture, skips already-downloaded, into library)");
 
             // ---- و2) الويندوز ماسك الملف (زي Defender على سطح المكتب): البرنامج بيستنى ويعيد لوحده ----
             string gDir = Path.Combine(root, "lock");
