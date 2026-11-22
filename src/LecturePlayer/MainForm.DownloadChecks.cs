@@ -261,7 +261,7 @@ internal sealed partial class MainForm
             Check(CourseDownloadItems(courseH, out int already2, out _).Count == 0 && already2 == 3, "nothing left to download");
             DownloadForm.SmokeIntoLibrary = false;
             foreach (var vh in courseH.AllVideos) _settings.OfflineFiles.Remove(vh.Path);
-            Console.WriteLine("SMOKE download whole courseH OK (folder per lecture, skips already-downloaded, into library)");
+            Console.WriteLine("SMOKE download whole course OK (folder per lecture, skips already-downloaded, into library)");
 
             // ---- و2) الويندوز ماسك الملف (زي Defender على سطح المكتب): البرنامج بيستنى ويعيد لوحده ----
             string gDir = Path.Combine(root, "lock");
