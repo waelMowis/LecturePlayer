@@ -202,7 +202,7 @@ internal sealed class UdemyPane : Panel
         var core = Web.CoreWebView2;
         if (_cleanScriptId != null) { core.RemoveScriptToExecuteOnDocumentCreated(_cleanScriptId); _cleanScriptId = null; }
         if (_clean) _cleanScriptId = await core.AddScriptToExecuteOnDocumentCreatedAsync(CleanScript);
-        await core.ExecuteScriptAsync(_clean ? CleanScript : "document.getElementById('masar-clean')?.remove();");
+        await core.ExecuteScriptAsync(_clean ? CleanScript : "document.getElementById('masar-clean')?.remove(); document.querySelector('[data-masar-fit]')?.removeAttribute('data-masar-fit');");
     }
 
     /// <summary>
@@ -234,12 +234,34 @@ internal sealed class UdemyPane : Panel
             [class*="ud-app-loader"] + header { display: none !important; }
             [class*="app--content-column--"], [class*="app--body-container--"], [class*="app--column-container--"] {
               width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
-            html, body { background: #000 !important; overflow: hidden !important; }`;
+            html, body { background: #000 !important; overflow: hidden !important; }
+            [data-masar-fit] { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important;
+              max-width: none !important; max-height: none !important; min-height: 0 !important; margin: 0 !important;
+              z-index: 2147483000 !important; background: #000 !important; transform: none !important; }`;
           const add = () => {
             if (!document.head || document.getElementById('masar-clean')) return;
             const s = document.createElement('style'); s.id = 'masar-clean'; s.textContent = css; document.head.appendChild(s);
           };
+          // المشغّل ياخد المساحة كلها: يوديمي بيحدد ارتفاعه (ويسيب مكان للتابات اللي تحت)، فبنلاقي «صندوق المشغّل»
+          // = أبعد أب للفيديو بنفس مقاسه (الفيديو + أزراره)، ونخليه يملا الصفحة. من غير أسماء عناصر، فمش بيبوظ لو يوديمي غيّرها.
+          const same = (a, b) => Math.abs(a.left - b.left) < 3 && Math.abs(a.top - b.top) < 3 &&
+                                 Math.abs(a.width - b.width) < 3 && Math.abs(a.height - b.height) < 3;
+          const fit = () => {
+            if (!document.getElementById('masar-clean')) return; // العرض النضيف مقفول
+            const v = document.querySelector('video');
+            const cur = document.querySelector('[data-masar-fit]');
+            if (cur && v && cur.contains(v)) return;
+            if (cur) cur.removeAttribute('data-masar-fit');
+            if (!v) return;
+            const r = v.getBoundingClientRect();
+            if (r.width < 50 || r.height < 50) return; // لسه بيتحمّل
+            let root = v;
+            for (let p = v.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement)
+              if (same(p.getBoundingClientRect(), r)) root = p;
+            root.setAttribute('data-masar-fit', '');
+          };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
+          if (!window.__masarFit) { window.__masarFit = setInterval(fit, 700); }
         })();
         """;
 

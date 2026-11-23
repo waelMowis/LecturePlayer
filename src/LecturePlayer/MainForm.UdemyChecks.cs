@@ -153,6 +153,16 @@ internal sealed partial class MainForm
             // تنظيف الصفحة (العرض النضيف)
             var hidden = pane.Web.CoreWebView2.ExecuteScriptAsync("getComputedStyle(document.getElementById('hdr')).display");
             Check(Until(() => hidden.IsCompleted, 5000) && hidden.Result.Contains("none"), "clean view hides udemy header: " + hidden.Result);
+            // المشغّل بيملا مساحة الفيديو كلها (الصفحة كانت حاطة الفيديو 80% من الارتفاع، زي يوديمي)
+            string fill = "";
+            Check(Until(() =>
+            {
+                var t = pane.Web.CoreWebView2.ExecuteScriptAsync("(() => { const r = document.querySelector('video').getBoundingClientRect(); return Math.round(r.height) + '/' + innerHeight + '/' + Math.round(r.width) + '/' + innerWidth; })()");
+                if (!Until(() => t.IsCompleted, 3000)) return false;
+                fill = t.Result.Trim('"');
+                var n = fill.Split('/').Select(x => int.TryParse(x, out int k) ? k : -1).ToArray();
+                return n.Length == 4 && n[1] > 0 && Math.Abs(n[0] - n[1]) <= 3 && Math.Abs(n[2] - n[3]) <= 3;
+            }, 8000), "player fills the whole pane: " + fill);
 
             // التحكم من «مسار»
             TogglePlay();
