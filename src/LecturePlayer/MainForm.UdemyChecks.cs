@@ -119,7 +119,15 @@ internal sealed partial class MainForm
                 <!doctype html><html><head><meta charset="utf-8"><title>Lecture {{id}}</title></head>
                 <body style="margin:0;background:#111;color:#eee;font:16px Segoe UI">
                 <div class="app--header--xyz" id="hdr" style="height:60px;background:#a435f0">Udemy header (should be hidden)</div>
-                <video src="/v.mp4" autoplay muted loop playsinline style="width:100%;height:80vh"></video>
+                <!-- زي يوديمي: عمود فيه transform بيحبس position:fixed، ومشغّل ارتفاعه محدود، والأزرار عنصر جنب الفيديو -->
+                <div class="content-col" style="transform:translateZ(0);height:75vh;overflow:hidden">
+                  <div class="player" style="position:relative;height:100%">
+                    <div class="aspect" style="height:62vh;max-height:62vh"><video src="/v.mp4" autoplay muted loop playsinline style="width:100%;height:100%"></video></div>
+                    <div class="controls" style="position:absolute;left:0;right:0;bottom:0;height:40px"><button>play</button><button>next</button></div>
+                  </div>
+                </div>
+                <video src="/v.mp4" muted style="width:20px;height:20px"></video>
+                <div class="tabs" style="height:30vh">Overview / Q&A</div>
                 <input id="q" placeholder="Q&A">
                 </body></html>
                 """);
@@ -157,11 +165,12 @@ internal sealed partial class MainForm
             string fill = "";
             Check(Until(() =>
             {
-                var t = pane.Web.CoreWebView2.ExecuteScriptAsync("(() => { const r = document.querySelector('video').getBoundingClientRect(); return Math.round(r.height) + '/' + innerHeight + '/' + Math.round(r.width) + '/' + innerWidth; })()");
+                var t = pane.Web.CoreWebView2.ExecuteScriptAsync("(() => { const r = document.querySelector('video').getBoundingClientRect(); const b = document.querySelector('.controls button').getBoundingClientRect(); return Math.round(r.height) + '/' + innerHeight + '/' + Math.round(r.width) + '/' + innerWidth + '/' + (b.bottom > innerHeight * 0.85 && b.bottom <= innerHeight + 1 ? 1 : 0) + '/' + (document.elementFromPoint(innerWidth / 2, innerHeight * 0.7)?.closest('[data-masar-fit]') ? 1 : 0); })()");
                 if (!Until(() => t.IsCompleted, 3000)) return false;
                 fill = t.Result.Trim('"');
                 var n = fill.Split('/').Select(x => int.TryParse(x, out int k) ? k : -1).ToArray();
-                return n.Length == 4 && n[1] > 0 && Math.Abs(n[0] - n[1]) <= 3 && Math.Abs(n[2] - n[3]) <= 3;
+                // الفيديو بيملا (بالطول أو بالعرض حسب نسبته) والأزرار ظاهرة تحت
+                return n.Length == 6 && n[5] == 1 && n[1] > 0 && (Math.Abs(n[0] - n[1]) <= 3 || Math.Abs(n[2] - n[3]) <= 3) && n[0] >= n[1] - 3 && n[4] == 1;
             }, 8000), "player fills the whole pane: " + fill);
 
             // التحكم من «مسار»

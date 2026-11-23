@@ -139,7 +139,7 @@ internal sealed class UdemyPane : Panel
     private void Run(string js)
     {
         if (!_ready || Web.CoreWebView2 == null) return;
-        _ = Web.CoreWebView2.ExecuteScriptAsync("(() => { const v = document.querySelector('video'); if (!v) return; " + js + " })()");
+        _ = Web.CoreWebView2.ExecuteScriptAsync("(() => { const v = " + MainVideoJs + "; if (!v) return; " + js + " })()");
     }
 
     public void Play() => Run("v.play();");
@@ -188,6 +188,7 @@ internal sealed class UdemyPane : Panel
         {
             using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
             var r = doc.RootElement;
+            if (r.TryGetProperty("dbg", out var dbg)) { Data.Log.Info("udemy page: " + dbg.GetString()); return; }
             var key = (Keys)r.GetProperty("k").GetInt32();
             if (r.GetProperty("c").GetBoolean()) key |= Keys.Control;
             if (r.GetProperty("s").GetBoolean()) key |= Keys.Shift;
@@ -237,40 +238,89 @@ internal sealed class UdemyPane : Panel
             html, body { background: #000 !important; overflow: hidden !important; }
             [data-masar-fit] { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important;
               max-width: none !important; max-height: none !important; min-height: 0 !important; margin: 0 !important;
-              z-index: 2147483000 !important; background: #000 !important; transform: none !important; }`;
+              z-index: 2147483000 !important; background: #000 !important; transform: none !important; }
+            [data-masar-anc] { transform: none !important; filter: none !important; backdrop-filter: none !important; perspective: none !important;
+              contain: none !important; will-change: auto !important; }
+            [data-masar-fill] { width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important;
+              min-height: 0 !important; padding: 0 !important; margin: 0 !important; transform: none !important; }
+            video[data-masar-fill] { object-fit: contain !important; }`;
           const add = () => {
             if (!document.head || document.getElementById('masar-clean')) return;
             const s = document.createElement('style'); s.id = 'masar-clean'; s.textContent = css; document.head.appendChild(s);
           };
-          // المشغّل ياخد المساحة كلها: يوديمي بيحدد ارتفاعه (ويسيب مكان للتابات اللي تحت)، فبنلاقي «صندوق المشغّل»
-          // = أبعد أب للفيديو بنفس مقاسه (الفيديو + أزراره)، ونخليه يملا الصفحة. من غير أسماء عناصر، فمش بيبوظ لو يوديمي غيّرها.
+          // المشغّل ياخد المساحة كلها. يوديمي بيحدد ارتفاعه ويسيب مكان للتابات اللي تحت، وممكن عنصر فوقه (transform/contain)
+          // يحبس أي position:fixed جواه. فبنعمل 3 حاجات من غير أسماء عناصر (عشان مايبوظش لو يوديمي غيّر الأسماء):
+          //  1) صندوق المشغّل = أبعد أب للفيديو بنفس مقاسه، ولو مافيهوش أزرار نطلع لأقرب أب فيه الأزرار (مش أكبر من مرة ونص).
+          //  2) الأب ده ياخد الشاشة كلها، واللي فوقه يتشال منه أي حاجة بتحبسه.
+          //  3) اللي بين الصندوق والفيديو يملا مكانه (عشان لو ليهم ارتفاع ثابت).
+          const box = e => e.getBoundingClientRect();
           const same = (a, b) => Math.abs(a.left - b.left) < 3 && Math.abs(a.top - b.top) < 3 &&
                                  Math.abs(a.width - b.width) < 3 && Math.abs(a.height - b.height) < 3;
+          const mainVideo = () => { let best = null, area = 0;
+            for (const x of document.querySelectorAll('video')) { const r = box(x); if (r.width * r.height > area) { area = r.width * r.height; best = x; } }
+            return best; };
+          const top = e => !e || e === document.body || e === document.documentElement;
+          const clear = () => { for (const a of ['data-masar-fit', 'data-masar-anc', 'data-masar-fill'])
+            document.querySelectorAll('[' + a + ']').forEach(x => x.removeAttribute(a)); };
+          const describe = (v, root) => { const out = [];
+            for (let e = v; !top(e) && out.length < 14; e = e.parentElement) {
+              const r = box(e), cs = getComputedStyle(e);
+              let tag = e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
+              const dp = e.getAttribute('data-purpose'); if (dp) tag += '[' + dp + ']';
+              let extra = cs.position;
+              if (cs.transform !== 'none') extra += ' transform';
+              if (cs.contain !== 'none') extra += ' contain:' + cs.contain;
+              if (cs.willChange !== 'auto') extra += ' will-change:' + cs.willChange;
+              if (cs.overflow !== 'visible') extra += ' overflow:' + cs.overflow;
+              if (cs.maxHeight !== 'none') extra += ' max-h:' + cs.maxHeight;
+              out.push((e === root ? '*' : '') + tag.slice(0, 90) + ' ' + Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.top) + ' ' + extra + ' btn:' + e.querySelectorAll('button').length);
+            }
+            return out.join(' < '); };
+          const report = (v, root) => {
+            if (window.__masarReported === location.pathname) return;
+            window.__masarReported = location.pathname;
+            setTimeout(() => { try {
+              const r = box(v);
+              window.chrome.webview.postMessage(JSON.stringify({ dbg: 'fit ' + (Math.abs(r.height - innerHeight) < 4 || Math.abs(r.width - innerWidth) < 4 ? 'OK' : 'FAIL') +
+                ' video ' + Math.round(r.width) + 'x' + Math.round(r.height) + ' in ' + innerWidth + 'x' + innerHeight + ' videos:' + document.querySelectorAll('video').length +
+                ' | ' + describe(v, root) }));
+            } catch (x) { } }, 1500); };
           const fit = () => {
-            if (!document.getElementById('masar-clean')) return; // العرض النضيف مقفول
-            const v = document.querySelector('video');
+            if (!document.getElementById('masar-clean')) { clear(); return; } // العرض النضيف مقفول
+            const v = mainVideo();
             const cur = document.querySelector('[data-masar-fit]');
             if (cur && v && cur.contains(v)) return;
-            if (cur) cur.removeAttribute('data-masar-fit');
+            clear();
             if (!v) return;
-            const r = v.getBoundingClientRect();
+            const r = box(v);
             if (r.width < 50 || r.height < 50) return; // لسه بيتحمّل
             let root = v;
-            for (let p = v.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement)
-              if (same(p.getBoundingClientRect(), r)) root = p;
+            for (let p = v.parentElement; !top(p); p = p.parentElement) if (same(box(p), r)) root = p;
+            if (!root.querySelector('button')) {
+              const ra = box(root), area = ra.width * ra.height;
+              for (let p = root.parentElement; !top(p); p = p.parentElement) {
+                const pr = box(p);
+                if (pr.width * pr.height > area * 1.6) break;
+                if (p.querySelector('button')) { root = p; break; }
+              }
+            }
+            for (let p = root.parentElement; !top(p); p = p.parentElement) p.setAttribute('data-masar-anc', '');
+            for (let p = v.parentElement; p && p !== root; p = p.parentElement) p.setAttribute('data-masar-fill', '');
+            if (root !== v) v.setAttribute('data-masar-fill', '');
             root.setAttribute('data-masar-fit', '');
+            report(v, root);
           };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
           if (!window.__masarFit) { window.__masarFit = setInterval(fit, 700); }
         })();
         """;
 
-    private const string PollScript = """
-        (() => {
-          const v = document.querySelector('video');
-          if (!v) return JSON.stringify({ v: 0, h: location.href });
-          return JSON.stringify({ v: 1, t: v.currentTime || 0, d: isFinite(v.duration) ? v.duration : 0,
-                                  p: v.paused, e: v.ended, r: v.playbackRate || 1, h: location.href });
-        })()
-        """;
+    /// <summary>الفيديو الأساسي = الأكبر في الصفحة (ممكن يبقى فيه فيديوهات صغيرة/مستخبية تانية).</summary>
+    private const string MainVideoJs =
+        "(() => { let b = null, a = 0; for (const x of document.querySelectorAll('video')) { const r = x.getBoundingClientRect(); if (r.width * r.height >= a) { a = r.width * r.height; b = x; } } return b; })()";
+
+    private const string PollScript =
+        "(() => { const v = " + MainVideoJs + "; if (!v) return JSON.stringify({ v: 0, h: location.href }); " +
+        "return JSON.stringify({ v: 1, t: v.currentTime || 0, d: isFinite(v.duration) ? v.duration : 0, " +
+        "p: v.paused, e: v.ended, r: v.playbackRate || 1, h: location.href }); })()";
 }
