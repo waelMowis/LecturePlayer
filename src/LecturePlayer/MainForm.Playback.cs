@@ -100,6 +100,13 @@ internal sealed partial class MainForm
     /// <param name="startAtMs">null = استكمال من آخر مكان (لو مفعّل)، 0 = من البداية</param>
     private void PlayVideo(LectureGroup g, VideoItem v, long? startAtMs = null)
     {
+        if (v.IsMoodlePage) // قبل أي حاجة: اللي شغال يفضل شغال
+        {
+            // نشاط Moodle مش فيديو (اختبار/استبيان/ملف…): بيتفتح في متصفحك اللي إنت داخل بيه على الموقع
+            OpenInBrowser(v.Path);
+            ShowStatus("اتفتح «" + v.Title + "» في المتصفح — لما تخلّصه علّمه «اتشاف» (W) أو حدّث الكورس من المنصة", 6);
+            return;
+        }
         if (!IsAvailable(v))
         {
             if (Dialogs.Confirm(this, $"الملف مش موجود:\n{v.Path}\n\nتحب تحدد مكانه الجديد؟"))

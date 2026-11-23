@@ -40,7 +40,11 @@ public sealed class VideoItem
     /// <summary>درس يوديمي: بيتشغل جوه صفحة يوديمي (محمي) — مايتنزلش ومايتقراش بـ yt-dlp.</summary>
     [JsonIgnore] public bool IsUdemy => Udemy.IsLecture(Path);
     /// <summary>فيديو نت ينفع يتنزل/يتقري بـ yt-dlp (يوتيوب وغيره، مش يوديمي).</summary>
-    [JsonIgnore] public bool IsDownloadable => IsOnline && !IsUdemy;
+    [JsonIgnore] public bool IsDownloadable => IsOnline && !IsUdemy && !IsMoodlePage;
+    /// <summary>صفحة نشاط على موقع Moodle (اختبار/استبيان/ملف…) — بتتفتح في متصفحك (اللي إنت داخل بيه).</summary>
+    [JsonIgnore] public bool IsMoodlePage => Moodle.IsActivity(Path);
+    /// <summary>العنصر ده جاي منين على المنصة («moodle-cm:123») عشان التحديث يلاقيه حتى لو اتغير رابطه.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? SourceRef { get; set; }
 
     private string? _localPath;
 
@@ -148,7 +152,9 @@ public sealed class LectureGroup
     /// <summary>القسم جاي من يوديمي («udemy-chapter:رقم») — مش قائمة يوتيوب.</summary>
     [JsonIgnore] public bool IsUdemySection => SourceUrl?.StartsWith("udemy-chapter:", StringComparison.Ordinal) == true;
     /// <summary>مربوط بقائمة تشغيل (يوتيوب…) بتتحدّث بـ yt-dlp.</summary>
-    [JsonIgnore] public bool IsPlaylist => !string.IsNullOrWhiteSpace(SourceUrl) && !IsUdemySection;
+    /// <summary>قسم من كورس Moodle («moodle-section:رقم»).</summary>
+    [JsonIgnore] public bool IsMoodleSection => SourceUrl?.StartsWith("moodle-section:", StringComparison.Ordinal) == true;
+    [JsonIgnore] public bool IsPlaylist => !string.IsNullOrWhiteSpace(SourceUrl) && !IsUdemySection && !IsMoodleSection;
 
     /// <summary>آخر مرة اتجاب فيها الجديد من القائمة.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -627,6 +633,10 @@ public sealed class AppSettings
     // ---------- الذكاء الاصطناعي (المرحلة 3) ----------
     /// <summary>مفتاح Claude متشفّر بحساب الويندوز (DPAPI). الإعدادات دي خاصة بالجهاز ومش بتتزامن.</summary>
     public string ClaudeApiKeyProtected { get; set; } = "";
+
+    /// <summary>حسابات Moodle (مهارة تك…) على الجهاز ده — التوكن متشفّر بحساب الويندوز ومابيتزامنش.</summary>
+    public List<MoodleAccount> MoodleAccounts { get; set; } = new();
+    public string? MoodleLastSite { get; set; }
 
     [JsonIgnore]
     public string ClaudeApiKey

@@ -1553,6 +1553,8 @@ internal sealed partial class MainForm
                     items.Add(MenuItem("⬇  تنزيل الكورس كله (فيديو أو MP3)…", () => DownloadCourse(c)));
                 if (c.UdemyId != null)
                     items.Add(MenuItem("🎓  حدّث من يوديمي (الدروس الجديدة واللي خلّصته)", () => UdemyImport(c)));
+                if (Moodle.ParseCourseUrl(c.SourceUrl) != null)
+                    items.Add(MenuItem("🎓  حدّث من المنصة (الأنشطة الجديدة واللي خلّصته)", () => MoodleImport(c)));
                 items.Add(MoveCourseMenu(c));
                 items.Add(FoldMenu(c));
                 if (AdvancedMode) items.Add(MenuItem("بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
@@ -1617,7 +1619,7 @@ internal sealed partial class MainForm
                 if (AdvancedMode) more.Add(MenuItem("تقسيم تلقائي (عند Part 01)…", () => AutoSplitDialog(g)));
                 if (g.Videos.Any(x => x.IsDownloadable))
                     more.Add(MenuItem("⬇  تنزيل فيديوهات يوتيوب (فيديو أو MP3)…", () => DownloadFromLibrary(g.Videos, g.Name)));
-                if (g.IsUdemySection) { }
+                if (g.IsUdemySection || g.IsMoodleSection) { }
                 else if (g.SourceUrl != null)
                     more.Add(MenuItem("فك الربط بقائمة يوتيوب", () => { Checkpoint("فك الربط"); g.SourceUrl = null; g.InfoUpdatedUtc = DateTime.UtcNow; MarkDirty(); RefreshGroup(g); }));
                 else more.Add(MenuItem("ربط بقائمة تشغيل يوتيوب (عشان الجديد يتضاف)…", () => LinkPlaylist(g)));

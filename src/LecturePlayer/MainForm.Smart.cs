@@ -119,6 +119,7 @@ internal sealed partial class MainForm
         if (existing is { IsEmpty: false }) return existing;
 
         Transcript? t = null;
+        if (v.IsMoodlePage) return null; // صفحة نشاط (اختبار/ملف…) مش فيديو
         if (v.IsUdemy)
         {
             // الفيديو محمي جوه صفحة يوديمي: مفيش ملف نقرا منه الصوت

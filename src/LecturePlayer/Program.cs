@@ -34,7 +34,17 @@ internal static class Program
         var mediaFiles = args.Where(a => File.Exists(a) && LecturePlayer.Data.MediaFiles.IsMedia(a))
             .Select(Path.GetFullPath).ToList();
 
+        // رجوع الدخول بتاع Moodle (مهارة تك…): المتصفح بيفتح moodlemobile://token=… → نبعته لـ «مسار» المفتوح ونقفل
+        string? sso = args.FirstOrDefault(a => a.StartsWith(LecturePlayer.Data.Moodle.Scheme + "://", StringComparison.OrdinalIgnoreCase));
+
         using var instance = new LecturePlayer.Data.SingleInstance();
+        if (sso != null)
+        {
+            if (!instance.IsFirst) LecturePlayer.Data.SingleInstance.Send(new[] { sso });
+            else MessageBox.Show("افتح «مسار» الأول وابدأ الاستيراد من «إنترنت ← Moodle / مهارة تك»، وبعدين كمّل الدخول في المتصفح.",
+                "«مسار»", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
+            return 0;
+        }
         // البرنامج شغال أصلًا: ابعت الفيديوهات للشباك المفتوح بدل ما نفتح شباك تاني على نفس المكتبة
         if (!instance.IsFirst && mediaFiles.Count > 0 && LecturePlayer.Data.SingleInstance.Send(mediaFiles))
             return 0;
@@ -61,7 +71,13 @@ internal static class Program
         }
         form.Shown += (_, _) => instance.Listen(paths =>
         {
-            try { form.BeginInvoke(() => form.OpenExternalFiles(paths)); } catch { /* الشباك بيقفل */ }
+            try
+            {
+                if (paths.Count > 0 && paths[0].StartsWith(LecturePlayer.Data.Moodle.Scheme + "://", StringComparison.OrdinalIgnoreCase))
+                    form.BeginInvoke(() => form.MoodleSsoReceived(paths[0]));
+                else form.BeginInvoke(() => form.OpenExternalFiles(paths));
+            }
+            catch { /* الشباك بيقفل */ }
         });
         Application.Run(form);
         return 0;

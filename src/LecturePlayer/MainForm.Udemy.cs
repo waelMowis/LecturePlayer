@@ -288,41 +288,8 @@ internal sealed partial class MainForm
             BannerKind.Success, seconds: 10);
     }
 
-    private Topic NewTopic(string name)
-    {
-        var t = new Topic { Name = name };
-        t.TouchInfo();
-        _library.Topics.Add(t);
-        return t;
-    }
-
     /// <summary>الموضوع ← Udemy ← المدرّس ← الكورس.</summary>
-    private void PlaceUdemyCourse(Course course, Topic topic, string? instructor)
-    {
-        var udemy = _library.TopPlacesOf(topic).FirstOrDefault(p => string.Equals(p.Name, "Udemy", StringComparison.OrdinalIgnoreCase));
-        if (udemy == null)
-        {
-            udemy = new Place { Name = "Udemy", TopicId = topic.Id };
-            udemy.TouchInfo();
-            _library.Places.Add(udemy);
-        }
-        Place target = udemy;
-        if (!string.IsNullOrWhiteSpace(instructor))
-        {
-            var sub = _library.ChildrenOf(udemy).FirstOrDefault(p => string.Equals(p.Name, instructor, StringComparison.OrdinalIgnoreCase));
-            if (sub == null)
-            {
-                sub = new Place { Name = instructor.Trim(), TopicId = topic.Id, ParentId = udemy.Id };
-                sub.TouchInfo();
-                _library.Places.Add(sub);
-            }
-            target = sub;
-        }
-        course.TopicId = topic.Id;
-        course.PlaceId = target.Id;
-        course.Instructor = instructor;
-        course.TouchInfo();
-    }
+    private void PlaceUdemyCourse(Course course, Topic topic, string? instructor) => PlacePlatformCourse(course, topic, "Udemy", instructor);
 
     private static async Task<string> GetUdemyJsonAsync(UdemyAccountForm form, string path, CancellationToken ct)
     {
@@ -369,66 +336,14 @@ internal sealed partial class MainForm
     /// <summary>اختيار الكورسات + الموضوع اللي هتتحط فيه.</summary>
     private (List<UdemyCourse> Courses, string Topic)? PickUdemyCourses(IWin32Window owner, List<UdemyCourse> all)
     {
-        using var kit = new FormKit("يوديمي — اختار الكورسات", 680);
-        kit.Header($"🎓  كورساتك على يوديمي ({all.Count})");
-        var list = kit.Full(DarkList.Setup(new ListView { MultiSelect = false }), 320);
-        list.Columns.Add("الكورس", 420);
-        list.Columns.Add("المدرّس", 180);
-        DarkList.ReverseColumns(list);
-        var picked = new HashSet<long>();
-        foreach (var c in all)
-        {
-            bool exists = _library.Courses.Any(x => x.UdemyId == c.Id);
-            if (!exists) picked.Add(c.Id);
-            var item = new ListViewItem("") { Tag = c, ForeColor = exists ? Theme.Muted : Theme.Text };
-            item.SubItems.Add(c.Instructor ?? "");
-            list.Items.Add(item);
-        }
-        Label? count = null;
-        void Paint()
-        {
-            foreach (ListViewItem it in list.Items)
-            {
-                var c = (UdemyCourse)it.Tag!;
-                bool exists = _library.Courses.Any(x => x.UdemyId == c.Id);
-                it.Text = (picked.Contains(c.Id) ? "☑  " : "☐  ") + c.Title + (exists ? "   (موجود — هيتحدّث)" : "");
-            }
-            if (count != null) count.Text = picked.Count == 0 ? "دوس على الكورس عشان تختاره" : $"هيتضاف/يتحدّث {picked.Count} كورس";
-        }
-        list.MouseClick += (_, e) =>
-        {
-            if (list.HitTest(e.Location).Item is not { Tag: UdemyCourse c }) return;
-            if (!picked.Remove(c.Id)) picked.Add(c.Id);
-            Paint();
-        };
-        list.KeyDown += (_, e) =>
-        {
-            if (e.KeyCode != Keys.Space || list.FocusedItem is not { Tag: UdemyCourse c }) return;
-            if (!picked.Remove(c.Id)) picked.Add(c.Id);
-            Paint();
-            e.Handled = true;
-        };
-        count = kit.Note("", 24, Theme.Muted);
-
-        kit.Header("📁  تتحط فين");
-        var topicBox = kit.Row("الموضوع:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDown });
-        foreach (var t in _library.Topics) topicBox.Items.Add(t.Name);
-        // اللي فيه «Udemy» قبل كده، أو موضوع جديد
-        topicBox.Text = _library.Topics.FirstOrDefault(t => _library.TopPlacesOf(t).Any(p => p.Name.Equals("Udemy", StringComparison.OrdinalIgnoreCase)))?.Name
-                        ?? "كورسات يوديمي";
-        kit.Note("الترتيب: الموضوع ← Udemy ← المدرّس ← الكورس. والكورس جواه أقسام يوديمي كمحاضرات، والدروس كفيديوهات.\n" +
-                 "الكورسات الموجودة بتتحدّث بس (ملاحظاتك ومكانك وعلاماتك بيفضلوا).", 44, Theme.Muted);
-        kit.Buttons("استيراد", "إلغاء",
-            ("تحديد الكل", () => { foreach (var c in all) picked.Add(c.Id); Paint(); }),
-            ("ولا حاجة", () => { picked.Clear(); Paint(); }));
-        Paint();
-        SmokeUdemyPicker?.Invoke(kit.Form, picked);
-        if (kit.Show(owner) != DialogResult.OK || picked.Count == 0) return null;
-        string topic = string.IsNullOrWhiteSpace(topicBox.Text) ? "كورسات يوديمي" : topicBox.Text.Trim();
-        return (all.Where(c => picked.Contains(c.Id)).ToList(), topic);
+        var pick = PickPlatformCourses(owner, "يوديمي", "Udemy",
+            all.Select(c => (c.Id, c.Title, c.Instructor, _library.Courses.Any(x => x.UdemyId == c.Id))).ToList(), "كورسات يوديمي",
+            "والكورس جواه أقسام يوديمي كمحاضرات، والدروس كفيديوهات.");
+        if (pick == null) return null;
+        return (all.Where(c => pick.Value.Ids.Contains(c.Id)).ToList(), pick.Value.Topic);
     }
 
-    internal static Action<Form, HashSet<long>>? SmokeUdemyPicker;
+
 
     private void UdemySignOut()
     {

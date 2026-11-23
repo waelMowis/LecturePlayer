@@ -49,6 +49,7 @@ internal sealed partial class MainForm
         whole.Checked = _settings.WholePlaylist;
 
         var udemy = UdemyMenuItems();
+        var moodle = MoodleMenuItems();
         return SubMenu("إنترنت",
             Item("إضافة رابط فيديو أو قائمة تشغيل…", () => AddUrlsDialog(null), Keys.Control | Keys.U),
             Item("لصق رابط من الحافظة", PasteUrls, display: "Ctrl+V"),
@@ -57,7 +58,9 @@ internal sealed partial class MainForm
             Item("التنزيلات…", ShowDownloadsPanel),
             new ToolStripSeparator(),
             udemy[0],
+            moodle[0],
             udemy[1],
+            moodle[1],
             new ToolStripSeparator(),
             Item("🔄 تحديث قوائم يوتيوب (هات الفيديوهات الجديدة)", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
             new ToolStripSeparator(),
