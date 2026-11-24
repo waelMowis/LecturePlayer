@@ -156,11 +156,17 @@ internal sealed partial class MainForm
         foreach (var k in new[] { "csharp", "dotnet", "python", "javascript", "java", "sqlserver", "visualstudio", "vscode", "github", "youtube", "udemy", "backpack", "stethoscope" })
             Check(IconGlyphs.Exists(k), "icon " + k);
         Check(IconGlyphs.BrandColor("csharp") is { } cs && cs.GetBrightness() > 0.3f && IconGlyphs.BrandColor("code") == null, "brand color");
-        // evenodd («!»): مربع جواه مربع = حلقة فاضية من جوه
-        using (var ring = IconGlyphs.Parse("!M0 0L1 0L1 1L0 1ZM0.25 0.25L0.75 0.25L0.75 0.75L0.25 0.75Z"))
-            Check(ring.FillMode == System.Drawing.Drawing2D.FillMode.Alternate && !ring.IsVisible(0.5f, 0.5f) && ring.IsVisible(0.1f, 0.1f), "evenodd");
-        using (var solid = IconGlyphs.Parse("M0 0L1 0L1 1L0 1ZM0.25 0.25L0.75 0.25L0.75 0.75L0.25 0.75Z"))
-            Check(solid.FillMode == System.Drawing.Drawing2D.FillMode.Winding && solid.IsVisible(0.5f, 0.5f), "nonzero");
+        // evenodd («!»): مربع جواه مربع = حلقة فاضية من جوه. (IsVisible بيشتغل على بكسلات، فنكبّر لـ 100 الأول)
+        static bool Inside(string d, float x, float y)
+        {
+            using var p = IconGlyphs.Parse(d);
+            using (var m = new System.Drawing.Drawing2D.Matrix(100, 0, 0, 100, 0, 0)) p.Transform(m);
+            return p.IsVisible(x * 100, y * 100);
+        }
+        const string squares = "M0 0L1 0L1 1L0 1ZM0.25 0.25L0.75 0.25L0.75 0.75L0.25 0.75Z";
+        Check(IconGlyphs.Parse("!" + squares).FillMode == System.Drawing.Drawing2D.FillMode.Alternate
+              && !Inside("!" + squares, 0.5f, 0.5f) && Inside("!" + squares, 0.1f, 0.1f), "evenodd");
+        Check(IconGlyphs.Parse(squares).FillMode == System.Drawing.Drawing2D.FillMode.Winding && Inside(squares, 0.5f, 0.5f), "nonzero");
         Check(IconGlyphs.ParseHex("#E86870") == Color.FromArgb(232, 104, 112) && IconGlyphs.ParseHex("xyz") == null, "hex parse");
         Check(IconGlyphs.Readable(Color.FromArgb(20, 20, 60)).GetBrightness() > 0.45f, "dark color lightened");
 
