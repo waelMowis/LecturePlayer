@@ -76,7 +76,7 @@ internal sealed class BookFetchForm : Form
         _hint.Text = "بينزّل الكتاب…";
         op.BytesReceivedChanged += (_, _) =>
         {
-            long total = op.TotalBytesToReceive ?? 0;
+            long total = (long)(op.TotalBytesToReceive ?? 0);
             _hint.Text = total > 0 ? $"بينزّل الكتاب… {op.BytesReceived * 100 / total}%" : $"بينزّل الكتاب… {op.BytesReceived / 1024} KB";
         };
         op.StateChanged += (_, _) =>
