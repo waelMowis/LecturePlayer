@@ -200,7 +200,8 @@ internal sealed class LectureTreeView : TreeView
     /// <param name="Badge">عدّاد في «حبة» (مثلًا 2/46).</param>
     /// <param name="Progress">شريط تقدّم رفيع تحت الاسم (0..1)، أو سالب = من غيره.</param>
     /// <param name="LineAbove">خط فاصل فوق الصف (فاصل بين الموضوعات).</param>
-    public sealed record RowInfo(string Meta, string? Badge = null, bool Done = false, bool Accent = false, double Progress = -1, bool LineAbove = false);
+    /// <param name="Divider">صف عنوان فاصل: العنوان وجنبه خط لآخر الشجرة.</param>
+    public sealed record RowInfo(string Meta, string? Badge = null, bool Done = false, bool Accent = false, double Progress = -1, bool LineAbove = false, bool Divider = false);
 
     private readonly Dictionary<TreeNode, RowInfo> _rows = new();
     private TreeNode? _hot;
@@ -303,6 +304,7 @@ internal sealed class LectureTreeView : TreeView
 
         // الخلفية: hover رمادي، والمحدد أزرق غامق بحد أزرق لو الشجرة عليها الفوكس
         using (var bg = new SolidBrush(BackColor)) g.FillRectangle(bg, row);
+        if (_rows.TryGetValue(node, out var dv) && dv.Divider) { DrawDivider(g, node, row, selected, hot); return; }
         if (selected || hot)
         {
             // صف بحواف مدورة جوه الكارت (مش شريط عرض الشاشة كلها)
@@ -401,6 +403,33 @@ internal sealed class LectureTreeView : TreeView
             using (var track = new SolidBrush(Theme.PanelLight)) g.FillRectangle(track, x, by, bw, 2);
             using (var fill = new SolidBrush(Theme.Accent)) g.FillRectangle(fill, x, by, Math.Max(2, (int)(bw * info.Progress)), 2);
         }
+    }
+
+    private Font? _dividerFont;
+
+    /// <summary>صف عنوان الفاصل: العنوان باهت وعريض، وبعده خط لآخر الشجرة (والتحديد بحد خفيف بس).</summary>
+    private void DrawDivider(Graphics g, TreeNode node, Rectangle row, bool selected, bool hot)
+    {
+        _dividerFont ??= new Font("Segoe UI", 8.5f, FontStyle.Bold);
+        int w = ClientSize.Width, pad = LogicalToDeviceUnits(8);
+        if (selected || hot)
+        {
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            var pill = new RectangleF(3, row.Y + 1, w - 6, row.Height - 2);
+            Modern.DrawRound(g, selected && Focused ? Theme.Accent : Theme.PanelLight, pill, 5);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+        }
+        Color color = node.ForeColor.IsEmpty ? Theme.Muted : node.ForeColor;
+        string text = node.Text;
+        var ts = TextRenderer.MeasureText(g, text, _dividerFont, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+        int maxText = Math.Max(20, w - pad * 4);
+        var tr = new Rectangle(pad, row.Y, Math.Min(ts.Width + 2, maxText), row.Height);
+        TextRenderer.DrawText(g, text, _dividerFont, tr, color,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        int lx = tr.Right + pad, lw = Math.Max(1, LogicalToDeviceUnits(2));
+        if (lx < w - pad)
+            using (var line = new SolidBrush(Modern.Blend(Theme.Muted, BackColor, 0.55)))
+                g.FillRectangle(line, lx, row.Y + row.Height / 2, w - pad - lx, lw);
     }
 
     protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); InvalidateRow(SelectedNode); }

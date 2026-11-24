@@ -24,6 +24,8 @@ internal sealed partial class MainForm
     private readonly Dictionary<LectureGroup, TreeNode> _groupNodes = new();
     private readonly Dictionary<Course, TreeNode> _courseNodes = new();
     private readonly Dictionary<Topic, TreeNode> _topicNodes = new();
+    /// <summary>صفوف عناوين الفواصل (فوق الموضوع).</summary>
+    private readonly Dictionary<Topic, TreeNode> _dividerNodes = new();
 
     private readonly Queue<VideoItem> _probeQueue = new();
     private bool _probing;
@@ -569,6 +571,7 @@ internal sealed partial class MainForm
             _groupNodes.Clear();
             _courseNodes.Clear();
             _topicNodes.Clear();
+            _dividerNodes.Clear();
             _placeNodes.Clear();
 
             var toExpand = new List<TreeNode>();
@@ -638,6 +641,13 @@ internal sealed partial class MainForm
                 if (tn.Nodes.Count == 0 && filtering && !topicMatches) continue;
                 _topicNodes[t] = tn;
                 UpdateTopicNode(tn, t);
+                if (t.HasTitledSeparator && !filtering)
+                {
+                    var dn = new TreeNode { Tag = new TopicDivider(t), Text = t.SeparatorTitle!.Trim(), ToolTipText = "فاصل — كليك يمين عشان تعدّله أو تشيله" };
+                    _dividerNodes[t] = dn;
+                    _tree.SetRow(dn, new LectureTreeView.RowInfo("", Divider: true));
+                    _tree.Nodes.Add(dn);
+                }
                 _tree.Nodes.Add(tn);
                 if (filter.Length > 0 || t.Expanded) toExpand.Insert(0, tn);
             }
@@ -818,6 +828,7 @@ internal sealed partial class MainForm
         Course c when _courseNodes.TryGetValue(c, out var n) => n,
         Topic t when _topicNodes.TryGetValue(t, out var n) => n,
         Place p when _placeNodes.TryGetValue(p, out var n) => n,
+        TopicDivider d when _dividerNodes.TryGetValue(d.Topic, out var n) => n,
         _ => null
     };
 
@@ -930,6 +941,9 @@ internal sealed partial class MainForm
     {
         switch (_tree.SelectedNode?.Tag)
         {
+            case TopicDivider d:
+                EditTopicSeparator(d.Topic);
+                return;
             case Topic t:
             {
                 string? name = Dialogs.Input(this, "إعادة تسمية", "اسم الموضوع:", t.Name);
@@ -979,6 +993,9 @@ internal sealed partial class MainForm
     {
         switch (_tree.SelectedNode?.Tag)
         {
+            case TopicDivider d:
+                RemoveTopicSeparator(d.Topic);
+                return;
             case Topic t:
                 DeleteTopic(t);
                 return;
@@ -1530,6 +1547,11 @@ internal sealed partial class MainForm
 
         switch (node.Tag)
         {
+            case TopicDivider d:
+                items.Add(MenuItem("✏  تعديل عنوان الفاصل…", () => EditTopicSeparator(d.Topic), "F2"));
+                items.Add(MenuItem("➖  خليه خط من غير عنوان", () => SetTopicSeparator(d.Topic, "")));
+                items.Add(MenuItem("✕  شيل الفاصل", () => RemoveTopicSeparator(d.Topic), "Del"));
+                break;
             case Topic t:
                 BuildTopicMenu(t, items);
                 break;
@@ -1766,7 +1788,7 @@ internal sealed partial class MainForm
 
     private void OnTreeItemDrag(object? sender, ItemDragEventArgs e)
     {
-        if (e.Button == MouseButtons.Left && e.Item is TreeNode node && _searchBox.Text.Length == 0)
+        if (e.Button == MouseButtons.Left && e.Item is TreeNode node && node.Tag is not TopicDivider && _searchBox.Text.Length == 0)
             _tree.DoDragDrop(node, DragDropEffects.Move);
     }
 
@@ -1818,6 +1840,7 @@ internal sealed partial class MainForm
 
         // فيديو أو محاضرة اتسابوا على موضوع ← آخر كورس في الموضوع ده
         object? targetTag = target?.Tag;
+        if (targetTag is TopicDivider td) targetTag = td.Topic; // السيب على عنوان الفاصل = على الموضوع اللي تحته
         if (targetTag is Topic tt && dragged.Tag is VideoItem or LectureGroup)
         {
             targetTag = _library.CoursesOf(tt).LastOrDefault();
@@ -1833,9 +1856,9 @@ internal sealed partial class MainForm
         {
             case VideoItem video: DropVideo(video, targetTag); break;
             case LectureGroup group: DropGroup(group, targetTag); break;
-            case Course course: DropCourse(course, target?.Tag); break;
-            case Topic topic: DropTopic(topic, target?.Tag); break;
-            case Place place: DropPlace(place, target?.Tag); break;
+            case Course course: DropCourse(course, targetTag); break;
+            case Topic topic: DropTopic(topic, targetTag); break;
+            case Place place: DropPlace(place, targetTag); break;
         }
     }
 

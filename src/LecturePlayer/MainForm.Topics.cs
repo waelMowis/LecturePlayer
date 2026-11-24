@@ -12,6 +12,7 @@ internal sealed partial class MainForm
     /// <summary>الموضوع المحدد في الشجرة، أو موضوع العنصر المحدد (كورس/محاضرة/فيديو).</summary>
     private Topic? SelectedTopicContext() => _tree.SelectedNode?.Tag switch
     {
+        TopicDivider d => d.Topic,
         Topic t => t,
         Place p => _library.TopicOf(p),
         Course c => _library.TopicOf(c),
@@ -38,12 +39,55 @@ internal sealed partial class MainForm
     }
 
     /// <summary>فاصل فوق الموضوع: لو إنت حاطه، أو «فواصل بين كل الموضوعات» شغالة (ماعدا أول موضوع).</summary>
-    private bool HasLineAbove(Topic t) => _library.Topics.IndexOf(t) > 0 && (t.SeparatorBefore || _settings.TopicSeparators);
+    /// <summary>(الفاصل اللي ليه عنوان بيترسم صف لوحده، فالموضوع نفسه مالوش خط.)</summary>
+    private bool HasLineAbove(Topic t) =>
+        _library.Topics.IndexOf(t) > 0 && !(t.HasTitledSeparator && !IsFiltering) && (t.SeparatorBefore || _settings.TopicSeparators);
 
+    private bool IsFiltering => _searchBox.Text.Trim().Length > 0 || _settings.CourseFilter != CourseFilter.All;
+
+    /// <summary>فاصل فوق الموضوع: بيسألك على العنوان (اختياري).</summary>
     private void ToggleTopicSeparator(Topic t)
     {
-        Checkpoint(t.SeparatorBefore ? "شيل الفاصل" : "فاصل فوق الموضوع");
-        t.SeparatorBefore = !t.SeparatorBefore;
+        if (t.SeparatorBefore) { RemoveTopicSeparator(t); return; }
+        EditTopicSeparator(t);
+    }
+
+    private void EditTopicSeparator(Topic t)
+    {
+        string? title = AskSeparatorTitle(t.SeparatorTitle ?? "");
+        if (title != null) SetTopicSeparator(t, title);
+    }
+
+    internal static Func<string, string?>? SmokeSeparatorTitle;
+
+    /// <summary>null = إلغاء، "" = خط بس.</summary>
+    private string? AskSeparatorTitle(string current)
+    {
+        if (SmokeSeparatorTitle != null) return SmokeSeparatorTitle(current);
+        using var kit = new FormKit("فاصل فوق الموضوع", 460);
+        kit.Note("عنوان الفاصل (زي «الشغل» أو «الدراسة») — سيبه فاضي لو عايز خط بس:", 22, Theme.Text);
+        var box = kit.Full(new TextBox { Text = current }, 34);
+        kit.Buttons("موافق", "إلغاء");
+        kit.Form.Shown += (_, _) => { box.Focus(); box.SelectAll(); };
+        return kit.Show(this) == DialogResult.OK ? box.Text.Trim() : null;
+    }
+
+    private void SetTopicSeparator(Topic t, string title)
+    {
+        Checkpoint("فاصل فوق الموضوع");
+        t.SeparatorBefore = true;
+        t.SeparatorTitle = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        t.TouchInfo();
+        MarkDirty();
+        RebuildTree();
+        if (t.HasTitledSeparator) SelectItem(new TopicDivider(t));
+    }
+
+    private void RemoveTopicSeparator(Topic t)
+    {
+        Checkpoint("شيل الفاصل");
+        t.SeparatorBefore = false;
+        t.SeparatorTitle = null;
         t.TouchInfo();
         MarkDirty();
         RebuildTree();
@@ -169,8 +213,13 @@ internal sealed partial class MainForm
         items.Add(MenuItem("🏫  مصدر جديد هنا…", () => AddPlace(t)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
         items.Add(AppearanceMenuItem(t));
-        if (_library.Topics.IndexOf(t) > 0 && !_settings.TopicSeparators)
-            items.Add(MenuItem(t.SeparatorBefore ? "➖  شيل الفاصل اللي فوق الموضوع ده" : "➖  فاصل فوق الموضوع ده", () => ToggleTopicSeparator(t)));
+        if (!t.SeparatorBefore)
+            items.Add(MenuItem("➖  فاصل فوق الموضوع ده (بعنوان أو خط)…", () => EditTopicSeparator(t)));
+        else
+        {
+            items.Add(MenuItem("✏  تعديل الفاصل اللي فوقه…", () => EditTopicSeparator(t)));
+            items.Add(MenuItem("✕  شيل الفاصل اللي فوقه", () => RemoveTopicSeparator(t)));
+        }
         items.Add(ExportMenuItem(t));
         items.Add(FoldMenu(t));
         var more = new List<ToolStripItem>

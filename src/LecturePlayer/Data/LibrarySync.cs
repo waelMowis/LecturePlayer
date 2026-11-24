@@ -56,7 +56,7 @@ public static class LibrarySync
             if (deletedKeys.Contains(TopicKey(rt))) continue;
             var lt = local.Topics.FirstOrDefault(t => t.Id == rt.Id);
             if (lt == null) { local.Topics.Add(rt); result.AddedTopics++; }
-            else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.IconKey = rt.IconKey; lt.ColorHex = rt.ColorHex; lt.SeparatorBefore = rt.SeparatorBefore; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
+            else if (rt.InfoUpdatedUtc > lt.InfoUpdatedUtc) { lt.Name = rt.Name; lt.IconKey = rt.IconKey; lt.ColorHex = rt.ColorHex; lt.SeparatorBefore = rt.SeparatorBefore; lt.SeparatorTitle = rt.SeparatorTitle; lt.InfoUpdatedUtc = rt.InfoUpdatedUtc; result.UpdatedInfo++; }
         }
 
         // 1.55) الأماكن: الجديدة بتتضاف، والأحدث (الاسم والموضوع والفولدرات) يكسب

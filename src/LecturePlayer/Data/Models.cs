@@ -198,6 +198,10 @@ public sealed class Topic
     /// <summary>خط فاصل فوق الموضوع في الشجرة (عشان تقسّم الموضوعات مجموعات).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool SeparatorBefore { get; set; }
+    /// <summary>عنوان الفاصل (زي «الشغل»، «الدراسة») — بيظهر كصف عنوان فوق الموضوع؛ فاضي = خط بس.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SeparatorTitle { get; set; }
+    [JsonIgnore] public bool HasTitledSeparator => SeparatorBefore && !string.IsNullOrWhiteSpace(SeparatorTitle);
 
     /// <summary>قديم (4.1.30): بيتنقل لـ <see cref="CourseLibrary.Links"/> وقت الفتح.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

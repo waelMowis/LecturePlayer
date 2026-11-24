@@ -17,22 +17,52 @@ internal sealed partial class MainForm
             var first = _library.Topics[0];
             var second = _library.Topics[1];
             var third = _library.Topics[2];
-            first.SeparatorBefore = true; // أول موضوع: مفيش خط حتى لو عليه علامة
-            ToggleTopicSeparator(second);
-            Check(second.SeparatorBefore, "toggle sets the flag");
             bool Line(Topic t) => _topicNodes.TryGetValue(t, out var n) && _tree.RowOf(n)?.LineAbove == true;
-            Check(!Line(first) && Line(second) && !Line(third), "line only above the marked topic");
-            ToggleAllTopicSeparators();
-            Check(!Line(first) && Line(second) && Line(third), "all topics separated except the first");
-            SaveSmokeShot(this, "topic-separators");
-            ToggleAllTopicSeparators();
+            TreeNode? Divider(Topic t) => _dividerNodes.TryGetValue(t, out var n) ? n : null;
+
+            // خط بس (عنوان فاضي)
+            SmokeSeparatorTitle = _ => "";
             ToggleTopicSeparator(second);
-            Check(!Line(second), "toggle removes the line");
+            Check(second.SeparatorBefore && second.SeparatorTitle == null && Line(second) && Divider(second) == null && !Line(first) && !Line(third), "plain line above the marked topic");
+
+            // بعنوان: صف عنوان فوق الموضوع، والموضوع نفسه مالوش خط
+            SmokeSeparatorTitle = _ => "الدراسة";
+            EditTopicSeparator(second);
+            var dn = Divider(second);
+            Check(dn != null && dn.Text == "الدراسة" && _tree.RowOf(dn)?.Divider == true && !Line(second), "titled divider row");
+            Check(dn!.Index == _topicNodes[second].Index - 1, "divider sits right above its topic");
+            Check(_tree.SelectedNode == dn, "new divider gets selected");
+            // عنوان فوق أول موضوع مسموح (عنوان لأول مجموعة)
+            SmokeSeparatorTitle = _ => "الشغل";
+            EditTopicSeparator(first);
+            Check(Divider(first)?.Index == 0, "heading above the first topic");
+
+            // F2 على العنوان بيعدّله، وDel بيشيله، ومع البحث العناوين بتستخبى
+            _tree.SelectedNode = Divider(second);
+            SmokeSeparatorTitle = cur => cur + " ٢";
+            RenameSelected();
+            Check(second.SeparatorTitle == "الدراسة ٢", "rename divider: " + second.SeparatorTitle);
+            Check(SelectedTopicContext() == second, "divider context is its topic");
+            SaveSmokeShot(this, "topic-dividers");
+            _searchBox.Text = first.Name;
+            RebuildTree();
+            Check(Divider(first) == null && Divider(second) == null, "no dividers while searching");
+            _searchBox.Text = "";
+            RebuildTree();
+            _tree.SelectedNode = Divider(second);
+            DeleteSelected();
+            Check(!second.SeparatorBefore && Divider(second) == null && !Line(second), "delete removes the divider");
+
+            ToggleAllTopicSeparators();
+            Check(Divider(first) != null && Line(second) && Line(third), "all-lines mode keeps the titled heading");
+            ToggleAllTopicSeparators();
             Console.WriteLine("SMOKE topic separators: ok");
         }
         finally
         {
-            foreach (var t in _library.Topics) t.SeparatorBefore = false;
+            SmokeSeparatorTitle = null;
+            _searchBox.Text = "";
+            foreach (var t in _library.Topics) { t.SeparatorBefore = false; t.SeparatorTitle = null; }
             foreach (var t in added) _library.Topics.Remove(t);
             _settings.TopicSeparators = before;
             RebuildTree();
