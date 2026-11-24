@@ -133,6 +133,7 @@ internal sealed partial class MainForm
         // 1) كل الأيقونات: مسار سليم جوه المربع، وبيترسم فيه ملء معقول (مش فاضي ومش مربع مليان)
         Check(IconGlyphs.All.Length >= 320, "icon count " + IconGlyphs.All.Length);
         Check(IconGlyphs.All.Select(x => x.Key).Distinct().Count() == IconGlyphs.All.Length, "duplicate keys");
+        var thinnest = (Key: "", Fill: int.MaxValue);
         foreach (var (_, key, label, _) in IconGlyphs.All)
         {
             var path = IconGlyphs.PathOf(key) ?? throw new Exception("appearance: no path " + key);
@@ -144,9 +145,11 @@ internal sealed partial class MainForm
             using var bmp = Theme.NodeIcon(24, "course", key, Color.Red, done: false);
             int filled = 0;
             for (int y = 0; y < 24; y++) for (int x = 0; x < 24; x++) if (bmp.GetPixel(x, y).A > 128) filled++;
-            // الشعارات الرفيعة (Java، SQL Server) بتغطي حوالي 6% بس
-            Check(filled > 24 * 24 * 0.035 && filled < 24 * 24 * 0.92, $"fill {key}: {filled}");
+            // الشعارات الرفيعة (Java، SQL Server، MySQL) بتغطي حوالي 3% بس — الفحص ده للمسار الفاضي أو المقلوب
+            Check(filled > 24 * 24 * 0.02 && filled < 24 * 24 * 0.92, $"fill {key}: {filled}");
+            if (filled < thinnest.Fill) thinnest = (key, filled);
         }
+        Console.WriteLine($"SMOKE appearance: thinnest icon {thinnest.Key} = {thinnest.Fill}px of 576");
         // الفئات الجديدة والشعارات الأساسية موجودة، ولون العلامة للشعارات بس
         foreach (var cat in new[] { "لغات برمجة", "فريموركات ومكتبات", "قواعد بيانات وسحابة وأنظمة", "أدوات ومحررات", "منصات ومواقع" })
             Check(IconGlyphs.Categories.Contains(cat), "category " + cat);
