@@ -6,6 +6,10 @@
 <title>قارئ مسار</title>
 <link rel="stylesheet" href="lib/pdf_viewer.css">
 <link rel="stylesheet" href="reader.css">
+<script>
+  // أي خطأ قبل ما القارئ يشتغل يتسجّل في سجل البرنامج
+  window.addEventListener("error", e => { try { chrome.webview.postMessage(JSON.stringify({ t: "log", message: "early error: " + e.message + " @" + e.filename + ":" + e.lineno })); } catch (x) { } });
+</script>
 </head>
 <body class="empty">
 <div id="toolbar" role="toolbar">

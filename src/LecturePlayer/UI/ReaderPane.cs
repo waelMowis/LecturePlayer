@@ -86,6 +86,7 @@ internal sealed class ReaderPane : Panel
         var done = await Task.WhenAny(_pageReady.Task, Task.Delay(20_000));
         if (done != _pageReady.Task) throw new TimeoutException("صفحة القارئ مافتحتش");
         IsReady = true;
+        Data.Log.Info("reader: ready (" + UdemyWeb.RuntimeVersion + ")");
     }
 
     /// <summary>بيفتح كتاب من ملف على الجهاز.</summary>
@@ -158,6 +159,7 @@ internal sealed class ReaderPane : Panel
             await core.ExecuteScriptAsync($"masar.probe({JsonSerializer.Serialize(id)}, {JsonSerializer.Serialize(url)})");
             var done = await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs));
             _probes.Remove(id);
+            if (done != tcs.Task) Data.Log.Info("reader: probe timed out: " + Path.GetFileName(file));
             return done == tcs.Task ? tcs.Task.Result : null;
         }
         finally { _probeGate.Release(); }
@@ -220,7 +222,11 @@ internal sealed class ReaderPane : Panel
                 case "ready":
                     _pageReady?.TrySetResult();
                     break;
+                case "log":
+                    Data.Log.Info("reader page: " + m.Message);
+                    break;
                 case "probe":
+                    if (!m.Ok) Data.Log.Info($"reader: probe failed: {m.Code} {m.Message}");
                     if (m.Id != null && _probes.TryGetValue(m.Id, out var tcs)) tcs.TrySetResult(m.Ok ? ToInfo(m) : null);
                     break;
                 case "loaded" when m.Gen == Generation:

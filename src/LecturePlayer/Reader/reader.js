@@ -1,3 +1,11 @@
+const host = window.chrome && window.chrome.webview;
+function post(msg) {
+  const s = JSON.stringify(msg);
+  if (host) host.postMessage(s); else (window.__posted ||= []).push(msg);
+}
+window.addEventListener("error", e => post({ t: "log", message: "error: " + (e.message || e) + " @" + (e.filename || "") + ":" + (e.lineno || "") }));
+window.addEventListener("unhandledrejection", e => post({ t: "log", message: "rejection: " + (e.reason && (e.reason.message || e.reason)) }));
+const $ = id => document.getElementById(id);
 // قارئ الكتب جوه «مسار» (PDF.js). البرنامج بيبعت أوامر عن طريق window.masar،
 // والصفحة بتبعت للبرنامج (chrome.webview.postMessage) حالة القراية: الصفحة والمكان والتكبير والصفحات اللي اتقرت فعلًا.
 const pdfjsLib = globalThis.pdfjsLib;
@@ -9,12 +17,7 @@ const DOC_OPTS = {
   wasmUrl: LIB + "wasm/", iccUrl: LIB + "iccs/", enableXfa: true, isEvalSupported: false
 };
 
-const $ = id => document.getElementById(id);
-const host = window.chrome && window.chrome.webview;
-function post(msg) {
-  const s = JSON.stringify(msg);
-  if (host) host.postMessage(s); else (window.__posted ||= []).push(msg);
-}
+
 
 const container = $("viewerContainer");
 const eventBus = new V.EventBus();

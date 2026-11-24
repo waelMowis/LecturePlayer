@@ -23,7 +23,6 @@ internal sealed partial class MainForm
     private DateTime _readerActiveUtc;
     private int _pagesSession;
     private DateTime _pagesSessionStartUtc;
-    private long _dueReaderSave;
 
     private readonly Card _shelfCard = new();
     private readonly LectureTreeView _shelfTree = new();
@@ -996,9 +995,11 @@ internal sealed partial class MainForm
     private async Task BookProbeLoopAsync()
     {
         _bookProbing = true;
+        var pane = EnsureReader();
         try
         {
-            var pane = EnsureReader();
+            // WebView2 مش بيتجهّز وهو مستخبي: يبقى «ظاهر» ورا الشاشة الرئيسية لحد ما يخلص (المستخدم مش شايفه)
+            if (!ReaderShown) { pane.Visible = true; pane.SendToBack(); }
             while (_bookProbeQueue.Count > 0 && !IsDisposed)
             {
                 var b = _bookProbeQueue.Dequeue();
@@ -1010,7 +1011,11 @@ internal sealed partial class MainForm
             }
         }
         catch (Exception ex) { Log.Error("book probe", ex); }
-        finally { _bookProbing = false; }
+        finally
+        {
+            _bookProbing = false;
+            if (!ReaderShown) pane.Visible = false;
+        }
     }
 
     private void RefreshBookRowsOrTree(Book b)
