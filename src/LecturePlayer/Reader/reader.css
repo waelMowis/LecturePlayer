@@ -65,3 +65,15 @@ body.sepia .pdfViewer .page canvas, body.sepia .pdfViewer .page img { filter: se
 }
 body.empty #overlay, body.loading #overlay, body.failed #overlay { display: flex; }
 body.failed #overlayText { color: #f0a070; }
+
+/* الشاشة الضيقة: الأدوات الأقل استخدامًا بتستخبى (لسه بالكيبورد) */
+@media (max-width: 760px) {
+  #zoomSelect, #direction, .sep { display: none; }
+}
+@media (max-width: 600px) {
+  #spread, #theme, #zoomOut, #zoomIn { display: none; }
+  #toolbar { gap: 6px; padding: 0 6px; }
+}
+@media (max-width: 440px) {
+  #toolbar .title { display: none; }
+}

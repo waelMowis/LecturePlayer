@@ -229,6 +229,7 @@ internal sealed partial class MainForm
             ApplyMode();
             SaveSettings();
             UpdateStudyStatus();
+            if (ReaderShown) _ = _reader!.SetReadSecondsAsync(_settings.ReadSeconds);
             ShowStatus("الإعدادات اتحفظت ✓");
         }
     }

@@ -258,6 +258,7 @@ internal sealed partial class MainForm
             if (_shelfTree.Nodes.Count > 0 && top < _shelfTree.Nodes.Count) _shelfTree.TopNode = _shelfTree.Nodes[Math.Min(top, _shelfTree.Nodes.Count - 1)];
         }
         finally { _shelfTree.EndUpdate(); }
+        _shelfTree.Invalidate(); // بعد EndUpdate الصفوف الجديدة مش دايمًا بتترسم لوحدها
         bool empty = _library.Books.Count == 0 && _library.Shelves.Count == 0;
         _shelfEmpty.Visible = empty && !filtering;
         _shelfTree.Visible = !_shelfEmpty.Visible;

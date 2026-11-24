@@ -18,6 +18,17 @@ internal sealed class StatsForm : Form
     private readonly Panel _heat = new();
     private readonly Panel _bars = new();
     private readonly Label _summary = new();
+
+    /// <summary>«📖 القراية»: صفحات النهارده والأسبوع ده (من سجل المذاكرة).</summary>
+    private string PagesLine()
+    {
+        var pages = _entries.Where(e => e.Kind == JournalEntry.Pages).ToList();
+        if (pages.Count == 0) return "";
+        var ws = StudyStats.StartOfWeek(_today);
+        int today = pages.Where(e => DateOnly.FromDateTime(e.StartUtc.ToLocalTime()) == _today).Sum(e => e.Score);
+        int week = pages.Where(e => DateOnly.FromDateTime(e.StartUtc.ToLocalTime()) >= ws).Sum(e => e.Score);
+        return $"\n📖 القراية: النهارده {today} صفحة     الأسبوع ده {week} صفحة";
+    }
     private readonly SelectBox _topicCombo = new();
     private readonly List<Scope> _scopes = new();
     private readonly ListView _topics = new();
@@ -226,7 +237,8 @@ internal sealed class StatsForm : Form
             var streak = StudyStats.Streak(_daily, _today, minMinutes: 10);
             _summary.Text = $"النهارده: {StudyStats.FormatMinutes(today)} من {_settings.DailyGoalMinutes} دقيقة {(today >= _settings.DailyGoalMinutes ? "✓" : "")}" +
                             $"     🔥 السلسلة: {streak.Current} يوم" + (streak.FreezesUsed > 0 ? $" (فيها {streak.FreezesUsed} يوم متجمد)" : "") +
-                            $"\nالأسبوع ده: {StudyStats.FormatMinutes(week)}     أحسن سلسلة: {streak.Best} يوم     الإجمالي: {StudyStats.FormatMinutes(total)}";
+                            $"\nالأسبوع ده: {StudyStats.FormatMinutes(week)}     أحسن سلسلة: {streak.Best} يوم     الإجمالي: {StudyStats.FormatMinutes(total)}" +
+                            PagesLine();
         }
         else
         {
