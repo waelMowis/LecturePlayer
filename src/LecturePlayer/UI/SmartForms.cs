@@ -117,7 +117,7 @@ internal sealed class QuizForm : ToolWindow
     private int _index, _score;
     private bool _answered;
 
-    public QuizForm(string title, List<QuizQuestion> questions, Action<long> jump, Action<int, int> finished)
+    public QuizForm(string title, List<QuizQuestion> questions, Action<long> jump, Action<int, int> finished, string goToText = "روح للجزء ده في الفيديو")
         : base("اختبار: " + title, 640, 520)
     {
         _questions = questions;
@@ -126,7 +126,7 @@ internal sealed class QuizForm : ToolWindow
         var bar = ButtonBar();
         _check = Btn("تأكيد", Check, accent: true);
         _next = Btn("التالي ←", Next);
-        _goTo = Btn("روح للجزء ده في الفيديو", () =>
+        _goTo = Btn(goToText, () =>
         {
             if (_questions[_index].TimeMs is { } t) _jump(t);
         });
@@ -331,5 +331,74 @@ internal sealed class TranscriptSearchForm : ToolWindow
     private void PlaySelected()
     {
         if (_list.SelectedItems.Count > 0 && _list.SelectedItems[0].Tag is TranscriptIndex.Hit h) _play(h.Video, Math.Max(0, h.TimeMs - 1500));
+    }
+}
+
+/// <summary>بحث في نص كل الكتب (بالعربي من غير التشكيل، أو بالإنجليزي).</summary>
+internal sealed class BookSearchForm : ToolWindow
+{
+    private readonly Func<string, List<Data.BookText.Hit>> _search;
+    private readonly Action<Data.BookText.Hit, string> _open;
+    private readonly TextBox _query = FormKit.Style(new TextBox { Dock = DockStyle.Top, Font = new Font("Segoe UI", 11f) });
+    private readonly Label _info = new() { Dock = DockStyle.Top, Height = 26, ForeColor = Theme.Muted, TextAlign = ContentAlignment.MiddleRight };
+    private readonly ListView _list = DarkList.Setup(new ListView { Dock = DockStyle.Fill });
+    private readonly System.Windows.Forms.Timer _debounce = new() { Interval = 300 };
+    private string _status = "";
+
+    public int ResultCount => _list.Items.Count;
+
+    public BookSearchForm(Func<string, List<Data.BookText.Hit>> search, Action<Data.BookText.Hit, string> open)
+        : base("بحث جوه كل الكتب", 820, 560)
+    {
+        _search = search;
+        _open = open;
+        _query.PlaceholderText = "اكتب كلمة أو أكتر… (كل الكلمات لازم تكون في نفس الصفحة، والتشكيل مش فارق)";
+        _list.Columns.Add("الكتاب", 220);
+        _list.Columns.Add("الصفحة", 60);
+        _list.Columns.Add("الكلام", 500);
+        DarkList.ReverseColumns(_list);
+        _list.DoubleClick += (_, _) => OpenSelected();
+        _list.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) OpenSelected(); };
+        _query.TextChanged += (_, _) => { _debounce.Stop(); _debounce.Start(); };
+        _query.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Down && _list.Items.Count > 0) { _list.Focus(); _list.Items[0].Selected = true; e.Handled = true; }
+        };
+        _debounce.Tick += (_, _) => { _debounce.Stop(); Rerun(); };
+        Controls.Add(_list);
+        Controls.Add(_info);
+        Controls.Add(_query);
+        FormClosed += (_, _) => _debounce.Dispose();
+        Shown += (_, _) => _query.Focus();
+    }
+
+    public void SetQuery(string q) { _query.Text = q; Rerun(); }
+
+    public void SetStatus(string s)
+    {
+        _status = s;
+        if (_query.Text.Trim().Length < 2) _info.Text = s;
+    }
+
+    public void Rerun()
+    {
+        if (IsDisposed) return;
+        string q = _query.Text.Trim();
+        _list.BeginUpdate();
+        _list.Items.Clear();
+        if (q.Length >= 2)
+        {
+            var hits = _search(q);
+            foreach (var h in hits)
+                _list.Items.Add(new ListViewItem(new[] { h.Book.Title, h.Page.ToString(), h.Snippet }) { Tag = h });
+            _info.Text = hits.Count == 0 ? "مفيش نتايج. " + _status : $"{hits.Count} نتيجة — دبل كليك أو Enter يفتح الكتاب على الصفحة";
+        }
+        else _info.Text = _status;
+        _list.EndUpdate();
+    }
+
+    private void OpenSelected()
+    {
+        if (_list.SelectedItems.Count > 0 && _list.SelectedItems[0].Tag is Data.BookText.Hit h) _open(h, _query.Text.Trim());
     }
 }

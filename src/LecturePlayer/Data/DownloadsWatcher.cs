@@ -23,7 +23,7 @@ public sealed class DownloadsWatcher : IDisposable
     {
         Folder = folder ?? DownloadsFolder;
         Directory.CreateDirectory(Folder);
-        _before = Directory.EnumerateFiles(Folder, "*.pdf").Select(f => f.ToUpperInvariant()).ToHashSet();
+        _before = Directory.EnumerateFiles(Folder).Where(BookFiles.IsBookFile).Select(f => f.ToUpperInvariant()).ToHashSet();
         _fsw = new FileSystemWatcher(Folder) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size | NotifyFilters.LastWrite, IncludeSubdirectories = false };
         _fsw.Created += (_, e) => Check(e.FullPath);
         _fsw.Renamed += (_, e) => Check(e.FullPath);
@@ -37,7 +37,7 @@ public sealed class DownloadsWatcher : IDisposable
     {
         try
         {
-            foreach (string f in Directory.EnumerateFiles(Folder, "*.pdf"))
+            foreach (string f in Directory.EnumerateFiles(Folder).Where(BookFiles.IsBookFile))
                 if (!_before.Contains(f.ToUpperInvariant())) Check(f);
         }
         catch { }
@@ -45,7 +45,7 @@ public sealed class DownloadsWatcher : IDisposable
 
     private void Check(string path)
     {
-        if (_done != 0 || !path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) return;
+        if (_done != 0 || !BookFiles.IsBookFile(path)) return;
         if (_before.Contains(path.ToUpperInvariant())) return;
         _ = Task.Run(async () =>
         {
@@ -64,7 +64,7 @@ public sealed class DownloadsWatcher : IDisposable
                         {
                             var head = new byte[1024];
                             int n = fs.Read(head, 0, head.Length);
-                            if (!BookSources.LooksLikePdf(head, n)) return;
+                            if (!BookSources.LooksLikeBook(head, n)) return;
                         }
                         if (Interlocked.Exchange(ref _done, 1) != 0) return;
                         if (_ui != null) _ui.Post(_ => Found?.Invoke(path), null); else Found?.Invoke(path);

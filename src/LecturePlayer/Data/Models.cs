@@ -587,6 +587,8 @@ public sealed class AppSettings
     public bool TopicSeparators { get; set; }
     /// <summary>الصفحة بتتحسب «اتقرت» لو فضلت قدامك الثواني دي.</summary>
     public int ReadSeconds { get; set; } = 10;
+    /// <summary>هدف القراية اليومي بالصفحات (0 = من غير هدف).</summary>
+    public int DailyPagesGoal { get; set; }
     /// <summary>لون صفحات القارئ: normal / night / sepia.</summary>
     public string ReaderTheme { get; set; } = "normal";
     /// <summary>اللوحة الجانبية: library (الكورسات) أو books (الكتب).</summary>

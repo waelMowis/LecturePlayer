@@ -26,6 +26,7 @@ internal static class SettingsDialog
         remind.CheckedChanged += (_, _) => time.Enabled = remind.Checked;
         time.Enabled = remind.Checked;
         var readSeconds = kit.Row("الصفحة «اتقرت» بعد (ثانية)", new NumberBox { Minimum = 2, Maximum = 120, Value = Math.Clamp(s.ReadSeconds, 2, 120) });
+        var pagesGoal = kit.Row("هدف القراية اليومي (صفحة، 0 = من غير)", new NumberBox { Minimum = 0, Maximum = 500, Increment = 5, Value = Math.Clamp(s.DailyPagesGoal, 0, 500) });
 
         NumberBox? work = null, rest = null, recap = null;
         ToggleSwitch? pause = null, silence = null;
@@ -88,6 +89,7 @@ internal static class SettingsDialog
         s.AdvancedMode = advanced.Checked;
         s.DailyGoalMinutes = (int)goal.Value;
         s.ReadSeconds = (int)readSeconds.Value;
+        s.DailyPagesGoal = (int)pagesGoal.Value;
         s.RemindersEnabled = remind.Checked;
         s.ReminderTime = time.Value.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
         if (work != null) s.PomodoroWorkMinutes = (int)work.Value;

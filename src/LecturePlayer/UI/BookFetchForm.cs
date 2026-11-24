@@ -88,9 +88,10 @@ internal sealed class BookFetchForm : Form
                 var head = new byte[1024];
                 int n;
                 using (var fs = File.OpenRead(tmp)) n = fs.Read(head, 0, head.Length);
-                if (!Data.BookSources.LooksLikePdf(head, n)) { _hint.Text = "الملف اللي اتنزل مش PDF — اختار ملف الكتاب نفسه."; return; }
-                File.Move(tmp, _target, overwrite: true);
-                Result = _target;
+                if (!Data.BookSources.LooksLikeBook(head, n)) { _hint.Text = "الملف اللي اتنزل مش PDF ولا EPUB — اختار ملف الكتاب نفسه."; return; }
+                string final = Path.ChangeExtension(_target, Data.BookSources.LooksLikeEpub(head, n) ? ".epub" : ".pdf");
+                File.Move(tmp, final, overwrite: true);
+                Result = final;
                 DialogResult = DialogResult.OK;
                 Close();
             }

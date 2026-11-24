@@ -215,6 +215,10 @@ public static class LibrarySync
             // علامة اتعملت هنا بعد آخر تغيير هناك: تفضل
             marks.AddRange(target.Marks.Where(m => m.CreatedUtc > other.ProgressUtc && marks.All(x => x.Id != m.Id)));
             target.Marks = marks.OrderBy(m => m.Page).ToList();
+            var hls = other.Highlights.ToList();
+            hls.AddRange(target.Highlights.Where(h => h.CreatedUtc > other.ProgressUtc && hls.All(x => x.Id != h.Id)));
+            target.Highlights = hls.OrderBy(h => h.Page).ToList();
+            target.LastCfi = other.LastCfi;
             target.ProgressUtc = other.ProgressUtc;
             changed = true;
         }

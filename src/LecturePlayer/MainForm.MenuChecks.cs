@@ -17,7 +17,7 @@ internal sealed partial class MainForm
         var t when t.StartsWith("🔄") => 2,
         var t when t.StartsWith("✏") || t.StartsWith("🎨") || t.StartsWith("➖") || t.StartsWith("📋") || t.StartsWith("🔗") || t.StartsWith("✂") => 3,
         var t when t.StartsWith("↔") || t.StartsWith("↕") => 4,
-        var t when t.StartsWith("✔") || t.StartsWith("↺") => 5,
+        var t when t.StartsWith("✔") || t.StartsWith("↺") || t.StartsWith("✨") => 5,
         var t when t.StartsWith("📤") || t.StartsWith("📝") || t.StartsWith("⬇") || t.StartsWith("📂") || t.StartsWith("🌐") => 6,
         var t when t.StartsWith("🗑") => 7,
         _ => -1

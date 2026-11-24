@@ -104,7 +104,8 @@ internal sealed partial class MainForm
         var streak = StudyStats.Streak(StudyStats.DailyMinutes(JournalEntries), TodayLocal);
         string pomo = _pomoRunning ? $"   {(_pomoBreak ? "☕" : "🍅")} {Clock(PomoRemaining())}" : "";
         string focus = _focusUntilUtc is { } fu ? $"   🎯 {Clock(fu - DateTime.UtcNow)}" : "";
-        _statusStudy.Text = $"النهارده {today:0}/{_settings.DailyGoalMinutes} د" + (streak.Current > 0 ? $"  🔥{streak.Current}" : "") + pomo + focus;
+        string pages = ReadingGoalText();
+        _statusStudy.Text = $"النهارده {today:0}/{_settings.DailyGoalMinutes} د" + (pages.Length > 0 ? "  " + pages : "") + (streak.Current > 0 ? $"  🔥{streak.Current}" : "") + pomo + focus;
         _statusStudy.ForeColor = today >= _settings.DailyGoalMinutes ? Theme.Success : Theme.Muted;
         _statusStudy.ToolTipText = "وقت المذاكرة الفعلي النهارده (الفيديو شغال) — اضغط للإحصائيات";
     }
@@ -449,6 +450,7 @@ internal sealed partial class MainForm
             Dock = DockStyle.Top, Height = LogicalToDeviceUnits(30), ForeColor = Theme.Text, Cursor = Cursors.Hand,
             Font = new Font("Segoe UI", 11f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleRight,
             Text = $"النهارده: {today:0} من {_settings.DailyGoalMinutes} دقيقة" + (today >= _settings.DailyGoalMinutes ? " ✓" : "") +
+                   (ReadingGoalText() is { Length: > 0 } rg ? "     " + rg : "") +
                    (streak.Current > 0 ? $"     🔥 {streak.Current} يوم ورا بعض" : "") + "     (الإحصائيات ←)"
         };
         head.Click += (_, _) => ShowStats();

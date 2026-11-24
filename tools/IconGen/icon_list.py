@@ -83,6 +83,7 @@ ICONS = [
     (TECH, "chart_multiple", "رسوم بيانية", "fl:chart_multiple"),
     (TECH, "data_histogram", "هيستوجرام", "fl:data_histogram"),
 
+    (MEDIA, "highlight", "تظليل", "fl:highlight"),
     (MEDIA, "guitar", "جيتار", "fl:guitar"),
     (MEDIA, "music_note_1", "نغمة", "fl:music_note_1"),
     (MEDIA, "movies_and_tv", "أفلام وتليفزيون", "fl:movies_and_tv"),

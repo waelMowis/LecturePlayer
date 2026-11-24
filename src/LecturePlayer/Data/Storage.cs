@@ -135,6 +135,7 @@ public static class Storage
         {
             b.Chapters ??= new List<BookChapter>();
             b.Marks ??= new List<PageMark>();
+            b.Highlights ??= new List<Highlight>();
             b.ReadPages ??= "";
             if (string.IsNullOrWhiteSpace(b.Title)) b.Title = BookFiles.TitleFromFile(b.Path);
             b.LocalPath = ResolveLocal(b.Path, b.RelativePath, baseDir, mappings);

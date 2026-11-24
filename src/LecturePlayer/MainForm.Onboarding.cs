@@ -169,6 +169,7 @@ internal sealed partial class MainForm
         RunMenuChecks();
         RunBookChecks();
         RunBookLinkChecks();
+        RunBookSmartChecks();
         RunStressAndPlaybackChecks();
 
         // تقرير الأعطال: تسجيل، وقراية، وبناء التقرير، وفتح الشاشة بتاعته

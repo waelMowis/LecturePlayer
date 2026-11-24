@@ -183,6 +183,7 @@ internal sealed partial class MainForm
             try
             {
                 Directory.CreateDirectory(BookSources.CacheDir);
+                target = Path.ChangeExtension(target, Path.GetExtension(file).ToLowerInvariant() == ".epub" ? ".epub" : ".pdf");
                 File.Copy(file, target, overwrite: true);
                 BookSources.WriteStamp(target, "manual");
                 FileCache.Forget(target);

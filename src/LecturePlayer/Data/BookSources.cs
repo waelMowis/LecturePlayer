@@ -79,8 +79,20 @@ public static class BookSources
     /// <summary>مكان النسخة المتنزلة على الجهاز ده (فولدر Data جنب البرنامج).</summary>
     public static string CacheDir => Path.Combine(Storage.AppDataDir, "books");
 
-    public static string CachePathFor(string url) =>
-        Path.Combine(CacheDir, Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(url.Trim())))[..24].ToLowerInvariant() + ".pdf");
+    /// <summary>مكان النسخة المتنزلة (.pdf أو .epub حسب اللي نزل فعلًا).</summary>
+    public static string CachePathFor(string url)
+    {
+        string stem = Path.Combine(CacheDir, Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(url.Trim())))[..24].ToLowerInvariant());
+        if (File.Exists(stem + ".epub")) return stem + ".epub";
+        if (File.Exists(stem + ".pdf")) return stem + ".pdf";
+        return stem + (BookFiles.FormatOf(url) == "epub" ? ".epub" : ".pdf");
+    }
+
+    /// <summary>ملف كتاب (PDF أو EPUB) من أول بايتات فيه.</summary>
+    public static bool LooksLikeBook(byte[] head, int count) => LooksLikePdf(head, count) || LooksLikeEpub(head, count);
+
+    public static bool LooksLikeEpub(byte[] head, int count) =>
+        count > 50 && head[0] == (byte)'P' && head[1] == (byte)'K' && Encoding.Latin1.GetString(head, 0, Math.Min(count, 120)).Contains("application/epub+zip", StringComparison.Ordinal);
 
     /// <summary>علامة النسخة المتنزلة على الجهاز ده (جنب الملف في الكاش).</summary>
     public static string? ReadStamp(string cachePath)
@@ -147,19 +159,26 @@ public static class BookSources
             while ((n = await src.ReadAsync(buf, ct)) > 0)
             {
                 if (headCount < head.Length) { int c = Math.Min(n, head.Length - headCount); Array.Copy(buf, 0, head, headCount, c); headCount += c; }
-                if (headCount >= 8 && done == 0 && !LooksLikePdf(head, headCount) && headCount >= Math.Min(head.Length, (int)Math.Max(8, total)))
+                if (headCount >= 8 && done == 0 && !LooksLikeBook(head, headCount) && headCount >= Math.Min(head.Length, (int)Math.Max(8, total)))
                     break; // مش PDF: مانكمّلش تنزيل صفحة HTML كبيرة
                 await dst.WriteAsync(buf.AsMemory(0, n), ct);
                 done += n;
                 if (done - lastReport > 256 * 1024 || done == total) { progress?.Report((done, total)); lastReport = done; }
             }
         }
-        if (!LooksLikePdf(head, headCount))
+        if (!LooksLikeBook(head, headCount))
         {
             try { File.Delete(tmp); } catch { }
             string? type = res.Content.Headers.ContentType?.MediaType;
             bool html = type?.Contains("html", StringComparison.OrdinalIgnoreCase) == true || Encoding.UTF8.GetString(head, 0, headCount).Contains("<html", StringComparison.OrdinalIgnoreCase);
             throw new NotPdfException(html ? "الرابط رجّع صفحة مش ملف PDF — غالبًا الملف خاص ومحتاج تسجيل دخول" : "الملف ده مش PDF", needsSignIn: html);
+        }
+        // EPUB من رابط مالوش امتداد (درايف مثلًا): يتحفظ .epub عشان القارئ يفتحه صح
+        string ext = LooksLikeEpub(head, headCount) ? ".epub" : ".pdf";
+        if (!target.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+        {
+            try { File.Delete(target); } catch { }
+            target = Path.ChangeExtension(target, ext);
         }
         File.Move(tmp, target, overwrite: true);
         progress?.Report((done, done));

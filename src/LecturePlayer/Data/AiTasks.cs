@@ -88,6 +88,56 @@ public static class AiTasks
         return list;
     }
 
+    // ---------------- الكتب ----------------
+
+    public static (string System, string User, int MaxTokens) BookSummaryPrompt(string book, string part, string pagesText) => (
+        "إنت مساعد مذاكرة بيلخص فصول كتب لطالب. " + Style,
+        $"ده نص «{part}» من كتاب «{book}» (قبل كل صفحة رقمها بالشكل [ص 12]):\n\n<book>\n{pagesText}\n</book>\n\n" +
+        "اعمل ملخص Markdown فيه:\n" +
+        "1. **الفكرة الأساسية** في سطرين.\n" +
+        "2. **النقط المهمة** (bullets) وجنب كل نقطة رقم الصفحة بالشكل (ص 12).\n" +
+        "3. **مصطلحات وتعريفات** مع شرح سطر لكل واحد (لو فيه).\n" +
+        "4. **أمثلة أو أكواد مهمة** (لو فيه).\n" +
+        "5. **أسئلة تراجع بيها نفسك** (3 أسئلة).",
+        2000);
+
+    public static (string System, string User, int MaxTokens) BookExplainPrompt(string book, int page, string pagesText, string? question) => (
+        "إنت مدرس صبور بيشرح لطالب صفحة من كتاب بيذاكره. " + Style,
+        $"ده نص من كتاب «{book}» حوالين صفحة {page}:\n\n<book>\n{pagesText}\n</book>\n\n" +
+        (string.IsNullOrWhiteSpace(question)
+            ? $"اشرح صفحة {page} بأسلوب بسيط: الفكرة، وليه مهمة، ومثال من عندك يوضّحها، وأي مصطلح صعب فيها. ولو فيها كود اشرحه سطر سطر."
+            : $"سؤال الطالب: {question}\nجاوب من النص ده بس، ولو الإجابة مش فيه قول كده واشرح اللي تقدر عليه منه."),
+        1500);
+
+    public static (string System, string User, int MaxTokens) BookQuizPrompt(string book, string part, string pagesText, int count = 6) => (
+        "إنت مدرس بيعمل أسئلة اختيار من متعدد تقيس الفهم مش الحفظ. " + Style + " رد بـ JSON بس.",
+        $"ده نص «{part}» من كتاب «{book}» (قبل كل صفحة رقمها [ص 12]):\n\n<book>\n{pagesText}\n</book>\n\n" +
+        $"اعمل {count} أسئلة اختيار من متعدد على أهم الأفكار. كل سؤال 4 اختيارات، واحد بس صح، والغلط يكون مقنع. " +
+        "نوّع مكان الإجابة الصح. ولكل سؤال رقم الصفحة اللي فيها الإجابة.\n" +
+        "الشكل بالظبط:\n[{\"question\":\"…\",\"options\":[\"…\",\"…\",\"…\",\"…\"],\"answer\":0,\"explanation\":\"ليه دي الصح\",\"page\":12}]",
+        2500);
+
+    /// <summary>أسئلة الكتاب: الصفحة بتتحط مكان الوقت (QuizForm بيرجّعها لـ «روح للصفحة»).</summary>
+    public static List<QuizQuestion> ParseBookQuiz(string reply, int maxPage)
+    {
+        var list = new List<QuizQuestion>();
+        using var doc = ParseJsonFromReply(reply);
+        var arr = doc.RootElement.ValueKind == JsonValueKind.Array ? doc.RootElement
+            : doc.RootElement.TryGetProperty("questions", out var q) ? q : default;
+        if (arr.ValueKind != JsonValueKind.Array) throw new FormatException("الرد مش قايمة أسئلة");
+        foreach (var e in arr.EnumerateArray())
+        {
+            string? question = Str(e, "question");
+            if (string.IsNullOrWhiteSpace(question) || !e.TryGetProperty("options", out var opts) || opts.ValueKind != JsonValueKind.Array) continue;
+            var options = opts.EnumerateArray().Select(o => o.ToString().Trim()).Where(o => o.Length > 0).ToList();
+            int answer = e.TryGetProperty("answer", out var a) && a.ValueKind == JsonValueKind.Number ? a.GetInt32() : -1;
+            if (options.Count < 2 || answer < 0 || answer >= options.Count) continue;
+            long? page = e.TryGetProperty("page", out var pg) && pg.ValueKind == JsonValueKind.Number && pg.GetInt32() is var n && n >= 1 && (maxPage <= 0 || n <= maxPage) ? n : null;
+            list.Add(new QuizQuestion(question.Trim(), options, answer, Str(e, "explanation") ?? "", page));
+        }
+        return list;
+    }
+
     // ---------------- اسأل الكورس ----------------
 
     public static (string System, string User, int MaxTokens) AskPrompt(string courseName, string question, IReadOnlyList<AskSource> sources)

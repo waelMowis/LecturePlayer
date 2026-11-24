@@ -18,7 +18,7 @@ internal sealed class ReaderPane : Panel
     public const string ReaderHost = "reader.masar";
 
     public sealed record DocInfo(int Pages, string? Fingerprint, string? Title, string? Author, List<Data.BookChapter> Outline);
-    public sealed record State(int Page, int Pages, string Scale, double? Top, double? Left, int Spread, string Theme, bool Rtl);
+    public sealed record State(int Page, int Pages, string Scale, double? Top, double? Left, int Spread, string Theme, bool Rtl, string? Cfi = null);
 
     public WebView2 Web { get; } = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.FromArgb(30, 31, 34) };
 
@@ -32,6 +32,10 @@ internal sealed class ReaderPane : Panel
     /// <summary>أمر من شريط القارئ (mark / fullscreen) والصفحة.</summary>
     public event Action<int, string, int>? Command;
     public event Action<int, string, string>? Failed;
+    /// <summary>تظليل جديد: (رقم الفتحة، الصفحة، المستطيلات، النص، اللون، عايز ملاحظة).</summary>
+    public event Action<int, int, double[][], string, string, bool, string?>? HighlightRequested;
+    /// <summary>تعديل تظليل: (رقم الفتحة، الرقم، اللون الجديد أو null، اتشال).</summary>
+    public event Action<int, string, string?, bool>? HighlightEdited;
     public event Action<Keys>? KeyForwarded;
 
     /// <summary>رقم آخر كتاب اتفتح (الرسايل القديمة بتتجاهل).</summary>
@@ -45,6 +49,8 @@ internal sealed class ReaderPane : Panel
     /// <summary>الملفات المسموح بيها (رقم ← المسار): الصفحة ماتقدرش تطلب أي ملف تاني من الجهاز.</summary>
     private readonly Dictionary<string, string> _served = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TaskCompletionSource<DocInfo?>> _probes = new();
+    private readonly Dictionary<string, (Dictionary<int, string> Pages, TaskCompletionSource<bool> Done, IProgress<(int Done, int Total)>? Progress)> _texts = new();
+    private readonly Dictionary<string, TaskCompletionSource<byte[]?>> _images = new();
     private readonly SemaphoreSlim _probeGate = new(1, 1);
 
     public ReaderPane()
@@ -104,11 +110,12 @@ internal sealed class ReaderPane : Panel
         string url = Serve(file);
         var o = new Dictionary<string, object?>
         {
-            ["gen"] = gen, ["url"] = url, ["title"] = title,
+            ["gen"] = gen, ["url"] = url, ["title"] = title, ["format"] = Data.BookFiles.FormatOf(file), ["cfi"] = b.LastCfi,
             ["page"] = Math.Max(1, b.LastPage), ["top"] = b.LastTop, ["left"] = b.LastLeft,
             ["scale"] = b.Zoom ?? "page-width", ["spread"] = b.Spread, ["rtl"] = b.RightToLeft,
             ["theme"] = theme, ["readSeconds"] = readSeconds, ["read"] = read.ToArray(),
-            ["marks"] = b.Marks.Select(m => m.Page).Distinct().ToArray()
+            ["marks"] = b.Marks.Select(m => m.Page).Distinct().ToArray(),
+            ["highlights"] = HighlightsJson(b)
         };
         await core.ExecuteScriptAsync("masar.open(" + JsonSerializer.Serialize(o) + ")");
         return gen;
@@ -214,6 +221,51 @@ internal sealed class ReaderPane : Panel
     public Task SetReadAsync(IEnumerable<int> pages) => Run("masar.setRead(" + JsonSerializer.Serialize(pages.ToArray()) + ")");
     public Task SetReadSecondsAsync(int s) => Run($"masar.setReadSeconds({s})");
     public Task FindAsync(string q) => Run("masar.find(" + JsonSerializer.Serialize(q) + ")");
+    public Task SetHighlightsAsync(Data.Book b) => Run("masar.setHighlights(" + JsonSerializer.Serialize(HighlightsJson(b)) + ")");
+
+    private static object[] HighlightsJson(Data.Book b) =>
+        b.Highlights.Select(h => h.Rects.StartsWith("cfi:", StringComparison.Ordinal)
+            ? (object)new { id = h.Id, page = h.Page, cfi = h.Rects[4..], rects = Array.Empty<double[]>(), color = h.Color }
+            : new { id = h.Id, page = h.Page, cfi = (string?)null, rects = h.ParseRects(), color = h.Color }).ToArray();
+
+    /// <summary>نص الصفحات (file = null: الكتاب المفتوح). progress = (اتعمل، الإجمالي).</summary>
+    public async Task<Dictionary<int, string>> ExtractTextAsync(string? file, int from, int to, IProgress<(int Done, int Total)>? progress, CancellationToken ct)
+    {
+        await EnsureReadyAsync();
+        string id = Guid.NewGuid().ToString("N");
+        var entry = (Pages: new Dictionary<int, string>(), Done: new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously), Progress: progress);
+        _texts[id] = entry;
+        try
+        {
+            string js = file == null ? $"masar.pageText({JsonSerializer.Serialize(id)}, {from}, {to})"
+                                     : $"masar.extract({JsonSerializer.Serialize(id)}, {JsonSerializer.Serialize(Serve(file))}, {from}, {to})";
+            await Web.CoreWebView2.ExecuteScriptAsync(js);
+            using (ct.Register(() => entry.Done.TrySetCanceled()))
+                await entry.Done.Task;
+            return entry.Pages;
+        }
+        finally { _texts.Remove(id); }
+    }
+
+    /// <summary>صورة PNG للصفحة (للـ OCR). null لو فشل.</summary>
+    public async Task<byte[]?> RenderPageAsync(string? file, int page, double scale, CancellationToken ct)
+    {
+        await EnsureReadyAsync();
+        string id = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _images[id] = tcs;
+        try
+        {
+            string url = file == null ? "null" : JsonSerializer.Serialize(Serve(file));
+            await Web.CoreWebView2.ExecuteScriptAsync($"masar.renderPage({JsonSerializer.Serialize(id)}, {url}, {page}, {scale.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
+            using (ct.Register(() => tcs.TrySetCanceled()))
+            {
+                var done = await Task.WhenAny(tcs.Task, Task.Delay(60_000, ct));
+                return done == tcs.Task ? await tcs.Task : null;
+            }
+        }
+        finally { _images.Remove(id); }
+    }
 
     private async Task Run(string js)
     {
@@ -273,6 +325,16 @@ internal sealed class ReaderPane : Panel
         [JsonPropertyName("c")] public bool C { get; set; }
         [JsonPropertyName("s")] public bool S { get; set; }
         [JsonPropertyName("a")] public bool A { get; set; }
+        [JsonPropertyName("rects")] public double[][]? Rects { get; set; }
+        [JsonPropertyName("cfi")] public string? Cfi { get; set; }
+        [JsonPropertyName("text")] public string? Text { get; set; }
+        [JsonPropertyName("color")] public string? Color { get; set; }
+        [JsonPropertyName("note")] public bool Note { get; set; }
+        [JsonPropertyName("del")] public bool Del { get; set; }
+        [JsonPropertyName("data")] public string? Data { get; set; }
+        [JsonPropertyName("total")] public int Total { get; set; }
+        [JsonPropertyName("done")] public bool Done { get; set; }
+        [JsonPropertyName("error")] public string? Error { get; set; }
     }
 
     private sealed class OutlineItem
@@ -305,6 +367,25 @@ internal sealed class ReaderPane : Panel
                 case "log":
                     Data.Log.Info("reader page: " + m.Message);
                     break;
+                case "text" when m.Id != null && _texts.TryGetValue(m.Id, out var tx):
+                    if (m.Pages.ValueKind == JsonValueKind.Array)
+                        foreach (var pair in m.Pages.EnumerateArray())
+                            if (pair.ValueKind == JsonValueKind.Array && pair.GetArrayLength() == 2)
+                                tx.Pages[pair[0].GetInt32()] = pair[1].GetString() ?? "";
+                    tx.Progress?.Report((tx.Pages.Count, m.Total));
+                    if (m.Error != null) Data.Log.Info("reader text: " + m.Error);
+                    if (m.Done) tx.Done.TrySetResult(m.Error == null);
+                    break;
+                case "image" when m.Id != null && _images.TryGetValue(m.Id, out var img):
+                    if (m.Error != null) Data.Log.Info("reader image: " + m.Error);
+                    img.TrySetResult(m.Data != null ? Convert.FromBase64String(m.Data) : null);
+                    break;
+                case "highlight" when m.Gen == Generation && (m.Rects is { Length: > 0 } || m.Cfi != null):
+                    HighlightRequested?.Invoke(m.Gen, m.Page, m.Rects ?? Array.Empty<double[]>(), m.Text ?? "", m.Color ?? "yellow", m.Note, m.Cfi);
+                    break;
+                case "hledit" when m.Gen == Generation && m.Id != null:
+                    HighlightEdited?.Invoke(m.Gen, m.Id, m.Color, m.Del);
+                    break;
                 case "probe":
                     if (!m.Ok) Data.Log.Info($"reader: probe failed: {m.Code} {m.Message}");
                     if (m.Id != null && _probes.TryGetValue(m.Id, out var tcs)) tcs.TrySetResult(m.Ok ? ToInfo(m) : null);
@@ -314,7 +395,7 @@ internal sealed class ReaderPane : Panel
                     Loaded?.Invoke(m.Gen, Info);
                     break;
                 case "state" when m.Gen == Generation:
-                    Current = new State(m.Page, m.Pages.ValueKind == JsonValueKind.Number ? m.Pages.GetInt32() : 0, m.Scale ?? "page-width", m.Top, m.Left, m.Spread, m.Theme ?? "normal", m.Rtl);
+                    Current = new State(m.Page, m.Pages.ValueKind == JsonValueKind.Number ? m.Pages.GetInt32() : 0, m.Scale ?? "page-width", m.Top, m.Left, m.Spread, m.Theme ?? "normal", m.Rtl, m.Cfi);
                     StateChanged?.Invoke(m.Gen, Current);
                     break;
                 case "read" when m.Gen == Generation && m.Pages.ValueKind == JsonValueKind.Array:

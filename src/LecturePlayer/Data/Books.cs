@@ -40,6 +40,26 @@ public sealed class PageMark
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int ReviewStage { get; set; }
 }
 
+/// <summary>نص متظلل في الكتاب (المستطيلات نسبية للصفحة: x,y,w,h;…) ومعاه ملاحظة اختيارية. مش بيتكتب في الملف نفسه.</summary>
+public sealed class Highlight
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public int Page { get; set; }
+    public string Rects { get; set; } = "";
+    public string Text { get; set; } = "";
+    /// <summary>yellow / green / blue / pink</summary>
+    public string Color { get; set; } = "yellow";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Note { get; set; }
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+
+    public static string FormatRects(IEnumerable<double[]> rects) =>
+        string.Join(";", rects.Where(r => r.Length == 4).Select(r => string.Join(",", r.Select(v => Math.Round(v, 4).ToString(System.Globalization.CultureInfo.InvariantCulture)))));
+
+    public double[][] ParseRects() => Rects.Split(';', StringSplitOptions.RemoveEmptyEntries)
+        .Select(p => p.Split(',').Select(v => double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double d) ? d : 0).ToArray())
+        .Where(r => r.Length == 4).ToArray();
+}
+
 /// <summary>كتاب على الرف: ملف PDF (على الجهاز أو في فولدر بيتزامن) أو رابط.</summary>
 public sealed class Book
 {
@@ -78,6 +98,9 @@ public sealed class Book
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool MarkedDone { get; set; }
     public List<BookChapter> Chapters { get; set; } = new();
     public List<PageMark> Marks { get; set; } = new();
+    public List<Highlight> Highlights { get; set; } = new();
+    /// <summary>EPUB: المكان بالظبط (CFI) عشان ترجع لنفس الفقرة.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? LastCfi { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Notes { get; set; }
 
     public DateTime AddedUtc { get; set; } = DateTime.UtcNow;
@@ -207,7 +230,7 @@ public sealed class PageSet
 /// <summary>ملفات الكتب: الأنواع المدعومة والبحث في الفولدرات.</summary>
 public static class BookFiles
 {
-    public static readonly string[] Extensions = { ".pdf" };
+    public static readonly string[] Extensions = { ".pdf", ".epub" };
 
     public static string FormatOf(string path)
     {
