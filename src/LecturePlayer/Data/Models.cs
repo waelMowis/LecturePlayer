@@ -195,6 +195,10 @@ public sealed class Topic
 
     public bool Expanded { get; set; } = true;
 
+    /// <summary>خط فاصل فوق الموضوع في الشجرة (عشان تقسّم الموضوعات مجموعات).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SeparatorBefore { get; set; }
+
     /// <summary>قديم (4.1.30): بيتنقل لـ <see cref="CourseLibrary.Links"/> وقت الفتح.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceFolder { get; set; }
@@ -533,6 +537,9 @@ public sealed class CourseLibrary
 /// <summary>إعدادات البرنامج نفسه (مش الكورس).</summary>
 public sealed class AppSettings
 {
+    /// <summary>خط فاصل بين كل الموضوعات في الشجرة.</summary>
+    public bool TopicSeparators { get; set; }
+
     public string? LastLibraryPath { get; set; }
     public List<string> RecentFiles { get; set; } = new();
 

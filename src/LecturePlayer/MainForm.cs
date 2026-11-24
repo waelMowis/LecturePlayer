@@ -601,6 +601,8 @@ internal sealed partial class MainForm : Form
         moreMenu.Items.Add(moreSep);
         moreMenu.Opening += (_, _) => { foreach (ToolStripItem i in moreMenu.Items) ApplyMode(i, AdvancedMode); TidySeparators(moreMenu.Items); };
         MoreItem("ترتيب الكورسات بالاسم", SortCourses);
+        var sepAll = MoreItem("➖  فواصل بين كل الموضوعات", () => ToggleAllTopicSeparators());
+        moreMenu.Opening += (_, _) => sepAll.Checked = _settings.TopicSeparators;
         var more = Icon(Glyphs.More, "المزيد", () => { }, titleRow);
         more.Click += (_, _) => moreMenu.Show(more, new Point(0, more.Height + 2));
 

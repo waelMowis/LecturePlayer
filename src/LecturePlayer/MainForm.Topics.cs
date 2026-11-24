@@ -34,7 +34,26 @@ internal sealed partial class MainForm
         node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
             + (_library.PlacesOf(t).Any() ? "\n🏫 " + string.Join(" · ", _library.PlacesOf(t).Select(p => p.Name)) : "");
         _tree.SetRow(node, new LectureTreeView.RowInfo("",
-            courses.Count == 1 ? "كورس" : $"{courses.Count} كورس", done));
+            courses.Count == 1 ? "كورس" : $"{courses.Count} كورس", done, LineAbove: HasLineAbove(t)));
+    }
+
+    /// <summary>فاصل فوق الموضوع: لو إنت حاطه، أو «فواصل بين كل الموضوعات» شغالة (ماعدا أول موضوع).</summary>
+    private bool HasLineAbove(Topic t) => _library.Topics.IndexOf(t) > 0 && (t.SeparatorBefore || _settings.TopicSeparators);
+
+    private void ToggleTopicSeparator(Topic t)
+    {
+        Checkpoint(t.SeparatorBefore ? "شيل الفاصل" : "فاصل فوق الموضوع");
+        t.SeparatorBefore = !t.SeparatorBefore;
+        t.TouchInfo();
+        MarkDirty();
+        RebuildTree();
+    }
+
+    private void ToggleAllTopicSeparators()
+    {
+        _settings.TopicSeparators = !_settings.TopicSeparators;
+        SaveSettings();
+        RebuildTree();
     }
 
     private Topic? AddTopic(string? name = null)
@@ -150,6 +169,8 @@ internal sealed partial class MainForm
         items.Add(MenuItem("🏫  مصدر جديد هنا…", () => AddPlace(t)));
         items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
         items.Add(AppearanceMenuItem(t));
+        if (_library.Topics.IndexOf(t) > 0 && !_settings.TopicSeparators)
+            items.Add(MenuItem(t.SeparatorBefore ? "➖  شيل الفاصل اللي فوق الموضوع ده" : "➖  فاصل فوق الموضوع ده", () => ToggleTopicSeparator(t)));
         items.Add(ExportMenuItem(t));
         items.Add(FoldMenu(t));
         var more = new List<ToolStripItem>

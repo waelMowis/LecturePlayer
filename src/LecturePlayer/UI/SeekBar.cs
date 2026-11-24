@@ -199,7 +199,8 @@ internal sealed class LectureTreeView : TreeView
     /// <param name="Meta">نص باهت على اليمين (المدة).</param>
     /// <param name="Badge">عدّاد في «حبة» (مثلًا 2/46).</param>
     /// <param name="Progress">شريط تقدّم رفيع تحت الاسم (0..1)، أو سالب = من غيره.</param>
-    public sealed record RowInfo(string Meta, string? Badge = null, bool Done = false, bool Accent = false, double Progress = -1);
+    /// <param name="LineAbove">خط فاصل فوق الصف (فاصل بين الموضوعات).</param>
+    public sealed record RowInfo(string Meta, string? Badge = null, bool Done = false, bool Accent = false, double Progress = -1, bool LineAbove = false);
 
     private readonly Dictionary<TreeNode, RowInfo> _rows = new();
     private TreeNode? _hot;
@@ -234,6 +235,8 @@ internal sealed class LectureTreeView : TreeView
         _rows[node] = info;
         if (IsHandleCreated && node.TreeView == this) InvalidateRow(node);
     }
+
+    internal RowInfo? RowOf(TreeNode node) => _rows.TryGetValue(node, out var r) ? r : null;
 
     public void ClearRows()
     {
@@ -312,6 +315,14 @@ internal sealed class LectureTreeView : TreeView
         }
 
         int x0 = node.Level * Indent;
+
+        // فاصل بين الموضوعات: خط فوق الصف بعرض الشجرة
+        if (_rows.TryGetValue(node, out var sepInfo) && sepInfo.LineAbove)
+        {
+            int lw = Math.Max(1, LogicalToDeviceUnits(2));
+            using var sep = new SolidBrush(Modern.Blend(Theme.Muted, BackColor, 0.55));
+            g.FillRectangle(sep, LogicalToDeviceUnits(8), row.Y, w - LogicalToDeviceUnits(16), lw);
+        }
 
         // خطوط الإزاحة (indent guides)
         using (var guide = new Pen(Theme.IndentGuide))
