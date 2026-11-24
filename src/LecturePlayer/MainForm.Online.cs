@@ -59,7 +59,7 @@ internal sealed partial class MainForm
             new ToolStripSeparator(),
             udemy[0],
             moodle[0],
-            Item("🎓  IT Legend — خطوة أولى: ادخل وافتح كورس…", ItLegendCapture),
+            Item("🎓  IT Legend — كورساتي (استيراد بحسابك)…", () => ItLegendImport()),
             udemy[1],
             moodle[1],
             new ToolStripSeparator(),

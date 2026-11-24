@@ -151,9 +151,9 @@ internal sealed partial class MainForm
         _welcome.Visible = false;
         int request = ++_playRequest;
 
-        string? localFile = v.IsUdemy ? null : PlayableLocalFile(v); // فيديو نت متنزّل = يتشغل من الجهاز
-        if (!v.IsUdemy) HideUdemyPane(); // من درس يوديمي لفيديو عادي: نرجّع شاشة VLC
-        if (v.IsUdemy)
+        string? localFile = v.IsWebLesson ? null : PlayableLocalFile(v); // فيديو نت متنزّل = يتشغل من الجهاز
+        if (!v.IsWebLesson) HideUdemyPane(); // من درس منصة لفيديو عادي: نرجّع شاشة VLC
+        if (v.IsWebLesson)
         {
             // درس يوديمي: صفحة يوديمي نفسها جوه مساحة الفيديو، و«مسار» بيتحكم فيها
             _resolveCts?.Cancel();

@@ -26,6 +26,8 @@ internal sealed class UdemyPane : Panel
     public event Action<Keys>? KeyForwarded;
     /// <summary>زرار ملء الشاشة بتاع يوديمي ← ملء الشاشة بتاع «مسار».</summary>
     public event Action<bool>? FullscreenChanged;
+    /// <summary>طلب من الصفحة لـ api.itlegend.net (تأكيد اختيار الدرس / متابعة اختيارك من الصفحة).</summary>
+    public event Action<string>? ApiRequested;
     /// <summary>الصفحة اتفتحت/فشلت (للرسايل).</summary>
     public event Action<bool, string>? Navigated;
 
@@ -73,6 +75,7 @@ internal sealed class UdemyPane : Panel
         var core = Web.CoreWebView2;
         core.WebMessageReceived += OnMessage;
         core.FrameCreated += (_, e) => TrackFrame(e.Frame);
+        core.WebResourceRequested += (_, e) => { try { ApiRequested?.Invoke(e.Request.Uri); } catch (Exception) { } };
         core.ContainsFullScreenElementChanged += (_, _) => FullscreenChanged?.Invoke(core.ContainsFullScreenElement);
         core.NavigationCompleted += (_, e) => Navigated?.Invoke(e.IsSuccess, core.Source);
         core.NewWindowRequested += (_, e) => { e.Handled = true; core.Navigate(e.Uri); }; // روابط «شباك جديد» تفتح هنا
@@ -95,6 +98,28 @@ internal sealed class UdemyPane : Panel
         _pendingVolume = volume;
         // نفس الكورس: يوديمي صفحة واحدة بتغيّر الدرس من غير تحميل — بس الأبسط والأضمن نفتح الرابط
         Web.CoreWebView2.Navigate(url);
+    }
+
+    private readonly HashSet<string> _watched = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>نتابع طلبات الصفحة لواجهة موقع (عشان نعرف الدرس اللي اتختار).</summary>
+    public void WatchApi(string apiBase)
+    {
+        if (!_ready || !_watched.Add(apiBase)) return;
+        Web.CoreWebView2.AddWebResourceRequestedFilter(apiBase + "/*", CoreWebView2WebResourceContext.All);
+    }
+
+    /// <summary>درس تاني في نفس الصفحة (الموقع بيغيّر الدرس من غير تحميل): نصفّر الحالة ونستنى الفيديو الجديد.</summary>
+    public void Retarget(long startMs, float rate, int volume)
+    {
+        State = null;
+        _gen++;
+        _mediaFrame = null;
+        _openedTick = Environment.TickCount64;
+        OpenedLectureId = 0;
+        _pendingStartMs = startMs > 3000 ? startMs : -1;
+        _pendingRate = rate;
+        _pendingVolume = volume;
     }
 
     /// <summary>بيقرا حالة الفيديو (من غير ما يستنى — النتيجة في State).</summary>
@@ -148,8 +173,11 @@ internal sealed class UdemyPane : Panel
             has && r.GetProperty("e").GetBoolean(),
             has ? r.GetProperty("r").GetDouble() : 1,
             href);
-        if (has && State.DurationSec > 0) ApplyPending();
+        if (has && State.DurationSec > 0 && !HoldPending) ApplyPending();
     }
+
+    /// <summary>لسه بنختار الدرس في الصفحة: الفيديو الظاهر مش بتاعنا، فماناخدش منه مكان ولا نغيّر سرعته.</summary>
+    public bool HoldPending { get; set; }
 
     /// <summary>كل الإطارات (والإطارات جوه الإطارات) عشان نلاقي الفيديو لو المشغّل من موقع تاني.</summary>
     private void TrackFrame(CoreWebView2Frame frame)

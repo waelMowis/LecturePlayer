@@ -40,7 +40,11 @@ public sealed class VideoItem
     /// <summary>درس يوديمي: بيتشغل جوه صفحة يوديمي (محمي) — مايتنزلش ومايتقراش بـ yt-dlp.</summary>
     [JsonIgnore] public bool IsUdemy => Udemy.IsLecture(Path);
     /// <summary>فيديو نت ينفع يتنزل/يتقري بـ yt-dlp (يوتيوب وغيره، مش يوديمي).</summary>
-    [JsonIgnore] public bool IsDownloadable => IsOnline && !IsUdemy && !IsMoodlePage;
+    [JsonIgnore] public bool IsDownloadable => IsOnline && !IsWebLesson && !IsMoodlePage;
+    /// <summary>درس IT Legend (صفحة الكورس + #node=…) — مشغّل VdoCipher محمي.</summary>
+    [JsonIgnore] public bool IsItLegend => ItLegend.IsLesson(Path);
+    /// <summary>درس بيتشغل بصفحة المنصة جوه مساحة الفيديو (يوديمي، IT Legend).</summary>
+    [JsonIgnore] public bool IsWebLesson => IsUdemy || IsItLegend;
     /// <summary>صفحة نشاط على موقع Moodle (اختبار/استبيان/ملف…) — بتتفتح في متصفحك (اللي إنت داخل بيه).</summary>
     [JsonIgnore] public bool IsMoodlePage => Moodle.IsActivity(Path);
     /// <summary>العنصر ده جاي منين على المنصة («moodle-cm:123») عشان التحديث يلاقيه حتى لو اتغير رابطه.</summary>
@@ -154,7 +158,8 @@ public sealed class LectureGroup
     /// <summary>مربوط بقائمة تشغيل (يوتيوب…) بتتحدّث بـ yt-dlp.</summary>
     /// <summary>قسم من كورس Moodle («moodle-section:رقم»).</summary>
     [JsonIgnore] public bool IsMoodleSection => SourceUrl?.StartsWith("moodle-section:", StringComparison.Ordinal) == true;
-    [JsonIgnore] public bool IsPlaylist => !string.IsNullOrWhiteSpace(SourceUrl) && !IsUdemySection && !IsMoodleSection;
+    [JsonIgnore] public bool IsPlaylist => !string.IsNullOrWhiteSpace(SourceUrl) && !IsUdemySection && !IsMoodleSection && !IsItLegendSection;
+    [JsonIgnore] public bool IsItLegendSection => SourceUrl?.StartsWith("itl-module:", StringComparison.Ordinal) == true;
 
     /// <summary>آخر مرة اتجاب فيها الجديد من القائمة.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

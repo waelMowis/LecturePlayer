@@ -120,7 +120,7 @@ internal sealed partial class MainForm
 
         Transcript? t = null;
         if (v.IsMoodlePage) return null; // صفحة نشاط (اختبار/ملف…) مش فيديو
-        if (v.IsUdemy)
+        if (v.IsWebLesson)
         {
             // الفيديو محمي جوه صفحة يوديمي: مفيش ملف نقرا منه الصوت
             if (interactive) ShowStatus("دروس يوديمي مالهاش ترجمة/ملخص من «مسار» (الفيديو محمي جوه يوديمي) — استخدم ترجمة يوديمي نفسها", 6);

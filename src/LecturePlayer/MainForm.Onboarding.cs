@@ -160,6 +160,7 @@ internal sealed partial class MainForm
         RunDownloadChecks();
         RunUdemyChecks();
         RunMoodleChecks();
+        RunItLegendChecks();
         RunStressAndPlaybackChecks();
 
         // تقرير الأعطال: تسجيل، وقراية، وبناء التقرير، وفتح الشاشة بتاعته

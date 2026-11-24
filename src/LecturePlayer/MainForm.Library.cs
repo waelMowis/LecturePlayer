@@ -1553,6 +1553,8 @@ internal sealed partial class MainForm
                     items.Add(MenuItem("⬇  تنزيل الكورس كله (فيديو أو MP3)…", () => DownloadCourse(c)));
                 if (c.UdemyId != null)
                     items.Add(MenuItem("🎓  حدّث من يوديمي (الدروس الجديدة واللي خلّصته)", () => UdemyImport(c)));
+                if (ItLegend.CourseIdOf(c.SourceUrl) != null)
+                    items.Add(MenuItem("🎓  حدّث من IT Legend (الدروس الجديدة واللي خلّصته)", () => ItLegendImport(c)));
                 if (Moodle.ParseCourseUrl(c.SourceUrl) != null)
                     items.Add(MenuItem("🎓  حدّث من المنصة (الأنشطة الجديدة واللي خلّصته)", () => MoodleImport(c)));
                 items.Add(MoveCourseMenu(c));
@@ -1619,7 +1621,7 @@ internal sealed partial class MainForm
                 if (AdvancedMode) more.Add(MenuItem("تقسيم تلقائي (عند Part 01)…", () => AutoSplitDialog(g)));
                 if (g.Videos.Any(x => x.IsDownloadable))
                     more.Add(MenuItem("⬇  تنزيل فيديوهات يوتيوب (فيديو أو MP3)…", () => DownloadFromLibrary(g.Videos, g.Name)));
-                if (g.IsUdemySection || g.IsMoodleSection) { }
+                if (g.IsUdemySection || g.IsMoodleSection || g.IsItLegendSection) { }
                 else if (g.SourceUrl != null)
                     more.Add(MenuItem("فك الربط بقائمة يوتيوب", () => { Checkpoint("فك الربط"); g.SourceUrl = null; g.InfoUpdatedUtc = DateTime.UtcNow; MarkDirty(); RefreshGroup(g); }));
                 else more.Add(MenuItem("ربط بقائمة تشغيل يوتيوب (عشان الجديد يتضاف)…", () => LinkPlaylist(g)));
@@ -1663,7 +1665,7 @@ internal sealed partial class MainForm
                 if (v.IsOnline)
                 {
                     if (IsDownloaded(v)) more.Add(MenuItem("مسح النسخة المتنزلة", () => RemoveOffline(v)));
-                    else if (!v.IsUdemy) more.Add(MenuItem("⬇  تنزيل (فيديو أو MP3)…", () => DownloadFromLibrary(new[] { v }, v.Title)));
+                    else if (v.IsDownloadable) more.Add(MenuItem("⬇  تنزيل (فيديو أو MP3)…", () => DownloadFromLibrary(new[] { v }, v.Title)));
                     more.Add(MenuItem("فتح في المتصفح", () => OpenInBrowser(v.Path)));
                     more.Add(MenuItem("نسخ الرابط", () => { try { Clipboard.SetText(v.Path); } catch { } }));
                 }

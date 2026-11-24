@@ -18,7 +18,7 @@ internal sealed partial class MainForm
 
     /// <summary>درس يوديمي هو اللي شغال دلوقتي (الصفحة ظاهرة في مساحة الفيديو).</summary>
     /// (بفلاج خاص مش Visible: Visible بيرجع false لو أي أب مستخبي، زي وقت تغيير الشكل)
-    private bool UdemyActive => _udemyShown && _udemyPane != null && _currentVideo is { IsUdemy: true };
+    private bool UdemyActive => _udemyShown && _udemyPane != null && _currentVideo is { IsWebLesson: true };
     private bool _udemyShown;
 
     /// <summary>فيه تشغيل فعلًا (VLC أو صفحة يوديمي).</summary>
@@ -46,6 +46,7 @@ internal sealed partial class MainForm
             var msg = new Message();
             ProcessCmdKey(ref msg, key);
         };
+        pane.ApiRequested += OnItLegendApiRequest;
         pane.FullscreenChanged += fs => { if (fs != _fullscreen && !IsDisposed) ToggleFullscreen(); };
         pane.Navigated += (ok, url) =>
         {
@@ -71,10 +72,16 @@ internal sealed partial class MainForm
         HideBanner("udemy");
         try
         {
-            await pane.OpenAsync(v.Path, startMs, _activeRate, _muted ? 0 : _settings.Volume);
+            string platform = v.IsItLegend ? "IT Legend" : "يوديمي";
+            if (v.IsItLegend) { await pane.EnsureReadyAsync(); pane.WatchApi(ItLegendClient.TestApi ?? ItLegend.Api); }
+            if (v.IsItLegend && ItLegend.ParseLesson(v.Path) is { } l && ItLegend.CourseIdOf(pane.Web.CoreWebView2?.Source) == l.CourseId)
+                pane.Retarget(startMs, _activeRate, _muted ? 0 : _settings.Volume); // نفس الكورس مفتوح: نختار الدرس بس من غير تحميل الصفحة
+            else
+                await pane.OpenAsync(v.IsItLegend ? ItLegend.CourseUrl(ItLegend.ParseLesson(v.Path)!.CourseId) : v.Path, startMs, _activeRate, _muted ? 0 : _settings.Volume);
             if (request != _playRequest) return;
+            if (v.IsItLegend) BeginItLegendSelect(v);
             if (_muted) pane.SetMuted(true);
-            ShowStatus(startMs > 3000 ? $"يوديمي — استكمال من {TimeFormat.Format(startMs)}" : "يوديمي — بيفتح الدرس…", 4);
+            ShowStatus(startMs > 3000 ? $"{platform} — استكمال من {TimeFormat.Format(startMs)}" : $"{platform} — بيفتح الدرس…", 4);
         }
         catch (Exception ex)
         {
@@ -119,7 +126,8 @@ internal sealed partial class MainForm
         var v = _currentVideo;
         var s = _udemyPane?.State;
         if (v == null || s is not { HasVideo: true } || s.TimeMs <= 0) return;
-        if (Udemy.ItemKey(s.Href) is { } k && k != Udemy.ItemKey(v.Path)) return; // الصفحة على درس تاني
+        if (v.IsUdemy && Udemy.ItemKey(s.Href) is { } k && k != Udemy.ItemKey(v.Path)) return; // الصفحة على درس تاني
+        if (v.IsItLegend && _itlPendingNode != null) return; // لسه بنختار الدرس: الوقت ده بتاع الدرس اللي قبله
         if (Math.Abs(v.LastPositionMs - s.TimeMs) > 1000) v.Touch();
         v.LastPositionMs = s.TimeMs;
         MarkDirty();
@@ -135,7 +143,8 @@ internal sealed partial class MainForm
         if (s == null) return;
 
         // يوديمي بيروح للدرس التالي لوحده (أو إنت اخترت درس من جوه الصفحة): «مسار» يمشي معاه
-        string? pageKey = Udemy.ItemKey(s.Href);
+        if (v.IsItLegend) { ItLegendSelectTick(v); if (_itlPendingNode != null || pane.HoldPending) return; }
+        string? pageKey = v.IsUdemy ? Udemy.ItemKey(s.Href) : null;
         if (pageKey != null && pageKey != Udemy.ItemKey(v.Path) && pane.MsSinceOpen > 3000)
         {
             if (FollowUdemyLecture(v, pageKey)) return;
@@ -178,6 +187,13 @@ internal sealed partial class MainForm
         var course = _library.FindCourseOf(from);
         var target = course?.AllVideos.FirstOrDefault(x => Udemy.ItemKey(x.Path) == itemKey);
         if (target == null || _library.FindGroupOf(target) is not { } g) return false;
+        FollowWebLesson(from, g, target);
+        return true;
+    }
+
+    /// <summary>الدرس اتغيّر جوه الصفحة: «مسار» يخلّيه هو الحالي في الشجرة من غير ما يفتح الصفحة تاني.</summary>
+    private void FollowWebLesson(VideoItem from, LectureGroup g, VideoItem target)
+    {
 
         // اللي قبله خلص لو يوديمي مشي للتالي لوحده
         if (!from.Watched && from.DurationMs > 0 && from.LastPositionMs >= from.DurationMs * 0.85) MarkUdemyWatched(from);
@@ -185,7 +201,7 @@ internal sealed partial class MainForm
         var previousGroup = _currentGroup;
         _currentGroup = g;
         _currentVideo = target;
-        _udemyPane!.AdoptLecture(Udemy.LectureId(target.Path));
+        _udemyPane!.AdoptLecture(target.IsUdemy ? Udemy.LectureId(target.Path) : 0);
         if (target.IsNew) { target.IsNew = false; target.Touch(); }
         _library.LastGroupId = g.Id;
         _library.LastVideoPath = target.Path;
@@ -198,7 +214,6 @@ internal sealed partial class MainForm
         UpdateNowPlaying();
         UpdateTitle();
         RefreshNotesPane();
-        return true;
     }
 
     // =====================================================================

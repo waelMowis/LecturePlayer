@@ -292,6 +292,7 @@ internal sealed partial class MainForm
                 return n.Length == 2 && n[1] > 0 && Math.Abs(n[0] - n[1]) <= 3;
             }, 8000), "iframe player fills the pane: " + fit3);
             SaveSmokeShot(this, "lesson-iframe-player");
+            RunItLegendFlowCheck(Until);
 
             // فيديو عادي بعد يوديمي: الشاشة ترجع لـ VLC والصفحة تتقفل
             StopPlayback();
