@@ -298,7 +298,7 @@ internal sealed partial class MainForm
     {
         bool current = b == _currentBook && ReaderShown;
         n.Text = Modern.Bidi(b.Title);
-        string meta = b.PageCount > 0 ? $"{Math.Max(1, b.LastPage)}/{b.PageCount}" : b.IsOnline ? "🌐" : "جديد";
+        string meta = b.IsDone && b.PageCount > 0 ? $"{b.PageCount} ص" : b.PageCount > 0 ? $"{Math.Max(1, b.LastPage)}/{b.PageCount}" : b.IsOnline ? "🌐" : "جديد";
         _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, b.IsDone, current, b.IsStarted && !b.IsDone ? b.Fraction : -1));
         bool missing = !b.IsOnline && !FileCache.Exists(b.LocalPath);
         n.ImageKey = n.SelectedImageKey = missing ? "missing" : ShelfImageKey("book", "book_open", b.IconKey, b.ColorHex, Theme.CourseColor, b.IsDone);
