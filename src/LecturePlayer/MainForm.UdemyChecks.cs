@@ -102,30 +102,50 @@ internal sealed partial class MainForm
     private void RunPlatformCaptureCheck(Func<Func<bool>, int, bool> until)
     {
         static void Check(bool ok, string what) { if (!ok) throw new Exception("platform capture: " + what); }
-        string root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "masar-capture-site")).FullName;
-        Directory.CreateDirectory(Path.Combine(root, "api"));
-        File.WriteAllText(Path.Combine(root, "api", "course.json"), """
+        const string api = """
             {"data":{"title":"C# oop","sections":[{"id":"a1","title":"Date And Time","lessons":[{"id":"l1","title":"intro","duration":61,"videoId":"abc"}]}]},
              "user":{"email":"wael@example.com","phone":"966500000000","accessToken":"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig"}}
-            """);
-        File.WriteAllText(Path.Combine(root, "index.html"), """
-            <!doctype html><html><body><script>fetch('/api/course.json').then(r => r.json()).then(d => document.body.textContent = d.data.title);</script></body></html>
-            """);
+            """;
+        const string page = "<!doctype html><html><body><script>fetch('/api/course.json?lang=ar').then(r => r.json()).then(d => document.body.textContent = d.data.title);</script></body></html>";
+        var listener = new System.Net.HttpListener();
+        int port = 0;
+        for (int a = 0; a < 10; a++)
+        {
+            port = Random.Shared.Next(48000, 52000);
+            listener = new System.Net.HttpListener();
+            listener.Prefixes.Add($"http://localhost:{port}/");
+            try { listener.Start(); break; } catch (System.Net.HttpListenerException) { }
+        }
+        new Thread(() =>
+        {
+            while (listener.IsListening)
+            {
+                try
+                {
+                    var ctx = listener.GetContext();
+                    bool isApi = ctx.Request.Url!.AbsolutePath.StartsWith("/api/");
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(isApi ? api : page);
+                    ctx.Response.ContentType = (isApi ? "application/json" : "text/html") + "; charset=utf-8";
+                    ctx.Response.OutputStream.Write(bytes);
+                    ctx.Response.Close();
+                }
+                catch { return; }
+            }
+        }) { IsBackground = true }.Start();
         string file = Path.Combine(Log.LogDir, "smoke-capture.txt");
         try { File.Delete(file); } catch { }
-        PlatformCaptureForm.SmokeSetup = core => core.SetVirtualHostNameToFolderMapping("cap.masar.test", root, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
         try
         {
-            using var form = new PlatformCaptureForm("capture", "https://cap.masar.test/index.html", "smoke-capture.txt");
+            using var form = new PlatformCaptureForm("capture", $"http://localhost:{port}/index.html", "smoke-capture.txt");
             form.Show(this);
-            Check(until(() => form.Captured >= 1, 30_000), "captured the page's json");
+            Check(until(() => form.ApiCaptured >= 1, 30_000), "captured the page's json (api " + form.ApiCaptured + ", all " + form.Captured + ")");
             form.Close();
             string text = File.ReadAllText(file);
-            Check(text.Contains("$.data.sections[0].lessons[0].title : string = intro") && text.Contains("GET cap.masar.test/api/course.json"), "shape saved: " + text[..Math.Min(600, text.Length)]);
+            Check(text.Contains("$.data.sections[0].lessons[0].title : string = intro") && text.Contains($"GET localhost/api/course.json?lang=…"), "shape saved: " + text[..Math.Min(900, text.Length)]);
             Check(!text.Contains("wael@example.com") && !text.Contains("966500000000") && !text.Contains("eyJhbGci"), "no personal data or tokens in the capture");
             Console.WriteLine("SMOKE platform capture: ok");
         }
-        finally { PlatformCaptureForm.SmokeSetup = null; try { File.Delete(file); } catch { } }
+        finally { try { listener.Stop(); } catch { } try { File.Delete(file); } catch { } }
     }
 
     private void RunUdemyPaneCheck()

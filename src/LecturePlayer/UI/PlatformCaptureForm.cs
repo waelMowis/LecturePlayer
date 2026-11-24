@@ -26,7 +26,9 @@ internal sealed class PlatformCaptureForm : Form
     private readonly Dictionary<string, string> _shapes = new();   // نمط الرابط → الشكل
     private readonly List<string> _pages = new();
     private readonly HashSet<string> _frames = new();
-    private int _captured;
+    private int _captured, _api;
+    /// <summary>عدد أنواع بيانات السيرفر (من غير الصفحات نفسها).</summary>
+    public int ApiCaptured => _api;
 
     public string CaptureFile => _file;
     internal static Action<CoreWebView2>? SmokeSetup;
@@ -132,17 +134,21 @@ internal sealed class PlatformCaptureForm : Form
             string uri = e.Request.Uri;
             if (StaticRx.IsMatch(uri) || !Uri.TryCreate(uri, UriKind.Absolute, out var u)) return;
             if (!u.Host.Contains(_host, StringComparison.OrdinalIgnoreCase) && !u.Host.Contains("vdocipher", StringComparison.OrdinalIgnoreCase)) return;
-            string type = e.Response.Headers.GetHeader("Content-Type") ?? "";
-            if (!type.Contains("json", StringComparison.OrdinalIgnoreCase) && !type.Contains("x-component", StringComparison.OrdinalIgnoreCase)) return;
+            string type = "";
+            try { type = e.Response.Headers.GetHeader("Content-Type") ?? ""; } catch (Exception) { }
+            bool json = type.Contains("json", StringComparison.OrdinalIgnoreCase);
+            if (!json && !type.Contains("x-component", StringComparison.OrdinalIgnoreCase) && type.Length > 0) return;
             using var stream = await e.Response.GetContentAsync();
             if (stream == null) return;
             using var reader = new StreamReader(stream, Encoding.UTF8);
             string body = await reader.ReadToEndAsync();
+            if (type.Length == 0) { string t = body.TrimStart(); if (!(t.StartsWith('{') || t.StartsWith('['))) return; json = true; }
             string key = e.Request.Method + " " + Pattern(u);
-            string shape = type.Contains("json", StringComparison.OrdinalIgnoreCase) ? Shape(body) : "RSC: " + Redact(body.Length > 1500 ? body[..1500] : body);
+            string shape = json ? Shape(body) : "RSC: " + Redact(body.Length > 1500 ? body[..1500] : body);
             lock (_shapes)
             {
                 if (_shapes.TryGetValue(key, out var old) && old.Length >= shape.Length) return;
+                if (!_shapes.ContainsKey(key)) _api++;
                 _shapes[key] = $"status {e.Response.StatusCode}, {body.Length} bytes\n{shape}";
                 _captured = _shapes.Count;
             }
