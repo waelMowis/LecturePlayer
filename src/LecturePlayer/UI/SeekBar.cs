@@ -421,11 +421,12 @@ internal sealed class LectureTreeView : TreeView
         }
         Color color = node.ForeColor.IsEmpty ? Theme.Muted : node.ForeColor;
         string text = node.Text;
-        var ts = TextRenderer.MeasureText(g, text, _dividerFont, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+        var ts = TextRenderer.MeasureText(g, text, _dividerFont, new Size(int.MaxValue, row.Height), TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
         int maxText = Math.Max(20, w - pad * 4);
-        var tr = new Rectangle(pad, row.Y, Math.Min(ts.Width + 2, maxText), row.Height);
+        // مساحة زيادة للعنوان: القياس والرسم بيختلفوا شوية في العربي العريض (وإلا بيتقص «…»)
+        var tr = new Rectangle(pad, row.Y, Math.Min(ts.Width + LogicalToDeviceUnits(10), maxText), row.Height);
         TextRenderer.DrawText(g, text, _dividerFont, tr, color,
-            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
         int lx = tr.Right + pad, lw = Math.Max(1, LogicalToDeviceUnits(2));
         if (lx < w - pad)
             using (var line = new SolidBrush(Modern.Blend(Theme.Muted, BackColor, 0.55)))
