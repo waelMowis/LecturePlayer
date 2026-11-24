@@ -773,6 +773,7 @@ internal sealed partial class MainForm : Form
             SubMenu("📚  كتب (PDF)",
                 Item("كتب من ملفات…", () => AddBooksDialog(SelectedShelfContext())),
                 Item("كتب من فولدر (رف للفولدر)…", () => AddBooksFromFolderDialog(SelectedShelfContext())),
+                Item("كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(SelectedShelfContext())),
                 Item("رف جديد…", () => AddShelfDialog(null))),
             new ToolStripSeparator(),
             Item("🔄  هات الجديد من كل الفولدرات المتابَعة", () => _ = SyncLinkedFoldersAsync(null, manual: true)),

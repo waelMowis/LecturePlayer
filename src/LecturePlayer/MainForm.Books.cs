@@ -121,7 +121,7 @@ internal sealed partial class MainForm
         _shelfEmpty.RightToLeft = RightToLeft.Yes;
         _shelfEmpty.Cursor = Cursors.Hand;
         _shelfEmpty.AllowDrop = true;
-        _shelfEmpty.Text = "رف الكتب فاضي\n\nاضغط هنا عشان تضيف كتب (PDF)\nمن ملفات أو فولدر — على الجهاز أو في فولدر\nGoogle Drive / Dropbox / OneDrive\n\nأو اسحب الملفات وارميها هنا";
+        _shelfEmpty.Text = "رف الكتب فاضي\n\nاضغط هنا عشان تضيف كتب (PDF)\nمن ملفات أو فولدر على الجهاز،\nأو رابط Google Drive / Dropbox / OneDrive\n\nأو اسحب الملفات وارميها هنا";
         _shelfEmpty.Click += (_, _) => addMenu.Show(_shelfEmpty, new Point(_shelfEmpty.Width / 2, _shelfEmpty.Height / 2));
         _shelfEmpty.DragEnter += (_, e) => e.Effect = BookFilesIn(e.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None;
         _shelfEmpty.DragDrop += (_, e) => DropBookFiles(BookFilesIn(e.Data), null);
@@ -439,6 +439,7 @@ internal sealed partial class MainForm
         string where = shelf != null ? $" في «{shelf.Name}»" : "";
         items.Add(MenuItem("➕  كتب (PDF) من ملفات…" + where, () => AddBooksDialog(shelf)));
         items.Add(MenuItem("➕  كتب من فولدر (رف للفولدر)…" + where, () => AddBooksFromFolderDialog(shelf)));
+        items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…" + where, () => AddBookLinksDialog(shelf)));
         items.Add(Sep());
         items.Add(MenuItem(shelf != null ? $"➕  رف جوه «{shelf.Name}»…" : "➕  رف جديد…", () => AddShelfDialog(shelf)));
         if (shelf != null) items.Add(MenuItem("➕  رف جديد (أساسي)…", () => AddShelfDialog(null)));
@@ -452,6 +453,7 @@ internal sealed partial class MainForm
         items.Add(Sep());
         items.Add(MenuItem("➕  كتب (PDF) من ملفات…", () => AddBooksDialog(s)));
         items.Add(MenuItem("➕  كتب من فولدر (رف للفولدر)…", () => AddBooksFromFolderDialog(s)));
+        items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(s)));
         items.Add(MenuItem("➕  رف جوه الرف ده…", () => AddShelfDialog(s)));
         if (s.SourceFolder != null)
         {
@@ -485,6 +487,11 @@ internal sealed partial class MainForm
     {
         items.Add(MenuItem(b.IsStarted && b.LastPage > 1 && !b.IsDone ? $"▶  كمّل من صفحة {b.LastPage}" : "▶  افتح الكتاب", () => OpenBook(b), "Enter"));
         if (b.LastPage > 1) items.Add(MenuItem("⏮  افتحه من الأول", () => OpenBook(b, 1)));
+        if (b.IsOnline)
+        {
+            items.Add(Sep());
+            items.Add(MenuItem(File.Exists(BookFile(b)) ? "🔄  هات أحدث نسخة من المصدر" : "🔄  نزّل الكتاب على الجهاز", () => _ = RefreshOnlineBookAsync(b)));
+        }
         items.Add(Sep());
         items.Add(MenuItem("✏  إعادة تسمية…", () => RenameShelfItem(b), "F2"));
         items.Add(AppearanceMenuItem(b));
@@ -498,8 +505,12 @@ internal sealed partial class MainForm
             MenuItem(b.IsDone ? "رجّعه «مش مقروء»" : "تعليمه «اتقرا»", () => SetBooksDone(new[] { b }, !b.IsDone), "W"),
             MenuItem("↺  تصفير التقدّم…", () => { if (Confirm($"تصفّر الصفحات المقروءة في «{b.Title}»؟")) ResetBook(b); })));
         var src = new List<ToolStripItem>();
-        if (!b.IsOnline) src.Add(MenuItem("📂  افتح مكان الملف", () => OpenInExplorer(b.LocalPath)));
-        src.Add(MenuItem("📂  افتحه في البرنامج العادي للـ PDF", () => OpenExternally(b)));
+        if (b.IsOnline) src.Add(MenuItem("🌐  افتح الرابط في المتصفح", () => OpenInBrowser(b.Path)));
+        if (File.Exists(BookFile(b)))
+        {
+            src.Add(MenuItem("📂  افتح مكان الملف" + (b.IsOnline ? " (النسخة المتنزلة)" : ""), () => OpenInExplorer(BookFile(b))));
+            src.Add(MenuItem("📂  افتحه في البرنامج العادي للـ PDF", () => OpenExternally(b)));
+        }
         if (!b.IsOnline && !FileCache.Exists(b.LocalPath)) src.Add(MenuItem("📂  حدّد مكان الملف…", () => RelocateBook(b)));
         items.Add(SubMenuOf("📂  الملف", src.ToArray()));
         items.Add(Sep());
@@ -963,7 +974,7 @@ internal sealed partial class MainForm
 
     private void OpenExternally(Book b)
     {
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(b.IsOnline ? b.Path : b.LocalPath) { UseShellExecute = true })?.Dispose(); }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(BookFile(b)) { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتحه: " + ex.Message); }
     }
 
@@ -988,7 +999,7 @@ internal sealed partial class MainForm
     private void QueueProbe(IEnumerable<Book> books)
     {
         foreach (var b in books)
-            if (b.PageCount <= 0 && !b.IsOnline && !LibraryFiles.IsCloudPath(b.LocalPath) && !_bookProbeQueue.Contains(b))
+            if (b.PageCount <= 0 && (b.IsOnline ? File.Exists(BookFile(b)) : !LibraryFiles.IsCloudPath(b.LocalPath)) && !_bookProbeQueue.Contains(b))
                 _bookProbeQueue.Enqueue(b);
         if (!_bookProbing && _bookProbeQueue.Count > 0 && ReaderPane.Available) _ = BookProbeLoopAsync();
     }
@@ -1004,8 +1015,8 @@ internal sealed partial class MainForm
             while (_bookProbeQueue.Count > 0 && !IsDisposed)
             {
                 var b = _bookProbeQueue.Dequeue();
-                if (!_library.Books.Contains(b) || b.PageCount > 0 || !File.Exists(b.LocalPath)) continue;
-                var info = await pane.ProbeAsync(b.LocalPath);
+                if (!_library.Books.Contains(b) || b.PageCount > 0 || !File.Exists(BookFile(b))) continue;
+                var info = await pane.ProbeAsync(BookFile(b));
                 if (info == null || IsDisposed || !_library.Books.Contains(b)) continue;
                 ApplyDocInfo(b, info);
                 RefreshBookRowsOrTree(b);
@@ -1084,10 +1095,10 @@ internal sealed partial class MainForm
         }
         if (b.IsOnline)
         {
-            ShowStatus("الكتب من الروابط جاية في التحديث الجاي — دلوقتي ضيف الملف من الجهاز أو من فولدر الدرايف", 6);
-            return;
+            // من رابط: من النسخة المتنزلة على الجهاز (ولو مش متنزلة: ننزّلها الأول)
+            if (!File.Exists(BookFile(b))) { _ = FetchBookAsync(b, open: true); return; }
         }
-        if (!File.Exists(b.LocalPath))
+        else if (!File.Exists(b.LocalPath))
         {
             FileCache.Forget(b.LocalPath);
             if (!File.Exists(b.LocalPath))
@@ -1133,7 +1144,8 @@ internal sealed partial class MainForm
         if (_shelfMode) RebuildShelf();
         try
         {
-            _readerGen = await pane.OpenAsync(b.LocalPath, b.Title, b, Math.Max(1, _settings.ReadSeconds), _settings.ReaderTheme, b.Read.Pages);
+            _readerGen = await pane.OpenAsync(BookFile(b), b.Title, b, Math.Max(1, _settings.ReadSeconds), _settings.ReaderTheme, b.Read.Pages);
+            if (b.IsOnline) _ = CheckBookUpdateAsync(b);
             ShowStatus(b.LastPage > 1 && page == null ? $"«{b.Title}» — كمّل من صفحة {b.LastPage}" : $"«{b.Title}»", 4);
         }
         catch (Exception ex)

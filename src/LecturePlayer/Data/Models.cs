@@ -27,6 +27,10 @@ public sealed class VideoItem
     /// <summary>علامات مرجعية جوه الفيديو (B).</summary>
     public List<Bookmark> Bookmarks { get; set; } = new();
 
+    /// <summary>ملف PDF للنشاط (مورد Moodle مثلًا) — بيتفتح في قارئ الكتب بدل المتصفح.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FileUrl { get; set; }
+
     /// <summary>
     /// آخر مرة حالة الفيديو اتغيرت (مكان الاستكمال، المشاهدة، الملاحظات، العلامات).
     /// بيستخدم في الدمج بين الأجهزة: الأحدث يكسب.

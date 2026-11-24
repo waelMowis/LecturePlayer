@@ -405,6 +405,8 @@ internal sealed partial class MainForm
     private void OpenAttachment(Attachment a)
     {
         string target = Storage.ResolveAttachment(a, _libraryPath);
+        // PDF: في قارئ الكتب (بيفتكر الصفحة وبيتابع قرايتك)
+        if (IsReadableAttachment(a, target)) { OpenCoursePdf(target, a.Name); return; }
         if (!a.IsLink && !File.Exists(target) && !Directory.Exists(target))
         {
             Dialogs.Error(this, "الملف مش موجود على الجهاز ده:\n" + a.Target);

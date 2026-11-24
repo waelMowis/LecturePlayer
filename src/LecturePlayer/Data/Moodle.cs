@@ -13,6 +13,8 @@ public sealed record MoodleCourse(long Id, string Title, string? Instructor);
 public sealed record MoodleModule(long Id, string Name, string ModName, string Url, bool Completed, string? Video = null)
 {
     public string? Video { get; set; } = Video;
+    /// <summary>ملف PDF (مورد/resource) — بيتفتح في قارئ الكتب.</summary>
+    public string? Pdf { get; set; }
 }
 
 public sealed record MoodleSection(long Id, string Name, List<MoodleModule> Modules);
@@ -212,7 +214,12 @@ public static class Moodle
                         foreach (var f in contents.EnumerateArray())
                             if (YouTubeIdIn(Str(f, "fileurl")) is { } yt) { video = yt; break; }
                     video ??= YouTubeIdIn(Str(m, "description"));
-                    mods.Add(new MoodleModule(id, Clean(Str(m, "name")) ?? mod, mod, url!, done, video == null ? null : WatchUrl(video)));
+                    string? pdf = null;
+                    if (mod is "resource" && m.TryGetProperty("contents", out var files) && files.ValueKind == JsonValueKind.Array)
+                        foreach (var f in files.EnumerateArray())
+                            if (Str(f, "fileurl") is { } fu && (Str(f, "mimetype") == "application/pdf" || (Str(f, "filename") ?? "").EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)))
+                            { pdf = fu; break; }
+                    mods.Add(new MoodleModule(id, Clean(Str(m, "name")) ?? mod, mod, url!, done, video == null ? null : WatchUrl(video)) { Pdf = pdf });
                 }
             if (mods.Count == 0) continue;
             string name = Clean(Str(s, "name")) ?? "";
@@ -306,6 +313,7 @@ public static class Moodle
                 {
                     // كان صفحة ولقيناله فيديو دلوقتي → يبقى فيديو (المكان والملاحظات بيفضلوا)
                     if (mod.Video != null && v.Path != mod.Video) { v.Path = mod.Video; v.Title = StripIcon(v.Title); v.Touch(); }
+                    if (mod.Pdf != v.FileUrl) { v.FileUrl = mod.Pdf; v.Touch(); }
                 }
                 else
                 {
@@ -314,6 +322,7 @@ public static class Moodle
                         Path = path,
                         Title = mod.Video != null ? mod.Name : Icon(mod.ModName) + mod.Name,
                         SourceRef = mref,
+                        FileUrl = mod.Pdf,
                         IsNew = !firstImport,
                         UpdatedUtc = DateTime.UtcNow
                     };
