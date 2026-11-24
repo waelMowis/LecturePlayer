@@ -11,9 +11,11 @@ namespace LecturePlayer.UI;
 /// </summary>
 internal sealed class ReaderPane : Panel
 {
+    /// <summary>
+    /// كل حاجة (صفحة القارئ وPDF.js والكتب نفسها) بتتقدّم من البرنامج على عنوان واحد وهمي (نفس المصدر = مفيش مشاكل CORS):
+    /// /book/{رقم}/{الاسم} = ملف الكتاب من مكانه على الجهاز (بيدعم Range للكتب الكبيرة)، والباقي من فولدر Reader.
+    /// </summary>
     public const string ReaderHost = "reader.masar";
-    private const string BookHost = "book.masar";
-    private const string ProbeHost = "probe.masar";
 
     public sealed record DocInfo(int Pages, string? Fingerprint, string? Title, string? Author, List<Data.BookChapter> Outline);
     public sealed record State(int Page, int Pages, string Scale, double? Top, double? Left, int Spread, string Theme, bool Rtl);
@@ -40,7 +42,8 @@ internal sealed class ReaderPane : Panel
 
     private Task? _init;
     private TaskCompletionSource? _pageReady;
-    private string? _bookDir;
+    /// <summary>الملفات المسموح بيها (رقم ← المسار): الصفحة ماتقدرش تطلب أي ملف تاني من الجهاز.</summary>
+    private readonly Dictionary<string, string> _served = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TaskCompletionSource<DocInfo?>> _probes = new();
     private readonly SemaphoreSlim _probeGate = new(1, 1);
 
@@ -67,7 +70,8 @@ internal sealed class ReaderPane : Panel
         core.Settings.IsZoomControlEnabled = false;      // Ctrl+العجلة = تكبير الكتاب مش الصفحة
         core.Settings.AreDefaultContextMenusEnabled = true; // نسخ النص
         try { core.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark; } catch { }
-        core.SetVirtualHostNameToFolderMapping(ReaderHost, ReaderDir, CoreWebView2HostResourceAccessKind.Allow);
+        core.AddWebResourceRequestedFilter($"https://{ReaderHost}/*", CoreWebView2WebResourceContext.All);
+        core.WebResourceRequested += OnResource;
         core.WebMessageReceived += OnMessage;
         core.NewWindowRequested += (_, e) =>
         {
@@ -96,15 +100,8 @@ internal sealed class ReaderPane : Panel
         int gen = ++Generation;
         Current = null;
         Info = null;
-        string dir = Path.GetDirectoryName(Path.GetFullPath(file)) ?? "";
         var core = Web.CoreWebView2;
-        if (!string.Equals(_bookDir, dir, StringComparison.OrdinalIgnoreCase))
-        {
-            if (_bookDir != null) try { core.ClearVirtualHostNameToFolderMapping(BookHost); } catch { }
-            core.SetVirtualHostNameToFolderMapping(BookHost, dir, CoreWebView2HostResourceAccessKind.Allow);
-            _bookDir = dir;
-        }
-        string url = $"https://{BookHost}/{Uri.EscapeDataString(Path.GetFileName(file))}?v={Stamp(file)}";
+        string url = Serve(file);
         var o = new Dictionary<string, object?>
         {
             ["gen"] = gen, ["url"] = url, ["title"] = title,
@@ -117,10 +114,96 @@ internal sealed class ReaderPane : Panel
         return gen;
     }
 
+    /// <summary>عنوان الملف جوه القارئ (رقم جديد لكل نسخة من الملف عشان الكاش).</summary>
+    private string Serve(string file)
+    {
+        string full = Path.GetFullPath(file);
+        string token = Stamp(full);
+        _served[token] = full;
+        return $"https://{ReaderHost}/book/{token}/{Uri.EscapeDataString(Path.GetFileName(full))}";
+    }
+
     private static string Stamp(string file)
     {
-        try { var i = new FileInfo(file); return i.Length.ToString("x") + i.LastWriteTimeUtc.Ticks.ToString("x"); }
-        catch { return "0"; }
+        string key = file.ToUpperInvariant();
+        try { var i = new FileInfo(file); key += "|" + i.Length + "|" + i.LastWriteTimeUtc.Ticks; } catch { }
+        return Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes(key)))[..20].ToLowerInvariant();
+    }
+
+    private static readonly Dictionary<string, string> Mime = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".html"] = "text/html; charset=utf-8", [".js"] = "text/javascript; charset=utf-8", [".mjs"] = "text/javascript; charset=utf-8",
+        [".css"] = "text/css; charset=utf-8", [".wasm"] = "application/wasm", [".svg"] = "image/svg+xml", [".png"] = "image/png",
+        [".gif"] = "image/gif", [".json"] = "application/json", [".pdf"] = "application/pdf", [".epub"] = "application/epub+zip",
+        [".txt"] = "text/plain; charset=utf-8"
+    };
+
+    /// <summary>بيرد على طلبات القارئ: ملفات القارئ من فولدره، والكتب من مكانها (مع Range).</summary>
+    private void OnResource(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
+    {
+        try
+        {
+            var env = Web.CoreWebView2.Environment;
+            var uri = new Uri(e.Request.Uri);
+            string path = Uri.UnescapeDataString(uri.AbsolutePath);
+            if (path.StartsWith("/book/", StringComparison.Ordinal))
+            {
+                string[] parts = path.Split('/', 4, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2 || !_served.TryGetValue(parts[1], out var file) || !File.Exists(file))
+                {
+                    e.Response = env.CreateWebResourceResponse(null, 404, "Not Found", "Content-Type: text/plain");
+                    return;
+                }
+                e.Response = FileResponse(env, file, e.Request.Headers.Contains("Range") ? e.Request.Headers.GetHeader("Range") : null);
+                return;
+            }
+            string root = Path.GetFullPath(ReaderDir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            string local = Path.GetFullPath(Path.Combine(root, path.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
+            if (!local.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !File.Exists(local))
+            {
+                e.Response = env.CreateWebResourceResponse(null, 404, "Not Found", "Content-Type: text/plain");
+                return;
+            }
+            string type = Mime.TryGetValue(Path.GetExtension(local), out var t) ? t : "application/octet-stream";
+            var fs = new FileStream(local, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            e.Response = env.CreateWebResourceResponse(fs, 200, "OK", $"Content-Type: {type}\r\nContent-Length: {fs.Length}\r\nCache-Control: no-cache");
+        }
+        catch (Exception ex)
+        {
+            Data.Log.Info("reader resource: " + ex.Message);
+            try { e.Response = Web.CoreWebView2.Environment.CreateWebResourceResponse(null, 500, "Error", "Content-Type: text/plain"); } catch { }
+        }
+    }
+
+    private static CoreWebView2WebResourceResponse FileResponse(CoreWebView2Environment env, string file, string? range)
+    {
+        var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16);
+        long len = fs.Length;
+        string type = Mime.TryGetValue(Path.GetExtension(file), out var t) ? t : "application/octet-stream";
+        const string common = "Accept-Ranges: bytes\r\nCache-Control: no-store";
+        if (range != null && range.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase) && !range.Contains(','))
+        {
+            string[] r = range[6..].Split('-');
+            bool okStart = long.TryParse(r[0], out long start);
+            bool okEnd = r.Length > 1 && long.TryParse(r[1], out long end0);
+            long end = okEnd ? long.Parse(r[1]) : len - 1;
+            if (!okStart && okEnd) { start = Math.Max(0, len - long.Parse(r[1])); end = len - 1; okStart = true; }
+            if (okStart && start < len && end >= start)
+            {
+                end = Math.Min(end, len - 1);
+                int count = (int)Math.Min(end - start + 1, 64L << 20);
+                var buf = new byte[count];
+                fs.Seek(start, SeekOrigin.Begin);
+                int read = 0;
+                while (read < count) { int n = fs.Read(buf, read, count - read); if (n <= 0) break; read += n; }
+                fs.Dispose();
+                return env.CreateWebResourceResponse(new MemoryStream(buf, 0, read), 206, "Partial Content",
+                    $"Content-Type: {type}\r\nContent-Length: {read}\r\nContent-Range: bytes {start}-{start + read - 1}/{len}\r\n{common}");
+            }
+            fs.Dispose();
+            return env.CreateWebResourceResponse(null, 416, "Range Not Satisfiable", $"Content-Range: bytes */{len}\r\n{common}");
+        }
+        return env.CreateWebResourceResponse(fs, 200, "OK", $"Content-Type: {type}\r\nContent-Length: {len}\r\n{common}");
     }
 
     public Task CloseBookAsync() => Run("masar.close()");
@@ -149,13 +232,10 @@ internal sealed class ReaderPane : Panel
         try
         {
             var core = Web.CoreWebView2;
-            string dir = Path.GetDirectoryName(Path.GetFullPath(file)) ?? "";
-            try { core.ClearVirtualHostNameToFolderMapping(ProbeHost); } catch { }
-            core.SetVirtualHostNameToFolderMapping(ProbeHost, dir, CoreWebView2HostResourceAccessKind.Allow);
             string id = Guid.NewGuid().ToString("N");
             var tcs = new TaskCompletionSource<DocInfo?>(TaskCreationOptions.RunContinuationsAsynchronously);
             _probes[id] = tcs;
-            string url = $"https://{ProbeHost}/{Uri.EscapeDataString(Path.GetFileName(file))}?v={Stamp(file)}";
+            string url = Serve(file);
             await core.ExecuteScriptAsync($"masar.probe({JsonSerializer.Serialize(id)}, {JsonSerializer.Serialize(url)})");
             var done = await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs));
             _probes.Remove(id);
