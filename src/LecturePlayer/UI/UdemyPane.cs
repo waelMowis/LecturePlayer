@@ -177,6 +177,7 @@ internal sealed class UdemyPane : Panel
     }
 
     /// <summary>لسه بنختار الدرس في الصفحة: الفيديو الظاهر مش بتاعنا، فماناخدش منه مكان ولا نغيّر سرعته.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool HoldPending { get; set; }
 
     /// <summary>كل الإطارات (والإطارات جوه الإطارات) عشان نلاقي الفيديو لو المشغّل من موقع تاني.</summary>
