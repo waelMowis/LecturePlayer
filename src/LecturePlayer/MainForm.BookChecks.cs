@@ -170,7 +170,7 @@ internal sealed partial class MainForm
             Check(_pagesSession >= 1, "pages counted for the journal");
             var mark = AddPageMark(book1, 7, "مهم");
             Check(book1.Marks.Count == 1 && ShelfNodeOf(new BookMarkRef(book1, mark)) != null, "page mark in the tree");
-            SaveSmokeShot(this, "books-reader");
+            Until(() => false, 600); SaveSmokeShot(this, "books-reader");
 
             // فيديو بعد كتاب ← القارئ يتقفل، والرئيسية فيها «كمّل القراية»
             GoHome();
@@ -178,7 +178,7 @@ internal sealed partial class MainForm
             Check(_homeCards.Controls.Count > 0, "home shows the book card");
             if (_journal != null)
                 Check(JournalEntries.Any(e => e.Kind == JournalEntry.Pages && e.CourseId == "book:" + book1.Id && e.Score >= 1), "pages in the study journal");
-            SaveSmokeShot(this, "books-home");
+            Until(() => false, 600); SaveSmokeShot(this, "books-home");
 
             // يرجع لنفس الصفحة
             OpenBook(book1);
@@ -218,6 +218,10 @@ internal sealed partial class MainForm
             Menu(new BookMarkRef(b1, b1.Marks[0]), "mark", true);
             Menu(null, "empty", false);
 
+            var rootNode = _shelfNodes[_library.Shelves.First(x => x.Id == shelf.Id)];
+            Check(rootNode.IsExpanded && rootNode.Nodes.Count == 2, "shelf expanded with its children: " + rootNode.Nodes.Count);
+            _shelfTree.SelectedNode = _shelfNodes[b1];
+            Until(() => false, 600);
             SaveSmokeShot(this, "books-shelf");
             Console.WriteLine("SMOKE books: ok");
         }
