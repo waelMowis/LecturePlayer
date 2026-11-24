@@ -42,7 +42,7 @@ internal sealed partial class MainForm
         first.Notes = "ملاحظتي";
         var r2 = ItLegend.Apply(course, src!, ItLegend.ParseNodes(FakeItLegend.Nodes(extra: true)), firstImport: false);
         Check(r2.AddedItems == 1 && ReferenceEquals(course.Groups[0].Videos[0], first) && first.Notes == "ملاحظتي", "refresh keeps items: " + r2);
-        Check(course.Groups[0].Videos[1] is { IsNew: true } nv && nv.Title == "1.5-New lesson", "new lesson in order");
+        Check(course.Groups[0].Videos[2] is { IsNew: true } nv && nv.Title == "1.5-New lesson", "new lesson in order");
     }
 
     /// <summary>الشباك + المشغّل قدام موقع IT Legend وهمي (من جوه فحص المشغّل عشان إطار المشغّل متجهز).</summary>
