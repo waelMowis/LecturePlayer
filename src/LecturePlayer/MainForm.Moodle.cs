@@ -420,9 +420,4 @@ internal sealed partial class MainForm
         ShowStatus("اتشال الدخول المحفوظ ✓", 4);
     }
 
-    private ToolStripItem[] MoodleMenuItems() => new ToolStripItem[]
-    {
-        Item("🎓  Moodle / مهارة تك — كورساتي (استيراد بحسابك)…", () => MoodleImport()),
-        Adv(Item("شيل دخول Moodle المحفوظ", MoodleSignOut)),
-    };
 }

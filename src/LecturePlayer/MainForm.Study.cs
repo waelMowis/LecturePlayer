@@ -679,6 +679,18 @@ internal sealed partial class MainForm
             "اختار فولدر كورس من جهازك (أو اسحبه وارميه هنا)", Theme.Folder, ImportCourseDialog));
         _homeActions.Controls.Add(Tile(Glyphs.Link, empty ? "ضيف رابط يوتيوب" : "رابط يوتيوب",
             "فيديو أو قائمة تشغيل كاملة من يوتيوب", Theme.Danger, () => AddUrlsDialog(null)));
+        ActionTile? platformTile = null;
+        platformTile = Tile(Glyphs.Education, empty ? "كورس من منصة" : "من منصة",
+            "كورساتك على يوديمي أو مهارة تك أو IT Legend بحسابك", Theme.Accent, () =>
+            {
+                var m = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
+                m.Items.Add(MenuItem("🎓  يوديمي (بحسابك)…", () => UdemyImport()));
+                m.Items.Add(MenuItem("🎓  مهارة تك أو أي موقع Moodle…", () => MoodleImport()));
+                m.Items.Add(MenuItem("🎓  IT Legend…", () => ItLegendImport()));
+                m.Closed += (_, _) => BeginInvoke(m.Dispose);
+                m.Show(platformTile!, new Point(0, platformTile!.Height));
+            });
+        _homeActions.Controls.Add(platformTile);
         _homeActions.Controls.Add(Tile(Glyphs.Radio, empty ? "اسمع راديو أو شوف الحرم" : "بث مباشر",
             "آلاف محطات الراديو، وبث مباشر من مكة والمدينة", Theme.Success, ShowLiveWindow));
         if (empty)

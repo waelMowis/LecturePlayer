@@ -595,11 +595,7 @@ internal sealed partial class MainForm : Form
         titleRow.Controls.Add(title);
         var moreMenu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
         ToolStripMenuItem MoreItem(string text, Action click) { var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text }; i.Click += (_, _) => click(); moreMenu.Items.Add(i); return i; }
-        Adv(MoreItem("تقسيم المحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup())));
-        Adv(MoreItem("بيانات الكورس المحدد…  (F4)", () => EditCourseInfo(SelectedCourse())));
-        var moreSep = new ToolStripSeparator();
-        moreMenu.Items.Add(moreSep);
-        moreMenu.Opening += (_, _) => { foreach (ToolStripItem i in moreMenu.Items) ApplyMode(i, AdvancedMode); TidySeparators(moreMenu.Items); };
+        // «···»: عرض الشجرة وترتيبها (أوامر الحاجة المحددة في كليك يمين وفي قايمة «المكتبة»)
         MoreItem("ترتيب الكورسات بالاسم", SortCourses);
         var sepAll = MoreItem("➖  فواصل بين كل الموضوعات", () => ToggleAllTopicSeparators());
         moreMenu.Opening += (_, _) => sepAll.Checked = _settings.TopicSeparators;
@@ -702,55 +698,96 @@ internal sealed partial class MainForm : Form
     //  المنيو
     // =====================================================================
 
+    /// <summary>
+    /// شريط القوايم (المرحلة التانية من ترتيب الأوامر): 9 قوايم ثابتة في الوضع البسيط والمتقدم —
+    /// ملف · تعديل · المكتبة · التشغيل · عرض · مذاكرة · ذكاء · إنترنت · مساعدة.
+    /// كل أمر ليه مكان واحد حسب معناه، والوضع المتقدم بيغيّر عناصر الشاشة بس (مش الأوامر).
+    /// </summary>
     private void BuildMenus()
     {
+        // ---------------- ملف: المكتبة كملف ----------------
         var file = SubMenu("ملف",
             Item("مكتبة جديدة…", NewLibraryDialog, Keys.Control | Keys.N),
             Item("فتح مكتبة…", OpenLibraryDialog, Keys.Control | Keys.O),
+            _recentMenu = SubMenu("المكتبات الأخيرة"),
+            new ToolStripSeparator(),
             Item("حفظ", () => { SaveLibrary(); ShowStatus("اتحفظ ✓"); }, Keys.Control | Keys.S),
             Item("حفظ المكتبة باسم…", SaveLibraryAsDialog, Keys.Control | Keys.Shift | Keys.S),
+            new ToolStripSeparator(),
             Item("نقل المكتبة لـ OneDrive / Google Drive (مزامنة بين الأجهزة)…", MoveLibraryToCloudDialog),
             Item("استرجاع نسخة احتياطية…", RestoreBackupDialog),
             new ToolStripSeparator(),
-            Adv(Item("حفظ ملاحظات الكورس المحدد في ملف…", () => ExportNotesDialog(null), Keys.Control | Keys.E)),
-            new ToolStripSeparator(),
-            _recentMenu = SubMenu("المكتبات الأخيرة"),
-            new ToolStripSeparator(),
             Item("فتح مكان ملف المكتبة", () => { if (HasLibrary) OpenInExplorer(_libraryPath); }),
             Item("قفل المكتبة (البرنامج يفضل مفتوح)", () => { if (HasLibrary) StartWithoutLibrary(); }),
-            Adv(Item("فتح فولدر البيانات (المكتبات والإعدادات)", () =>
-            {
-                Directory.CreateDirectory(Storage.AppDataDir);
-                try { System.Diagnostics.Process.Start("explorer.exe", $"\"{Storage.AppDataDir}\""); } catch { }
-            })),
             new ToolStripSeparator(),
             Item("خروج", Close, Keys.Alt | Keys.F4));
         _recentMenu.DropDownOpening += (_, _) => BuildRecentMenu();
         _recentMenu.DropDownItems.Add(new ToolStripMenuItem("…"));
 
-        var groups = SubMenu("الكورسات والمحاضرات",
-            Item("إضافة كورس من فولدر…", ImportCourseDialog, Keys.Control | Keys.I),
-            Item("إضافة من يوتيوب…", () => AddUrlsDialog(null), display: "Ctrl+U"),
-            Item("هات الجديد من كل الفولدرات المتابَعة", () => _ = SyncLinkedFoldersAsync(null, manual: true)),
+        // ---------------- تعديل ----------------
+        var undo = Item("تراجع", UndoLast, display: "Ctrl+Z");
+        var redo = Item("إعادة", RedoLast, display: "Ctrl+Y");
+        var edit = SubMenu("تعديل",
+            undo, redo,
+            new ToolStripSeparator(),
+            Item("إعادة تسمية المحدد…", RenameSelected, display: "F2"),
+            Item("حذف المحدد…", DeleteSelected, display: "Delete"),
+            new ToolStripSeparator(),
+            Item("بحث في المكتبة", () => { if (_split.Panel2Collapsed) ToggleSidePanel(); _searchBox.Focus(); }, display: "Ctrl+F"),
+            new ToolStripSeparator(),
+            Item("الإعدادات…", SettingsDialog, Keys.Control | Keys.Oemcomma, "Ctrl+,"));
+        edit.DropDownOpening += (_, _) =>
+        {
+            undo.Text = _undo.CanUndo ? $"تراجع: {_undo.UndoLabel}" : "تراجع";
+            undo.Enabled = _undo.CanUndo;
+            redo.Text = _undo.CanRedo ? $"إعادة: {_undo.RedoLabel}" : "إعادة";
+            redo.Enabled = _undo.CanRedo;
+        };
+
+        // ---------------- المكتبة: الإضافة بترتيب الشجرة، وبعدها التحديث والتنظيم ----------------
+        var addHere = SubMenu("➕  إضافة (حسب المحدد في الشجرة)");
+        addHere.DropDownOpening += (_, _) =>
+        {
+            foreach (var old in addHere.DropDownItems.Cast<ToolStripItem>().ToList()) old.Dispose();
+            addHere.DropDownItems.Clear();
+            BuildAddMenu(_tree.SelectedNode?.Tag, addHere.DropDownItems);
+        };
+        addHere.DropDownItems.Add(new ToolStripMenuItem("…"));
+        var sepAll = Item("فواصل بين كل الموضوعات", ToggleAllTopicSeparators);
+        var library = SubMenu("المكتبة",
+            addHere,
             new ToolStripSeparator(),
             Item("موضوع جديد…", () => AddTopic(), Keys.Control | Keys.Shift | Keys.N),
-            Item("مصدر جديد جوه الموضوع المحدد…", AddPlaceFromMenu),
-            Item("كورس فاضي جديد…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
-            Item("محاضرة فاضية جديدة في الكورس المحدد…", () => AddGroup(), Keys.Control | Keys.G),
-            Item("إضافة فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),
+            Item("مصدر جديد في الموضوع المحدد…", AddPlaceFromMenu),
+            Item("كورس من فولدر…", ImportCourseDialog, Keys.Control | Keys.I),
+            Item("كورس من يوتيوب…", () => AddUrlsDialog(null), display: "Ctrl+U"),
+            SubMenu("كورس من منصة",
+                Item("🎓  يوديمي (بحسابك)…", () => UdemyImport()),
+                Item("🎓  مهارة تك أو أي موقع Moodle…", () => MoodleImport()),
+                Item("🎓  IT Legend…", () => ItLegendImport())),
+            Item("كورس فاضي…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
+            Item("محاضرة فاضية في الكورس المحدد…", () => AddGroup(), Keys.Control | Keys.G),
+            Item("فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),
             new ToolStripSeparator(),
-            Adv(Item("تقسيم تلقائي للمحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup()))),
-            Adv(Item("ترتيب فيديوهات المحاضرة المحددة بالاسم", () => SortGroupVideos(SelectedGroup()))),
-            Adv(Item("ترتيب محاضرات الكورس المحدد بالاسم", () => SortGroups(SelectedCourse()))),
-            Adv(Item("ترتيب الكورسات بالاسم", SortCourses)),
-            Adv(new ToolStripSeparator()),
-            Adv(Item("بيانات الكورس المحدد…", () => EditCourseInfo(SelectedCourse()), display: "F4")),
+            Item("🔄  هات الجديد من كل الفولدرات المتابَعة", () => _ = SyncLinkedFoldersAsync(null, manual: true)),
+            Item("🔄  هات الجديد من كل قوايم يوتيوب", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
             new ToolStripSeparator(),
+            Item("بيانات الكورس المحدد…", () => EditCourseInfo(SelectedCourse()), Keys.F4),
+            Item("تقسيم تلقائي للمحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup())),
+            SubMenu("ترتيب بالاسم",
+                Item("فيديوهات المحاضرة المحددة", () => SortGroupVideos(SelectedGroup())),
+                Item("محاضرات الكورس المحدد", () => SortGroups(SelectedCourse())),
+                Item("الكورسات", SortCourses)),
+            new ToolStripSeparator(),
+            sepAll,
             Item("فتح الكل", () => SetAllExpanded(true), display: "Ctrl+Shift+]"),
             Item("قفل الكل", () => SetAllExpanded(false), display: "Ctrl+Shift+["),
             new ToolStripSeparator(),
+            Item("حفظ ملاحظات الكورس المحدد في ملف…", () => ExportNotesDialog(null), Keys.Control | Keys.E),
             Item("تصفير المشاهدة للمكتبة كلها…", () => ResetWatched(_library.AllVideos, "كل الكورسات")));
+        library.DropDownOpening += (_, _) => sepAll.Checked = _settings.TopicSeparators;
 
+        // ---------------- التشغيل: كل حاجة بتأثر على الفيديو اللي شغال ----------------
         _autoNextItem = Item("تشغيل الفيديو التالي تلقائيًا", () =>
         {
             _settings.AutoPlayNext = !_settings.AutoPlayNext;
@@ -766,26 +803,6 @@ internal sealed partial class MainForm : Form
             _settings.ResumePosition = !_settings.ResumePosition;
             _resumeItem.Checked = _settings.ResumePosition;
         });
-
-        var play = SubMenu("التشغيل",
-            Item("تشغيل / إيقاف مؤقت", TogglePlay, display: "Space"),
-            Item("كمّل الكورس المحدد من آخر مكان", () => { if (SelectedCourse() is { } c) PlayCourse(c); }),
-            Item("الفيديو التالي", () => PlayNext(false), display: "PageDown"),
-            Item("الفيديو السابق", PlayPrevious, display: "PageUp"),
-            Item("إيقاف", StopPlayback),
-            new ToolStripSeparator(),
-            Item("أسرع", () => ChangeRate(+1), display: "C"),
-            Item("أبطأ", () => ChangeRate(-1), display: "X"),
-            Item("السرعة العادية", () => SetRate(1f), display: "Z"),
-            new ToolStripSeparator(),
-            _autoNextItem, _continueGroupsItem, _resumeItem,
-            SubMenu("التكرار بعد ما الفيديو يخلص", BuildRepeatMenuItems()),
-            new ToolStripSeparator(),
-            Item("ملء الشاشة", ToggleFullscreen, display: "F11"),
-            Item("إظهار / إخفاء المكتبة", ToggleSidePanel, display: "F6"),
-            _alwaysOnTopItem = Item("دايمًا فوق الشبابيك التانية", ToggleAlwaysOnTop, display: "T"),
-            Item("الشاشة الرئيسية", GoHome, display: "Alt+Home"));
-
         var tracks = SubMenu("الترجمة والصوت");
         tracks.DropDownOpening += (_, _) => BuildTracksMenu(tracks);
         tracks.DropDownItems.Add(new ToolStripMenuItem("…"));
@@ -797,24 +814,32 @@ internal sealed partial class MainForm : Form
             normalize.Checked = _settings.NormalizeAudio;
             ShowStatus("هيتطبق المرة الجاية اللي تفتح فيها البرنامج", 5);
         };
-
-        var study = SubMenu("مذاكرة",
-            Item("علامة عند اللحظة دي", () => AddBookmark(false), display: "B"),
-            Item("علامة بملاحظة…", () => AddBookmark(true), display: "Shift+B"),
-            Adv(Item("كرّر جزء معيّن (بداية ونهاية)", CycleAbLoop, display: "A")),
-            Item("لقطة شاشة", TakeScreenshot, display: "S"),
-            Item("فتح فولدر اللقطات", OpenSnapshotsFolder),
-            Adv(new ToolStripSeparator()),
-            Adv(Item("حفظ ملاحظات الكورس في ملف…", () => ExportNotesDialog(null), display: "Ctrl+E")),
+        var skip = Item("تخطي السكوت تلقائيًا", ToggleSkipSilence, display: "Shift+S");
+        var sleep = BuildSleepMenu();
+        var play = SubMenu("التشغيل",
+            Item("تشغيل / إيقاف مؤقت", TogglePlay, display: "Space"),
+            Item("كمّل الكورس المحدد من آخر مكان", () => { if (SelectedCourse() is { } c) PlayCourse(c); }),
+            Item("الفيديو التالي", () => PlayNext(false), display: "PageDown"),
+            Item("الفيديو السابق", PlayPrevious, display: "PageUp"),
+            Item("إيقاف", StopPlayback),
             new ToolStripSeparator(),
-            Adv(Item("إحصائيات المذاكرة", ShowStats, Keys.F8)),
-            Adv(Item("بومودورو (تشغيل / إيقاف)", TogglePomodoro, Keys.F9)),
-            Adv(Item("بيانات الكورس المحدد (الموعد والوسوم)…", () => EditCourseInfo(SelectedCourse()), Keys.F4)),
-            Item("الإعدادات…", SettingsDialog, Keys.Control | Keys.Oemcomma, "Ctrl+,"),
+            Item("أسرع", () => ChangeRate(+1), display: "C"),
+            Item("أبطأ", () => ChangeRate(-1), display: "X"),
+            Item("السرعة العادية", () => SetRate(1f), display: "Z"),
             new ToolStripSeparator(),
-            tracks,
-            Adv(normalize));
+            tracks, normalize, skip,
+            new ToolStripSeparator(),
+            _autoNextItem, _continueGroupsItem, _resumeItem,
+            SubMenu("التكرار بعد ما الفيديو يخلص", BuildRepeatMenuItems()),
+            new ToolStripSeparator(),
+            sleep);
+        play.DropDownOpening += (_, _) =>
+        {
+            skip.Checked = _settings.SkipSilence;
+            sleep.Text = _sleepAtUtc is { } at ? $"مؤقت النوم ({Math.Max(1, (int)Math.Ceiling((at - DateTime.UtcNow).TotalMinutes))} د)" : "مؤقت النوم";
+        };
 
+        // ---------------- عرض: شكل الشباك ----------------
         var seekPreview = Item("صورة معاينة على شريط التقديم", () => { });
         seekPreview.Checked = _settings.SeekPreview;
         seekPreview.Click += (_, _) =>
@@ -823,87 +848,65 @@ internal sealed partial class MainForm : Form
             seekPreview.Checked = _settings.SeekPreview;
             if (_settings.SeekPreview && Tools.FindFfmpeg() == null) _ = EnsureFfmpegAsync("صورة المعاينة");
         };
-        var tools = SubMenu("أدوات",
-            Item("تراجع", UndoLast, display: "Ctrl+Z"),
-            Item("إعادة", RedoLast, display: "Ctrl+Y"),
-            new ToolStripSeparator(),
+        var view = SubMenu("عرض",
+            Item("ملء الشاشة", ToggleFullscreen, display: "F11"),
+            Item("إظهار / إخفاء المكتبة", ToggleSidePanel, display: "F6"),
             Item("المشغل الصغير", ToggleMiniMode, display: "P"),
-            Adv(seekPreview),
+            _alwaysOnTopItem = Item("دايمًا فوق الشبابيك التانية", ToggleAlwaysOnTop, display: "T"),
+            Item("الشاشة الرئيسية", GoHome, display: "Alt+Home"),
             new ToolStripSeparator(),
-            Adv(Item("تنزيل أداة الفيديو (للمعاينة والتنزيل وتحويل الكلام لنص)…", () => _ = EnsureFfmpegAsync("معاينة الشريط وتنزيل يوتيوب وتحويل الكلام لنص"))),
-            Item("⬇  التنزيلات…", ShowDownloadsPanel),
+            seekPreview,
             new ToolStripSeparator(),
-            Adv(Item("فتح فولدر الأدوات", () => OpenDataFolder("tools"))),
-            Item("فتح فولدر الفيديوهات المتنزلة", () => OpenDataFolder("offline")),
-            Item("فتح فولدر سجل الأخطاء", () => OpenDataFolder("logs")));
-        tools.DropDownOpening += (_, _) =>
-        {
-            ((ToolStripMenuItem)tools.DropDownItems[0]).Text = _undo.CanUndo ? $"تراجع: {_undo.UndoLabel}" : "تراجع";
-            ((ToolStripMenuItem)tools.DropDownItems[0]).Enabled = _undo.CanUndo;
-            ((ToolStripMenuItem)tools.DropDownItems[1]).Text = _undo.CanRedo ? $"إعادة: {_undo.RedoLabel}" : "إعادة";
-            ((ToolStripMenuItem)tools.DropDownItems[1]).Enabled = _undo.CanRedo;
-        };
+            _advancedItem = Item("الوضع المتقدم (أزرار جانبية وشريط حالة زيادة)", () => SetAdvancedMode(!AdvancedMode)));
 
+        // ---------------- مذاكرة: العلامات والمراجعة والتركيز والإحصائيات ----------------
+        var study = SubMenu("مذاكرة",
+            Item("علامة عند اللحظة دي", () => AddBookmark(false), display: "B"),
+            Item("علامة بملاحظة…", () => AddBookmark(true), display: "Shift+B"),
+            Item("علامة مراجعة (تفكّرني أراجعها)…", AddReviewBookmark, display: "R"),
+            Item("لقطة شاشة", TakeScreenshot, display: "S"),
+            Item("كرّر جزء معيّن (بداية ونهاية)", CycleAbLoop, display: "A"),
+            new ToolStripSeparator(),
+            Item("مراجعة النهارده…", ShowReview, Keys.F7),
+            Item("الأجزاء الصعبة في الفيديو ده", ShowDifficultSpots),
+            Item("«اللي فات» في الكورس ده", () => { var c = CurrentOrSelectedCourse(); if (c != null) ShowRecap(c, force: true); }),
+            new ToolStripSeparator(),
+            Item("بومودورو (تشغيل / إيقاف)", TogglePomodoro, Keys.F9),
+            Item("وضع التركيز الصارم…", StartFocusDialog),
+            Item("إنهاء وضع التركيز", () => EndFocus(early: true)),
+            new ToolStripSeparator(),
+            Item("إحصائيات المذاكرة", ShowStats, Keys.F8),
+            Item("صفحة إنجازاتي (تفتح في المتصفح)…", ExportAchievements),
+            new ToolStripSeparator(),
+            Item("معمل الكود…", () => OpenCodeLab(""), Keys.Control | Keys.L));
+
+        // ---------------- مساعدة ----------------
         var help = SubMenu("مساعدة",
-            Item("التحقق من التحديثات", () => _ = CheckForUpdatesAsync(manual: true)),
-            Adv(Item("مستودع التحديثات على GitHub…", SetUpdateRepoDialog)),
-            new ToolStripSeparator(),
-            _advancedItem = Item("الوضع المتقدم (كل الأدوات)", () => SetAdvancedMode(!AdvancedMode)),
-            new ToolStripSeparator(),
             Item("دليل الاستخدام", () => HelpGuide.Open(this), display: "F1"),
             Item("جولة سريعة (3 خطوات)", StartTour),
             Item("اختصارات الكيبورد", ShowShortcuts),
+            new ToolStripSeparator(),
+            Item("التحقق من التحديثات", () => _ = CheckForUpdatesAsync(manual: true)),
+            Item("مستودع التحديثات على GitHub…", SetUpdateRepoDialog),
+            new ToolStripSeparator(),
+            SubMenu("فتح فولدر",
+                Item("البيانات (المكتبات والإعدادات)", () =>
+                {
+                    Directory.CreateDirectory(Storage.AppDataDir);
+                    try { System.Diagnostics.Process.Start("explorer.exe", $"\"{Storage.AppDataDir}\""); } catch { }
+                }),
+                Item("الفيديوهات المتنزلة", () => OpenDataFolder("offline")),
+                Item("اللقطات", OpenSnapshotsFolder),
+                Item("سجل الأخطاء", () => OpenDataFolder("logs")),
+                Item("الأدوات", () => OpenDataFolder("tools"))),
+            new ToolStripSeparator(),
             Item("عن البرنامج", () => AboutDialog.Show(this, UpdateChecker.CurrentVersion.ToString(3) + (Application.ProductVersion.Contains("-test") ? " (نسخة تجريبية)" : ""),
                 "محرك التشغيل: VLC (LibVLCSharp)\nفيديوهات النت: yt-dlp + Deno\nمنصة التشغيل: .NET " + Environment.Version.ToString(2) +
                 "\n\nملف المكتبة الحالية:\n" + _libraryPath +
                 "\n\nفولدر البيانات" + (Storage.IsPortable ? " (جنب البرنامج)" : " (%AppData% — مفيش صلاحية كتابة جنب البرنامج)") +
                 ":\n" + Storage.AppDataDir)));
 
-        var online = BuildOnlineMenu();
-        var live = BuildLiveMenu();
-        _menuFile = file; _menuGroups = groups; _menuTools = tools; _menuOnline = online; _menuLive = live;
-        _menu.Items.AddRange(new ToolStripItem[] { file, groups, play, study, Adv(BuildSmartMenu()), Adv(BuildBoldMenu()), online, live, tools, help });
-    }
-
-    // القوايم اللي بتتنقل في الوضع البسيط
-    private ToolStripMenuItem _menuFile = null!, _menuGroups = null!, _menuTools = null!, _menuOnline = null!, _menuLive = null!;
-    private readonly ToolStripSeparator _fileNestSep = new(), _onlineNestSep = new();
-
-    /// <summary>
-    /// الوضع البسيط: 5 قوايم بس فوق (ملف، التشغيل، مذاكرة، إنترنت، مساعدة).
-    /// «الكورسات والمحاضرات» و«أدوات» بيبقوا جوه «ملف»، و«بث مباشر» جوه «إنترنت» — نفس الأوامر ونفس الاختصارات.
-    /// الوضع المتقدم: كل قايمة لوحدها زي ما كانت.
-    /// </summary>
-    private void ArrangeMenus(bool adv)
-    {
-        if (_menuFile == null) return;
-        bool nested = _menuFile.DropDownItems.Contains(_menuGroups);
-        if (!adv && !nested)
-        {
-            _menu.SuspendLayout();
-            _menu.Items.Remove(_menuGroups);
-            _menu.Items.Remove(_menuTools);
-            _menu.Items.Remove(_menuLive);
-            _menuFile.DropDownItems.Insert(0, _menuGroups);
-            _menuFile.DropDownItems.Insert(1, _menuTools);
-            _menuFile.DropDownItems.Insert(2, _fileNestSep);
-            _menuOnline.DropDownItems.Insert(0, _menuLive);
-            _menuOnline.DropDownItems.Insert(1, _onlineNestSep);
-            _menu.ResumeLayout(true);
-        }
-        else if (adv && nested)
-        {
-            _menu.SuspendLayout();
-            _menuFile.DropDownItems.Remove(_menuGroups);
-            _menuFile.DropDownItems.Remove(_menuTools);
-            _menuFile.DropDownItems.Remove(_fileNestSep);
-            _menuOnline.DropDownItems.Remove(_menuLive);
-            _menuOnline.DropDownItems.Remove(_onlineNestSep);
-            _menu.Items.Insert(_menu.Items.IndexOf(_menuFile) + 1, _menuGroups);
-            _menu.Items.Insert(_menu.Items.IndexOf(_menuOnline) + 1, _menuLive);
-            _menu.Items.Insert(_menu.Items.IndexOf(_menuLive) + 1, _menuTools);
-            _menu.ResumeLayout(true);
-        }
+        _menu.Items.AddRange(new ToolStripItem[] { file, edit, library, play, view, study, BuildSmartMenu(), BuildOnlineMenu(), help });
     }
 
     private static ToolStripMenuItem SubMenu(string text, params ToolStripItem[] items)

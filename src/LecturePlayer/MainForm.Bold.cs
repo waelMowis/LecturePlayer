@@ -23,25 +23,6 @@ internal sealed partial class MainForm
 
     private readonly HashSet<string> _recapShown = new();
 
-    private ToolStripMenuItem BuildBoldMenu()
-    {
-        var skip = Item("تخطي السكوت تلقائيًا", ToggleSkipSilence, display: "Shift+S");
-        skip.Checked = _settings.SkipSilence;
-        var menu = SubMenu("تركيز ومراجعة",
-            Item("مراجعة النهارده…", ShowReview, Keys.F7),
-            Item("علامة مراجعة عند اللحظة دي…", AddReviewBookmark, display: "R"),
-            Item("الأجزاء الصعبة في الفيديو ده", ShowDifficultSpots),
-            new ToolStripSeparator(),
-            Item("وضع التركيز الصارم…", StartFocusDialog),
-            Item("إنهاء وضع التركيز", () => EndFocus(early: true)),
-            skip,
-            new ToolStripSeparator(),
-            Item("«اللي فات» في الكورس ده", () => { var c = CurrentOrSelectedCourse(); if (c != null) ShowRecap(c, force: true); }),
-            Item("صفحة إنجازاتي (تفتح في المتصفح)…", ExportAchievements),
-            Item("معمل الكود…", () => OpenCodeLab(""), Keys.Control | Keys.L));
-        menu.DropDownOpening += (_, _) => skip.Checked = _settings.SkipSilence;
-        return menu;
-    }
 
     private Course? CurrentOrSelectedCourse() =>
         (_currentGroup != null ? _library.FindCourseOf(_currentGroup) : null) ?? SelectedCourse();

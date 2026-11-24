@@ -376,9 +376,4 @@ internal sealed partial class MainForm
         form.ShowDialog(this);
     }
 
-    private ToolStripItem[] UdemyMenuItems() => new ToolStripItem[]
-    {
-        Item("🎓  يوديمي — كورساتي (استيراد بحسابك)…", () => UdemyImport()),
-        Adv(Item("خروج من حساب يوديمي", UdemySignOut)),
-    };
 }

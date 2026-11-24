@@ -46,20 +46,21 @@ internal sealed partial class MainForm
         ApplyMode();
         SaveSettings();
         ShowBanner(on
-                ? "اتفتح الوضع المتقدم: كل الأدوات بقت ظاهرة (الذكاء الاصطناعي، الإحصائيات، المراجعة، التركيز، معمل الكود)"
-                : "رجعت للوضع البسيط: الأدوات المتقدمة اتخبت (تقدر ترجّعها من مساعدة ← الوضع المتقدم)",
+                ? "الوضع المتقدم: أزرار البحث والمراجعة والإحصائيات في الشريط الجانبي، وشريط الحالة تحت — والقوايم هي هي"
+                : "الوضع البسيط: شاشة أهدى (من غير الأزرار الزيادة وشريط الحالة) — كل الأوامر لسه في القوايم زي ما هي (عرض ← الوضع المتقدم)",
             BannerKind.Info, seconds: 8);
     }
 
     private void ApplyMode()
     {
         bool adv = AdvancedMode;
-        ArrangeMenus(adv);
         if (_statusHost.Visible != StatusBarWanted) _statusHost.Visible = StatusBarWanted;
-        foreach (ToolStripItem top in _menu.Items) ApplyMode(top, adv);
         foreach (var b in _advancedActivity) b.Visible = adv;
         if (_advancedItem != null) _advancedItem.Checked = adv;
     }
+
+    private static int CountHidden(ToolStripItemCollection items) =>
+        items.OfType<ToolStripItem>().Sum(i => (i.Available ? 0 : 1) + (i is ToolStripDropDownItem dd ? CountHidden(dd.DropDownItems) : 0));
 
     private static void ApplyMode(ToolStripItem item, bool adv)
     {
@@ -127,9 +128,12 @@ internal sealed partial class MainForm
             _settings.AdvancedMode = adv;
             ApplyMode();
             var tops = _menu.Items.Cast<ToolStripItem>().Where(i => i.Available).Select(i => i.Text).ToList();
-            Console.WriteLine($"SMOKE menus ({(adv ? "advanced" : "simple")}): {tops.Count} — {string.Join(" | ", tops)}");
-            if (!adv && tops.Count != 5) throw new Exception($"simple mode should show 5 top menus, got {tops.Count}");
-            if (adv && tops.Count != 10) throw new Exception($"advanced mode should show 10 top menus, got {tops.Count}");
+            Console.WriteLine($"SMOKE menus ({(adv ? "advanced" : "simple")}): {tops.Count}");
+            // نفس القوايم ونفس الأوامر في الوضعين (الفرق في عناصر الشاشة بس)
+            if (!tops.SequenceEqual(new[] { "ملف", "تعديل", "المكتبة", "التشغيل", "عرض", "مذاكرة", "ذكاء", "إنترنت", "مساعدة" }))
+                throw new Exception("top menus: " + string.Join(" | ", tops));
+            int hidden = CountHidden(_menu.Items);
+            if (hidden > 0) throw new Exception($"{hidden} menu commands hidden in {(adv ? "advanced" : "simple")} mode");
             if (_statusHost.Visible != adv) throw new Exception($"status bar visible={_statusHost.Visible} in {(adv ? "advanced" : "simple")} mode");
             if (!adv)
             {

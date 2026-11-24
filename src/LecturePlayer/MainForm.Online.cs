@@ -48,33 +48,36 @@ internal sealed partial class MainForm
         whole.Click += (_, _) => { _settings.WholePlaylist = !_settings.WholePlaylist; whole.Checked = _settings.WholePlaylist; };
         whole.Checked = _settings.WholePlaylist;
 
-        var udemy = UdemyMenuItems();
-        var moodle = MoodleMenuItems();
+        var platforms = SubMenu("🎓  كورساتي على المنصات",
+            Item("يوديمي — استيراد بحسابك…", () => UdemyImport()),
+            Item("مهارة تك أو أي موقع Moodle…", () => MoodleImport()),
+            Item("IT Legend…", () => ItLegendImport()),
+            new ToolStripSeparator(),
+            Item("خروج من حساب يوديمي", UdemySignOut),
+            Item("شيل دخول Moodle المحفوظ", MoodleSignOut));
         return SubMenu("إنترنت",
             Item("إضافة رابط فيديو أو قائمة تشغيل…", () => AddUrlsDialog(null), Keys.Control | Keys.U),
             Item("لصق رابط من الحافظة", PasteUrls, display: "Ctrl+V"),
             new ToolStripSeparator(),
+            platforms,
+            new ToolStripSeparator(),
             Item("⬇  تنزيل من يوتيوب (فيديو MP4 أو صوت MP3)…", () => OpenDownloadDialog(null), Keys.Control | Keys.D),
             Item("التنزيلات…", ShowDownloadsPanel),
             new ToolStripSeparator(),
-            udemy[0],
-            moodle[0],
-            Item("🎓  IT Legend — كورساتي (استيراد بحسابك)…", () => ItLegendImport()),
-            udemy[1],
-            moodle[1],
-            new ToolStripSeparator(),
-            Item("🔄 تحديث قوائم يوتيوب (هات الفيديوهات الجديدة)", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
+            BuildLiveMenu(),
             new ToolStripSeparator(),
             quality,
-            Adv(whole),
-            new ToolStripSeparator(),
-            Adv(Item("تنزيل أدوات يوتيوب…", () => _ = DownloadToolsAsync(askFirst: true, includeDeno: true))),
-            Item("تحديث أداة يوتيوب (لو اليوتيوب وقف يشتغل)", () => _ = UpdateYtDlpAsync()),
-            Adv(Item("فتح فولدر الأدوات", () =>
-            {
-                Directory.CreateDirectory(YtDlp.ToolsDir);
-                try { Process.Start("explorer.exe", $"\"{YtDlp.ToolsDir}\"")?.Dispose(); } catch { }
-            })));
+            whole,
+            SubMenu("أدوات يوتيوب والفيديو",
+                Item("تحديث أداة يوتيوب (لو اليوتيوب وقف يشتغل)", () => _ = UpdateYtDlpAsync()),
+                Item("تنزيل أدوات يوتيوب…", () => _ = DownloadToolsAsync(askFirst: true, includeDeno: true)),
+                Item("تنزيل أداة الفيديو (للمعاينة والتنزيل وتحويل الكلام لنص)…", () => _ = EnsureFfmpegAsync("معاينة الشريط وتنزيل يوتيوب وتحويل الكلام لنص")),
+                new ToolStripSeparator(),
+                Item("فتح فولدر الأدوات", () =>
+                {
+                    Directory.CreateDirectory(YtDlp.ToolsDir);
+                    try { Process.Start("explorer.exe", $"\"{YtDlp.ToolsDir}\"")?.Dispose(); } catch { }
+                })));
     }
 
     private void SetOnlineQuality(int height)

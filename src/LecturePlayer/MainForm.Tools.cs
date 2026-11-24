@@ -218,12 +218,9 @@ internal sealed partial class MainForm
         Add("📝  علامة بملاحظة…", "Shift+B", () => AddBookmark(true), video);
         Add("📷  صورة من الشاشة (لقطة)", "S", TakeScreenshot, video);
         Add(_loopA < 0 ? "🔁  كرّر جزء: ابدأ من هنا" : _loopB < 0 ? "🔁  كرّر جزء: لحد هنا" : "🔁  وقّف تكرار الجزء", "A", CycleAbLoop, video);
-        if (AdvancedMode)
-        {
-            menu.Items.Add(new ToolStripSeparator());
-            Add("📌  علامة مراجعة (تفكّرني أراجعها)…", "R", AddReviewBookmark, video);
-            Add("📋  انسخ الكلام المكتوب على الشاشة", "O", () => _ = OcrFrameAsync(), video);
-        }
+        menu.Items.Add(new ToolStripSeparator());
+        Add("📌  علامة مراجعة (تفكّرني أراجعها)…", "R", AddReviewBookmark, video);
+        Add("📋  انسخ الكلام المكتوب على الشاشة", "O", () => _ = OcrFrameAsync(), video);
         return menu;
     }
 

@@ -373,15 +373,10 @@ internal sealed partial class MainForm
         ShowBanner("😴 مؤقت النوم وقّف التشغيل", BannerKind.Info, seconds: 0);
     }
 
+    /// <summary>«📻 بث مباشر ▸» جوه «إنترنت»: الراديو والتليفزيون، ومفضّلاتك، وإيقاف البث.</summary>
     private ToolStripMenuItem BuildLiveMenu()
     {
-        var menu = SubMenu("بث مباشر");
-        var sleep = SubMenu("مؤقت النوم");
-        foreach (int m in new[] { 15, 30, 45, 60, 90 })
-            sleep.DropDownItems.Add(Item($"بعد {m} دقيقة", () => SetSleepTimer(m)));
-        sleep.DropDownItems.Add(new ToolStripSeparator());
-        sleep.DropDownItems.Add(Item("إلغاء", () => SetSleepTimer(0)));
-
+        var menu = SubMenu("📻  بث مباشر");
         menu.DropDownOpening += (_, _) =>
         {
             menu.DropDownItems.Clear();
@@ -398,13 +393,22 @@ internal sealed partial class MainForm
                 }
             }
             menu.DropDownItems.Add(new ToolStripSeparator());
-            menu.DropDownItems.Add(sleep);
-            sleep.Text = _sleepAtUtc is { } at ? $"مؤقت النوم ({Math.Max(1, (int)Math.Ceiling((at - DateTime.UtcNow).TotalMinutes))} د)" : "مؤقت النوم";
             var stop = Item("إيقاف البث", GoHome);
             stop.Enabled = _currentLive != null;
             menu.DropDownItems.Add(stop);
         };
         menu.DropDownItems.Add(new ToolStripMenuItem("…")); // عشان السهم يظهر قبل أول فتح
         return menu;
+    }
+
+    /// <summary>«مؤقت النوم ▸» جوه «التشغيل» (بيوقف أي حاجة شغالة: فيديو أو بث).</summary>
+    private ToolStripMenuItem BuildSleepMenu()
+    {
+        var sleep = SubMenu("مؤقت النوم");
+        foreach (int m in new[] { 15, 30, 45, 60, 90 })
+            sleep.DropDownItems.Add(Item($"بعد {m} دقيقة", () => SetSleepTimer(m)));
+        sleep.DropDownItems.Add(new ToolStripSeparator());
+        sleep.DropDownItems.Add(Item("إلغاء", () => SetSleepTimer(0)));
+        return sleep;
     }
 }

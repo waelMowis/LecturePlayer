@@ -68,7 +68,8 @@ internal static class Glyphs
         Link = "\uE71B", Code = "\uE943", Chat = "\uE8BD", History = "\uE81C", Chart = "\uE9D9",
         Timer = "\uE916", Collapse = "\uE70E", Expand = "\uE70D",
         MiniPlayer = "\uE73F", Help = "\uE897", Radio = "\uE8D6", Home = "\uE80F", RepeatOne = "\uE8ED", RepeatAll = "\uE8EE",
-        Fold = "\uE8FD"; // قايمة بنقط (للطي والتوسيع)
+        Fold = "\uE8FD", // قايمة بنقط (للطي والتوسيع)
+        Education = "\uE7BE"; // قبعة التخرج (كورس من منصة)
 
     private static string? _family;
 
