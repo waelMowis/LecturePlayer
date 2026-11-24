@@ -1,3 +1,16 @@
+## مكتبة الأيقونات كبرت: شعارات اللغات والأدوات والمنصات
+
+- **أكتر من 320 أيقونة بدل 96**، و5 فئات جديدة:
+  - **لغات برمجة:** C#، .NET، Python، JavaScript، TypeScript، Java، C++، C، Visual Basic، PHP، Go، Rust، Kotlin، Swift، Dart، Ruby، R، HTML5، CSS3، PowerShell، Bash وغيرهم
+  - **فريموركات ومكتبات:** Blazor، Entity Framework، React، Angular، Vue، Node.js، Django، Flask، Laravel، Spring، Flutter، TensorFlow، PyTorch، pandas وغيرهم
+  - **قواعد بيانات وسحابة وأنظمة:** SQL Server، MySQL، PostgreSQL، SQLite، MongoDB، Redis، Firebase، Azure، AWS، Docker، Kubernetes، Linux، Windows، Git، GitHub وغيرهم
+  - **أدوات ومحررات:** Visual Studio، VS Code، Rider، IntelliJ، PyCharm، Android Studio، Jupyter، Postman، Figma، Photoshop، Notion، Claude، Gemini وغيرهم
+  - **منصات ومواقع:** يوتيوب، يوديمي، كورسيرا، edX، أكاديمية خان، W3Schools، Stack Overflow، LeetCode، لينكد إن، واتساب، تيليجرام وغيرهم
+- **أكتر من 100 أيقونة عامة جديدة** في الفئات القديمة: شنطة مدرسة، سبورة، اختبار، واجب، طب، صيدلة، قانون، كيمياء، أحياء، خط عربي، أمن معلومات، API، إلكترونيات، محفظة، استثمار، شطرنج…
+- **البحث بالعربي أو بالإنجليزي:** «سي شارب» أو «C#»، «بايثون»، «SQL»، «يوتيوب»
+- **لون العلامة لوحده:** لما تختار شعار واللون لسه افتراضي، بياخد لون العلامة الأصلي (C# بنفسجي، Python أزرق…) متفتّح شوية عشان يبان. اختيارك للون بإيدك بيفضل زي ما هو
+- الشاشة بتفتح عند الأيقونة المختارة حتى لو في آخر القايمة
+
 ## شريط القوايم اتعمل من جديد (المرحلة التانية من ترتيب الأوامر)
 
 - **9 قوايم ثابتة، وكل أمر في مكان واحد حسب معناه:** ملف · تعديل · المكتبة · التشغيل · عرض · مذاكرة · ذكاء · إنترنت · مساعدة

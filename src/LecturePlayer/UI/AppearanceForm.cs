@@ -72,6 +72,12 @@ internal static class AppearanceForm
         void SelectColor(Color? c)
         {
             selColor = c;
+            // لون مش من الجاهزين (لون علامة أو لون حر): يظهر في خانة «لون تاني» ويتعلّم عليها
+            if (customSwatch != null && c is { } free && !IconGlyphs.Palette.Any(p => p.Color.ToArgb() == free.ToArgb()))
+            {
+                customSwatch.Value = free;
+                customSwatch.Invalidate();
+            }
             foreach (var sw in swatches)
                 sw.Selected = sw.IsCustom ? c is { } x && !IconGlyphs.Palette.Any(p => p.Color.ToArgb() == x.ToArgb()) && sw.Value?.ToArgb() == x.ToArgb()
                                           : sw.Value?.ToArgb() == c?.ToArgb();
