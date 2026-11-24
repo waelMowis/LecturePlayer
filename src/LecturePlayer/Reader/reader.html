@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>قارئ مسار</title>
+<link rel="stylesheet" href="lib/pdf_viewer.css">
+<link rel="stylesheet" href="reader.css">
+</head>
+<body class="empty">
+<div id="toolbar" role="toolbar">
+  <div class="group title"><span id="bookTitle"></span></div>
+  <div class="group pages">
+    <button id="prev" title="الصفحة اللي قبلها">›</button>
+    <input id="pageInput" type="text" inputmode="numeric" title="رقم الصفحة (Ctrl+G)" autocomplete="off">
+    <span class="of">/ <span id="pageCount">0</span></span>
+    <button id="next" title="الصفحة اللي بعدها">‹</button>
+  </div>
+  <div class="group tools">
+    <button id="zoomOut" title="تصغير (Ctrl+-)">−</button>
+    <select id="zoomSelect" title="التكبير">
+      <option value="page-width">عرض الصفحة</option>
+      <option value="page-fit">الصفحة كاملة</option>
+      <option value="auto">تلقائي</option>
+      <option value="0.75">75%</option>
+      <option value="1">100%</option>
+      <option value="1.25">125%</option>
+      <option value="1.5">150%</option>
+      <option value="2">200%</option>
+      <option value="3">300%</option>
+      <option value="custom" hidden></option>
+    </select>
+    <button id="zoomIn" title="تكبير (Ctrl+=)">+</button>
+    <span class="sep"></span>
+    <button id="spread" title="صفحة ولا صفحتين جنب بعض">▯</button>
+    <button id="direction" title="اتجاه الصفحات (كتاب عربي: من اليمين للشمال)">⇄</button>
+    <button id="theme" title="لون الصفحات: عادي ← ليلي ← ورق قديم">☀</button>
+    <button id="findButton" title="بحث في الكتاب (Ctrl+F)">🔍</button>
+    <button id="mark" title="علامة على الصفحة دي (B)">🔖</button>
+    <button id="fullscreen" title="ملء الشاشة (F11)">⛶</button>
+  </div>
+</div>
+<div id="findbar" hidden>
+  <input id="findInput" type="search" placeholder="دوّر في الكتاب…" autocomplete="off">
+  <button id="findPrev" title="اللي قبله (Shift+Enter)">˄</button>
+  <button id="findNext" title="اللي بعده (Enter)">˅</button>
+  <span id="findResult"></span>
+  <button id="findClose" title="قفل (Esc)">✕</button>
+</div>
+<div id="viewerContainer" tabindex="0">
+  <div id="viewer" class="pdfViewer"></div>
+</div>
+<div id="overlay"><div id="overlayText">افتح كتاب من «الكتب»</div></div>
+<script src="lib/pdf.min.js" type="module"></script>
+<script src="lib/pdf_viewer.js" type="module"></script>
+<script src="reader.js" type="module"></script>
+</body>
+</html>

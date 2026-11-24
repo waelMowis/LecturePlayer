@@ -129,6 +129,16 @@ public static class Storage
         lib.Live ??= new List<LiveChannel>();
         lib.Places ??= new List<Place>();
         lib.Links ??= new List<LinkedFolder>();
+        lib.Shelves ??= new List<Shelf>();
+        lib.Books ??= new List<Book>();
+        foreach (var b in lib.Books)
+        {
+            b.Chapters ??= new List<BookChapter>();
+            b.Marks ??= new List<PageMark>();
+            b.ReadPages ??= "";
+            if (string.IsNullOrWhiteSpace(b.Title)) b.Title = BookFiles.TitleFromFile(b.Path);
+            b.LocalPath = ResolveLocal(b.Path, b.RelativePath, baseDir, mappings);
+        }
         foreach (var l in lib.Links) l.Ignored ??= new List<string>();
         lib.MigrateLinks();
         if (lib.Groups is { Count: > 0 })
@@ -160,6 +170,29 @@ public static class Storage
             }
         }
         return lib;
+    }
+
+    /// <summary>نفس ResolveLocalPath لأي ملف (الكتب): المسار ← التحويلات ← النسبي. لو مالقاهوش بيرجّع المسار زي ما هو.</summary>
+    public static string ResolveLocal(string path, string? relativePath, string baseDir, IReadOnlyList<PathMapping>? mappings)
+    {
+        if (MediaFiles.IsUrl(path) || FileCache.Exists(path)) return path;
+        if (mappings != null)
+            foreach (var m in mappings)
+            {
+                if (string.IsNullOrEmpty(m.From) || !path.StartsWith(m.From, StringComparison.OrdinalIgnoreCase)) continue;
+                string candidate = m.To + path.Substring(m.From.Length);
+                if (FileCache.Exists(candidate)) return candidate;
+            }
+        if (!string.IsNullOrEmpty(relativePath))
+        {
+            try
+            {
+                string candidate = Path.GetFullPath(Path.Combine(baseDir, relativePath));
+                if (FileCache.Exists(candidate)) return candidate;
+            }
+            catch { /* مسار نسبي غلط */ }
+        }
+        return path;
     }
 
     /// <summary>
@@ -224,6 +257,14 @@ public static class Storage
             string rel = Path.GetRelativePath(baseDir, v.LocalPath);
             // المسار النسبي مفيد بس لو الفيديو جنب ملف القائمة (مش في درايف تاني)
             v.RelativePath = Path.IsPathRooted(rel) ? null : rel;
+        }
+        foreach (var b in lib.Books)
+        {
+            if (b.IsOnline) { b.RelativePath = null; continue; }
+            string local = string.IsNullOrEmpty(b.LocalPath) ? b.Path : b.LocalPath;
+            if (!FileCache.Exists(local)) continue;
+            string rel = Path.GetRelativePath(baseDir, local);
+            b.RelativePath = Path.IsPathRooted(rel) ? null : rel;
         }
         WriteAtomic(path, JsonSerializer.Serialize(lib, Options));
     }

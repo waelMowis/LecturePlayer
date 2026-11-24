@@ -673,6 +673,7 @@ internal sealed partial class MainForm
         RestoreScroll(scrollTopIndex);
         UpdateLibraryHeader();
         UpdateStatusBar();
+        RebuildShelf(); // الكتب من نفس المكتبة (بعد تراجع أو مزامنة أو فتح مكتبة تانية)
         RefreshHome();
     }
 
@@ -834,6 +835,7 @@ internal sealed partial class MainForm
 
     private void SelectItem(object item)
     {
+        if (item is Shelf or Book) { SelectShelfItem(item); return; }
         var node = NodeOf(item);
         if (node == null) return;
         _tree.SelectedNode = node;

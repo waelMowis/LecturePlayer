@@ -64,9 +64,13 @@ internal sealed partial class MainForm
         double elapsed = now - _lastTrackSec;
         _lastTrackSec = now;
 
-        bool playing = _currentVideo != null && PlayingNow;
+        // القراية بتتحسب مذاكرة زي الفيديو، طول ما إنت قدام الكتاب (القارئ بيبلّغ كل 5 ثواني، ومن غير حركة 10 دقايق = سبته)
+        bool reading = ReaderShown && _readerActive && (DateTime.UtcNow - _readerActiveUtc).TotalSeconds < 12;
+        bool playing = _currentVideo != null && PlayingNow || reading;
         var course = _currentGroup != null ? _library.FindCourseOf(_currentGroup) : null;
-        var finished = _session.Tick(DateTime.UtcNow, playing, course?.Id, _currentGroup?.Id, _currentVideo?.Path, elapsed);
+        var finished = reading
+            ? _session.Tick(DateTime.UtcNow, true, "book:" + _currentBook!.Id, null, _currentBook.Path, elapsed)
+            : _session.Tick(DateTime.UtcNow, playing, course?.Id, _currentGroup?.Id, _currentVideo?.Path, elapsed);
         if (finished != null) { LogJournal(finished); UpdateStudyStatus(); }
 
         SilenceTick();

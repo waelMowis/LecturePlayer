@@ -42,6 +42,9 @@ internal sealed partial class MainForm
             Place p => ("place", p.Name, p.IconKey, p.ColorHex,
                 _library.ChildrenOf(p).Any() || _library.AllCoursesUnder(p).Any() ? "نفس اللون للكورسات (والمصادر الفرعية) اللي جوه المصدر" : null),
             Course c => ("course", c.Name, c.IconKey, c.ColorHex, (string?)null),
+            Shelf s => ("place", s.Name, s.IconKey, s.ColorHex,
+                _library.AllBooksUnder(s).Any() ? "نفس اللون للكتب (والرفوف) اللي جوه الرف" : null),
+            Book b => ("course", b.Title, b.IconKey, b.ColorHex, (string?)null),
             _ => ("", "", null, null, null)
         };
         if (kind.Length == 0) return;
@@ -61,12 +64,21 @@ internal sealed partial class MainForm
             Topic t => (Get: (Func<(string?, string?)>)(() => (t.IconKey, t.ColorHex)), Set: (Action)(() => { t.IconKey = icon; t.ColorHex = colorHex; t.TouchInfo(); })),
             Place p => (Get: () => (p.IconKey, p.ColorHex), Set: () => { p.IconKey = icon; p.ColorHex = colorHex; p.TouchInfo(); }),
             Course c => (Get: () => (c.IconKey, c.ColorHex), Set: () => { c.IconKey = icon; c.ColorHex = colorHex; c.TouchInfo(); }),
+            Shelf s => (Get: () => (s.IconKey, s.ColorHex), Set: () => { s.IconKey = icon; s.ColorHex = colorHex; s.TouchInfo(); }),
+            Book b => (Get: () => (b.IconKey, b.ColorHex), Set: () => { b.IconKey = icon; b.ColorHex = colorHex; b.TouchInfo(); }),
             _ => default
         };
         if (self.Get == null) return 0;
 
         var places = new List<Place>();
         var courses = new List<Course>();
+        var shelves = new List<Shelf>();
+        var books = new List<Book>();
+        if (applyToChildren && item is Shelf ss)
+        {
+            shelves.AddRange(_library.ShelfTree(ss).Where(x => x != ss));
+            books.AddRange(_library.AllBooksUnder(ss));
+        }
         if (applyToChildren)
         {
             if (item is Topic tt) { places.AddRange(_library.PlacesOf(tt)); courses.AddRange(_library.CoursesOf(tt)); }
@@ -75,19 +87,25 @@ internal sealed partial class MainForm
         bool selfChanged = self.Get() != (icon, colorHex);
         places.RemoveAll(p => p.ColorHex == colorHex);
         courses.RemoveAll(c => c.ColorHex == colorHex);
-        if (!selfChanged && places.Count == 0 && courses.Count == 0) return 0;
+        shelves.RemoveAll(s => s.ColorHex == colorHex);
+        books.RemoveAll(b => b.ColorHex == colorHex);
+        if (!selfChanged && places.Count == 0 && courses.Count == 0 && shelves.Count == 0 && books.Count == 0) return 0;
 
         Checkpoint("الأيقونة واللون");
         if (selfChanged) self.Set();
         foreach (var p in places) { p.ColorHex = colorHex; p.TouchInfo(); }
         foreach (var c in courses) { c.ColorHex = colorHex; c.TouchInfo(); }
+        foreach (var s in shelves) { s.ColorHex = colorHex; s.TouchInfo(); }
+        foreach (var b in books) { b.ColorHex = colorHex; b.TouchInfo(); }
+        int extra = shelves.Count + books.Count;
         MarkDirty();
         RebuildTree();
         SelectItem(item);
-        int n = (selfChanged ? 1 : 0) + places.Count + courses.Count;
+        int under = places.Count + courses.Count + extra;
+        int n = (selfChanged ? 1 : 0) + under;
         ShowStatus(icon == null && colorHex == null
             ? "رجعت الأيقونة واللون العاديين" + (n > 1 ? $" ({n - 1} تحته كمان)" : "")
-            : "اتغيرت الأيقونة واللون" + (places.Count + courses.Count > 0 ? $" — واللون اتطبق على {places.Count + courses.Count} تحته" : ""), 5);
+            : "اتغيرت الأيقونة واللون" + (under > 0 ? $" — واللون اتطبق على {under} تحته" : ""), 5);
         return n;
     }
 

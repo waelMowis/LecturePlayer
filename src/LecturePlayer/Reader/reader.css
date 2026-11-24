@@ -1,0 +1,67 @@
+:root {
+  --bg: #1e1f22;
+  --panel: #2b2d31;
+  --panel-light: #36393f;
+  --text: #e6e6e6;
+  --muted: #a0a6ac;
+  --accent: #4fc3f7;
+  --bar-h: 40px;
+  color-scheme: dark;
+}
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px "Segoe UI", Tahoma, sans-serif; overflow: hidden; }
+
+#toolbar {
+  position: absolute; inset: 0 0 auto 0; height: var(--bar-h); display: flex; align-items: center; gap: 10px;
+  padding: 0 10px; background: var(--panel); border-bottom: 1px solid #00000040; box-sizing: border-box; z-index: 10;
+  user-select: none;
+}
+#toolbar .group { display: flex; align-items: center; gap: 4px; }
+#toolbar .title { flex: 1 1 auto; min-width: 0; }
+#bookTitle { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+#toolbar .tools { direction: ltr; }
+button, select, input {
+  font: inherit; color: var(--text); background: var(--panel-light); border: 1px solid transparent; border-radius: 6px;
+  height: 28px; box-sizing: border-box;
+}
+button { min-width: 30px; padding: 0 7px; cursor: pointer; font-size: 15px; line-height: 1; }
+button:hover { background: #42464d; }
+button.on { border-color: var(--accent); color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 1px solid var(--accent); }
+select { padding: 0 4px; direction: rtl; }
+#pageInput { width: 52px; text-align: center; }
+.of { color: var(--muted); white-space: nowrap; }
+.sep { width: 1px; height: 20px; background: #ffffff22; margin: 0 4px; }
+
+#findbar {
+  position: absolute; top: var(--bar-h); left: 10px; z-index: 11; display: flex; align-items: center; gap: 4px;
+  background: var(--panel); padding: 6px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px #0006;
+}
+#findbar[hidden] { display: none; }
+#findInput { width: 220px; padding: 0 8px; }
+#findResult { color: var(--muted); min-width: 70px; text-align: center; }
+
+#viewerContainer {
+  position: absolute; inset: var(--bar-h) 0 0 0; overflow: auto; background: var(--bg); outline: none;
+}
+/* الصفحات من الشمال لليمين جوه العارض (رقم الصفحة والاتجاه بيتحكم فيهم «اتجاه الصفحات») */
+#viewer { direction: ltr; }
+#viewerContainer.rtl .spread { direction: rtl; }
+.pdfViewer .page { box-shadow: 0 2px 10px #0008; border: none; margin: 10px auto; }
+.pdfViewer.removePageBorders .page { margin: 10px auto; }
+
+/* لون الصفحات */
+body.night .pdfViewer .page canvas, body.night .pdfViewer .page img { filter: invert(0.9) hue-rotate(180deg) contrast(0.95); }
+body.night .pdfViewer .page { background: #1b1b1b; }
+body.sepia .pdfViewer .page canvas, body.sepia .pdfViewer .page img { filter: sepia(0.5) brightness(0.93) contrast(1.02); }
+
+/* علامة على الصفحة */
+.pdfViewer .page.marked::after {
+  content: "🔖"; position: absolute; top: -6px; right: 12px; font-size: 22px; filter: drop-shadow(0 1px 2px #0008); pointer-events: none;
+}
+
+#overlay {
+  position: absolute; inset: var(--bar-h) 0 0 0; display: none; align-items: center; justify-content: center;
+  background: var(--bg); color: var(--muted); font-size: 16px; z-index: 5; text-align: center; padding: 20px;
+}
+body.empty #overlay, body.loading #overlay, body.failed #overlay { display: flex; }
+body.failed #overlayText { color: #f0a070; }

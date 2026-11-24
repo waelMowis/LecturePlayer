@@ -117,6 +117,7 @@ internal sealed partial class MainForm
             return;
         }
 
+        CloseReader(showHome: false); // فيديو بعد كتاب: القارئ يتقفل ومكانك محفوظ
         // تشغيل جديد من المستخدم: محاولات الإنقاذ بتاعة فيديوهات النت تبدأ من الأول
         _onlineRetryFor = null;
         _seekAfterPlayingMs = -1;
@@ -305,6 +306,7 @@ internal sealed partial class MainForm
 
     private void StopPlaybackCore(bool clearCurrent)
     {
+        if (clearCurrent) CloseReader(showHome: false);
         SaveCurrentPosition();
         _playRequest++;            // يلغي أي فيديو نت لسه بيتجهّز
         HideUdemyPane();

@@ -11,10 +11,11 @@ namespace LecturePlayer.Data;
 /// • rewind  — رجعت لورا في فيديو (لاكتشاف الأجزاء الصعبة).
 /// • quiz    — نتيجة اختبار (لمؤشر الفهم).
 /// • review  — مراجعة علامة (المراجعة المتباعدة).
+/// • pages   — صفحات اتقرت في كتاب (Score = العدد، CourseId = "book:" + رقم الكتاب).
 /// </summary>
 public sealed class JournalEntry
 {
-    public const string Study = "study", Watched = "watched", Rewind = "rewind", Quiz = "quiz", Review = "review";
+    public const string Study = "study", Watched = "watched", Rewind = "rewind", Quiz = "quiz", Review = "review", Pages = "pages";
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Kind { get; set; } = Study;

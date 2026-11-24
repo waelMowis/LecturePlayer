@@ -691,6 +691,12 @@ internal sealed partial class MainForm
                 m.Show(platformTile!, new Point(0, platformTile!.Height));
             });
         _homeActions.Controls.Add(platformTile);
+        _homeActions.Controls.Add(Tile(Glyphs.Book, empty ? "ضيف كتب (PDF)" : "كتب",
+            "كتبك على رف لوحدها، والبرنامج بيفتكر وصلت لأنهي صفحة وقريت إيه", Theme.PlaceColor, () =>
+            {
+                if (!_shelfMode || _split.Panel2Collapsed) ToggleShelf();
+                AddBooksDialog(SelectedShelfContext());
+            }));
         _homeActions.Controls.Add(Tile(Glyphs.Radio, empty ? "اسمع راديو أو شوف الحرم" : "بث مباشر",
             "آلاف محطات الراديو، وبث مباشر من مكة والمدينة", Theme.Success, ShowLiveWindow));
         if (empty)
@@ -719,16 +725,18 @@ internal sealed partial class MainForm
         _homeCards.Controls.Clear();
         foreach (var c in old) c.Dispose();
 
-        bool emptyLibrary = _library.Courses.Count == 0;
+        var books = HomeBooks().ToList();
+        bool emptyLibrary = _library.Courses.Count == 0 && _library.Books.Count == 0;
         RefreshHomeActions(emptyLibrary);
         _homeHint.Visible = emptyLibrary;
         _homeHint.Text = "أو اسحب فولدر فيه فيديوهات من الويندوز وارميه في أي مكان هنا\n" +
                          "(الفولدر بيبقى كورس، وكل فولدر جواه بيبقى محاضرة)";
-        _homeTitle.Text = courses.Count == 0
+        _homeTitle.Text = courses.Count == 0 && books.Count == 0
             ? (emptyLibrary ? "أهلًا بيك في «مسار» 👋  ابدأ من هنا"
                 : _settings.HomeTopicFilter != "" ? "مفيش كورسات شغالة في الموضوع ده ✓" : "خلّصت كل الكورسات ✓")
             : "كمّل اللي بدأته";
 
+        foreach (var b in books) _homeCards.Controls.Add(BookCard(b));
         foreach (var c in courses) _homeCards.Controls.Add(CourseCard(c));
         _homeCards.ResumeLayout(true);
         RefreshHomePlan();

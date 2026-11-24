@@ -57,6 +57,11 @@
     <EmbeddedResource Include="Help\Guide.html" LogicalName="Guide.html" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- قارئ الكتب: PDF.js (Apache-2.0) وصفحة القارئ — بيتنسخوا جنب البرنامج (فولدر Reader) -->
+    <Content Include="Reader\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- =====================================================================
        أرقام الإصدارات — مصدر واحد بس: GitHub
          • النشر الرسمي (GitHub Actions ← release.yml): الإصدار = LpBaseVersion + رقم تشغيل النشر (4.1.8، 4.1.9 …)

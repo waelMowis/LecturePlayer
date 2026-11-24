@@ -511,7 +511,7 @@ internal sealed partial class MainForm : Form
     private bool ControlChromeVisible
     {
         get => _controlCard.Visible;
-        set { _controlCard.Visible = value; _controlGap.Visible = value && !_videoCard.Flat; }
+        set { bool v = value && !ReaderShown; _controlCard.Visible = v; _controlGap.Visible = v && !_videoCard.Flat; } // القارئ ليه شريطه
     }
 
     /// <summary>ملء الشاشة والمشغل الصغير: من غير كروت ولا فراغات.</summary>
@@ -551,8 +551,9 @@ internal sealed partial class MainForm : Form
             return b;
         }
         _activityHome = Act(Glyphs.Home, "الرئيسية", "الشاشة الرئيسية: كمّل اللي بدأته، وضيف فيديوهات (Alt+Home)\nلو فيه فيديو شغال، مكانك بيتحفظ وتقدر تكمّل منه", GoHome, top);
-        _activityExplorer = Act(Glyphs.Library, "مكتبتي", "مكتبتك: الكورسات والفيديوهات — اضغط تخفيها أو تظهرها (F6)", ToggleSidePanel, top);
-        _activityExplorer.Active = true;
+        _activityExplorer = Act(Glyphs.Library, "مكتبتي", "مكتبتك: الكورسات والفيديوهات — اضغط تخفيها أو تظهرها (F6)", OnExplorerActivity, top);
+        _activityBooks = Act(Glyphs.Book, "الكتب", "رف الكتب: كتبك (PDF) وفين وصلت في كل كتاب (Ctrl+Shift+B)", ToggleShelf, top);
+        UpdateActivityIndicators();
         Act(Glyphs.Radio, "بث مباشر", "راديو وتليفزيون على الهوا، ومنهم الحرم المكي والمدني (Ctrl+Shift+L)", ShowLiveWindow, top);
         // أدوات الوضع المتقدم (بتستخبى في الوضع البسيط)
         _advancedActivity.Add(Act(Glyphs.Search, "بحث", "دوّر على كلمة اتقالت جوه الفيديوهات (Ctrl+Shift+F)", ShowTranscriptSearch, top));
@@ -685,6 +686,7 @@ internal sealed partial class MainForm : Form
         _sidePanel.Controls.Add(_notesSplitter);
         _sidePanel.Controls.Add(_notesPanel);
         SetNotesCollapsed(!_settings.NotesExpanded);
+        BuildShelfPanel();
     }
 
     private static ToolStripButton ToolButton(string text, string tip, Action onClick)
@@ -768,6 +770,10 @@ internal sealed partial class MainForm : Form
             Item("كورس فاضي…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
             Item("محاضرة فاضية في الكورس المحدد…", () => AddGroup(), Keys.Control | Keys.G),
             Item("فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),
+            SubMenu("📚  كتب (PDF)",
+                Item("كتب من ملفات…", () => AddBooksDialog(SelectedShelfContext())),
+                Item("كتب من فولدر (رف للفولدر)…", () => AddBooksFromFolderDialog(SelectedShelfContext())),
+                Item("رف جديد…", () => AddShelfDialog(null))),
             new ToolStripSeparator(),
             Item("🔄  هات الجديد من كل الفولدرات المتابَعة", () => _ = SyncLinkedFoldersAsync(null, manual: true)),
             Item("🔄  هات الجديد من كل قوايم يوتيوب", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
@@ -851,6 +857,7 @@ internal sealed partial class MainForm : Form
         var view = SubMenu("عرض",
             Item("ملء الشاشة", ToggleFullscreen, display: "F11"),
             Item("إظهار / إخفاء المكتبة", ToggleSidePanel, display: "F6"),
+            Item("📚  الكتب (رف الكتب)", ToggleShelf, display: "Ctrl+Shift+B"),
             Item("المشغل الصغير", ToggleMiniMode, display: "P"),
             _alwaysOnTopItem = Item("دايمًا فوق الشبابيك التانية", ToggleAlwaysOnTop, display: "T"),
             Item("الشاشة الرئيسية", GoHome, display: "Alt+Home"),
@@ -1136,7 +1143,7 @@ internal sealed partial class MainForm : Form
         _speedCombo.SelectedIndex = rateIndex;
 
         _split.Panel2Collapsed = !_settings.SidePanelVisible;
-        _activityExplorer.Active = _settings.SidePanelVisible;
+        UpdateActivityIndicators();
 
         if (_settings.WindowWidth > 0 && _settings.WindowHeight > 0)
         {
@@ -1167,6 +1174,13 @@ internal sealed partial class MainForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (_shelfSearch.Focused)
+        {
+            if (keyData == Keys.Escape) { _shelfSearch.Clear(); _shelfTree.Focus(); return true; }
+            if (keyData == Keys.Down) { _shelfTree.Focus(); return true; }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+        if (HandleBookKeys(keyData)) return true;
         if (_searchBox.Focused)
         {
             if (keyData == Keys.Escape) { _searchBox.Clear(); _tree.Focus(); return true; }
@@ -1345,7 +1359,7 @@ internal sealed partial class MainForm : Form
         Rectangle screen = Screen.FromControl(this).Bounds;
         bool nearBottom = p.Y >= screen.Bottom - _controlBar.Height - LogicalToDeviceUnits(20);
         bool recentlyMoved = (DateTime.Now - _lastMouseActivity).TotalSeconds < 2.0;
-        bool show = nearBottom || recentlyMoved || !_mp.IsPlaying;
+        bool show = (nearBottom || recentlyMoved || !_mp.IsPlaying) && !ReaderShown;
         if (ControlChromeVisible != show) ControlChromeVisible = show;
     }
 
@@ -1355,7 +1369,7 @@ internal sealed partial class MainForm : Form
         _settings.SidePanelVisible = _split.Panel2Collapsed;
         _split.Panel2Collapsed = !_settings.SidePanelVisible;
         if (_settings.SidePanelVisible) ApplySidePanelWidth(); else FixSplitPanelSize();
-        _activityExplorer.Active = _settings.SidePanelVisible;
+        UpdateActivityIndicators();
     }
 
     // =====================================================================
@@ -1392,6 +1406,7 @@ internal sealed partial class MainForm : Form
     private void UpdateTitle()
     {
         if (_currentLive != null) { Text = $"{_currentLive.Name}  —  مباشر  —  {AppTitle}"; return; }
+        if (ReaderShown) { Text = $"{_currentBook!.Title}  —  {AppTitle}"; return; }
         Text = _currentVideo != null
             ? $"{_currentVideo.Title}  —  {_currentGroup?.Name}  —  {AppTitle}"
             : HasLibrary ? $"{_library.Name}  —  {AppTitle}" : AppTitle;
@@ -1427,6 +1442,7 @@ internal sealed partial class MainForm : Form
 
         SaveCurrentPosition();
         CommitNotes();
+        if (ReaderShown) FlushReading();
         FlushSession();
         // المكتبة لازم تتحفظ على آخر حالة: لو الحفظ فشل (الدرايف مش متاح مثلًا) نسأل بدل ما التغييرات تضيع
         while (HasLibrary && !TrySaveLibrary(out string? error))

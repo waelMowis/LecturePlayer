@@ -22,7 +22,9 @@ public static class LibrarySync
         public int AddedTopics;
         public int AddedPlaces;
         public int AddedLive;
-        public int Total => UpdatedVideos + AddedCourses + AddedGroups + AddedVideos + UpdatedInfo + AddedTopics + AddedPlaces + AddedLive;
+        public int AddedBooks;
+        public int UpdatedBooks;
+        public int Total => UpdatedVideos + AddedCourses + AddedGroups + AddedVideos + UpdatedInfo + AddedTopics + AddedPlaces + AddedLive + AddedBooks + UpdatedBooks;
     }
 
     public static string VideoKey(VideoItem v) => "v:" + v.Path.ToUpperInvariant();
@@ -32,6 +34,8 @@ public static class LibrarySync
     public static string PlaceKey(Place p) => "p:" + p.Id;
     public static string LinkKey(LinkedFolder l) => "k:" + l.Id;
     public static string LiveKey(LiveChannel l) => "l:" + l.Id;
+    public static string ShelfKey(Shelf s) => "s:" + s.Id;
+    public static string BookKey(Book b) => "b:" + b.Id;
 
     public static Result Merge(CourseLibrary local, CourseLibrary remote, ISet<string>? deletedKeys = null)
     {
@@ -100,6 +104,9 @@ public static class LibrarySync
             }
         }
 
+        // 1.7) الكتب
+        MergeBooks(local, remote, deletedKeys, result);
+
         // 2) الحاجات الجديدة اللي اتضافت على الجهاز التاني
         foreach (var rc in remote.Courses)
         {
@@ -155,10 +162,77 @@ public static class LibrarySync
     }
 
     /// <summary>
+    /// الرفوف والكتب: الجديد بيتضاف، والبيانات الأحدث تكسب، والصفحات المقروءة بتتجمّع من الجهازين (مفيش تعارض)،
+    /// والمكان (آخر صفحة والتكبير) والعلامات من الأحدث.
+    /// </summary>
+    private static void MergeBooks(CourseLibrary local, CourseLibrary remote, ISet<string> deletedKeys, Result result)
+    {
+        foreach (var rs in remote.Shelves ?? new List<Shelf>())
+        {
+            if (deletedKeys.Contains(ShelfKey(rs))) continue;
+            var ls = local.Shelves.FirstOrDefault(x => x.Id == rs.Id);
+            if (ls == null) { local.Shelves.Add(rs); result.UpdatedInfo++; }
+            else if (rs.InfoUpdatedUtc > ls.InfoUpdatedUtc)
+            {
+                ls.Name = rs.Name; ls.IconKey = rs.IconKey; ls.ColorHex = rs.ColorHex; ls.ParentId = rs.ParentId; ls.SourceFolder = rs.SourceFolder;
+                ls.InfoUpdatedUtc = rs.InfoUpdatedUtc; result.UpdatedInfo++;
+            }
+        }
+        foreach (var rb in remote.Books ?? new List<Book>())
+        {
+            if (deletedKeys.Contains(BookKey(rb))) continue;
+            var lb = local.Books.FirstOrDefault(x => x.Id == rb.Id);
+            if (lb == null) { local.Books.Add(rb); result.AddedBooks++; continue; }
+            if (MergeBook(lb, rb)) result.UpdatedBooks++;
+        }
+    }
+
+    /// <summary>بيدمج نسخة الكتاب التانية في دي. true لو حاجة اتغيرت.</summary>
+    public static bool MergeBook(Book target, Book other)
+    {
+        bool changed = false;
+        if (other.InfoUpdatedUtc > target.InfoUpdatedUtc)
+        {
+            target.Title = other.Title; target.Author = other.Author; target.ShelfId = other.ShelfId;
+            target.IconKey = other.IconKey; target.ColorHex = other.ColorHex;
+            target.InfoUpdatedUtc = other.InfoUpdatedUtc;
+            changed = true;
+        }
+        var read = target.Read;
+        string before = read.ToString();
+        read.UnionWith(other.Read);
+        string after = read.ToString();
+        if (after != before) { target.ReadPages = after; changed = true; }
+        if (target.PageCount <= 0 && other.PageCount > 0) { target.PageCount = other.PageCount; changed = true; }
+        if (target.Chapters.Count == 0 && other.Chapters.Count > 0) { target.Chapters = other.Chapters.ToList(); changed = true; }
+        if (string.IsNullOrEmpty(target.Fingerprint) && !string.IsNullOrEmpty(other.Fingerprint)) { target.Fingerprint = other.Fingerprint; changed = true; }
+        if (other.ProgressUtc > target.ProgressUtc)
+        {
+            target.LastPage = other.LastPage; target.LastTop = other.LastTop; target.LastLeft = other.LastLeft;
+            target.Zoom = other.Zoom; target.Spread = other.Spread; target.RightToLeft = other.RightToLeft;
+            target.MarkedDone = other.MarkedDone; target.Notes = other.Notes; target.LastOpenedUtc = other.LastOpenedUtc;
+            var marks = other.Marks.ToList();
+            // علامة اتعملت هنا بعد آخر تغيير هناك: تفضل
+            marks.AddRange(target.Marks.Where(m => m.CreatedUtc > other.ProgressUtc && marks.All(x => x.Id != m.Id)));
+            target.Marks = marks.OrderBy(m => m.Page).ToList();
+            target.ProgressUtc = other.ProgressUtc;
+            changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>
     /// بعد التراجع: الهيكل بيرجع لورا، لكن حالة المشاهدة والعلامات والملاحظات الأحدث تفضل.
     /// </summary>
     public static int CopyNewerStates(CourseLibrary target, CourseLibrary source)
     {
+        foreach (var tb in target.Books)
+            if (source.Books.FirstOrDefault(x => x.Id == tb.Id) is { } sb && sb.ProgressUtc > tb.ProgressUtc)
+            {
+                var info = (tb.Title, tb.Author, tb.ShelfId, tb.IconKey, tb.ColorHex, tb.InfoUpdatedUtc);
+                MergeBook(tb, sb);
+                (tb.Title, tb.Author, tb.ShelfId, tb.IconKey, tb.ColorHex, tb.InfoUpdatedUtc) = info; // التراجع بيرجّع البيانات، التقدم بس اللي يفضل
+            }
         var src = new Dictionary<string, VideoItem>(StringComparer.Ordinal);
         foreach (var v in source.AllVideos) src.TryAdd(VideoKey(v), v);
         int n = 0;

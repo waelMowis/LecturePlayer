@@ -355,6 +355,14 @@ public sealed class CourseLibrary
     /// <summary>البث المباشر: المفضلة والقنوات المضافة.</summary>
     public List<LiveChannel> Live { get; set; } = new();
 
+    /// <summary>«الكتب»: الرفوف بالترتيب (كل رف ممكن يبقى جوه رف تاني).</summary>
+    public List<Shelf> Shelves { get; set; } = new();
+    /// <summary>«الكتب»: الكتب بالترتيب (كل كتاب بيشاور على رفّه).</summary>
+    public List<Book> Books { get; set; } = new();
+    /// <summary>آخر كتاب اتفتح (للشاشة الرئيسية: «كمّل القراية»).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LastBookId { get; set; }
+
     /// <summary>
     /// موجودة بس عشان نقرا ملفات النسخة الأولى (اللي كانت محاضرات من غير كورسات).
     /// بتتحول لكورس واحد وقت التحميل، ومش بتتكتب تاني.
@@ -364,6 +372,36 @@ public sealed class CourseLibrary
 
     public string? LastGroupId { get; set; }
     public string? LastVideoPath { get; set; }
+
+    // ---------------- الكتب ----------------
+
+    /// <summary>الرف الأكبر (null لو رف أساسي أو الأكبر اتمسح).</summary>
+    public Shelf? ParentOf(Shelf s) => s.ParentId == null ? null : Shelves.FirstOrDefault(x => x.Id == s.ParentId && x != s);
+    public IEnumerable<Shelf> ShelvesIn(Shelf? s) => s == null ? Shelves.Where(x => ParentOf(x) == null) : Shelves.Where(x => x != s && ParentOf(x) == s);
+    /// <summary>رف الكتاب (null = برا الرفوف أو الرف اتمسح).</summary>
+    public Shelf? ShelfOf(Book b) => b.ShelfId == null ? null : Shelves.FirstOrDefault(x => x.Id == b.ShelfId);
+    public IEnumerable<Book> BooksOn(Shelf? s) => s == null ? Books.Where(b => ShelfOf(b) == null) : Books.Where(b => b.ShelfId == s.Id);
+    /// <summary>الرف وكل الرفوف اللي جواه.</summary>
+    public IEnumerable<Shelf> ShelfTree(Shelf s)
+    {
+        var seen = new HashSet<string>();
+        var stack = new Stack<Shelf>();
+        stack.Push(s);
+        while (stack.Count > 0)
+        {
+            var x = stack.Pop();
+            if (!seen.Add(x.Id)) continue;
+            yield return x;
+            foreach (var c in ShelvesIn(x)) stack.Push(c);
+        }
+    }
+    public IEnumerable<Book> AllBooksUnder(Shelf s)
+    {
+        var ids = ShelfTree(s).Select(x => x.Id).ToHashSet();
+        return Books.Where(b => b.ShelfId != null && ids.Contains(b.ShelfId));
+    }
+    /// <summary>ينفع الرف ده يتحط جوه التاني؟ (مش جوه نفسه ولا جوه رف من اللي تحته)</summary>
+    public bool CanNest(Shelf child, Shelf? parent) => parent == null || !ShelfTree(child).Contains(parent);
 
     [JsonIgnore] public IEnumerable<LectureGroup> AllGroups => Courses.SelectMany(c => c.Groups);
     [JsonIgnore] public IEnumerable<VideoItem> AllVideos => AllGroups.SelectMany(g => g.Videos);
@@ -543,6 +581,12 @@ public sealed class AppSettings
 {
     /// <summary>خط فاصل بين كل الموضوعات في الشجرة.</summary>
     public bool TopicSeparators { get; set; }
+    /// <summary>الصفحة بتتحسب «اتقرت» لو فضلت قدامك الثواني دي.</summary>
+    public int ReadSeconds { get; set; } = 10;
+    /// <summary>لون صفحات القارئ: normal / night / sepia.</summary>
+    public string ReaderTheme { get; set; } = "normal";
+    /// <summary>اللوحة الجانبية: library (الكورسات) أو books (الكتب).</summary>
+    public string SideView { get; set; } = "library";
 
     public string? LastLibraryPath { get; set; }
     public List<string> RecentFiles { get; set; } = new();
