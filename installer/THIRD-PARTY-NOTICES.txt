@@ -69,3 +69,12 @@ https://github.com/mozilla/pdf.js
 License: Apache License 2.0 — Copyright Mozilla Foundation and contributors
 النص الكامل للترخيص: Reader\lib\LICENSE-pdfjs.txt
 ويشمل مكتبات فك الصور (OpenJPEG: BSD-2-Clause، JBIG2 من pdf.js: Apache-2.0، qcms: MIT) — تراخيصها في Reader\lib\wasm.
+
+------------------------------------------------------------
+epub.js (قارئ كتب EPUB) — Reader\lib\epub.min.js
+https://github.com/futurepress/epub.js
+License: BSD 2-Clause — Copyright (c) 2013, FuturePress — النص الكامل: Reader\lib\LICENSE-epubjs.txt
+
+JSZip — Reader\lib\jszip.min.js
+https://github.com/Stuk/jszip
+License: MIT (dual MIT / GPLv3) — Copyright (c) 2009-2016 Stuart Knightley وآخرين — النص الكامل: Reader\lib\LICENSE-jszip.txt
