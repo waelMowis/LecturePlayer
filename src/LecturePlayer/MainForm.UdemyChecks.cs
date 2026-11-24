@@ -133,12 +133,28 @@ internal sealed partial class MainForm
                 """);
         }
 
+        // درس مشغّله iframe من موقع تاني (زي VdoCipher في IT Legend): الفيديو جوه الإطار مش في الصفحة
+        string playerRoot = Directory.CreateDirectory(Path.Combine(root, "_player")).FullName;
+        File.Copy(sample, Path.Combine(playerRoot, "v.mp4"), true);
+        File.WriteAllText(Path.Combine(playerRoot, "embed.html"), """
+            <!doctype html><html><body style="margin:0;background:#000">
+            <video src="/v.mp4" autoplay muted loop playsinline style="width:100%;height:100%"></video></body></html>
+            """);
+        string dir103 = Directory.CreateDirectory(Path.Combine(root, "course", "demo", "learn", "lecture", "103")).FullName;
+        File.WriteAllText(Path.Combine(dir103, "p.html"), """
+            <!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#222">
+            <div class="app--header--x" style="height:50px">header</div>
+            <div class="player-wrap" style="height:60vh;padding:10px"><iframe src="https://player.masar.test/embed.html" allow="autoplay; encrypted-media; fullscreen" allowfullscreen style="width:100%;height:100%;border:0"></iframe></div>
+            <div style="height:30vh">curriculum</div></body></html>
+            """);
+
         Udemy.TestOrigin = "https://" + host;
         var course = new Course { Name = "Udemy smoke", UdemyId = 1 };
         var g = new LectureGroup { Name = "Section", SourceUrl = "udemy-chapter:1" };
         var v1 = new VideoItem { Path = $"https://{host}/course/demo/learn/lecture/101/p.html", Title = "L101", LastPositionMs = 1500 };
         var v2 = new VideoItem { Path = $"https://{host}/course/demo/learn/lecture/102/p.html", Title = "L102" };
-        g.Videos.AddRange(new[] { v1, v2 });
+        var v3 = new VideoItem { Path = $"https://{host}/course/demo/learn/lecture/103/p.html", Title = "L103 (iframe player)" };
+        g.Videos.AddRange(new[] { v1, v2, v3 });
         course.Groups.Add(g);
         _library.Courses.Add(course);
         RebuildTree();
@@ -150,6 +166,7 @@ internal sealed partial class MainForm
             var ready = pane.EnsureReadyAsync();
             Check(Until(() => ready.IsCompleted, 60_000) && !ready.IsFaulted, "webview init: " + ready.Exception?.GetBaseException().Message);
             pane.Web.CoreWebView2.SetVirtualHostNameToFolderMapping(host, root, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            pane.Web.CoreWebView2.SetVirtualHostNameToFolderMapping("player.masar.test", playerRoot, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
 
             PlayVideo(g, v1, 0);
             Check(UdemyActive && !_videoView.Visible, "pane replaces the VLC view");
@@ -203,6 +220,29 @@ internal sealed partial class MainForm
             Check(Until(() => _currentVideo == v2, 15_000), "follows udemy's next lecture: current=" + _currentVideo?.Title);
             Check(Until(() => pane.State is { HasVideo: true }, 15_000), "second lecture loads");
 
+            // مشغّل جوه iframe من موقع تاني: «مسار» بيلاقي الفيديو جوه الإطار ويتحكم فيه
+            PlayVideo(g, v3, 0);
+            Check(Until(() => pane.State is { HasVideo: true, DurationSec: > 0, Playing: true }, 30_000), "iframe player found and playing: " + pane.State);
+            TogglePlay();
+            Check(Until(() => pane.State is { Paused: true }, 5000), "pause iframe player from masar: " + pane.State);
+            TogglePlay();
+            SetRate(1.25f);
+            Check(Until(() => pane.State is { Rate: > 1.2 and < 1.3 }, 5000), "rate on iframe player: " + pane.State);
+            SetRate(1f);
+            double d3 = pane.State!.DurationSec;
+            SeekToFraction(0.5);
+            Check(Until(() => pane.State is { } s3 && Math.Abs(s3.TimeSec - d3 / 2) < Math.Max(1.0, d3 * 0.2), 5000), $"seek iframe player: {pane.State} (dur {d3})");
+            string fit3 = "";
+            Check(Until(() =>
+            {
+                var t = pane.Web.CoreWebView2.ExecuteScriptAsync("(() => { const r = document.querySelector('iframe').getBoundingClientRect(); return Math.round(r.height) + '/' + innerHeight; })()");
+                if (!Until(() => t.IsCompleted, 3000)) return false;
+                fit3 = t.Result.Trim('"');
+                var n = fit3.Split('/').Select(x => int.TryParse(x, out int k) ? k : -1).ToArray();
+                return n.Length == 2 && n[1] > 0 && Math.Abs(n[0] - n[1]) <= 3;
+            }, 8000), "iframe player fills the pane: " + fit3);
+            SaveSmokeShot(this, "lesson-iframe-player");
+
             // فيديو عادي بعد يوديمي: الشاشة ترجع لـ VLC والصفحة تتقفل
             StopPlayback();
             Check(!UdemyActive && !_udemyShown && _videoView.Visible, "stop hides the pane");
@@ -211,7 +251,7 @@ internal sealed partial class MainForm
         finally
         {
             HideUdemyPane();
-            if (_currentVideo == v1 || _currentVideo == v2) StopPlaybackCore(clearCurrent: true);
+            if (_currentVideo == v1 || _currentVideo == v2 || _currentVideo == v3) StopPlaybackCore(clearCurrent: true);
             _library.Courses.Remove(course);
             RebuildTree();
             Udemy.TestOrigin = null;

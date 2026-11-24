@@ -36,6 +36,8 @@ internal sealed class UdemyPane : Panel
     private float _pendingRate = 1f;
     private int _pendingVolume = -1;
     private bool _polling;
+    private readonly List<CoreWebView2Frame> _frames = new();
+    private CoreWebView2Frame? _mediaFrame;
     private int _gen;
     private long _openedTick;
 
@@ -70,6 +72,7 @@ internal sealed class UdemyPane : Panel
         await UdemyWeb.InitAsync(Web);
         var core = Web.CoreWebView2;
         core.WebMessageReceived += OnMessage;
+        core.FrameCreated += (_, e) => TrackFrame(e.Frame);
         core.ContainsFullScreenElementChanged += (_, _) => FullscreenChanged?.Invoke(core.ContainsFullScreenElement);
         core.NavigationCompleted += (_, e) => Navigated?.Invoke(e.IsSuccess, core.Source);
         core.NewWindowRequested += (_, e) => { e.Handled = true; core.Navigate(e.Uri); }; // روابط «شباك جديد» تفتح هنا
@@ -83,6 +86,7 @@ internal sealed class UdemyPane : Panel
     {
         State = null;
         _gen++;
+        _mediaFrame = null;
         _openedTick = Environment.TickCount64;
         OpenedLectureId = Data.Udemy.LectureId(url);
         await EnsureReadyAsync();
@@ -101,25 +105,58 @@ internal sealed class UdemyPane : Panel
         int gen = _gen;
         try
         {
-            string raw = await Web.CoreWebView2.ExecuteScriptAsync(PollScript);
-            if (gen != _gen) return; // اتفتح درس تاني وإحنا مستنيين
-            string? json = UdemyWeb.Unwrap(raw);
-            if (json == null) return;
+            string? json = UdemyWeb.Unwrap(await Web.CoreWebView2.ExecuteScriptAsync(PollScript));
+            if (gen != _gen || json == null) return; // اتفتح درس تاني وإحنا مستنيين
             using var doc = JsonDocument.Parse(json);
-            var r = doc.RootElement;
-            bool has = r.GetProperty("v").GetInt32() == 1;
-            State = new PlayerState(has,
-                has ? r.GetProperty("t").GetDouble() : 0,
-                has ? r.GetProperty("d").GetDouble() : 0,
-                !has || r.GetProperty("p").GetBoolean(),
-                has && r.GetProperty("e").GetBoolean(),
-                has ? r.GetProperty("r").GetDouble() : 1,
-                r.GetProperty("h").GetString() ?? "");
-            if (has && State.DurationSec > 0) ApplyPending();
+            var main = doc.RootElement;
+            string href = main.GetProperty("h").GetString() ?? "";
+            if (main.GetProperty("v").GetInt32() == 1) { _mediaFrame = null; SetState(main, href); return; }
+
+            // الفيديو جوه iframe من موقع تاني (VdoCipher، Vimeo، Bunny…): بنقرا الفيديو جوه الإطار نفسه
+            string? best = null;
+            double bestArea = -1;
+            CoreWebView2Frame? bestFrame = null;
+            foreach (var f in _frames.ToArray())
+            {
+                string? fj;
+                try { fj = UdemyWeb.Unwrap(await f.ExecuteScriptAsync(PollScript)); }
+                catch (Exception) { _frames.Remove(f); continue; } // الإطار اتقفل
+                if (gen != _gen) return;
+                if (fj == null) continue;
+                using var fd = JsonDocument.Parse(fj);
+                if (fd.RootElement.GetProperty("v").GetInt32() != 1) continue;
+                double area = fd.RootElement.TryGetProperty("a", out var a) ? a.GetDouble() : 0;
+                if (area > bestArea) { bestArea = area; best = fj; bestFrame = f; }
+            }
+            _mediaFrame = bestFrame;
+            if (best == null) { SetState(main, href); return; }
+            using var bd = JsonDocument.Parse(best);
+            SetState(bd.RootElement, href);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException) { }
-        catch (Exception ex) { Data.Log.Info("udemy poll: " + ex.Message); }
+        catch (Exception ex) { Data.Log.Info("lesson poll: " + ex.Message); }
         finally { _polling = false; }
+    }
+
+    private void SetState(JsonElement r, string href)
+    {
+        bool has = r.GetProperty("v").GetInt32() == 1;
+        State = new PlayerState(has,
+            has ? r.GetProperty("t").GetDouble() : 0,
+            has ? r.GetProperty("d").GetDouble() : 0,
+            !has || r.GetProperty("p").GetBoolean(),
+            has && r.GetProperty("e").GetBoolean(),
+            has ? r.GetProperty("r").GetDouble() : 1,
+            href);
+        if (has && State.DurationSec > 0) ApplyPending();
+    }
+
+    /// <summary>كل الإطارات (والإطارات جوه الإطارات) عشان نلاقي الفيديو لو المشغّل من موقع تاني.</summary>
+    private void TrackFrame(CoreWebView2Frame frame)
+    {
+        _frames.Add(frame);
+        frame.Destroyed += (_, _) => { _frames.Remove(frame); if (_mediaFrame == frame) _mediaFrame = null; };
+        try { frame.FrameCreated += (_, e) => TrackFrame(e.Frame); } catch (Exception) { } // runtime قديم
     }
 
     private void ApplyPending()
@@ -139,7 +176,13 @@ internal sealed class UdemyPane : Panel
     private void Run(string js)
     {
         if (!_ready || Web.CoreWebView2 == null) return;
-        _ = Web.CoreWebView2.ExecuteScriptAsync("(() => { const v = " + MainVideoJs + "; if (!v) return; " + js + " })()");
+        string script = "(() => { const v = " + MainVideoJs + "; if (!v) return; " + js + " })()";
+        if (_mediaFrame != null)
+        {
+            try { _ = _mediaFrame.ExecuteScriptAsync(script); return; }
+            catch (Exception) { _mediaFrame = null; }
+        }
+        _ = Web.CoreWebView2.ExecuteScriptAsync(script);
     }
 
     public void Play() => Run("v.play();");
@@ -256,8 +299,12 @@ internal sealed class UdemyPane : Panel
           const box = e => e.getBoundingClientRect();
           const same = (a, b) => Math.abs(a.left - b.left) < 3 && Math.abs(a.top - b.top) < 3 &&
                                  Math.abs(a.width - b.width) < 3 && Math.abs(a.height - b.height) < 3;
+          // الفيديو الأساسي: أكبر <video>، أو إطار مشغّل من موقع تاني (VdoCipher، Vimeo، يوتيوب، Bunny…)
+          const playerFrame = /vdocipher|vimeo|youtube|mediadelivery|bunny|wistia|jwplayer|cloudflarestream|player\./i;
           const mainVideo = () => { let best = null, area = 0;
-            for (const x of document.querySelectorAll('video')) { const r = box(x); if (r.width * r.height > area) { area = r.width * r.height; best = x; } }
+            for (const x of document.querySelectorAll('video, iframe')) {
+              if (x.tagName === 'IFRAME' && !playerFrame.test(x.src || '')) continue;
+              const r = box(x); if (r.width * r.height > area) { area = r.width * r.height; best = x; } }
             return best; };
           const top = e => !e || e === document.body || e === document.documentElement;
           const clear = () => { for (const a of ['data-masar-fit', 'data-masar-anc', 'data-masar-fill'])
@@ -321,6 +368,7 @@ internal sealed class UdemyPane : Panel
 
     private const string PollScript =
         "(() => { const v = " + MainVideoJs + "; if (!v) return JSON.stringify({ v: 0, h: location.href }); " +
-        "return JSON.stringify({ v: 1, t: v.currentTime || 0, d: isFinite(v.duration) ? v.duration : 0, " +
+        "const b = v.getBoundingClientRect(); " +
+        "return JSON.stringify({ v: 1, a: b.width * b.height, t: v.currentTime || 0, d: isFinite(v.duration) ? v.duration : 0, " +
         "p: v.paused, e: v.ended, r: v.playbackRate || 1, h: location.href }); })()";
 }
