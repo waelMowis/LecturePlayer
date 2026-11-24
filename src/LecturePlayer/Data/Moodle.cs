@@ -78,9 +78,27 @@ public static class Moodle
 
     public static string NewPassport() => Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
 
-    /// <summary>الصفحة اللي بتتفتح في المتصفح: الموقع يطلب الدخول (لو مش داخل) ويرجّع التوكن على moodlemobile://.</summary>
+    /// <summary>
+    /// الصفحة اللي بتتفتح في المتصفح: الموقع يطلب الدخول (لو مش داخل) ويرجّع التوكن على moodlemobile://.
+    /// confirmed=1: الصفحة بتعرض رابط بيتداس لوحده بدل تحويل مباشر (Location) لـ moodlemobile:// —
+    /// جدران الحماية (زي اللي قدام مهارة تك) بترفض التحويل لعنوان بره الموقع وبتطلع «Request Rejected».
+    /// </summary>
     public static string LaunchUrl(string site, string passport) =>
-        $"{site}/admin/tool/mobile/launch.php?service={Service}&passport={passport}&urlscheme={Scheme}";
+        $"{site}/admin/tool/mobile/launch.php?service={Service}&passport={passport}&urlscheme={Scheme}&confirmed=1";
+
+    /// <summary>
+    /// اللي المستخدم لزقه بإيده (لو المتصفح مافتحش «مسار»): رابط moodlemobile://token=… كامل، أو الجزء اللي بعد token=.
+    /// </summary>
+    public static string? NormalizePastedCallback(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        string t = text.Trim().Trim('"', '\'', '<', '>');
+        int i = t.IndexOf(Scheme + "://", StringComparison.OrdinalIgnoreCase);
+        if (i >= 0) return t[i..];
+        int k = t.IndexOf("token=", StringComparison.OrdinalIgnoreCase);
+        if (k >= 0) t = t[(k + 6)..];
+        return Regex.IsMatch(t, @"^[A-Za-z0-9+/=_%-]{20,}$") ? Scheme + "://token=" + t : null;
+    }
 
     /// <summary>
     /// moodlemobile://token=BASE64(md5(موقع+passport):::توكن[:::توكن خاص]).

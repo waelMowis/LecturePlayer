@@ -202,6 +202,14 @@ internal sealed partial class MainForm
                  "2) المتصفح هيسألك «تفتح الرابط ده بتطبيق؟» ← اختار «مسار» ودوس فتح.\n" +
                  "الشباك ده هيقفل لوحده أول ما الدخول يوصل.", 104);
         var status = kit.Note("مستني…", 24, Theme.Muted);
+        kit.Header("✋  لو المتصفح ماسألكش");
+        kit.Note("في الصفحة اللي اتفتحت، كليك يمين على رابط «Click here to launch the app» (أو «اضغط هنا…») ← «نسخ الرابط»، والزقه هنا:", 40, Theme.Muted);
+        var paste = kit.Row("الرابط:", new TextBox());
+        paste.TextChanged += (_, _) =>
+        {
+            if (Moodle.NormalizePastedCallback(paste.Text) is { } cb) _moodleSso?.TrySetResult(cb);
+            else if (paste.Text.Length > 0) status.Text = "ده مش رابط الدخول — لازم يبدأ بـ moodlemobile://";
+        };
         kit.Buttons("خلاص", "إلغاء", ("افتح المتصفح تاني", () => OpenInBrowser(launch)));
         kit.Ok!.Visible = false;
         string? callback = null;

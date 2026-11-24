@@ -40,6 +40,9 @@ internal sealed partial class MainForm
         Check(Moodle.ParseSsoCallback(Cb(Sig(site0 + passport), "0123456789abcdef0123456789abcdef:::PRIV123"), site0, passport) is { Token: "0123456789abcdef0123456789abcdef", PrivateToken: "PRIV123" }, "sso callback");
         Check(Moodle.ParseSsoCallback(Cb(Sig(site0 + passport), "0123456789abcdef0123456789abcdef"), site0, passport) is { PrivateToken: null }, "sso without private token");
         Check(Moodle.ParseSsoCallback(Cb(Sig(site0 + "otherpassport"), "0123456789abcdef0123456789abcdef"), site0, passport) == null, "sso with someone else's passport rejected");
+        Check(Moodle.NormalizePastedCallback("  \"moodlemobile://token=QUJDREVGR0hJSktMTU5PUFFSU1RVVg==\" ") == "moodlemobile://token=QUJDREVGR0hJSktMTU5PUFFSU1RVVg==" &&
+              Moodle.NormalizePastedCallback("QUJDREVGR0hJSktMTU5PUFFSU1RVVg==") == "moodlemobile://token=QUJDREVGR0hJSktMTU5PUFFSU1RVVg==" &&
+              Moodle.NormalizePastedCallback("https://maharatech.gov.eg/") == null, "pasted callback");
         Check(Moodle.ParseSsoCallback("moodlemobile://token=%%%", site0, passport) == null && Moodle.ParseSsoCallback("https://x", site0, passport) == null, "sso junk");
 
         // ---------- الدمج ----------
@@ -101,7 +104,7 @@ internal sealed partial class MainForm
             MoodleImport(siteForTest: site);
             Check(Until(() => !_moodleBusy, 60_000), "import finished");
             Check(notices.Count == 0, "no error notices: " + string.Join(" | ", notices));
-            Check(signInLaunch?.StartsWith(site + "/admin/tool/mobile/launch.php?service=moodle_mobile_app&passport=") == true && signInLaunch.EndsWith("&urlscheme=moodlemobile"), "launch url: " + signInLaunch);
+            Check(signInLaunch?.StartsWith(site + "/admin/tool/mobile/launch.php?service=moodle_mobile_app&passport=") == true && signInLaunch.EndsWith("&urlscheme=moodlemobile&confirmed=1"), "launch url: " + signInLaunch);
             Check(hadKey || Registry.CurrentUser.OpenSubKey(@"Software\Classes\moodlemobile") == null, "protocol registration removed after sign-in");
             var acc = MoodleAccountFor(site);
             Check(acc is { UserId: 7, SiteName: "مهارة تك" } && acc.Token == FakeMoodle.Token && !acc.TokenProtected.Contains(FakeMoodle.Token), "account saved with encrypted token");
