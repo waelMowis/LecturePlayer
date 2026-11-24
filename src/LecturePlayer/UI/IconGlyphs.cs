@@ -6,11 +6,19 @@ namespace LecturePlayer.UI;
 /// <summary>
 /// أيقونات المواضيع والمصادر والكورسات اللي المستخدم بيختارها.
 /// مرسومة كمسارات (من غير ملفات صور ولا خطوط)، فبتتلوّن بأي لون وبتبقى حادة في أي مقاس/DPI.
-/// المسارات في <c>IconGlyphs.g.cs</c> في مربع 0..1 (M/L/H/V/Q/Z مطلقة).
+/// المسارات في <c>IconGlyphs.g.cs</c> (Fluent) و<c>IconGlyphs.Extra.g.cs</c> (إضافات Fluent + شعارات اللغات والأدوات والمنصات)
+/// في مربع 0..1 (M/L/H/V/Q/C/Z مطلقة). الإضافات بتتولّد بـ tools/IconGen/gen_icons.py.
 /// </summary>
 internal static partial class IconGlyphs
 {
-    // Lazy: ترتيب تهيئة الحقول الـ static بين ملفات الـ partial مش مضمون (All في الملف التاني)
+    // Lazy: ترتيب تهيئة الحقول الـ static بين ملفات الـ partial مش مضمون (Fluent وExtra في ملفات تانية)
+    private static readonly Lazy<(string Category, string Key, string Label, string Path)[]> LazyAll =
+        new(() => [.. Fluent, .. Extra]);
+    /// <summary>كل الأيقونات بالترتيب: الفئات الأساسية الأول وبعدين فئات الشعارات.</summary>
+    public static (string Category, string Key, string Label, string Path)[] All => LazyAll.Value;
+    private static readonly Lazy<Dictionary<string, Color>> LazyBrand =
+        new(() => BrandHex.ToDictionary(x => x.Key, x => ParseHex(x.Hex)!.Value, StringComparer.Ordinal));
+
     private static readonly Lazy<Dictionary<string, (string Category, string Label, string Path)>> LazyByKey =
         new(() => All.ToDictionary(x => x.Key, x => (x.Category, x.Label, x.Path), StringComparer.Ordinal));
     private static Dictionary<string, (string Category, string Label, string Path)> ByKey => LazyByKey.Value;
@@ -19,6 +27,9 @@ internal static partial class IconGlyphs
     public static bool Exists(string? key) => key != null && ByKey.ContainsKey(key);
     public static string? LabelOf(string? key) => key != null && ByKey.TryGetValue(key, out var x) ? x.Label : null;
     public static IEnumerable<string> Categories => All.Select(x => x.Category).Distinct();
+
+    /// <summary>لون العلامة الأصلي للشعار (متفتّح لو غامق)، أو null للأيقونات العادية.</summary>
+    public static Color? BrandColor(string? key) => key != null && LazyBrand.Value.TryGetValue(key, out var c) ? c : null;
 
     /// <summary>بيرسم الأيقونة جوه المستطيل باللون المطلوب.</summary>
     public static void Draw(Graphics g, string key, RectangleF r, Color color)
@@ -48,11 +59,13 @@ internal static partial class IconGlyphs
     /// <summary>
     /// SVG path بسيط (أوامر مطلقة: M L H V Q C Z). الـ Q بيتحوّل لـ Bezier تكعيبي.
     /// الملء Winding (nonzero) زي الخطوط — Alternate كان هيعمل فتحات غلط في الأشكال المتداخلة.
+    /// إلا لو المسار بادئ بـ «!»: يبقى evenodd (Alternate) زي ما الشعار الأصلي متصمم.
     /// </summary>
     internal static GraphicsPath Parse(string d)
     {
-        var path = new GraphicsPath(FillMode.Winding);
-        int i = 0;
+        bool evenOdd = d.StartsWith('!');
+        var path = new GraphicsPath(evenOdd ? FillMode.Alternate : FillMode.Winding);
+        int i = evenOdd ? 1 : 0;
         char cmd = 'M';
         PointF cur = PointF.Empty, start = PointF.Empty;
         bool open = false;

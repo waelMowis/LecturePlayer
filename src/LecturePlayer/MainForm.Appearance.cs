@@ -131,20 +131,33 @@ internal sealed partial class MainForm
         static void Check(bool ok, string what) { if (!ok) throw new Exception("appearance: " + what); }
 
         // 1) كل الأيقونات: مسار سليم جوه المربع، وبيترسم فيه ملء معقول (مش فاضي ومش مربع مليان)
-        Check(IconGlyphs.All.Length >= 90, "icon count " + IconGlyphs.All.Length);
+        Check(IconGlyphs.All.Length >= 320, "icon count " + IconGlyphs.All.Length);
         Check(IconGlyphs.All.Select(x => x.Key).Distinct().Count() == IconGlyphs.All.Length, "duplicate keys");
         foreach (var (_, key, label, _) in IconGlyphs.All)
         {
             var path = IconGlyphs.PathOf(key) ?? throw new Exception("appearance: no path " + key);
             var b = path.GetBounds();
-            Check(b.Width > 0.3f && b.Height > 0.3f && b.Left > -0.05f && b.Top > -0.05f && b.Right < 1.05f && b.Bottom < 1.05f,
-                $"bounds {key}: {b}");
+            // الشعارات العريضة (.NET، Go) أو الطويلة (MongoDB) بتملى البُعد الكبير بس
+            Check(Math.Max(b.Width, b.Height) > 0.6f && Math.Min(b.Width, b.Height) > 0.2f
+                  && b.Left > -0.05f && b.Top > -0.05f && b.Right < 1.05f && b.Bottom < 1.05f, $"bounds {key}: {b}");
             Check(label.Length > 0, "label " + key);
             using var bmp = Theme.NodeIcon(24, "course", key, Color.Red, done: false);
             int filled = 0;
             for (int y = 0; y < 24; y++) for (int x = 0; x < 24; x++) if (bmp.GetPixel(x, y).A > 128) filled++;
-            Check(filled > 24 * 24 * 0.06 && filled < 24 * 24 * 0.92, $"fill {key}: {filled}");
+            // الشعارات الرفيعة (Java، SQL Server) بتغطي حوالي 6% بس
+            Check(filled > 24 * 24 * 0.035 && filled < 24 * 24 * 0.92, $"fill {key}: {filled}");
         }
+        // الفئات الجديدة والشعارات الأساسية موجودة، ولون العلامة للشعارات بس
+        foreach (var cat in new[] { "لغات برمجة", "فريموركات ومكتبات", "قواعد بيانات وسحابة وأنظمة", "أدوات ومحررات", "منصات ومواقع" })
+            Check(IconGlyphs.Categories.Contains(cat), "category " + cat);
+        foreach (var k in new[] { "csharp", "dotnet", "python", "javascript", "java", "sqlserver", "visualstudio", "vscode", "github", "youtube", "udemy", "backpack", "stethoscope" })
+            Check(IconGlyphs.Exists(k), "icon " + k);
+        Check(IconGlyphs.BrandColor("csharp") is { } cs && cs.GetBrightness() > 0.3f && IconGlyphs.BrandColor("code") == null, "brand color");
+        // evenodd («!»): مربع جواه مربع = حلقة فاضية من جوه
+        using (var ring = IconGlyphs.Parse("!M0 0L1 0L1 1L0 1ZM0.25 0.25L0.75 0.25L0.75 0.75L0.25 0.75Z"))
+            Check(ring.FillMode == System.Drawing.Drawing2D.FillMode.Alternate && !ring.IsVisible(0.5f, 0.5f) && ring.IsVisible(0.1f, 0.1f), "evenodd");
+        using (var solid = IconGlyphs.Parse("M0 0L1 0L1 1L0 1ZM0.25 0.25L0.75 0.25L0.75 0.75L0.25 0.75Z"))
+            Check(solid.FillMode == System.Drawing.Drawing2D.FillMode.Winding && solid.IsVisible(0.5f, 0.5f), "nonzero");
         Check(IconGlyphs.ParseHex("#E86870") == Color.FromArgb(232, 104, 112) && IconGlyphs.ParseHex("xyz") == null, "hex parse");
         Check(IconGlyphs.Readable(Color.FromArgb(20, 20, 60)).GetBrightness() > 0.45f, "dark color lightened");
 
@@ -216,6 +229,24 @@ internal sealed partial class MainForm
             Check(P("ROUTE").IconKey == "bug" && P("ROUTE").ColorHex == hex, "dialog applied to source");
             Check(P("Eng Nada").ColorHex == hex && C("InRoute").ColorHex == hex && C("InNada").ColorHex == hex, "dialog children");
             Check(C("Direct").ColorHex == null && T().ColorHex == null, "dialog did not touch siblings/parent");
+
+            // شعار C#: البحث بالعربي بيلاقيه، واللون الافتراضي بيبقى لون العلامة لوحده
+            AppearanceForm.SmokePick = ("csharp", -2, false, "سي شارب");
+            AppearanceForm.SmokeShot = f => SaveSmokeShot(f, "appearance-brands");
+            EditAppearance(C("Direct"));
+            AppearanceForm.SmokeShot = null;
+            Check(AppearanceForm.SmokeVisibleAfterSearch == 1, "search c# shown " + AppearanceForm.SmokeVisibleAfterSearch);
+            Check(C("Direct").IconKey == "csharp" && C("Direct").ColorHex == IconGlyphs.ToHex(IconGlyphs.BrandColor("csharp")!.Value),
+                "brand icon + brand color " + C("Direct").ColorHex);
+            AppearanceForm.SmokePick = ("python", -2, false, "C#");
+            EditAppearance(C("Direct"));
+            Check(AppearanceForm.SmokeVisibleAfterSearch == 1, "search 'C#' shown " + AppearanceForm.SmokeVisibleAfterSearch);
+            Check(C("Direct").IconKey == "python" && C("Direct").ColorHex == IconGlyphs.ToHex(IconGlyphs.BrandColor("python")!.Value),
+                "switching brand follows brand color " + C("Direct").ColorHex);
+            AppearanceForm.SmokePick = ("bug", -2, false, null);
+            EditAppearance(C("Direct"));
+            Check(C("Direct").IconKey == "bug" && C("Direct").ColorHex == null, "plain icon drops auto brand color " + C("Direct").ColorHex);
+            ApplyAppearance(C("Direct"), "code", null, false);
 
             // «رجّع الافتراضي» للمصدر واللي تحته
             AppearanceForm.SmokePick = (null, -1, true, null);

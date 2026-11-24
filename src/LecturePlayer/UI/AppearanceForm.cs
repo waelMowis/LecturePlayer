@@ -30,6 +30,9 @@ internal static class AppearanceForm
         string? selIcon = IconGlyphs.Exists(icon) ? icon : null;
         Color? selColor = IconGlyphs.ParseHex(colorHex);
         Color Current() => selColor ?? Theme.DefaultKindColor(kind);
+        // شعار ليه لون أصلي (C#، Python…): لو اللون لسه افتراضي أو جاي من شعار قبله، ياخد لون العلامة.
+        // أول ما المستخدم يختار لون بإيده، بنسيب اختياره.
+        bool autoColor = selColor is { } c0 && IconGlyphs.BrandColor(selIcon) is { } b0 && c0.ToArgb() == b0.ToArgb();
         var tiles = new List<Tile>();
 
         // ---------- المعاينة ----------
@@ -77,13 +80,13 @@ internal static class AppearanceForm
         }
         var def = new Swatch(null, Theme.DefaultKindColor(kind), isCustom: false);
         tips.SetToolTip(def, $"افتراضي (لون {kindLabel} العادي)");
-        def.Click += (_, _) => SelectColor(null);
+        def.Click += (_, _) => { autoColor = false; SelectColor(null); };
         swatches.Add(def);
         foreach (var (label, c) in IconGlyphs.Palette)
         {
             var sw = new Swatch(c, c, isCustom: false);
             tips.SetToolTip(sw, label);
-            sw.Click += (_, _) => SelectColor(sw.Value);
+            sw.Click += (_, _) => { autoColor = false; SelectColor(sw.Value); };
             swatches.Add(sw);
         }
         customSwatch = new Swatch(null, Theme.Muted, isCustom: true);
@@ -94,6 +97,7 @@ internal static class AppearanceForm
             if (dlg.ShowDialog(kit.Form) != DialogResult.OK) return;
             customSwatch!.Value = dlg.Color;
             customSwatch.Invalidate();
+            autoColor = false;
             SelectColor(Color.FromArgb(dlg.Color.R, dlg.Color.G, dlg.Color.B));
         };
         swatches.Add(customSwatch);
@@ -110,7 +114,7 @@ internal static class AppearanceForm
 
         // ---------- الأيقونة ----------
         kit.Header("🔣  الأيقونة");
-        var search = kit.Row("دوّر:", new TextBox { PlaceholderText = "مثلًا: كود، قاعدة بيانات، لغات، قرآن…" }, 32);
+        var search = kit.Row("دوّر:", new TextBox { PlaceholderText = "مثلًا: كود، C#، بايثون، SQL، يوتيوب، طب…" }, 32);
         var grid = kit.Full(new FlowLayoutPanel
         {
             FlowDirection = FlowDirection.LeftToRight, // مع RightToLeft بتاع الشاشة = بتبدأ من اليمين
@@ -124,6 +128,11 @@ internal static class AppearanceForm
         {
             selIcon = key;
             foreach (var t in tiles) t.Selected = t.Key == key;
+            if (selColor == null || autoColor)
+            {
+                if (IconGlyphs.BrandColor(key) is { } brand) { SelectColor(brand); autoColor = true; }
+                else if (autoColor) { SelectColor(null); autoColor = false; }
+            }
             preview.Invalidate();
         }
         int labelWidth = grid.Width - SystemInformation.VerticalScrollBarWidth - 10;
@@ -188,8 +197,15 @@ internal static class AppearanceForm
             grid.AutoScrollPosition = Point.Empty;
         };
 
-        kit.Buttons("حفظ", "إلغاء", ("↺  رجّع الافتراضي", () => { SelectIcon(null); SelectColor(null); }));
+        kit.Buttons("حفظ", "إلغاء", ("↺  رجّع الافتراضي", () => { autoColor = false; SelectIcon(null); SelectColor(null); }));
         SelectColor(selColor);
+
+        // لو فيه أيقونة مختارة (ممكن تكون في آخر الفئات)، الشبكة تفتح عندها
+        void ShowSelected()
+        {
+            if (tiles.FirstOrDefault(t => t.Selected && t.Key != null) is { } sel) grid.ScrollControlIntoView(sel);
+        }
+        kit.Form.Shown += (_, _) => ShowSelected();
 
         if (SmokePick is { } pick)
         {
@@ -203,7 +219,9 @@ internal static class AppearanceForm
                     search.Text = "";
                 }
                 SelectIcon(pick.Icon);
-                SelectColor(pick.ColorIndex < 0 ? null : IconGlyphs.Palette[pick.ColorIndex].Color);
+                // -2 = سيب اللون زي ما الشاشة اختارته (لون العلامة للشعارات)
+                if (pick.ColorIndex != -2) SelectColor(pick.ColorIndex < 0 ? null : IconGlyphs.Palette[pick.ColorIndex].Color);
+                ShowSelected();
                 if (children != null) children.Checked = pick.Children;
                 Application.DoEvents();
                 SmokeShot?.Invoke(kit.Form);
