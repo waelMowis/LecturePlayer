@@ -162,6 +162,7 @@ internal sealed partial class MainForm
         RunMoodleChecks();
         RunItLegendChecks();
         RunTopicSeparatorCheck();
+        RunMenuChecks();
         RunStressAndPlaybackChecks();
 
         // تقرير الأعطال: تسجيل، وقراية، وبناء التقرير، وفتح الشاشة بتاعته

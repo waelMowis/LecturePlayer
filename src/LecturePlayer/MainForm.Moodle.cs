@@ -36,7 +36,7 @@ internal sealed partial class MainForm
     /// Moodle ← كورساتي: يدخل (لو محتاج)، يعرض كورساتك تختار منها، ويستوردها أو يحدّثها.
     /// refresh = كورس موجود: بيحدّث أقسامه وأنشطته وإكمالك بس.
     /// </summary>
-    private async void MoodleImport(Course? refresh = null, string? siteForTest = null)
+    private async void MoodleImport(Course? refresh = null, string? siteForTest = null, ImportTarget? target = null)
     {
         if (_moodleBusy) { ShowStatus("فيه استيراد من Moodle شغال دلوقتي…"); return; }
         string? site = refresh != null ? Moodle.ParseCourseUrl(refresh.SourceUrl)?.Site : siteForTest ?? AskMoodleSite();
@@ -71,7 +71,7 @@ internal sealed partial class MainForm
                 string Url(long id) => Moodle.CourseUrl(account.Site, id);
                 var pick = PickPlatformCourses(this, platform, platform,
                     courses.Select(c => (c.Id, c.Title, c.Instructor, _library.Courses.Any(x => x.SourceUrl == Url(c.Id)))).ToList(),
-                    "كورسات " + platform, "والكورس جواه أقسام الموقع كمحاضرات، وفيديوهات يوتيوب كفيديوهات، والاختبارات والأنشطة التانية بتتفتح في المتصفح.");
+                    "كورسات " + platform, "والكورس جواه أقسام الموقع كمحاضرات، وفيديوهات يوتيوب كفيديوهات، والاختبارات والأنشطة التانية بتتفتح في المتصفح.", target);
                 if (pick == null) return;
                 chosen = courses.Where(c => pick.Value.Ids.Contains(c.Id)).ToList();
                 topicName = pick.Value.Topic;
@@ -95,9 +95,8 @@ internal sealed partial class MainForm
                 bool isNew = course == null;
                 if (course == null)
                 {
-                    topic ??= NewTopic(topicName ?? "كورسات " + platform);
                     course = new Course { Name = mc.Title };
-                    PlacePlatformCourse(course, topic, platform, mc.Instructor);
+                    topic = PlaceImportedCourse(course, target, topic, topicName ?? "كورسات " + platform, platform, mc.Instructor);
                     _library.Courses.Add(course);
                 }
                 results.Add((course, Moodle.Apply(course, account.Site, mc, sections, firstImport: isNew), isNew));

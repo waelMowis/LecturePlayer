@@ -311,7 +311,7 @@ internal sealed partial class MainForm
         foreach (var o in new object[] { T("YouTube"), P("Channel A"), C("C2 direct") })
         {
             ShowNodeMenu(NodeOf(o)!, Point.Empty);
-            bool has = _nodeMenu.Items.OfType<ToolStripItem>().Any(i => i.Text?.Contains("حفظ في مكتبة جديدة") == true);
+            bool has = MenuHas(_nodeMenu.Items, "حفظ في مكتبة جديدة");
             _nodeMenu.Close();
             Check(has, "menu item for " + o.GetType().Name);
         }

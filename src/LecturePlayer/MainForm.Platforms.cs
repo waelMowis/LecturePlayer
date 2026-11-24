@@ -4,8 +4,35 @@ using LecturePlayer.UI;
 namespace LecturePlayer;
 
 /// <summary>حاجات مشتركة بين منصات الكورسات (يوديمي، Moodle/مهارة تك): المكان في المكتبة، واختيار الكورسات.</summary>
+/// <summary>المكان اللي الكورس المستورد هيتحط فيه لما الأمر يتدّاس من كليك يمين (موضوع أو مصدر) — من غير ما يسأل.</summary>
+internal sealed record ImportTarget(Topic? Topic, Place? Place)
+{
+    public string Label => Place != null ? "«" + Place.Name + "»" : Topic != null ? "«" + Topic.Name + "»" : "";
+}
+
 internal sealed partial class MainForm
 {
+    /// <summary>
+    /// بيحط كورس مستورد من منصة: لو اتطلب من مصدر ← جواه على طول؛ من موضوع ← الموضوع ← المنصة ← المدرّس؛
+    /// وإلا الموضوع اللي اخترته في شباك الاختيار. بيرجّع الموضوع (عشان باقي الكورسات تروح نفس المكان).
+    /// </summary>
+    private Topic? PlaceImportedCourse(Course course, ImportTarget? target, Topic? topic, string? topicName, string platform, string? instructor)
+    {
+        if (target?.Place is { } p)
+        {
+            course.TopicId = p.TopicId;
+            course.PlaceId = p.Id;
+            course.Instructor = instructor;
+            course.TouchInfo();
+            return topic;
+        }
+        topic ??= target?.Topic
+                  ?? _library.Topics.FirstOrDefault(t => string.Equals(t.Name, topicName, StringComparison.OrdinalIgnoreCase))
+                  ?? NewTopic(string.IsNullOrWhiteSpace(topicName) ? "كورسات " + platform : topicName);
+        PlacePlatformCourse(course, topic, platform, instructor);
+        return topic;
+    }
+
     private Topic NewTopic(string name)
     {
         var t = new Topic { Name = name };
@@ -48,7 +75,7 @@ internal sealed partial class MainForm
     /// اختيار الكورسات (دوسة = ☑/☐) والموضوع. exists = موجود في المكتبة (هيتحدّث بس، ومش متعلّم من الأول).
     /// </summary>
     private (HashSet<long> Ids, string Topic)? PickPlatformCourses(IWin32Window owner, string title, string platform,
-        List<(long Id, string Title, string? Instructor, bool Exists)> all, string defaultTopic, string structureNote)
+        List<(long Id, string Title, string? Instructor, bool Exists)> all, string defaultTopic, string structureNote, ImportTarget? target = null)
     {
         using var kit = new FormKit($"{title} — اختار الكورسات", 680);
         kit.Header($"🎓  كورساتك على {title} ({all.Count})");
@@ -81,14 +108,23 @@ internal sealed partial class MainForm
         };
         count = kit.Note("", 24, Theme.Muted);
 
+        ComboBox topicBox = new();
+        if (target is { Topic: not null } or { Place: not null })
+        {
+            // الأمر اتدّاس من موضوع/مصدر: المكان معروف، مفيش سؤال
+            kit.Note($"📁  هتتحط في {target.Label}" + (target.Place == null ? $" ← {platform} ← المدرّس" : "") + ". " + structureNote, 44, Theme.Muted);
+        }
+        else
+        {
         kit.Header("📁  تتحط فين");
-        var topicBox = kit.Row("الموضوع:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDown });
+        topicBox = kit.Row("الموضوع:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDown });
         foreach (var t in _library.Topics) topicBox.Items.Add(t.Name);
         // الموضوع اللي فيه المنصة دي قبل كده، أو موضوع جديد
         topicBox.Text = _library.Topics.FirstOrDefault(t => _library.TopPlacesOf(t).Any(p => p.Name.Equals(platform, StringComparison.OrdinalIgnoreCase)))?.Name
                         ?? defaultTopic;
         kit.Note($"الترتيب: الموضوع ← {platform} ← المدرّس ← الكورس. {structureNote}\n" +
                  "الكورسات الموجودة بتتحدّث بس (ملاحظاتك ومكانك وعلاماتك بيفضلوا).", 44, Theme.Muted);
+        }
         kit.Buttons("استيراد", "إلغاء",
             ("تحديد الكل", () => { foreach (var c in all) picked.Add(c.Id); Paint(); }),
             ("ولا حاجة", () => { picked.Clear(); Paint(); }));

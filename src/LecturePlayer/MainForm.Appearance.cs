@@ -234,7 +234,7 @@ internal sealed partial class MainForm
         foreach (var o in new object[] { T(), P("ROUTE"), C("Direct") })
         {
             ShowNodeMenu(N(o), Point.Empty);
-            bool has = _nodeMenu.Items.OfType<ToolStripItem>().Any(i => i.Text?.Contains("الأيقونة واللون") == true);
+            bool has = MenuHas(_nodeMenu.Items, "الأيقونة واللون");
             _nodeMenu.Close();
             Check(has, "menu item for " + o.GetType().Name);
         }

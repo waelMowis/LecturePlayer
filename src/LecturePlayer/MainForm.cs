@@ -619,34 +619,21 @@ internal sealed partial class MainForm : Form
         sectionRow.Controls.Add(_courseLabel);
         // زرار واحد «＋ إضافة» بدل 6 أيقونات صغيرة من غير أسامي
         var addMenu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
-        void AddItem(string text, string keys, Action click)
+        // «＋ إضافة» بيتبني كل مرة حسب اللي واقف عليه: موضوع جديد الأول، وبعدها اللي تحت الحاجة المحددة بالترتيب
+        addMenu.Opening += (_, e) =>
         {
-            var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text, ShortcutKeyDisplayString = keys };
-            i.Click += (_, _) => click();
-            addMenu.Items.Add(i);
-        }
-        // 3 حاجات بس: كورس من فولدر، يوتيوب، وتنظيم المكتبة
-        AddItem("📁  كورس من فولدر على الجهاز أو الدرايف…", "Ctrl+I", ImportCourseDialog);   // الحماية جوه كل أمر (EnsureLibrary)
-        AddItem("🔗  من يوتيوب (فيديو أو قائمة تشغيل)…", "Ctrl+U", () => AddUrlsDialog(null));
-        addMenu.Items.Add(new ToolStripSeparator());
-        var organize = new ToolStripMenuItem("🗂  تنظيم المكتبة") { ForeColor = Theme.Text };
-        void OrgItem(string text, string keys, Action click)
-        {
-            var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text, ShortcutKeyDisplayString = keys };
-            i.Click += (_, _) => click();
-            organize.DropDownItems.Add(i);
-        }
-        OrgItem("موضوع جديد…", "Ctrl+Shift+N", () => AddTopic());
-        OrgItem("مصدر جديد جوه الموضوع المحدد…", "", AddPlaceFromMenu);
-        OrgItem("كورس فاضي جديد…", "Ctrl+Shift+G", () => AddCourse());
-        OrgItem("محاضرة فاضية جديدة في الكورس المحدد…", "Ctrl+G", () => AddGroup());
-        addMenu.Items.Add(organize);
+            foreach (var old in addMenu.Items.Cast<ToolStripItem>().ToList()) old.Dispose();
+            addMenu.Items.Clear();
+            BuildAddMenu(_tree.SelectedNode?.Tag, addMenu.Items);
+            e.Cancel = false;
+        };
+        addMenu.Items.Add(new ToolStripMenuItem("…"));
         var addButton = new PillButton("＋  إضافة", PillStyle.Ghost)
         {
             Dock = DockStyle.Left, Width = LogicalToDeviceUnits(82), Margin = Padding.Empty, TabStop = false
         };
         addButton.Click += (_, _) => addMenu.Show(addButton, new Point(0, addButton.Height + 2));
-        _toolTip.SetToolTip(addButton, "ضيف كورس من فولدر، أو من يوتيوب، أو نظّم المكتبة (موضوع، مصدر)");
+        _toolTip.SetToolTip(addButton, "إضافة حسب اللي واقف عليه: موضوع ← مصدر ← كورس ← محاضرة ← فيديوهات (أو Insert)");
         sectionRow.Controls.Add(addButton);
 
         // سطر الأرقام اتشال: الإحصائيات بقت في تلميح اسم المكتبة، والسطر ده بيظهر بس لما فيه فلتر شغال (عشان متتلخبطش ليه حاجات مش ظاهرة)
@@ -1249,6 +1236,7 @@ internal sealed partial class MainForm : Form
 
             case Keys.Control | Keys.V when tree: PasteUrls(); return true;
             case Keys.F2 when tree: RenameSelected(); return true;
+            case Keys.Insert when tree: ShowAddMenuAtSelection(); return true;
             case Keys.Delete when tree: DeleteSelected(); return true;
             case Keys.W when tree: ToggleWatchedSelected(); return true;
             case Keys.Alt | Keys.Up when tree: MoveSelected(-1); return true;

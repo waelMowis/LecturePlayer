@@ -224,7 +224,7 @@ internal sealed partial class MainForm
     /// يوديمي ← كورساتي: بيدخل (لو محتاج)، يعرض كورساتك تختار منها، ويستوردها أو يحدّثها.
     /// refresh = كورس موجود: بيحدّث منهجه وتقدّمك بس.
     /// </summary>
-    private void UdemyImport(Course? refresh = null)
+    private void UdemyImport(Course? refresh = null, ImportTarget? target = null)
     {
         if (UdemyWeb.RuntimeVersion == null) { ShowWebView2Missing(); return; }
 
@@ -253,7 +253,7 @@ internal sealed partial class MainForm
                 else
                 {
                     if (all.Count == 0) { error = "الحساب ده مافيهوش كورسات مشتراة على يوديمي."; form.Close(); return; }
-                    var pick = PickUdemyCourses(form, all);
+                    var pick = PickUdemyCourses(form, all, target);
                     if (pick == null) { form.Close(); return; }
                     (chosen, topicName) = pick.Value;
                     topic = _library.Topics.FirstOrDefault(t => string.Equals(t.Name, topicName, StringComparison.OrdinalIgnoreCase));
@@ -270,9 +270,8 @@ internal sealed partial class MainForm
                     bool isNew = course == null;
                     if (course == null)
                     {
-                        topic ??= NewTopic(topicName ?? "كورسات يوديمي");
                         course = new Course { Name = uc.Title };
-                        PlaceUdemyCourse(course, topic, uc.Instructor);
+                        topic = PlaceImportedCourse(course, target, topic, topicName ?? "كورسات يوديمي", "Udemy", uc.Instructor);
                         _library.Courses.Add(course);
                     }
                     var sync = Udemy.Apply(course, uc, chapters, done, firstImport: isNew);
@@ -302,9 +301,6 @@ internal sealed partial class MainForm
                 : $"🎓 اتحدّث من يوديمي: {lessons} درس جديد، و{watched} درس اتعلّم «اتشاف» من تقدّمك هناك",
             BannerKind.Success, seconds: 10);
     }
-
-    /// <summary>الموضوع ← Udemy ← المدرّس ← الكورس.</summary>
-    private void PlaceUdemyCourse(Course course, Topic topic, string? instructor) => PlacePlatformCourse(course, topic, "Udemy", instructor);
 
     private static async Task<string> GetUdemyJsonAsync(UdemyAccountForm form, string path, CancellationToken ct)
     {
@@ -349,11 +345,11 @@ internal sealed partial class MainForm
     }
 
     /// <summary>اختيار الكورسات + الموضوع اللي هتتحط فيه.</summary>
-    private (List<UdemyCourse> Courses, string Topic)? PickUdemyCourses(IWin32Window owner, List<UdemyCourse> all)
+    private (List<UdemyCourse> Courses, string Topic)? PickUdemyCourses(IWin32Window owner, List<UdemyCourse> all, ImportTarget? target = null)
     {
         var pick = PickPlatformCourses(owner, "يوديمي", "Udemy",
             all.Select(c => (c.Id, c.Title, c.Instructor, _library.Courses.Any(x => x.UdemyId == c.Id))).ToList(), "كورسات يوديمي",
-            "والكورس جواه أقسام يوديمي كمحاضرات، والدروس كفيديوهات.");
+            "والكورس جواه أقسام يوديمي كمحاضرات، والدروس كفيديوهات.", target);
         if (pick == null) return null;
         return (all.Where(c => pick.Value.Ids.Contains(c.Id)).ToList(), pick.Value.Topic);
     }

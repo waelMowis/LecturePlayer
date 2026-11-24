@@ -11,23 +11,23 @@ internal sealed partial class MainForm
 {
     private const string ItLegendPlatform = "IT Legend";
 
-    private void ItLegendImport(Course? refresh = null)
+    private void ItLegendImport(Course? refresh = null, ImportTarget? target = null)
     {
         if (UdemyWeb.RuntimeVersion == null) { ShowWebView2Missing(); return; }
         string? refreshId = refresh != null ? ItLegend.CourseIdOf(refresh.SourceUrl) : null;
         using var form = new ItLegendForm(refreshId);
         if (form.ShowDialog(this) != DialogResult.OK || form.Result is not { } r) return;
-        ApplyItLegend(r.Course, r.Modules, refresh);
+        ApplyItLegend(r.Course, r.Modules, refresh, target: target);
     }
 
     /// <summary>بيحط الكورس في المكتبة (أول مرة: يسألك على الموضوع) أو يحدّثه.</summary>
-    private void ApplyItLegend(ItLegendCourse src, List<ItLegendModule> modules, Course? refresh, string? topicForTest = null)
+    private void ApplyItLegend(ItLegendCourse src, List<ItLegendModule> modules, Course? refresh, string? topicForTest = null, ImportTarget? target = null)
     {
         string url = ItLegend.CourseUrl(src.Id);
         var course = refresh ?? _library.Courses.FirstOrDefault(c => ItLegend.CourseIdOf(c.SourceUrl) == src.Id);
         bool isNew = course == null;
         string? topicName = topicForTest;
-        if (isNew && topicName == null)
+        if (isNew && topicName == null && target is not ({ Topic: not null } or { Place: not null }))
         {
             var pick = PickPlatformCourses(this, ItLegendPlatform, ItLegendPlatform,
                 new List<(long, string, string?, bool)> { (1, src.Title, src.Instructor, false) }, "كورسات IT Legend",
@@ -38,9 +38,8 @@ internal sealed partial class MainForm
         Checkpoint((isNew ? "استيراد من " : "تحديث من ") + ItLegendPlatform);
         if (course == null)
         {
-            var topic = _library.Topics.FirstOrDefault(t => string.Equals(t.Name, topicName, StringComparison.OrdinalIgnoreCase)) ?? NewTopic(topicName!);
             course = new Course { Name = src.Title };
-            PlacePlatformCourse(course, topic, ItLegendPlatform, src.Instructor);
+            PlaceImportedCourse(course, target, null, topicName ?? "كورسات IT Legend", ItLegendPlatform, src.Instructor);
             _library.Courses.Add(course);
         }
         var sync = ItLegend.Apply(course, src, modules, firstImport: isNew);

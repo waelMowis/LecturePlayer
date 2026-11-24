@@ -195,45 +195,6 @@ internal sealed partial class MainForm
         PlayCourse(c);
     }
 
-    private void BuildPlaceMenu(Place p, ToolStripItemCollection items)
-    {
-        items.Add(MenuItem("▶  كمّل آخر كورس في المصدر ده", () => PlayPlace(p)));
-        AddRefreshLinksMenuItem(p, items);
-        items.Add(new ToolStripSeparator());
-        items.Add(MenuItem("📁  إضافة كورس من فولدر هنا…", () =>
-        {
-            string? path = PickFolder(this, $"اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس) من «{p.Name}»");
-            if (path != null) ShowAddFolderDialog(path, null, p, useSelection: false);
-        }));
-        items.Add(MenuItem("🔗  إضافة من يوتيوب هنا…", () => AddUrlsDialog(null, p)));
-        if (_library.ParentOf(p) == null)
-            items.Add(MenuItem("🏫  مصدر فرعي جديد هنا (مدرّس، قناة…)…", () => AddPlace(null, parent: p)));
-        items.Add(MenuItem("إعادة تسمية…", RenameSelected, "F2"));
-        items.Add(AppearanceMenuItem(p));
-        items.Add(ExportMenuItem(p));
-        items.Add(MovePlaceToTopicMenu(p));
-        items.Add(FoldMenu(p));
-        items.Add(SubMenuOf("المزيد",
-            MenuItem("كورس جديد فاضي هنا…", () => AddCourse(placeFor: p)),
-            MenuItem("ترتيب الكورسات بالاسم", () =>
-            {
-                Checkpoint("ترتيب الكورسات");
-                var mine = _library.CoursesInPlace(p).OrderBy(c => c.Name, NaturalComparer.Instance).ToList();
-                var slots = _library.Courses.Select((c, i) => (c, i)).Where(x => mine.Contains(x.c)).Select(x => x.i).ToList();
-                for (int k = 0; k < slots.Count; k++) _library.Courses[slots[k]] = mine[k];
-                MarkDirty();
-                RebuildTree();
-            }),
-            MenuItem("تعليم كل فيديوهات المصدر كمُشاهَدة", ToggleWatchedSelected, "W"),
-            MenuItem("↺ تصفير التقدم في المصدر كله…", () =>
-                ResetWatched(_library.AllCoursesUnder(p).SelectMany(c => c.AllVideos), $"«{p.Name}»")),
-            new ToolStripSeparator(),
-            MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"),
-            MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"),
-            MenuItem("مصدر جديد بعده…", () => AddPlace(_library.TopicOf(p), parent: _library.ParentOf(p)))));
-        items.Add(new ToolStripSeparator());
-        items.Add(MenuItem("حذف المصدر (الكورسات بتفضل)", DeleteSelected, "Delete"));
-    }
 
     private ToolStripMenuItem MovePlaceToTopicMenu(Place p)
     {
@@ -597,10 +558,10 @@ internal sealed partial class MainForm
         // الأمر موجود في قايمة الموضوع والمصدر
         RebuildTree();
         ShowNodeMenu(NodeOf(baqara)!, Point.Empty);
-        bool inPlaceMenu = _nodeMenu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("يوتيوب"));
+        bool inPlaceMenu = MenuHas(_nodeMenu.Items, "يوتيوب");
         _nodeMenu.Close();
         ShowNodeMenu(NodeOf(yt)!, Point.Empty);
-        bool inTopicMenu = _nodeMenu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("يوتيوب"));
+        bool inTopicMenu = MenuHas(_nodeMenu.Items, "يوتيوب");
         _nodeMenu.Close();
         Check(inPlaceMenu && inTopicMenu, "youtube item in topic/source menus");
 
@@ -625,7 +586,7 @@ internal sealed partial class MainForm
         SetSubtreeExpanded(pc, false);
         Check(N(pc).IsExpanded && !N(pc.Groups[0]).IsExpanded, "fold: close inside course");
         ShowNodeMenu(N(islamic), Point.Empty);
-        bool foldInMenu = _nodeMenu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text == "طي وتوسيع");
+        bool foldInMenu = MenuHas(_nodeMenu.Items, "طي وتوسيع");
         _nodeMenu.Close();
         Check(foldInMenu, "fold item in source menu");
         Console.WriteLine("SMOKE hierarchy ui OK");
