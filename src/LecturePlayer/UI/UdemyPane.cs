@@ -356,6 +356,7 @@ internal sealed class UdemyPane : Panel
             if (window.__masarReported === location.pathname) return;
             window.__masarReported = location.pathname;
             setTimeout(() => { try {
+              if (!v.isConnected) { window.__masarReported = null; return; } // المشغّل اتبدّل: التقرير يتعمل على الجديد
               const r = box(v);
               window.chrome.webview.postMessage(JSON.stringify({ dbg: 'fit ' + (Math.abs(r.height - innerHeight) < 4 || Math.abs(r.width - innerWidth) < 4 ? 'OK' : 'FAIL') +
                 ' video ' + Math.round(r.width) + 'x' + Math.round(r.height) + ' in ' + innerWidth + 'x' + innerHeight + ' videos:' + document.querySelectorAll('video').length +
