@@ -268,6 +268,7 @@ public static class LibrarySync
             target.LastPage = other.LastPage; target.LastTop = other.LastTop; target.LastLeft = other.LastLeft;
             target.Zoom = other.Zoom; target.Spread = other.Spread; target.RightToLeft = other.RightToLeft;
             target.MarkedDone = other.MarkedDone; target.Notes = other.Notes; target.LastOpenedUtc = other.LastOpenedUtc;
+            target.InkCount = other.InkCount;
             var marks = other.Marks.ToList();
             // علامة اتعملت هنا بعد آخر تغيير هناك: تفضل
             marks.AddRange(target.Marks.Where(m => m.CreatedUtc > other.ProgressUtc && marks.All(x => x.Id != m.Id)));

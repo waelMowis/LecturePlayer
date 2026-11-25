@@ -78,3 +78,12 @@ License: BSD 2-Clause — Copyright (c) 2013, FuturePress — النص الكا�
 JSZip — Reader\lib\jszip.min.js
 https://github.com/Stuk/jszip
 License: MIT (dual MIT / GPLv3) — Copyright (c) 2009-2016 Stuart Knightley وآخرين — النص الكامل: Reader\lib\LICENSE-jszip.txt
+
+------------------------------------------------------------
+perfect-freehand 1.2.3 (رسم خطوط الأقلام بضغط القلم) — Reader\lib\perfect-freehand.mjs
+https://github.com/steveruizok/perfect-freehand
+License: MIT — Copyright (c) 2021 Stephen Ruiz Ltd — النص الكامل: Reader\lib\LICENSE-perfect-freehand.txt
+
+pdf-lib 1.17.1 (النسخة المشروحة ومحرر صفحات الـ PDF) — Reader\lib\pdf-lib.min.js
+https://github.com/Hopding/pdf-lib
+License: MIT — Copyright (c) 2019 Andrew Dillon — النص الكامل: Reader\lib\LICENSE-pdf-lib.txt

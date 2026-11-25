@@ -1,0 +1,144 @@
+/* ===================== طبقة الشرح فوق الصفحة ===================== */
+.ink-layer { position: absolute; inset: 0; z-index: 6; pointer-events: none; --k: 1; overflow: visible; }
+.ink-layer.hidden { visibility: hidden; }
+.ink-layer.active { pointer-events: auto; touch-action: none; cursor: crosshair; }
+.ink-layer.active[data-tool="select"] { cursor: default; }
+.ink-layer.active[data-tool="eraser"] { cursor: cell; }
+.ink-layer.active[data-tool="text"], .ink-layer.active[data-tool="callout"] { cursor: text; }
+.ink-layer.active[data-tool="laser"], .ink-layer.active[data-tool="spot"], .ink-layer.active[data-tool="lens"] { cursor: none; }
+.ink-svg, .ink-live { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.ink-html, .ink-ui { position: absolute; inset: 0; pointer-events: none; }
+.ink-hl, .ink-hl path { mix-blend-mode: multiply; }
+body.night .ink-hl, body.night .ink-hl path { mix-blend-mode: screen; }
+.ink-fading { animation: inkfade 3.2s ease-in forwards; }
+@keyframes inkfade { 0%, 45% { opacity: 1; } 100% { opacity: 0; } }
+.ink-eraser { fill: #ffffff55; stroke: #e03131; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.ink-lasso { fill: #4fc3f71a; stroke: #1971c2; stroke-width: 1.5; stroke-dasharray: 6 4; }
+.ink-drag { fill: #4fc3f712; stroke: #1971c2; stroke-width: 1.2; stroke-dasharray: 5 4; }
+
+/* نص وفقاعة: HTML عشان العربي يطلع صح ويتعدّل */
+.ink-text {
+  position: absolute; pointer-events: none; white-space: pre-wrap; word-break: break-word; line-height: 1.35;
+  padding: calc(var(--k) * 4px) calc(var(--k) * 6px); box-sizing: border-box; border-radius: calc(var(--k) * 4px);
+  transform-origin: center; unicode-bidi: plaintext; min-height: 1em;
+}
+.ink-text.ink-callout { display: flex; align-items: center; justify-content: center; text-align: center; padding: calc(var(--k) * 8px) calc(var(--k) * 12px); overflow: hidden; }
+.ink-layer.active .ink-text { pointer-events: auto; }
+.ink-text.editing { pointer-events: auto; outline: 2px dashed #1971c2; background: #ffffffd9 !important; cursor: text; user-select: text; min-width: 40px; }
+.ink-text.editing:empty::before { content: "اكتب هنا…"; color: #999; }
+
+/* ملاحظة لاصقة */
+.ink-note { position: absolute; pointer-events: auto; width: calc(var(--k) * 26px); height: calc(var(--k) * 26px); }
+.ink-note .ic {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  font-size: calc(var(--k) * 18px); background: var(--nc); border-radius: calc(var(--k) * 5px); box-shadow: 0 2px 6px #0005;
+}
+.ink-note textarea {
+  position: absolute; top: calc(var(--k) * 30px); left: 0; width: calc(var(--k) * 260px); height: calc(var(--k) * 140px); min-width: 180px; min-height: 90px;
+  background: var(--nc); color: #222; border: none; border-radius: 6px; padding: 8px; box-shadow: 0 6px 18px #0006;
+  font: 14px "Segoe UI", Tahoma, sans-serif; resize: both; outline: none; z-index: 3;
+}
+
+/* مستطيل التحديد ومقابضه */
+.ink-selbox { position: absolute; border: 1.5px dashed #1971c2; box-sizing: border-box; pointer-events: none; }
+.ink-selbox .h { position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid #1971c2; border-radius: 3px; pointer-events: auto; box-sizing: border-box; }
+.ink-selbox .nw { left: -7px; top: -7px; cursor: nwse-resize; }
+.ink-selbox .ne { right: -7px; top: -7px; cursor: nesw-resize; }
+.ink-selbox .sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+.ink-selbox .se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.ink-selbox .rot { left: calc(50% - 7px); top: -30px; border-radius: 50%; cursor: grab; }
+.ink-selbox .rot::after { content: ""; position: absolute; left: 4px; top: 10px; width: 1.5px; height: 16px; background: #1971c2; }
+
+/* ===================== أدوات العرض (فوق كل حاجة) ===================== */
+.ink-global { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
+.ink-laser { position: fixed; inset: 0; pointer-events: none; }
+.ink-spot { position: fixed; border-radius: 50%; box-shadow: 0 0 0 200vmax #000000b8; pointer-events: none; transition: left .05s, top .05s; }
+.ink-spot.rect { border-radius: 10px; transition: none; }
+.ink-spot[hidden], .ink-lens[hidden] { display: none; }
+.ink-lens { position: fixed; width: 240px; height: 240px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 6px 24px #000a; pointer-events: none; background: #fff; }
+.ink-ruler, .ink-protractor { position: fixed; pointer-events: auto; transform-origin: 0 0; touch-action: none; cursor: move; user-select: none; }
+.ink-ruler[hidden], .ink-protractor[hidden] { display: none; }
+.ink-ruler { width: 520px; height: 56px; background: #e7f5ffd9; border: 1px solid #74c0fc; border-radius: 4px; box-shadow: 0 4px 14px #0004; }
+.ink-ruler i { position: absolute; top: 0; width: 1px; height: 10px; background: #1971c2; }
+.ink-ruler i.big { height: 18px; }
+.ink-protractor { width: 320px; height: 160px; background: #fff4e6d9; border: 1px solid #ffa94d; border-radius: 160px 160px 0 0; box-shadow: 0 4px 14px #0004; }
+.ink-protractor i { position: absolute; left: 160px; bottom: 0; width: 150px; height: 1px; transform-origin: 0 0; background: linear-gradient(90deg, transparent 88%, #e8590c 88%); }
+.ink-protractor i.big { background: linear-gradient(90deg, transparent 82%, #e8590c 82%); }
+.ink-ruler .ang, .ink-protractor .ang { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -30%); font: 600 13px "Segoe UI", sans-serif; color: #1864ab; }
+.ink-protractor .ang { color: #d9480f; }
+.ink-ruler .rh, .ink-protractor .rh { position: absolute; right: -10px; top: calc(50% - 10px); width: 20px; height: 20px; border-radius: 50%; background: #1971c2; cursor: grab; }
+.ink-protractor .rh { background: #e8590c; bottom: -10px; top: auto; }
+
+/* ===================== شريط أدوات الشرح ===================== */
+#inkbar {
+  position: fixed; z-index: 30; left: 10px; top: 56px; display: flex; flex-direction: column; gap: 3px; padding: 5px;
+  background: #2b2d31f2; border-radius: 12px; box-shadow: 0 6px 22px #000a; direction: ltr; user-select: none; touch-action: none;
+  max-height: calc(100vh - 70px); overflow-y: auto; scrollbar-width: none;
+}
+#inkbar[hidden] { display: none; }
+#inkbar.horizontal { flex-direction: row; max-height: none; max-width: calc(100vw - 20px); overflow-x: auto; }
+#inkbar .grip { height: 14px; cursor: grab; color: #888; font-size: 11px; text-align: center; line-height: 14px; }
+#inkbar.horizontal .grip { height: auto; width: 14px; line-height: 30px; }
+#inkbar button {
+  width: 34px; min-width: 34px; height: 34px; padding: 0; font-size: 17px; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center;
+}
+#inkbar button.on { background: #1971c2; color: #fff; border-color: #1971c2; }
+#inkbar button .dot { position: absolute; right: 3px; bottom: 3px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff; }
+#inkbar button .tag { position: absolute; right: 1px; bottom: 0; font-size: 9px; font-weight: 700; color: #ffd43b; }
+#inkbar .colorbtn { background: var(--c); border: 3px solid #ffffff55; border-radius: 50%; width: 30px; min-width: 30px; height: 30px; margin: 2px auto; }
+#inkbar .hr { height: 1px; background: #ffffff22; margin: 2px 4px; }
+#inkbar.horizontal .hr { width: 1px; height: auto; margin: 4px 2px; }
+body.ink-on #toolbar #inkBtn { background: #1971c2; color: #fff; }
+
+.ink-pop {
+  position: fixed; z-index: 35; background: #2b2d31; border-radius: 12px; box-shadow: 0 10px 30px #000c; padding: 10px; color: #e6e6e6;
+  font: 13px "Segoe UI", Tahoma, sans-serif; direction: rtl; min-width: 230px; max-width: 340px; max-height: calc(100vh - 30px); overflow-y: auto;
+}
+.ink-pop[hidden] { display: none; }
+.ink-pop h4 { margin: 8px 0 6px; font-size: 12px; color: #a0a6ac; font-weight: 600; }
+.ink-pop h4:first-child { margin-top: 0; }
+.ink-pop .row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.ink-pop .row + .row { margin-top: 6px; }
+.ink-pop button { height: 30px; font-size: 13px; }
+.ink-pop button.on { background: #1971c2; color: #fff; }
+.ink-pop .pen { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-start; padding: 0 8px; height: 34px; }
+.ink-pop .pen svg { width: 60px; height: 20px; flex: none; }
+.ink-pop .sw { width: 24px; min-width: 24px; height: 24px; padding: 0; border-radius: 50%; background: var(--c); border: 2px solid #ffffff30; }
+.ink-pop .sw.on { border-color: #fff; box-shadow: 0 0 0 2px #1971c2; }
+.ink-pop .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.ink-pop .grid.g4 { grid-template-columns: repeat(4, 1fr); }
+.ink-pop .grid.g8 { grid-template-columns: repeat(8, 1fr); }
+.ink-pop .grid button { width: 100%; min-width: 0; font-size: 18px; height: 36px; }
+.ink-pop .grid.stk button { font-size: 12px; height: 30px; white-space: nowrap; overflow: hidden; }
+.ink-pop label { display: flex; align-items: center; gap: 6px; }
+.ink-pop input[type=range] { flex: 1; height: auto; accent-color: #4fc3f7; }
+.ink-pop input[type=color] { width: 36px; height: 28px; padding: 0; border: none; background: none; }
+.ink-pop input[type=text], .ink-pop select { height: 28px; padding: 0 6px; flex: 1; min-width: 0; }
+.ink-pop .val { min-width: 30px; text-align: center; color: #a0a6ac; }
+.ink-pop .tabs { display: flex; gap: 3px; margin-bottom: 8px; flex-wrap: wrap; }
+.ink-pop .tabs button { flex: 1; font-size: 12px; padding: 0 4px; }
+.ink-pop .hint { color: #a0a6ac; font-size: 11.5px; margin-top: 6px; line-height: 1.5; }
+.ink-pop .wide { width: 100%; }
+.ink-pop .mystk { display: flex; align-items: center; gap: 4px; }
+.ink-pop .mystk button:first-child { flex: 1; justify-content: flex-start; padding: 0 8px; }
+.ink-pop kbd { background: #42464d; border-radius: 4px; padding: 0 5px; font: 11px Consolas, monospace; }
+.ink-pop table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ink-pop td { padding: 3px 4px; border-bottom: 1px solid #ffffff12; }
+
+/* شريط صغير فوق التحديد */
+#inksel {
+  position: fixed; z-index: 31; display: flex; gap: 3px; padding: 4px; background: #2b2d31f2; border-radius: 9px; box-shadow: 0 4px 16px #000a; direction: ltr;
+}
+#inksel[hidden] { display: none; }
+#inksel button { height: 28px; min-width: 28px; font-size: 14px; padding: 0 6px; }
+#inksel .sw { width: 22px; min-width: 22px; height: 22px; border-radius: 50%; background: var(--c); padding: 0; border: 2px solid #ffffff30; margin-top: 3px; }
+
+/* رسالة صغيرة */
+#inktoast { position: fixed; z-index: 45; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2b2d31f2; color: #fff; padding: 8px 16px; border-radius: 10px; box-shadow: 0 4px 16px #000a; font-size: 13px; pointer-events: none; }
+#inktoast[hidden] { display: none; }
+
+/* وضع العرض: الكتاب لوحده على الشاشة */
+body.present #toolbar { display: none; }
+body.present #viewerContainer, body.present #overlay { inset: 0; }
+body.present #viewerContainer { background: #000; }
+body.present .pdfViewer .page { box-shadow: none; }

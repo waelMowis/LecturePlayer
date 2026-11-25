@@ -37,6 +37,10 @@ internal sealed class ReaderPane : Panel
     /// <summary>تعديل تظليل: (رقم الفتحة، الرقم، اللون الجديد أو null، اتشال).</summary>
     public event Action<int, string, string?, bool>? HighlightEdited;
     public event Action<Keys>? KeyForwarded;
+    /// <summary>شرح اتغير: (رقم الفتحة، الصفحات اللي اتغيرت كاملة، أوقات المسح).</summary>
+    public event Action<int, JsonElement, JsonElement>? InkChanged;
+    /// <summary>إعدادات أدوات الشرح اتغيرت (الألوان والمقاسات والملصقات): JSON.</summary>
+    public event Action<string>? InkPrefsChanged;
 
     /// <summary>رقم آخر كتاب اتفتح (الرسايل القديمة بتتجاهل).</summary>
     public int Generation { get; private set; }
@@ -100,7 +104,8 @@ internal sealed class ReaderPane : Panel
     }
 
     /// <summary>بيفتح كتاب من ملف على الجهاز.</summary>
-    public async Task<int> OpenAsync(string file, string title, Data.Book b, int readSeconds, string theme, IEnumerable<int> read)
+    public async Task<int> OpenAsync(string file, string title, Data.Book b, int readSeconds, string theme, IEnumerable<int> read,
+        System.Text.Json.Nodes.JsonObject? ink = null, string? inkPrefs = null)
     {
         await EnsureReadyAsync();
         int gen = ++Generation;
@@ -115,10 +120,28 @@ internal sealed class ReaderPane : Panel
             ["scale"] = b.Zoom ?? "page-width", ["spread"] = b.Spread, ["rtl"] = b.RightToLeft,
             ["theme"] = theme, ["readSeconds"] = readSeconds, ["read"] = read.ToArray(),
             ["marks"] = b.Marks.Select(m => m.Page).Distinct().ToArray(),
-            ["highlights"] = HighlightsJson(b)
+            ["highlights"] = HighlightsJson(b),
+            ["ink"] = ink?.DeepClone(),
+            ["inkPrefs"] = string.IsNullOrWhiteSpace(inkPrefs) ? null : SafeJson(inkPrefs)
         };
         await core.ExecuteScriptAsync("masar.open(" + JsonSerializer.Serialize(o) + ")");
         return gen;
+    }
+
+    private static System.Text.Json.Nodes.JsonNode? SafeJson(string json)
+    {
+        try { return System.Text.Json.Nodes.JsonNode.Parse(json); } catch { return null; }
+    }
+
+    /// <summary>شرح أحدث (من جهاز تاني) بيتدمج في الكتاب المفتوح.</summary>
+    public Task MergeInkAsync(System.Text.Json.Nodes.JsonObject doc) => Run("masar.setInk(" + JsonSerializer.Serialize(doc.ToJsonString()) + ")");
+    /// <summary>القارئ يبعت أي تغيير لسه مابعتهوش.</summary>
+    public Task FlushInkAsync() => Run("masar.inkFlush()");
+    public Task SetInkModeAsync(bool on) => Run("masar.ink(" + (on ? "true" : "false") + ")");
+    public async Task<string?> EvalAsync(string js)
+    {
+        if (!IsReady || Web.CoreWebView2 == null) return null;
+        try { return await Web.CoreWebView2.ExecuteScriptAsync(js); } catch (Exception ex) { Data.Log.Info("reader js: " + ex.Message); return null; }
     }
 
     /// <summary>عنوان الملف جوه القارئ (رقم جديد لكل نسخة من الملف عشان الكاش).</summary>
@@ -335,6 +358,8 @@ internal sealed class ReaderPane : Panel
         [JsonPropertyName("total")] public int Total { get; set; }
         [JsonPropertyName("done")] public bool Done { get; set; }
         [JsonPropertyName("error")] public string? Error { get; set; }
+        [JsonPropertyName("tomb")] public JsonElement Tomb { get; set; }
+        [JsonPropertyName("prefs")] public JsonElement Prefs { get; set; }
     }
 
     private sealed class OutlineItem
@@ -409,6 +434,12 @@ internal sealed class ReaderPane : Panel
                     break;
                 case "error" when m.Gen == Generation:
                     Failed?.Invoke(m.Gen, m.Code ?? "error", m.Message ?? "");
+                    break;
+                case "ink":
+                    InkChanged?.Invoke(m.Gen, m.Pages, m.Tomb);
+                    break;
+                case "inkprefs" when m.Prefs.ValueKind == JsonValueKind.Object:
+                    InkPrefsChanged?.Invoke(m.Prefs.GetRawText());
                     break;
                 case "key":
                     var key = (Keys)m.K;

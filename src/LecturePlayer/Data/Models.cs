@@ -665,6 +665,8 @@ public sealed class AppSettings
     public int DailyPagesGoal { get; set; }
     /// <summary>لون صفحات القارئ: normal / night / sepia.</summary>
     public string ReaderTheme { get; set; } = "normal";
+    /// <summary>أدوات الشرح: ألوان كل قلم ومقاسه، آخر الألوان، الأختام و«ملصقاتي» (JSON بيكتبه القارئ).</summary>
+    public string? InkPrefs { get; set; }
     /// <summary>مفتاح نوشن (Internal Integration) متشفّر بحساب الويندوز — على الجهاز ده بس.</summary>
     public string NotionTokenProtected { get; set; } = "";
     [JsonIgnore]

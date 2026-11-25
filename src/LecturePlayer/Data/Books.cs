@@ -102,6 +102,8 @@ public sealed class Book
     /// <summary>EPUB: المكان بالظبط (CFI) عشان ترجع لنفس الفقرة.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? LastCfi { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Notes { get; set; }
+    /// <summary>عدد عناصر الشرح (أقلام/أشكال/نصوص) على الكتاب — الشرح نفسه في فولدر ‹المكتبة›.annotations.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int InkCount { get; set; }
 
     public DateTime AddedUtc { get; set; } = DateTime.UtcNow;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DateTime? LastOpenedUtc { get; set; }

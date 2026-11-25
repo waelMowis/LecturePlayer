@@ -6,6 +6,7 @@
 <title>قارئ مسار</title>
 <link rel="stylesheet" href="lib/pdf_viewer.css">
 <link rel="stylesheet" href="reader.css">
+<link rel="stylesheet" href="ink.css">
 <script>
   // أي خطأ قبل ما القارئ يشتغل يتسجّل في سجل البرنامج
   window.addEventListener("error", e => { try { chrome.webview.postMessage(JSON.stringify({ t: "log", message: "early error: " + e.message + " @" + e.filename + ":" + e.lineno })); } catch (x) { } });
@@ -41,6 +42,7 @@
     <button id="theme" title="لون الصفحات: عادي ← ليلي ← ورق قديم">☀</button>
     <button id="findButton" title="بحث في الكتاب (Ctrl+F)">🔍</button>
     <button id="mark" title="علامة على الصفحة دي (B)">🔖</button>
+    <button id="inkBtn" title="أدوات الشرح: أقلام وألوان وممحاة وأشكال ونص وملصقات (Ctrl+Shift+D)">🖊</button>
     <button id="ai" title="الذكاء الاصطناعي: اشرحلي الصفحة، لخّص الفصل، اختبرني">✨</button>
     <button id="fullscreen" title="ملء الشاشة (F11)">⛶</button>
   </div>

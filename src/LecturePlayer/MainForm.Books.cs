@@ -306,7 +306,7 @@ internal sealed partial class MainForm
     {
         bool current = b == _currentBook && ReaderShown;
         n.Text = Modern.Bidi(b.Title);
-        string meta = b.IsDone && b.PageCount > 0 ? $"{b.PageCount} ص" : b.PageCount > 0 ? $"{Math.Max(1, b.LastPage)}/{b.PageCount}" : b.IsOnline ? "🌐" : "جديد";
+        string meta = (b.IsDone && b.PageCount > 0 ? $"{b.PageCount} ص" : b.PageCount > 0 ? $"{Math.Max(1, b.LastPage)}/{b.PageCount}" : b.IsOnline ? "🌐" : "جديد") + InkMeta(b);
         _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, b.IsDone, current, b.IsStarted && !b.IsDone ? b.Fraction : -1));
         bool missing = !b.IsOnline && !FileCache.Exists(b.LocalPath);
         n.ImageKey = n.SelectedImageKey = missing ? "missing" : ShelfImageKey("book", "book_open", b.IconKey, b.ColorHex, Theme.CourseColor, b.IsDone);
@@ -328,6 +328,7 @@ internal sealed partial class MainForm
                 lines.Add($"معدّلك {f.PagesPerDay:0.#} صفحة/يوم" + (f.Finish is { } d && !b.IsDone ? $" — هتخلّصه حوالي {d:yyyy-MM-dd}" : ""));
         }
         if (b.LastOpenedUtc is { } lo) lines.Add("آخر قراية: " + RelativeDay(lo));
+        if (b.InkCount > 0) lines.Add($"🖊 عليه شرح بإيدك ({b.InkCount} حاجة) — الأصل زي ما هو");
         lines.Add(missing ? "⚠ الملف مش موجود: " + b.Path : b.IsOnline ? b.Path : b.LocalPath);
         return string.Join("\n", lines);
     }
@@ -499,6 +500,8 @@ internal sealed partial class MainForm
     {
         items.Add(MenuItem(b.IsStarted && b.LastPage > 1 && !b.IsDone ? $"▶  كمّل من صفحة {b.LastPage}" : "▶  افتح الكتاب", () => OpenBook(b), "Enter"));
         if (b.LastPage > 1) items.Add(MenuItem("⏮  افتحه من الأول", () => OpenBook(b, 1)));
+        if (BookFiles.FormatOf(BookFile(b)) == "pdf")
+            items.Add(MenuItem("🖊  اشرح عليه (أقلام وألوان وأشكال وملصقات)" + (b.InkCount > 0 ? $" — عليه {b.InkCount}" : ""), () => OpenBookForInk(b), "Ctrl+Shift+D"));
         if (b.IsOnline)
         {
             items.Add(Sep());
@@ -1088,6 +1091,8 @@ internal sealed partial class MainForm
         pane.Command += OnReaderCommand;
         pane.HighlightRequested += OnHighlightRequested;
         pane.HighlightEdited += OnHighlightEdited;
+        pane.InkChanged += OnInkChanged;
+        pane.InkPrefsChanged += OnInkPrefsChanged;
         pane.Failed += (gen, code, message) =>
         {
             if (gen != _readerGen || IsDisposed) return;
@@ -1168,7 +1173,9 @@ internal sealed partial class MainForm
         if (_shelfMode) RebuildShelf();
         try
         {
-            _readerGen = await pane.OpenAsync(BookFile(b), b.Title, b, Math.Max(1, _settings.ReadSeconds), _settings.ReaderTheme, b.Read.Pages);
+            var ink = BeginInkSession(b);
+            _readerGen = await pane.OpenAsync(BookFile(b), b.Title, b, Math.Max(1, _settings.ReadSeconds), _settings.ReaderTheme, b.Read.Pages, ink, _settings.InkPrefs);
+            BindInkSession(_readerGen);
             if (b.IsOnline) _ = CheckBookUpdateAsync(b);
             ShowStatus(b.LastPage > 1 && page == null ? $"«{b.Title}» — كمّل من صفحة {b.LastPage}" : $"«{b.Title}»", 4);
         }
@@ -1219,6 +1226,7 @@ internal sealed partial class MainForm
     private void OnReaderLoaded(int gen, ReaderPane.DocInfo info)
     {
         if (gen != _readerGen || _currentBook is not { } b || IsDisposed) return;
+        if (_inkOnOpen == b) { _inkOnOpen = null; _ = _reader?.SetInkModeAsync(true); }
         int sections = b.Sections().Count;
         ApplyDocInfo(b, info);
         if (b.LastPage > b.PageCount && b.PageCount > 0) b.LastPage = b.PageCount;
@@ -1266,6 +1274,10 @@ internal sealed partial class MainForm
             case "mark": AddPageMark(b, page > 0 ? page : Math.Max(1, b.LastPage)); break;
             case "fullscreen": ToggleFullscreen(); break;
             case "ai": ShowReaderAiMenu(); break;
+            case "present-on": OnReaderPresent(true); break;
+            case "present-off": OnReaderPresent(false); break;
+            case "ink-save": SaveAllInk(); ShowStatus("الشرح اتحفظ", 3); break;
+            case "ink-off": SaveAllInk(); break;
         }
     }
 
@@ -1273,6 +1285,7 @@ internal sealed partial class MainForm
     private bool HandleBookKeys(Keys keyData)
     {
         if (keyData == (Keys.Control | Keys.Shift | Keys.B)) { ToggleShelf(); return true; }
+        if (keyData == (Keys.Control | Keys.Shift | Keys.D) && ReaderShown) { ToggleInkMode(); return true; }
         if (_shelfTree.Focused)
         {
             var tag = _shelfTree.SelectedNode?.Tag;

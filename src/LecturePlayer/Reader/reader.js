@@ -1,4 +1,6 @@
 import { Epub as E } from "./epub.js";
+import { Ink } from "./ink.js";
+import { InkUI } from "./ink-ui.js";
 const host = window.chrome && window.chrome.webview;
 function post(msg) {
   const s = JSON.stringify(msg);
@@ -63,6 +65,7 @@ async function open(o) {
   S.marks = new Set(o.marks || []);
   S.highlights = o.highlights || [];
   hideHlBar();
+  inkOpen(o);
   S.lastInput = Date.now();
   S.lastState = "";
   setTheme(o.theme || S.theme, false);
@@ -149,6 +152,7 @@ function restore(o) {
 }
 
 async function closeDoc() {
+  inkClose();
   const d = S.doc, t = S.task;
   S.doc = null; S.task = null;
   findBarClose();
@@ -406,6 +410,7 @@ function decorate(p) {
   if (!pv || !pv.div) return;
   pv.div.classList.toggle("marked", S.marks.has(p));
   drawHighlights(pv.div, p);
+  if (S.kind === "pdf" && pv.viewport) Ink.attach(pv.div, p, pv.viewport.height / pv.viewport.width);
 }
 
 S.highlights = [];
@@ -599,6 +604,10 @@ function toLatin(s) { return String(s).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦�
 function typing(el) { return el && (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA"); }
 function onKeyDown(e) {
   const k = e.key, ctrl = e.ctrlKey || e.metaKey;
+  if (InkUI.key(e)) return;
+  if (k === "F5" && S.kind === "pdf" && S.doc && !ctrl && !e.altKey) { e.preventDefault(); setPresent(); return; }
+  if (k === "Escape" && document.body.classList.contains("present")) { e.preventDefault(); setPresent(false); return; }
+  if (ctrl && e.shiftKey && (k === "d" || k === "D") && S.kind === "pdf" && S.doc) { e.preventDefault(); toggleInk(); return; }
   if (ctrl && !e.altKey && (k === "f" || k === "F")) { e.preventDefault(); findBarOpen(); return; }
   if (ctrl && (k === "g" || k === "G")) { e.preventDefault(); pageInput.focus(); return; }
   if (ctrl && (k === "=" || k === "+")) { e.preventDefault(); zoom(1); return; }
@@ -651,6 +660,64 @@ window.masar = {
   probe: (id, url) => { probe(id, url); return "ok"; },
   focus: () => { container.focus(); return "ok"; },
   find: q => { findBarOpen(); $("findInput").value = q; find(false, false); return "ok"; },
+  setInk: json => { Ink.mergeRemote(json); InkUI.refresh(); return "ok"; },
+  setInkPrefs: json => { Ink.setPrefs(json); applyInkPrefs(); return "ok"; },
+  inkFlush: () => { Ink.flush(); return "ok"; },
+  ink: on => { if (on == null) toggleInk(); else setInk(!!on); return "ok"; },
+  inkState: () => JSON.stringify({ on: Ink.on, tool: Ink.tool, count: Ink.count(), layers: Ink.surfaces.size, json: Ink.doc.toJSON() }),
+  inkTest: () => ({ Ink, InkUI }),
   state: () => JSON.stringify({ kind: S.kind, page: hasDoc() ? curPage() : 0, pages: pageTotal(), scale: S.kind === "epub" ? "font:" + E.font : String(viewer.currentScaleValue), spread: S.spread, theme: S.theme, rtl: S.rtl, read: [...S.read], gen: S.opts.gen })
 };
+// ---------------------------------------------------------------- أدوات الشرح
+Ink.init({ post: m => post({ ...m, gen: S.opts.gen }), container });
+Ink.keepAlive($("viewer"));
+Ink.onPinch = f => { if (S.doc) viewer.currentScale = Math.max(0.25, Math.min(6, viewer.currentScale * f)); };
+Ink.onPan = (dx, dy) => { container.scrollLeft += dx; container.scrollTop += dy; };
+Ink.onGoto = key => { const p = +key; if (p && S.doc && Math.abs(p - viewer.currentPageNumber) > 1) goTo(p); };
+InkUI.init({
+  onToggle: on => { $("inkBtn").classList.toggle("on", on); post({ t: "cmd", gen: S.opts.gen, name: on ? "ink-on" : "ink-off", page: curPage() }); },
+  onPresent: on => setPresent(on),
+  onExport: () => post({ t: "cmd", gen: S.opts.gen, name: "ink-save", page: curPage() })
+});
+function applyInkPrefs() {
+  Ink.penOnly = !!Ink.prefs.penOnly; Ink.recognize = !!Ink.prefs.recognize;
+  InkUI.applyBarPos(); InkUI.refresh();
+}
+function inkOpen(o) {
+  Ink.setOn(false); InkUI.setOn(false); Ink.clearSurfaces();
+  Ink.load(o.ink || null);
+  if (o.inkPrefs) Ink.setPrefs(o.inkPrefs);
+  applyInkPrefs();
+  $("inkBtn").hidden = o.format === "epub"; // EPUB: التظليل بس (الصفحات بتتغير مع حجم الخط)
+}
+function inkClose() { if (Ink.on) InkUI.setOn(false); Ink.flush(); Ink.clearSurfaces(); setPresent(false); }
+function setInk(on) {
+  if (on && (S.kind !== "pdf" || !S.doc)) return;
+  if (on === Ink.on) return;
+  hideHlBar();
+  InkUI.setOn(on);
+  if (on && !Ink.prefs.seenTip) { Ink.prefs.seenTip = 1; Ink.savePrefs(); InkUI.say("ارسم على الكتاب — الأصل مابيتلمسش والشرح بيتحفظ لوحده. Esc = تحريك الصفحة", 5000); }
+}
+function toggleInk() { setInk(!Ink.on); }
+let presentPrev = null;
+function setPresent(on) {
+  if (on == null) on = !document.body.classList.contains("present");
+  if (on === document.body.classList.contains("present")) return;
+  document.body.classList.toggle("present", on);
+  if (on && S.doc) { presentPrev = viewer.currentScaleValue; const p = viewer.currentPageNumber; viewer.currentScaleValue = "page-fit"; viewer.currentPageNumber = p; post({ t: "cmd", gen: S.opts.gen, name: "present-on", page: p }); }
+  else if (!on && S.doc && presentPrev) { const p = viewer.currentPageNumber; viewer.currentScaleValue = presentPrev; viewer.currentPageNumber = p; presentPrev = null; post({ t: "cmd", gen: S.opts.gen, name: "present-off", page: p }); }
+  if (on) InkUI.say("وضع العرض — الأسهم/المسافة للصفحات، F5 أو Esc للخروج", 3500);
+}
+$("inkBtn").addEventListener("click", () => toggleInk());
+// وضع العرض: الأسهم والمسافة صفحة صفحة حتى لو أدوات الشرح مقفولة
+window.addEventListener("keydown", e => {
+  if (!document.body.classList.contains("present") || e.ctrlKey || e.altKey) return;
+  if (document.activeElement && (document.activeElement.isContentEditable || /INPUT|TEXTAREA/.test(document.activeElement.tagName))) return;
+  const k = e.key;
+  if (k === " " || k === "PageDown" || k === "ArrowDown") { e.preventDefault(); e.stopPropagation(); step(1); }
+  else if (k === "PageUp" || k === "ArrowUp" || k === "Backspace") { e.preventDefault(); e.stopPropagation(); step(-1); }
+}, true);
+window.addEventListener("beforeunload", () => Ink.flush());
+document.addEventListener("visibilitychange", () => { if (document.hidden) Ink.flush(); });
+
 post({ t: "ready" });

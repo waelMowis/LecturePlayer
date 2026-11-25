@@ -1443,6 +1443,7 @@ internal sealed partial class MainForm : Form
         if (_closing) return;
         _closing = true;
 
+        await FlushInkForCloseAsync();
         SaveCurrentPosition();
         CommitNotes();
         if (ReaderShown) FlushReading();
