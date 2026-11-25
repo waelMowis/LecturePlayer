@@ -3,7 +3,7 @@
 //  الشرح متخزّن برقم الصفحة الثابت (id) — ترتيب الصفحات مابيحركش الرسم.
 //  التصدير PDF فيكتور بنفس طريق «النسخة المشروحة».
 // =====================================================================
-import { Ink, renderSvg, W } from "./ink.js";
+import { Ink, renderSvg, W, onDark, adaptDark } from "./ink.js";
 import { runJob, pagePlan, pagePng } from "./ink-export.js";
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -164,7 +164,7 @@ export const Board = {
       if (items.length) {
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.setAttribute("viewBox", `0 0 ${W} ${W * p.h / p.w}`);
-        for (const it of items) if (it.ly !== "t") svg.appendChild(renderSvg(it));
+        for (const it of items) if (it.ly !== "t") { const g = renderSvg(it); svg.appendChild(isDark(p.bg) ? adaptDark(g) : g); }
         thumb.appendChild(svg);
       }
       const card = h("div", { cls: "bd-card", draggable: "true", "data-n": i + 1, title: "دوس للصفحة — كليك يمين للخيارات — اسحب للترتيب" },
@@ -356,7 +356,7 @@ export const Board = {
       const plans = [];
       for (const p of pages) {
         const vp = { width: p.w, height: p.h, transform: [1, 0, 0, -1, 0, p.h] };
-        const items = Ink.doc.items(p.id).map(it => isDark(p.bg) && /^#(111|111111|000000)$/i.test(it.c || "") ? { ...it, c: "#f1f3f5" } : it);
+        const items = Ink.doc.items(p.id).map(it => darkItem(it, p));
         plans.push({ w: p.w, h: p.h, bg: (BGS[p.bg] || BGS.white)[0], pat: p.pat, dark: isDark(p.bg), ...(await pagePlan(items, vp)) });
       }
       const r = await runJob({ job: "board", save, plans, title: this.meta.title || "سبورة" });
@@ -374,11 +374,20 @@ export const Board = {
       getViewport: ({ scale }) => ({ width: p.w * scale, height: p.h * scale }),
       render: ({ canvasContext: x, viewport: v }) => ({ promise: (async () => { const div = document.querySelector(`.bd-page[data-id="${p.id}"]`); x.fillStyle = (BGS[p.bg] || BGS.white)[0]; x.fillRect(0, 0, v.width, v.height); if (div) drawPattern(x, p, v.width / p.w); })() })
     };
-    const png = await pagePng({ pdfPage: fake, items: Ink.doc.items(p.id).map(it => isDark(p.bg) && /^#(111|111111|000000)$/i.test(it.c || "") ? { ...it, c: "#f1f3f5" } : it), scale: 2 });
+    const png = await pagePng({ pdfPage: fake, items: Ink.doc.items(p.id).map(it => darkItem(it, p)), scale: 2 });
     const r = await fetch(save, { method: "POST", body: png });
     this.post({ t: "cmd", name: r.ok ? "board-exported" : "board-failed", page: 1 });
   }
 };
+
+/** على سبورة غامقة: ألوان العنصر الغامقة تبقى فاتحة (زي ما بتبان على الشاشة). */
+function darkItem(it, p) {
+  if (!isDark(p.bg)) return it;
+  const o = { ...it };
+  if (o.c) o.c = onDark(o.c);
+  if (o.fill) o.fill = onDark(o.fill);
+  return o;
+}
 
 function drawPattern(x, p, k) {
   const dark = isDark(p.bg);

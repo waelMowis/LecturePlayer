@@ -42,6 +42,24 @@ export const STICKERS = [
 export const EMOJI = ["👍", "👎", "👏", "🔥", "✅", "❌", "⭐", "❗", "❓", "💡", "📌", "🎯", "⚠️", "📎", "🧠", "📚", "✍️", "👀", "😀", "🤔", "😮", "🙌", "💯", "🏆"];
 export const FONTS = ["Segoe UI", "Tahoma", "Arial", "Times New Roman", "Traditional Arabic", "Sakkal Majalla", "Simplified Arabic", "Consolas", "Comic Sans MS"];
 
+// ---------------------------------------------------------------- السبورة الغامقة
+/** لون غامق (أسود/رمادي غامق/كحلي…) على سبورة غامقة بيبان فاتح — والألوان الفاتحة/الصريحة زي ما هي. */
+export function onDark(c) {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((c || "").trim());
+  if (!m) return c;
+  let hx = m[1]; if (hx.length === 3) hx = hx.split("").map(x => x + x).join("");
+  const n = parseInt(hx, 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b, sat = Math.max(r, g, b) - Math.min(r, g, b);
+  // غامق جدًا، أو رمادي غامق (من غير لون واضح) — الأحمر/الأزرق الغامق بيفضلوا زي ما هم
+  return L < 0.15 || (L < 0.45 && sat < 0.15) ? "#f1f3f5" : c;
+}
+/** نفس التحويل على عنصر SVG مرسوم. */
+export function adaptDark(g) {
+  for (const e of g.querySelectorAll("[fill],[stroke]"))
+    for (const a of ["fill", "stroke"]) { const v = e.getAttribute(a); if (v && v[0] === "#") e.setAttribute(a, onDark(v)); }
+  return g;
+}
+
 // ---------------------------------------------------------------- الهندسة
 function pathFromOutline(pts) {
   if (!pts.length) return "";
@@ -478,10 +496,7 @@ export const Ink = {
   renderAll() { for (const s of this.surfaces.values()) this.render(s); },
   renderOne(s, it) {
     const g = renderSvg(it);
-    if (s.dark) for (const e of g.querySelectorAll("[fill],[stroke]")) {
-      // سبورة سودا/خضرا: الحبر الأسود بيبان أبيض
-      for (const a of ["fill", "stroke"]) { const v = (e.getAttribute(a) || "").toLowerCase(); if (v === "#111111" || v === "#111" || v === "#000000") e.setAttribute(a, "#f1f3f5"); }
-    }
+    if (s.dark) adaptDark(g); // سبورة سودا/خضرا: الحبر الغامق بيبان فاتح
     if (it.t === "curtain") g.addEventListener("pointerdown", e => {
       // الستارة بتتكشف بكليك حتى وأدوات الشرح مقفولة (وانت بتعرض)
       if (this.on && !["hand", "laser", "spot", "lens"].includes(this.tool)) return;
@@ -519,7 +534,7 @@ export const Ink = {
     if (it.t === "callout") d.style.height = pct(it.h, s.H);
     d.style.fontFamily = (it.font || "Segoe UI") + ", Tahoma, sans-serif";
     d.style.fontSize = `calc(var(--k) * ${it.size || 22}px)`;
-    d.style.color = s.dark && /^#(111|111111|000000)$/i.test(it.c || "#111") ? "#f1f3f5" : (it.c || "#111");
+    d.style.color = s.dark ? onDark(it.c || "#111111") : (it.c || "#111");
     if (it.bg && it.t === "text") d.style.background = it.bg;
     if (it.bold) d.style.fontWeight = "700";
     d.style.textAlign = it.align || "start";
@@ -886,7 +901,7 @@ export const Ink = {
       const pv = ev => { if (!pr) return 0.5; let v = ev.pressure || 0.5; if (tilted && (ev.tiltX || ev.tiltY)) { const t = Math.min(90, Math.hypot(ev.tiltX || 0, ev.tiltY || 0)); v = Math.min(1, v * (1 + t / 90)); } return r2(v); };
       const straight = base.straight || e.shiftKey;
       p = this.ruler.snap(s, p);
-      const pc = s.dark && /^#(111|111111|000000)$/i.test(o.c) ? "#f1f3f5" : o.c;
+      const pc = s.dark ? onDark(o.c) : o.c;
       const it = { id: uid(), t: "stroke", pen: name, c: pc, size: o.size, o: o.o, pts: [[p[0], p[1], pv(e)]], ly: this.layer };
       if (pr) it.pr = 1;
       if (base.temp) it.tempPen = true;

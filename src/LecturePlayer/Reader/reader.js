@@ -98,7 +98,8 @@ async function open(o) {
     updatePage();
     post({ t: "loaded", gen: o.gen, pages: info.pages, title: info.title, outline: [] });
     postState(true);
-    // السبورة مفتوحة = الأقلام جاهزة
+    // السبورة مفتوحة = الأقلام جاهزة (والشريط تحت أدوات السبورة لو مكانه مش متحفظ)
+    if (!Ink.prefs.barPos) { const r = boardArea.querySelector(".bd-tools").getBoundingClientRect(); InkUI.bar.style.top = (r.bottom + 8) + "px"; InkUI.bar.style.left = "10px"; }
     InkUI.setOn(true);
     return;
   }
