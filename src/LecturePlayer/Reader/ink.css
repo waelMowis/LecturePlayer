@@ -10,6 +10,8 @@
 .ink-html, .ink-ui { position: absolute; inset: 0; pointer-events: none; }
 .ink-hl, .ink-hl path { mix-blend-mode: multiply; }
 body.night .ink-hl, body.night .ink-hl path { mix-blend-mode: screen; }
+.ink-curtain { pointer-events: auto; cursor: pointer; }
+.ink-layer.hidden .ink-curtain { pointer-events: none; }
 .ink-fading { animation: inkfade 3.2s ease-in forwards; }
 @keyframes inkfade { 0%, 45% { opacity: 1; } 100% { opacity: 0; } }
 .ink-eraser { fill: #ffffff55; stroke: #e03131; stroke-width: 1.5; stroke-dasharray: 3 2; }

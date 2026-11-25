@@ -52,7 +52,7 @@ export const InkUI = {
     const bar = this.bar;
     bar.textContent = "";
     bar.append(
-      h("div", { cls: "grip", title: "اسحب الشريط لأي مكان — دبل كليك يقلبه أفقي/رأسي", ondblclick: () => { bar.classList.toggle("horizontal"); Ink.prefs.barH = bar.classList.contains("horizontal"); Ink.savePrefs(); } }, "⠿"),
+      h("div", { cls: "grip", title: "اسحب الشريط لأي مكان — دبل كليك يقلبه أفقي/رأسي" }, "⠿"),
       B("hand", "✋", "تحريك وتصفح الكتاب (Esc)", () => this.tool("hand")),
       B("pen", "🖊", "الأقلام (P) — دوس تاني للألوان والمقاس", () => this.toolOrPop("pen", this.penPop)),
       B("hl", "🖍", "قلم التظليل (H) — لو وقفت ثانية في آخر الخط يتعدل مستقيم", () => { if (Ink.tool === "pen" && Ink.pen === "hl") this.openPop("hl", this.penPop); else this.tool("pen", "hl"); }),
@@ -115,9 +115,14 @@ export const InkUI = {
   },
   dragBar() {
     const bar = this.bar; let d = null;
+    let last = 0;
     bar.addEventListener("pointerdown", e => {
       if (!e.target.classList.contains("grip")) return;
-      d = { x: e.clientX - bar.offsetLeft, y: e.clientY - bar.offsetTop }; bar.setPointerCapture(e.pointerId); e.preventDefault();
+      e.preventDefault();
+      // دبل كليك على المقبض: أفقي ⇄ رأسي (بنحسبه إحنا عشان المقبض بيمسك الماوس)
+      if (Date.now() - last < 450) { last = 0; bar.classList.toggle("horizontal"); Ink.prefs.barH = bar.classList.contains("horizontal"); Ink.savePrefs(); return; }
+      last = Date.now();
+      d = { x: e.clientX - bar.offsetLeft, y: e.clientY - bar.offsetTop }; bar.setPointerCapture(e.pointerId);
     });
     bar.addEventListener("pointermove", e => {
       if (!d) return;

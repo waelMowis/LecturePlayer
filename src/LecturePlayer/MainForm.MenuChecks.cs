@@ -12,7 +12,7 @@ internal sealed partial class MainForm
     /// <summary>ترتيب المجموعات حسب أيقونة أول الأمر.</summary>
     private static int MenuSection(string text) => text.TrimStart() switch
     {
-        var t when t.StartsWith("▶") || t.StartsWith("⏮") || t.StartsWith("⚠") || t.StartsWith("📎") => 0,
+        var t when t.StartsWith("▶") || t.StartsWith("⏮") || t.StartsWith("⚠") || t.StartsWith("📎") || t.StartsWith("🖊") => 0,
         var t when t.StartsWith("➕") => 1,
         var t when t.StartsWith("🔄") => 2,
         var t when t.StartsWith("✏") || t.StartsWith("🎨") || t.StartsWith("➖") || t.StartsWith("📋") || t.StartsWith("🔗") || t.StartsWith("✂") => 3,

@@ -260,6 +260,7 @@ function renderSvg(it) {
     el("path", { d: `M ${b1} L ${tip} L ${b2} Z`, fill: it.bg || "#fff9db", stroke: it.c || "#f59f00", "stroke-width": 2 }, g);
     el("rect", { x: x0, y: y0, width: w, height: h, rx: 12, fill: it.bg || "#fff9db", stroke: it.c || "#f59f00", "stroke-width": 2 }, g);
   } else if (it.t === "curtain") {
+    g.classList.add("ink-curtain");
     const rv = clamp(it.rv || 0, 0, 1);
     el("rect", { x: it.x, y: it.y + it.h * rv, width: it.w, height: it.h * (1 - rv), fill: it.c || "#ced4da", stroke: "#868e96", "stroke-width": 1.5, rx: 4 }, g);
     if (rv < 1) {
@@ -475,7 +476,14 @@ export const Ink = {
   },
   renderAll() { for (const s of this.surfaces.values()) this.render(s); },
   renderOne(s, it) {
-    s.svg.appendChild(renderSvg(it));
+    const g = renderSvg(it);
+    if (it.t === "curtain") g.addEventListener("pointerdown", e => {
+      // الستارة بتتكشف بكليك حتى وأدوات الشرح مقفولة (وانت بتعرض)
+      if (this.on && !["hand", "laser", "spot", "lens"].includes(this.tool)) return;
+      e.preventDefault(); e.stopPropagation();
+      this.revealCurtain(s, it.id);
+    });
+    s.svg.appendChild(g);
     if (it.t === "text" || it.t === "callout" || it.t === "note") s.html.appendChild(this.htmlOf(s, it));
   },
   htmlOf(s, it) {
@@ -756,6 +764,14 @@ export const Ink = {
       e.preventDefault(); e.stopPropagation();
       try { L.setPointerCapture(e.pointerId); } catch (x) { }
       const p = this.toPage(s, e);
+      const dbl = this.dblHit(s, e, p);
+      if (dbl) {
+        // دبل كليك على نص: نلغي اللي عملته الدوسة الأولى (نص فاضي جديد مثلًا) ونعدّل النص
+        e.preventDefault(); e.stopPropagation();
+        this.setSel(null);
+        setTimeout(() => this.editText(s, dbl.id), 0);
+        return;
+      }
       const eraserButton = e.pointerType === "pen" && (e.button === 5 || (e.buttons & 32));
       act = this.begin(s, e, p, eraserButton ? "eraser" : this.tool);
       act.lastP = p;
@@ -793,12 +809,15 @@ export const Ink = {
     L.addEventListener("pointerup", end);
     L.addEventListener("pointercancel", e => { if (act && act.cancel && act.pid === e.pointerId) { act.cancel(); act = null; } else end(e); });
     L.addEventListener("pointerleave", e => { if (this.tool === "lens") this.lens.hide(); });
-    L.addEventListener("dblclick", e => {
-      if (!this.on) return;
-      const id = e.target.closest && e.target.closest("[data-id]") && e.target.closest("[data-id]").dataset.id;
-      const f = id && this.doc.find(id);
-      if (f && (f[1].t === "text" || f[1].t === "callout")) { e.stopPropagation(); this.setSel(null); this.editText(s, id); }
-    });
+  },
+  /** دبل كليك (بنحسبه إحنا: الماوس بيبقى ممسوك على الطبقة فالمتصفح مابيبعتش dblclick). */
+  dblHit(s, e, p) {
+    const t = now(), last = this._lastDown;
+    this._lastDown = { t, x: e.clientX, y: e.clientY, key: s.key };
+    if (!last || last.key !== s.key || t - last.t > 450 || Math.hypot(e.clientX - last.x, e.clientY - last.y) > 8) return null;
+    if (!["select", "text", "callout", "pen", "shape"].includes(this.tool)) return null;
+    this._lastDown = null;
+    return [...this.doc.items(s.key)].reverse().find(i => (i.t === "text" || i.t === "callout") && hitDist(i, p) <= 4) || null;
   },
   hover(s, e) {
     if (this.tool === "laser") this.laser.point(e.clientX, e.clientY);
@@ -816,8 +835,12 @@ export const Ink = {
     const pr = e.pointerType === "pen" && e.pressure > 0 && e.pressure !== 0.5;
     if (tool === "pen") {
       const name = this.pen, o = this.penOpts(name), base = PENS[name];
+      // ضغط القلم، وميل القلم بيعرّض الرصاص والماركر زي الحقيقي
+      const tilted = (name === "pencil" || name === "marker");
+      const pv = ev => { if (!pr) return 0.5; let v = ev.pressure || 0.5; if (tilted && (ev.tiltX || ev.tiltY)) { const t = Math.min(90, Math.hypot(ev.tiltX || 0, ev.tiltY || 0)); v = Math.min(1, v * (1 + t / 90)); } return r2(v); };
       const straight = base.straight || e.shiftKey;
-      const it = { id: uid(), t: "stroke", pen: name, c: o.c, size: o.size, o: o.o, pts: [[p[0], p[1], pr ? r2(e.pressure) : 0.5]], ly: this.layer };
+      p = this.ruler.snap(s, p);
+      const it = { id: uid(), t: "stroke", pen: name, c: o.c, size: o.size, o: o.o, pts: [[p[0], p[1], pv(e)]], ly: this.layer };
       if (pr) it.pr = 1;
       if (base.temp) it.tempPen = true;
       const live = el("path", { fill: it.c, "fill-opacity": it.o, class: base.blend ? "ink-hl" : "" }, s.live);
@@ -838,7 +861,7 @@ export const Ink = {
             const last = it.pts[it.pts.length - 1];
             if (dist(last, q) < 0.6) { if (now() - lastMove > 650 && name === "hl" && it.pts.length > 3) still = 1; return; }
             lastMove = now();
-            it.pts.push([q[0], q[1], pr ? r2(ev.pressure) : 0.5]);
+            it.pts.push([q[0], q[1], pv(ev)]);
           }
           if (!raf) raf = requestAnimationFrame(draw);
         },
@@ -953,7 +976,10 @@ export const Ink = {
     const key = s.key, T = this.prefs.text;
     // كليك على ستارة: تتكشف ربع ربع (بأي أداة حط)
     const hit = this.topAt(s, p, 0);
-    if (hit && hit.t === "curtain" && tool !== "curtain") { this.revealCurtain(s, hit.id); return; }
+    if (hit && hit.t === "curtain" && (tool !== "curtain" || !box)) { this.revealCurtain(s, hit.id); return; }
+    // كليك بأداة النص على نص موجود = تعديله (مش نص جديد فوقه)
+    const onText = !box && [...this.doc.items(key)].reverse().find(i => (i.t === "text" || i.t === "callout") && hitDist(i, p) <= 4);
+    if (onText && (tool === "text" || tool === "callout")) { requestAnimationFrame(() => this.editText(s, onText.id)); return; }
     if (tool === "text") {
       const it = this.add(key, { t: "text", x: p[0], y: p[1] - (T.size * 0.6), w: box ? box[2] : 320, h: T.size * 1.5, text: "", font: T.font, size: T.size, c: T.c, bg: T.bg || null, bold: T.bold || null, align: T.align, dir: T.dir });
       this.undo.pop(); // التراجع بيتسجل لما الكتابة تخلص
