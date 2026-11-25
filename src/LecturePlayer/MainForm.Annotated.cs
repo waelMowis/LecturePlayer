@@ -84,7 +84,15 @@ internal partial class MainForm
     {
         if (!HasLibrary || !CanAnnotate(b)) return false;
         if (!ReaderPane.Available) { if (!quiet) ShowStatus("محتاج قارئ الكتب (WebView2)", 5); return false; }
-        if (!_annotBusy.Add(b.Id)) { if (!quiet) ShowStatus("النسخة المشروحة بتتعمل دلوقتي…", 3); return false; }
+        if (_annotBusy.Contains(b.Id))
+        {
+            if (quiet) { _annotQueue.Add(b.Id); return false; }
+            // طلب منك وفي نسخة تلقائية شغالة: نستناها تخلص وبعدين نكمّل
+            var until = DateTime.UtcNow.AddMinutes(3);
+            while (_annotBusy.Contains(b.Id) && DateTime.UtcNow < until) await Task.Delay(200);
+            if (exportTo == null && !NeedsAnnotated(b)) { ShowStatus("النسخة المشروحة متحدّثة ✓", 4); return true; }
+        }
+        if (!_annotBusy.Add(b.Id)) return false;
         try
         {
             if (ReaderShown && _currentBook == b && _reader != null) { await _reader.FlushInkAsync(); await Task.Delay(150); }

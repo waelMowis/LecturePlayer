@@ -183,7 +183,7 @@ internal sealed class ReaderPane : Panel
             string path = Uri.UnescapeDataString(uri.AbsolutePath);
             if (path.StartsWith("/save/", StringComparison.Ordinal) && e.Request.Method == "POST")
             {
-                e.Response = SaveResponse(env, path[6..], e.Request.Content);
+                SaveRequest(e, env, path[6..]);
                 return;
             }
             if (path.StartsWith("/book/", StringComparison.Ordinal))
@@ -215,11 +215,18 @@ internal sealed class ReaderPane : Panel
         }
     }
 
-    /// <summary>الصفحة بتبعت ملف اتعمل (PDF/PNG): بيتكتب في ملف مؤقت وبعدين يستبدل الهدف (مايبوظش لو حصل حاجة في النص).</summary>
-    private CoreWebView2WebResourceResponse SaveResponse(CoreWebView2Environment env, string token, Stream? body)
+    /// <summary>
+    /// الصفحة بتبعت ملف اتعمل (PDF/PNG): بيتكتب في ملف مؤقت (على طول)، وبعدين يستبدل الهدف في الخلفية
+    /// مع إعادة محاولة (مضاد الفيروسات أو القارئ ممكن يكونوا ماسكين الملف لحظة) — والواجهة ماتقفش.
+    /// </summary>
+    private void SaveRequest(CoreWebView2WebResourceRequestedEventArgs e, CoreWebView2Environment env, string token)
     {
+        var body = e.Request.Content;
         if (!_saves.Remove(token, out var target) || body == null)
-            return env.CreateWebResourceResponse(null, 403, "Forbidden", "Content-Type: text/plain");
+        {
+            e.Response = env.CreateWebResourceResponse(null, 403, "Forbidden", "Content-Type: text/plain");
+            return;
+        }
         string tmp = target + ".masar-part";
         try
         {
@@ -227,16 +234,44 @@ internal sealed class ReaderPane : Panel
             using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16))
                 body.CopyTo(fs);
             if (new FileInfo(tmp).Length == 0) throw new IOException("الملف طلع فاضي");
-            File.Move(tmp, target, overwrite: true);
-            return env.CreateWebResourceResponse(new MemoryStream("ok"u8.ToArray()), 200, "OK", "Content-Type: text/plain");
         }
         catch (Exception ex)
         {
             try { File.Delete(tmp); } catch { }
-            Data.Log.Info("reader save: " + ex.Message);
-            var msg = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(ex is IOException or UnauthorizedAccessException ? "الملف مفتوح في برنامج تاني أو مفيش صلاحية: " + ex.Message : ex.Message));
-            return env.CreateWebResourceResponse(msg, 500, "Error", "Content-Type: text/plain; charset=utf-8");
+            e.Response = SaveError(env, ex);
+            return;
         }
+        var deferral = e.GetDeferral();
+        _ = FinishSaveAsync(e, deferral, env, tmp, target);
+    }
+
+    private async Task FinishSaveAsync(CoreWebView2WebResourceRequestedEventArgs e, CoreWebView2Deferral deferral, CoreWebView2Environment env, string tmp, string target)
+    {
+        Exception? error = null;
+        await Task.Run(() =>
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                try { File.Move(tmp, target, overwrite: true); return; }
+                catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < 30) { Thread.Sleep(200); }
+                catch (Exception ex) { error = ex; try { File.Delete(tmp); } catch { } return; }
+            }
+        });
+        try
+        {
+            e.Response = error == null
+                ? env.CreateWebResourceResponse(new MemoryStream("ok"u8.ToArray()), 200, "OK", "Content-Type: text/plain")
+                : SaveError(env, error);
+        }
+        catch (Exception ex) { Data.Log.Info("reader save response: " + ex.Message); }
+        finally { deferral.Complete(); }
+    }
+
+    private static CoreWebView2WebResourceResponse SaveError(CoreWebView2Environment env, Exception ex)
+    {
+        Data.Log.Info("reader save: " + ex.Message);
+        var msg = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(ex is IOException or UnauthorizedAccessException ? "الملف مفتوح في برنامج تاني أو مفيش صلاحية: " + ex.Message : ex.Message));
+        return env.CreateWebResourceResponse(msg, 500, "Error", "Content-Type: text/plain; charset=utf-8");
     }
 
     private string SaveUrl(string target)

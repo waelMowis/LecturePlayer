@@ -112,8 +112,7 @@ internal partial class MainForm
             Check(book.InkCount == 8, "count after merge: " + book.InkCount);
 
             // ---------- النسخة المشروحة في «شروحاتي» ----------
-            Check(NeedsAnnotated(book), "needs annotated copy");
-            var built = BuildAnnotatedCopyAsync(book, quiet: true);
+            var built = BuildAnnotatedCopyAsync(book, quiet: false);
             Check(Until(() => built.IsCompleted, 90_000) && built.Result, "annotated copy built");
             var copy = AnnotatedCopyOf(book);
             Check(copy != null && File.Exists(copy.LocalPath) && copy.LocalPath.Contains(AnnotatedFolderName) && _library.Shelves.First(x => x.Id == copy.ShelfId).Kind == AnnotatedShelfKind, "copy in «شروحاتي»: " + copy?.LocalPath);
