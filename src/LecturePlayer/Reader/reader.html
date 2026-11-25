@@ -14,13 +14,13 @@
 </head>
 <body class="empty">
 <div id="toolbar" role="toolbar">
-  <div class="group close"><button id="closeReader" class="close-btn" title="إغلاق ورجوع للرئيسية (Ctrl+W)">✕ إغلاق</button></div>
+  <div class="group close"><button id="closeReader" class="close-btn" title="إغلاق والعودة إلى الرئيسية (Ctrl+W)">✕ إغلاق</button></div>
   <div class="group title"><span id="bookTitle"></span></div>
   <div class="group pages">
-    <button id="prev" dir="ltr" title="الصفحة اللي قبلها">›</button>
+    <button id="prev" dir="ltr" title="الصفحة السابقة">›</button>
     <input id="pageInput" type="text" inputmode="numeric" title="رقم الصفحة (Ctrl+G)" autocomplete="off">
     <span class="of">/ <span id="pageCount">0</span></span>
-    <button id="next" dir="ltr" title="الصفحة اللي بعدها">‹</button>
+    <button id="next" dir="ltr" title="الصفحة التالية">‹</button>
   </div>
   <div class="group tools">
     <button id="zoomOut" title="تصغير (Ctrl+-)">−</button>
@@ -38,23 +38,23 @@
     </select>
     <button id="zoomIn" title="تكبير (Ctrl+=)">+</button>
     <span class="sep"></span>
-    <button id="spread" title="صفحة ولا صفحتين جنب بعض">▯</button>
-    <button id="direction" title="اتجاه الصفحات (كتاب عربي: من اليمين للشمال)">⇄</button>
+    <button id="spread" title="صفحة أو صفحتان متجاورتان">▯</button>
+    <button id="direction" title="اتجاه الصفحات (كتاب عربي: من اليمين إلى اليسار)">⇄</button>
     <button id="theme" title="لون الصفحات: عادي ← ليلي ← ورق قديم">☀</button>
     <button id="findButton" title="بحث في الكتاب (Ctrl+F)">🔍</button>
-    <button id="mark" title="علامة على الصفحة دي (B)">🔖</button>
-    <button id="pagesBtn" title="محرر الصفحات: ترتيب، لف، صفحات سبورة، ضم ملفات، أرقام، ختم (على نسخة عمل)">📑</button>
+    <button id="mark" title="علامة على هذه الصفحة (B)">🔖</button>
+    <button id="pagesBtn" title="محرر الصفحات: ترتيب، تدوير، صفحات سبورة، ضم ملفات، أرقام، ختم (على نسخة عمل)">📑</button>
     <button id="inkBtn" title="أدوات الشرح: أقلام وألوان وممحاة وأشكال ونص وملصقات (Ctrl+Shift+D)">🖊</button>
-    <button id="ai" title="الذكاء الاصطناعي: اشرحلي الصفحة، لخّص الفصل، اختبرني">✨</button>
+    <button id="ai" title="الذكاء الاصطناعي: اشرح لي الصفحة، لخّص الفصل، اختبرني">✨</button>
     <button id="fullscreen" title="ملء الشاشة (F11)">⛶</button>
   </div>
 </div>
 <div id="findbar" hidden>
-  <input id="findInput" type="search" placeholder="دوّر في الكتاب…" autocomplete="off">
-  <button id="findPrev" title="اللي قبله (Shift+Enter)">˄</button>
-  <button id="findNext" title="اللي بعده (Enter)">˅</button>
+  <input id="findInput" type="search" placeholder="ابحث في الكتاب…" autocomplete="off">
+  <button id="findPrev" title="السابق (Shift+Enter)">˄</button>
+  <button id="findNext" title="التالي (Enter)">˅</button>
   <span id="findResult"></span>
-  <button id="findClose" title="قفل (Esc)">✕</button>
+  <button id="findClose" title="إغلاق (Esc)">✕</button>
 </div>
 <div id="viewerContainer" tabindex="0">
   <div id="viewer" class="pdfViewer"></div>
@@ -62,14 +62,14 @@
 <div id="epubArea" hidden></div>
 <div id="boardArea" hidden></div>
 <div id="hlbar" hidden>
-  <button data-color="yellow" title="ظلّل أصفر" class="sw" style="--c:#ffe066"></button>
-  <button data-color="green" title="ظلّل أخضر" class="sw" style="--c:#8ce99a"></button>
-  <button data-color="blue" title="ظلّل أزرق" class="sw" style="--c:#74c0fc"></button>
-  <button data-color="pink" title="ظلّل وردي" class="sw" style="--c:#faa2c1"></button>
+  <button data-color="yellow" title="ظلّل بالأصفر" class="sw" style="--c:#ffe066"></button>
+  <button data-color="green" title="ظلّل بالأخضر" class="sw" style="--c:#8ce99a"></button>
+  <button data-color="blue" title="ظلّل بالأزرق" class="sw" style="--c:#74c0fc"></button>
+  <button data-color="pink" title="ظلّل بالوردي" class="sw" style="--c:#faa2c1"></button>
   <button id="hlNote" title="ظلّل واكتب ملاحظة">📝</button>
-  <button id="hlDelete" title="شيل التظليل" hidden>🗑</button>
+  <button id="hlDelete" title="أزل التظليل" hidden>🗑</button>
 </div>
-<div id="overlay"><div id="overlayText">افتح كتاب من «الكتب»</div></div>
+<div id="overlay"><div id="overlayText">افتح كتابًا من «الكتب»</div></div>
 <script src="lib/pdf.min.js" type="module"></script>
 <script src="lib/pdf_viewer.js" type="module"></script>
 <script src="reader.js" type="module"></script>

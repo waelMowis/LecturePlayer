@@ -20,17 +20,17 @@ export const PENS = {
   pencil: { name: "قلم رصاص", size: 1.6, opacity: 0.9, thinning: 0.15, smoothing: 0.5, streamline: 0.35 },
   marker: { name: "ماركر", size: 7, opacity: 1, thinning: 0, smoothing: 0.6, streamline: 0.55 },
   hl:     { name: "قلم تظليل", size: 16, opacity: 0.35, thinning: 0, smoothing: 0.7, streamline: 0.6, blend: true },
-  temp:   { name: "قلم مؤقت (بيختفي)", size: 3.5, opacity: 1, thinning: 0.5, smoothing: 0.6, streamline: 0.5, temp: true },
+  temp:   { name: "قلم مؤقت (يختفي)", size: 3.5, opacity: 1, thinning: 0.5, smoothing: 0.6, streamline: 0.5, temp: true },
   line:   { name: "خط مستقيم", size: 3, opacity: 1, thinning: 0, smoothing: 0, streamline: 0, straight: true }
 };
 export const COLORS = ["#111111", "#ffffff", "#e03131", "#f76707", "#f59f00", "#ffd43b", "#2f9e44", "#69db7c",
   "#1971c2", "#4dabf7", "#6741d9", "#c2255c", "#f783ac", "#868e96", "#795548", "#0ca678"];
 export const SHAPES = [
-  ["line", "خط", "╱"], ["arrow", "سهم", "→"], ["arrow2", "سهم بطرفين", "↔"], ["rect", "مستطيل", "▭"], ["round", "مستطيل بحواف مدورة", "▢"],
-  ["ellipse", "دايرة", "◯"], ["tri", "مثلث", "△"], ["star", "نجمة", "☆"], ["brace", "قوس { }", "{"], ["check", "صح", "✓"], ["cross", "غلط", "✗"]
+  ["line", "خط", "╱"], ["arrow", "سهم", "→"], ["arrow2", "سهم بطرفين", "↔"], ["rect", "مستطيل", "▭"], ["round", "مستطيل بحواف مستديرة", "▢"],
+  ["ellipse", "دائرة", "◯"], ["tri", "مثلث", "△"], ["star", "نجمة", "☆"], ["brace", "قوس { }", "{"], ["check", "صحيح", "✓"], ["cross", "خطأ", "✗"]
 ];
 export const STICKERS = [
-  { id: "ok", label: "صح", icon: "✓", color: "#2f9e44" }, { id: "no", label: "غلط", icon: "✗", color: "#e03131" },
+  { id: "ok", label: "صحيح", icon: "✓", color: "#2f9e44" }, { id: "no", label: "خطأ", icon: "✗", color: "#e03131" },
   { id: "imp", label: "مهم", icon: "⭐", color: "#f59f00" }, { id: "rev", label: "راجع", icon: "🔁", color: "#1971c2" },
   { id: "q", label: "سؤال", icon: "❓", color: "#6741d9" }, { id: "warn", label: "تحذير", icon: "⚠", color: "#f76707" },
   { id: "idea", label: "فكرة", icon: "💡", color: "#f59f00" }, { id: "def", label: "تعريف", icon: "📘", color: "#1971c2" },
@@ -283,7 +283,7 @@ function renderSvg(it) {
     el("rect", { x: it.x, y: it.y + it.h * rv, width: it.w, height: it.h * (1 - rv), fill: it.c || "#ced4da", stroke: "#868e96", "stroke-width": 1.5, rx: 4 }, g);
     if (rv < 1) {
       const t = el("text", { x: it.x + it.w / 2, y: it.y + it.h * rv + Math.min(36, it.h * (1 - rv) / 2 + 10), "font-size": 22, "text-anchor": "middle", fill: "#495057", "font-family": "Segoe UI, Tahoma" }, g);
-      t.textContent = "دوس للكشف ⬇";
+      t.textContent = "اضغط للكشف ⬇";
     }
   }
   if (it.rot && it.t !== "stroke") {
@@ -1318,7 +1318,7 @@ class Ruler {
     const d = this.d = document.createElement("div");
     d.className = "ink-" + kind; d.hidden = true;
     const ang = document.createElement("div"); ang.className = "ang"; d.appendChild(ang); this.angEl = ang;
-    const rh = document.createElement("div"); rh.className = "rh"; rh.title = "لف"; d.appendChild(rh);
+    const rh = document.createElement("div"); rh.className = "rh"; rh.title = "تدوير"; d.appendChild(rh);
     if (kind === "ruler") for (let i = 0; i <= 30; i++) { const t = document.createElement("i"); t.style.left = (i / 30 * 100) + "%"; if (i % 5 === 0) t.className = "big"; d.appendChild(t); }
     else for (let i = 0; i <= 18; i++) { const t = document.createElement("i"); t.style.transform = `rotate(${-i * 10}deg)`; if (i % 3 === 0) t.className = "big"; d.appendChild(t); }
     host.appendChild(d);

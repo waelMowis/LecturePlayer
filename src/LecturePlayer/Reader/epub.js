@@ -7,7 +7,7 @@ function script(src) {
   return new Promise((ok, fail) => {
     if ([...document.scripts].some(s => s.src.endsWith(src))) return ok();
     const s = document.createElement("script");
-    s.src = src; s.onload = ok; s.onerror = () => fail(new Error("مقدرتش أحمّل " + src));
+    s.src = src; s.onload = ok; s.onerror = () => fail(new Error("تعذّر تحميل " + src));
     document.head.appendChild(s);
   });
 }
@@ -183,7 +183,7 @@ export const Epub = {
   async texts(url, onBatch) {
     const own = !url;
     const book = own ? this.book : window.ePub(url, { openAs: "epub" });
-    if (!book) throw new Error("مفيش كتاب مفتوح");
+    if (!book) throw new Error("لا يوجد كتاب مفتوح");
     try {
       if (!own) { await libs(); await book.ready; await locationsOf(book, url); }
       const cfis = cfiList(book);

@@ -188,7 +188,7 @@ internal partial class MainForm
             var rr = recv.Result!;
             receivedShelves.AddRange(rr.Shelves.Select(x => x.Id)); receivedBooks.AddRange(rr.Books.Select(x => x.Id));
             var rb = rr.Books.FirstOrDefault(x => x.Title == book.Title);
-            Check(rr.Shelves.Any(x => x.Name == "أقلام الفحص (متشارك)") && rb != null && File.Exists(rb.LocalPath) && rb.Id != book.Id, "received shelf & book");
+            Check(rr.Shelves.Any(x => x.Name == "أقلام الفحص (مشترك)") && rb != null && File.Exists(rb.LocalPath) && rb.Id != book.Id, "received shelf & book");
             Check(rb!.InkCount == book.InkCount && InkStore.Count(InkStore.Load(InkStore.FileFor(_libraryPath, rb.Id))) == book.InkCount, "ink came with it: " + rb.InkCount);
             Check(rr.Books.Any(x => x.AnnotatedOf == rb.Id && File.Exists(x.LocalPath)), "annotated copy came with it");
             Check(rb.ReadPages == book.ReadPages, "progress came with it");

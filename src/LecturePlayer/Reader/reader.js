@@ -76,7 +76,7 @@ async function open(o) {
   setRtl(!!o.rtl, false);
   $("bookTitle").textContent = o.title || "";
   document.title = o.title || "قارئ مسار";
-  setOverlay("loading", "بيفتح الكتاب…");
+  setOverlay("loading", "جارٍ فتح الكتاب…");
 
   boardArea.hidden = true;
   document.body.classList.toggle("board", o.format === "board");
@@ -89,7 +89,7 @@ async function open(o) {
     try { info = Board.open(o); }
     catch (e) {
       const msg = (e && e.message) || String(e);
-      setOverlay("failed", "مقدرتش أفتح السبورة: " + msg);
+      setOverlay("failed", "تعذّر فتح السبورة: " + msg);
       post({ t: "error", gen: o.gen, code: "board", message: msg });
       return;
     }
@@ -114,7 +114,7 @@ async function open(o) {
     catch (e) {
       if (gen !== S.gen) return;
       const msg = (e && e.message) || String(e);
-      setOverlay("failed", "مقدرتش أفتح الكتاب: " + msg);
+      setOverlay("failed", "تعذّر فتح الكتاب: " + msg);
       post({ t: "error", gen: o.gen, code: "epub", message: msg });
       return;
     }
@@ -137,16 +137,16 @@ async function open(o) {
 
   const task = S.task = pdfjsLib.getDocument({ ...DOC_OPTS, url: o.url });
   task.onPassword = (update, reason) => {
-    const p = window.prompt(reason === 2 ? "كلمة السر غلط — اكتبها تاني:" : "الكتاب ده محمي بكلمة سر:");
-    if (p === null) { post({ t: "error", gen: o.gen, code: "password", message: "الكتاب محمي بكلمة سر" }); task.destroy(); }
+    const p = window.prompt(reason === 2 ? "كلمة المرور خاطئة — اكتبها مرة أخرى:" : "هذا الكتاب محمي بكلمة مرور:");
+    if (p === null) { post({ t: "error", gen: o.gen, code: "password", message: "الكتاب محمي بكلمة مرور" }); task.destroy(); }
     else update(p);
   };
   let doc;
   try { doc = await task.promise; }
   catch (e) {
     if (gen !== S.gen) return;
-    const msg = e && e.name === "PasswordException" ? "الكتاب محمي بكلمة سر" : (e && e.message) || String(e);
-    setOverlay("failed", "مقدرتش أفتح الكتاب: " + msg);
+    const msg = e && e.name === "PasswordException" ? "الكتاب محمي بكلمة مرور" : (e && e.message) || String(e);
+    setOverlay("failed", "تعذّر فتح الكتاب: " + msg);
     post({ t: "error", gen: o.gen, code: e && e.name || "error", message: msg });
     return;
   }
@@ -198,7 +198,7 @@ async function close() {
   S.gen++;
   await closeDoc();
   $("bookTitle").textContent = "";
-  setOverlay("empty", "افتح كتاب من «الكتب»");
+  setOverlay("empty", "افتح كتابًا من «الكتب»");
 }
 
 function setOverlay(kind, text) {
@@ -267,7 +267,7 @@ async function probe(id, url) {
 
 // ---------------------------------------------------------------- النص (للبحث والذكاء) وصور الصفحات (للـ OCR)
 async function withDoc(url, fn) {
-  if (!url) { if (!S.doc) throw new Error("مفيش كتاب مفتوح"); return fn(S.doc); }
+  if (!url) { if (!S.doc) throw new Error("لا يوجد كتاب مفتوح"); return fn(S.doc); }
   const task = pdfjsLib.getDocument({ ...DOC_OPTS, url });
   task.onPassword = () => task.destroy();
   try { return await fn(await task.promise); } finally { try { await task.destroy(); } catch (e) { } }
@@ -300,7 +300,7 @@ async function pageTexts(id, url, from, to) {
   }
 }
 async function renderPage(id, url, p, scale) {
-  if (isEpubUrl(url) || (!url && S.kind === "epub")) { post({ t: "image", id, page: p, error: "EPUB مش محتاج OCR" }); return; }
+  if (isEpubUrl(url) || (!url && S.kind === "epub")) { post({ t: "image", id, page: p, error: "EPUB لا يحتاج إلى OCR" }); return; }
   try {
     await withDoc(url, async doc => {
       const page = await doc.getPage(p);
@@ -587,8 +587,8 @@ function find(again, previous) {
   const q = $("findInput").value;
   if (S.kind === "epub") {
     if (q.trim().length < 2) { $("findResult").textContent = ""; return; }
-    $("findResult").textContent = "بيدوّر…";
-    E.find(q, again, previous).then(m => { $("findResult").textContent = m.total ? `${m.current} من ${m.total}` : "مفيش نتايج"; });
+    $("findResult").textContent = "جارٍ البحث…";
+    E.find(q, again, previous).then(m => { $("findResult").textContent = m.total ? `${m.current} من ${m.total}` : "لا توجد نتائج"; });
     return;
   }
   eventBus.dispatch("find", {
@@ -598,7 +598,7 @@ function find(again, previous) {
 }
 eventBus.on("updatefindmatchescount", e => showMatches(e.matchesCount));
 eventBus.on("updatefindcontrolstate", e => {
-  if (e.state === 1) $("findResult").textContent = "مفيش نتايج";
+  if (e.state === 1) $("findResult").textContent = "لا توجد نتائج";
   else showMatches(e.matchesCount);
 });
 function showMatches(m) {
@@ -730,12 +730,12 @@ async function runAnnotate(id, src, save, inkJson, title) {
 }
 async function runPagePng(id, page, save, scale) {
   try {
-    if (!S.doc) throw new Error("مفيش كتاب مفتوح");
+    if (!S.doc) throw new Error("لا يوجد كتاب مفتوح");
     Ink.flush();
     const pg = await S.doc.getPage(page);
     const png = await pagePng({ pdfPage: pg, items: Ink.doc.items(String(page)), scale: scale || 2 });
     const r = await fetch(save, { method: "POST", body: png, headers: { "Content-Type": "image/png" } });
-    if (!r.ok) throw new Error("الحفظ فشل");
+    if (!r.ok) throw new Error("فشل الحفظ");
     post({ t: "job", id, ok: true, size: png.length });
   } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
 }
@@ -803,7 +803,7 @@ function setInk(on) {
   if (on === Ink.on) return;
   hideHlBar();
   InkUI.setOn(on);
-  if (on && !Ink.prefs.seenTip) { Ink.prefs.seenTip = 1; Ink.savePrefs(); InkUI.say("ارسم على الكتاب — الأصل مابيتلمسش والشرح بيتحفظ لوحده. Esc = تحريك الصفحة", 5000); }
+  if (on && !Ink.prefs.seenTip) { Ink.prefs.seenTip = 1; Ink.savePrefs(); InkUI.say("ارسم على الكتاب — لا يُمس الأصل ويُحفظ الشرح تلقائيًا. Esc = تحريك الصفحة", 5000); }
 }
 function toggleInk() { setInk(!Ink.on); }
 let presentPrev = null;

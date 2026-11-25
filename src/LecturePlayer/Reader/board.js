@@ -24,7 +24,7 @@ const iid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(3
 
 export const SIZES = { a4p: [595, 842, "A4 طولي"], a4l: [842, 595, "A4 عرضي"], wide: [960, 540, "شاشة 16:9"], long: [595, 2520, "صفحة طويلة"] };
 export const BGS = { white: ["#ffffff", "أبيض"], cream: ["#fdf6e3", "ورق"], black: ["#1e1e1e", "أسود"], green: ["#1f3d2b", "أخضر (طباشير)"] };
-export const PATS = { none: "فاضي", grid: "مربعات", lines: "سطور", dots: "نقط" };
+export const PATS = { none: "فارغ", grid: "مربعات", lines: "سطور", dots: "نقاط" };
 export const isDark = bg => bg === "black" || bg === "green";
 
 export const Board = {
@@ -167,7 +167,7 @@ export const Board = {
         for (const it of items) if (it.ly !== "t") { const g = renderSvg(it); svg.appendChild(isDark(p.bg) ? adaptDark(g) : g); }
         thumb.appendChild(svg);
       }
-      const card = h("div", { cls: "bd-card", draggable: "true", "data-n": i + 1, title: "دوس للصفحة — كليك يمين للخيارات — اسحب للترتيب" },
+      const card = h("div", { cls: "bd-card", draggable: "true", "data-n": i + 1, title: "اضغط للانتقال إلى الصفحة — انقر بالزر الأيمن للخيارات — اسحب للترتيب" },
         thumb, h("div", { cls: "bd-name" }, `${i + 1}` + (p.name ? ` · ${p.name}` : "")));
       card.onclick = () => this.goTo(i + 1);
       card.oncontextmenu = e => { e.preventDefault(); this.goTo(i + 1, true); this.pageMenu(e.clientX, e.clientY); };
@@ -186,11 +186,11 @@ export const Board = {
     const B = (label, title, fn) => h("button", { title, onclick: e => { e.stopPropagation(); fn(e); } }, label);
     this.tools.textContent = "";
     this.tools.append(
-      B("➕ صفحة", "صفحة جديدة بعد الحالية (نفس المقاس والخلفية)", () => this.addPage()),
-      B("⧉", "كرر الصفحة (بالرسم اللي عليها)", () => this.duplicate()),
+      B("➕ صفحة", "صفحة جديدة بعد الحالية (المقاس والخلفية نفسها)", () => this.addPage()),
+      B("⧉", "كرّر الصفحة (بالرسم الذي عليها)", () => this.duplicate()),
       B("🗑", "امسح الصفحة", () => this.removePage()),
-      B("▲", "الصفحة لفوق", () => this.movePage(this.cur - 1, this.cur - 2)),
-      B("▼", "الصفحة لتحت", () => this.movePage(this.cur - 1, this.cur)),
+      B("▲", "الصفحة إلى الأعلى", () => this.movePage(this.cur - 1, this.cur - 2)),
+      B("▼", "الصفحة إلى الأسفل", () => this.movePage(this.cur - 1, this.cur)),
       h("span", { cls: "sep" }),
       B("🎨 الخلفية ▾", "لون ونقشة الصفحة", e => this.menu(e.currentTarget, [
         ...Object.entries(BGS).map(([k, [, l]]) => [(this.curPage().bg === k ? "✓ " : "") + l, () => this.setBg(k)]),
@@ -201,18 +201,18 @@ export const Board = {
         ["مخطط (Flowchart)", () => this.template("flow")], ["عنوان", () => this.template("title")]])),
       h("span", { cls: "sep" }),
       B("🖼", "صورة على الصفحة (أو Ctrl+V)", () => this.pickImage()),
-      B("📄 صفحات PDF", "حط صفحات من ملف PDF كخلفية تشرح عليها", () => this.insertPdf()),
+      B("📄 صفحات PDF", "ضع صفحات من ملف PDF كخلفية تشرح عليها", () => this.insertPdf()),
       B("📸", "لقطة شاشة في صفحة جديدة", () => this.post({ t: "cmd", name: "board-shot", page: this.cur })),
-      B("🧲", "لقط على الشبكة", e => { Ink.snap = !Ink.snap; e.currentTarget.classList.toggle("on", Ink.snap); }),
+      B("🧲", "الالتصاق بالشبكة", e => { Ink.snap = !Ink.snap; e.currentTarget.classList.toggle("on", Ink.snap); }),
       h("span", { cls: "sep" }),
       B("−", "تصغير (Ctrl+العجلة)", () => this.zoom(-1)),
       B("⟲", "مقاس الشاشة", () => this.zoom(0)),
       B("+", "تكبير", () => this.zoom(1)),
       h("span", { cls: "sep" }),
-      B("📤 PDF ▾", "تصدير", e => this.menu(e.currentTarget, [["كل الصفحات", () => this.exportPdf("all")], ["الصفحة دي بس", () => this.exportPdf("cur")], ["الصفحة دي صورة PNG", () => this.exportPng()],
-        null, ["📨 ابعت للطلبة (PDF جاهز للإرسال)", () => this.exportPdf("all", true)]]))
+      B("📤 PDF ▾", "تصدير", e => this.menu(e.currentTarget, [["كل الصفحات", () => this.exportPdf("all")], ["هذه الصفحة فقط", () => this.exportPdf("cur")], ["هذه الصفحة كصورة PNG", () => this.exportPng()],
+        null, ["📨 أرسل للطلبة (PDF جاهز للإرسال)", () => this.exportPdf("all", true)]]))
     );
-    if (Ink.snap) this.tools.querySelector('[title="لقط على الشبكة"]').classList.add("on");
+    if (Ink.snap) this.tools.querySelector('[title="الالتصاق بالشبكة"]').classList.add("on");
   },
   menu(anchor, items) {
     document.querySelector(".pe-menu")?.remove();
@@ -223,7 +223,7 @@ export const Board = {
     setTimeout(() => document.addEventListener("pointerdown", function off(e) { if (!m.contains(e.target)) { m.remove(); document.removeEventListener("pointerdown", off, true); } }, true), 0);
   },
   pageMenu(x, y) {
-    this.menu({ x, y }, [["✎ اسم الصفحة…", () => this.rename()], ["⧉ كرر", () => this.duplicate()], ["▲ لفوق", () => this.movePage(this.cur - 1, this.cur - 2)], ["▼ لتحت", () => this.movePage(this.cur - 1, this.cur)],
+    this.menu({ x, y }, [["✎ اسم الصفحة…", () => this.rename()], ["⧉ كرر", () => this.duplicate()], ["▲ إلى الأعلى", () => this.movePage(this.cur - 1, this.cur - 2)], ["▼ إلى الأسفل", () => this.movePage(this.cur - 1, this.cur)],
       null, ["🗑 امسح الصفحة", () => this.removePage()]]);
   },
 
@@ -252,9 +252,9 @@ export const Board = {
     this.refreshSoon();
   },
   removePage() {
-    if (this.total <= 1) { alert("لازم يفضل صفحة واحدة على الأقل"); return; }
+    if (this.total <= 1) { alert("يجب أن تبقى صفحة واحدة على الأقل"); return; }
     const c = this.curPage();
-    if (Ink.doc.items(c.id).length && !confirm("تمسح الصفحة دي باللي عليها؟")) return;
+    if (Ink.doc.items(c.id).length && !confirm("هل تريد مسح هذه الصفحة بما عليها؟")) return;
     Ink.clearPage(c.id, "all");
     this.meta.pages.splice(this.cur - 1, 1);
     this.cur = Math.min(this.cur, this.total);
@@ -362,7 +362,7 @@ export const Board = {
       const r = await runJob({ job: "board", save, plans, title: this.meta.title || "سبورة" });
       this.post({ t: "cmd", name: send ? "board-send" : "board-exported", page: r.pages });
       return r;
-    } catch (e) { this.post({ t: "log", message: "board export: " + e.message }); alert("التصدير فشل: " + e.message); return null; }
+    } catch (e) { this.post({ t: "log", message: "board export: " + e.message }); alert("فشل التصدير: " + e.message); return null; }
   },
   async exportPng() {
     Ink.flush();

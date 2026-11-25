@@ -52,27 +52,27 @@ export const InkUI = {
     const bar = this.bar;
     bar.textContent = "";
     bar.append(
-      h("div", { cls: "grip", title: "اسحب الشريط لأي مكان — دبل كليك يقلبه أفقي/رأسي" }, "⠿"),
+      h("div", { cls: "grip", title: "اسحب الشريط إلى أي مكان — النقر المزدوج يقلبه أفقيًا/رأسيًا" }, "⠿"),
       B("hand", "✋", "تحريك وتصفح (Esc)", () => this.tool("hand")),
-      B("pen", "🖊", "الأقلام (P) — دوس تاني للألوان والمقاس", () => this.toolOrPop("pen", this.penPop)),
-      B("hl", "🖍", "قلم التظليل (H) — لو وقفت ثانية في آخر الخط يتعدل مستقيم", () => { if (Ink.tool === "pen" && Ink.pen === "hl") this.openPop("hl", this.penPop); else this.tool("pen", "hl"); }),
-      B("eraser", "🧽", "الممحاة (E) — دوس تاني لأنواعها", () => this.toolOrPop("eraser", this.eraserPop)),
+      B("pen", "🖊", "الأقلام (P) — اضغط مرة أخرى للألوان والمقاس", () => this.toolOrPop("pen", this.penPop)),
+      B("hl", "🖍", "قلم التظليل (H) — إن توقفت ثانية في آخر الخط يُعدَّل مستقيمًا", () => { if (Ink.tool === "pen" && Ink.pen === "hl") this.openPop("hl", this.penPop); else this.tool("pen", "hl"); }),
+      B("eraser", "🧽", "الممحاة (E) — اضغط مرة أخرى لأنواعها", () => this.toolOrPop("eraser", this.eraserPop)),
       B("shape", "⬠", "الأشكال والأسهم (S)", () => this.toolOrPop("shape", this.shapePop, true)),
       B("text", "T", "نص (T) — كليك واكتب، أو اسحب مربع", () => this.toolOrPop("text", this.textPop)),
       B("note", "📝", "ملاحظة لاصقة", () => this.tool("note")),
       B("callout", "💬", "فقاعة كلام بسهم", () => this.tool("callout")),
-      B("step", "①", "خطوات مترقمة ①②③", () => this.tool("step")),
+      B("step", "①", "خطوات مرقّمة ①②③", () => this.tool("step")),
       B("sticker", "⭐", "ملصقات وأختام وإيموجي وصور", () => this.openPop("sticker", this.stickerPop)),
-      B("select", "➤", "تحديد (V): كليك أو لف دايرة حوالين الحاجات — نقل وتكبير ولف ونسخ", () => this.tool("select")),
+      B("select", "➤", "تحديد (V): انقر أو ارسم دائرة حول العناصر — نقل وتكبير وتدوير ونسخ", () => this.tool("select")),
       B("present", "🔦", "أدوات العرض: ليزر، كشاف، عدسة، ستارة، مسطرة، منقلة", () => this.openPop("present", this.presentPop)),
       h("div", { cls: "hr" }),
       h("button", { cls: "colorbtn", "data-t": "color", title: "اللون", onclick: e => { e.stopPropagation(); this.openPop("color", this.colorPop); } }),
       B("undo", "↶", "تراجع (Ctrl+Z)", () => Ink.doUndo()),
       B("redo", "↷", "إعادة (Ctrl+Y)", () => Ink.doRedo()),
-      B("layer", "◐", "الطبقة: دائم (بيتحفظ) أو مؤقت (للشرح بس وبيتمسح بزرار)", () => { Ink.layer = Ink.layer === "p" ? "t" : "p"; this.say(Ink.layer === "t" ? "الطبقة المؤقتة: اللي هترسمه للشرح بس — «امسح المؤقت» يشيله" : "الطبقة الدائمة: اللي هترسمه بيتحفظ"); this.refresh(); }),
+      B("layer", "◐", "الطبقة: دائمة (تُحفظ) أو مؤقتة (للشرح فقط وتُمسح بزر)", () => { Ink.layer = Ink.layer === "p" ? "t" : "p"; this.say(Ink.layer === "t" ? "الطبقة المؤقتة: ما سترسمه للشرح فقط — «امسح المؤقت» يزيله" : "الطبقة الدائمة: ما سترسمه يُحفظ"); this.refresh(); }),
       B("eye", "👁", "إظهار/إخفاء الشرح", () => Ink.setVisible(!Ink.visible)),
       B("more", "⚙", "إعدادات وعرض واختصارات", () => this.openPop("more", this.morePop)),
-      B("close", "✕", "قفل أدوات الشرح (كل حاجة اتحفظت)", () => this.setOn(false))
+      B("close", "✕", "إغلاق أدوات الشرح (حُفظ كل شيء)", () => this.setOn(false))
     );
     if (Ink.prefs.barH) bar.classList.add("horizontal");
     this.refresh();
@@ -93,13 +93,13 @@ export const InkUI = {
     const pres = this.bar.querySelector('[data-t="present"]'); if (pres) pres.firstChild.textContent = { laser: "🔴", spot: "🔦", lens: "🔍", curtain: "🎭" }[t] || "🔦";
     const c = this.bar.querySelector(".colorbtn"); if (c) c.style.setProperty("--c", Ink.currentColor());
     const ly = this.bar.querySelector('[data-t="layer"]');
-    if (ly) { ly.classList.toggle("on", Ink.layer === "t"); ly.title = Ink.layer === "t" ? "الطبقة المؤقتة شغالة — دوس للدائمة" : "الطبقة الدائمة شغالة — دوس للمؤقتة (للشرح بس)"; ly.firstChild.textContent = Ink.layer === "t" ? "⏳" : "◐"; }
+    if (ly) { ly.classList.toggle("on", Ink.layer === "t"); ly.title = Ink.layer === "t" ? "الطبقة المؤقتة مفعّلة — اضغط للدائمة" : "الطبقة الدائمة مفعّلة — اضغط للمؤقتة (للشرح فقط)"; ly.firstChild.textContent = Ink.layer === "t" ? "⏳" : "◐"; }
     const u = this.bar.querySelector('[data-t="undo"]'); if (u) u.disabled = !Ink.undo.length;
     const r = this.bar.querySelector('[data-t="redo"]'); if (r) r.disabled = !Ink.redo.length;
     if (this.opts.onRefresh) this.opts.onRefresh();
   },
   dot(btn, c) { let d = btn.querySelector(".dot"); if (!d) { d = h("span", { cls: "dot" }); btn.append(d); } d.style.background = c; },
-  tool(t, sub) { this.closePop(); Ink.setTool(t, sub); if (t === "pen" && sub === "hl") this.say("قلم التظليل — اقف ثانية في آخر الخط يتعدل مستقيم"); },
+  tool(t, sub) { this.closePop(); Ink.setTool(t, sub); if (t === "pen" && sub === "hl") this.say("قلم التظليل — توقف ثانية في آخر الخط ليُعدَّل مستقيمًا"); },
   toolOrPop(t, popFn, alwaysPop) {
     const same = Ink.tool === t && (t !== "pen" || Ink.pen !== "hl");
     if (same || alwaysPop) { if (!same) Ink.setTool(t); this.openPop(t, popFn); }
@@ -176,8 +176,8 @@ export const InkUI = {
     if (Ink.prefs.recent.length) kids.push(h("h4", {}, "آخر ألوان استخدمتها"), this.swatches(cur, pick, Ink.prefs.recent));
     const inp = h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(cur || "") ? cur : "#e03131", oninput: e => pick(e.target.value), onchange: () => this.rerender() });
     kids.push(h("div", { cls: "row" },
-      h("label", {}, "لون تاني:", inp),
-      window.EyeDropper ? h("button", { title: "خد لون من أي حتة في الشاشة", onclick: async () => { try { const r = await new window.EyeDropper().open(); pick(r.sRGBHex); this.rerender(); } catch (x) { } } }, "💧 قطّارة") : null));
+      h("label", {}, "لون آخر:", inp),
+      window.EyeDropper ? h("button", { title: "التقط لونًا من أي مكان في الشاشة", onclick: async () => { try { const r = await new window.EyeDropper().open(); pick(r.sRGBHex); this.rerender(); } catch (x) { } } }, "💧 قطّارة") : null));
     return kids;
   },
   slider(label, min, max, step, val, fn, fmt = v => v) {
@@ -204,26 +204,26 @@ export const InkUI = {
       h("div", { cls: "row" }, this.slider("المقاس", 0.5, 40, 0.5, o.size, v => Ink.setPenOpt(cur, "size", v))),
       h("div", { cls: "row" }, this.slider("الشفافية", 0.1, 1, 0.05, o.o, v => Ink.setPenOpt(cur, "o", v), v => Math.round(v * 100) + "%")),
       ...this.colorRows(o.c, c => Ink.setPenOpt(cur, "c", c)),
-      h("div", { cls: "hint" }, isHl ? "التظليل بيبان تحت الكلام زي القلم الفسفوري. وقفة ثانية في آخر الخط = خط مستقيم." : "Shift وانت بترسم = خط مستقيم (بيلقط كل 15°). كل قلم بيفتكر لونه ومقاسه."));
+      h("div", { cls: "hint" }, isHl ? "التظليل يظهر تحت النص مثل القلم الفسفوري. التوقف ثانية في آخر الخط = خط مستقيم." : "Shift أثناء الرسم = خط مستقيم (يلتصق كل 15°). كل قلم يتذكر لونه ومقاسه."));
   },
   eraserPop(p) {
     const m = (id, label, tip) => h("button", { cls: "wide pen" + (Ink.tool === "eraser" && Ink.eraser === id ? " on" : ""), title: tip, onclick: () => { Ink.setTool("eraser", id); this.rerender(); } }, label);
     p.append(h("h4", {}, "نوع الممحاة"),
-      m("stroke", "🧽 تمسح الخط كله", "أي خط تلمسه بيتمسح كله"),
-      m("partial", "✂ تمسح حتة من الخط بس", "بتقطع الخط مكان ما تعدّي"),
-      m("area", "⭕ لف دايرة تمسح اللي جواها", ""),
+      m("stroke", "🧽 تمسح الخط كله", "أي خط تلمسه يُمسح كله"),
+      m("partial", "✂ تمسح جزءًا من الخط فقط", "تقطع الخط حيث تمر"),
+      m("area", "⭕ ارسم دائرة لتمسح ما بداخلها", ""),
       h("h4", {}, "مسح سريع للصفحة الحالية"),
       h("div", { cls: "row" },
         h("button", { onclick: () => this.clear("temp") }, "⏳ امسح المؤقت"),
-        h("button", { onclick: () => this.clear(Ink.currentColor()) }, h("span", { cls: "sw", style: { "--c": Ink.currentColor(), display: "inline-block", width: "14px", minWidth: "14px", height: "14px", verticalAlign: "middle" } }), " امسح اللون ده"),
+        h("button", { onclick: () => this.clear(Ink.currentColor()) }, h("span", { cls: "sw", style: { "--c": Ink.currentColor(), display: "inline-block", width: "14px", minWidth: "14px", height: "14px", verticalAlign: "middle" } }), " امسح هذا اللون"),
         h("button", { onclick: () => this.clear("all") }, "🗑 امسح الصفحة كلها")),
-      h("div", { cls: "hint" }, "زرار الممحاة اللي في القلم الديجيتال بيمسح على طول. وكل مسح ليه تراجع (Ctrl+Z)."));
+      h("div", { cls: "hint" }, "زر الممحاة في القلم الرقمي يمسح مباشرة. ولكل مسح تراجع (Ctrl+Z)."));
   },
   clear(what) {
     const s = Ink.visibleSurface(); if (!s) return;
-    if (what === "all" && !confirm("تمسح كل الشرح اللي على الصفحة دي؟ (تقدر ترجعه بـ Ctrl+Z)")) return;
+    if (what === "all" && !confirm("هل تريد مسح كل الشرح الذي على هذه الصفحة؟ (يمكنك استعادته بـ Ctrl+Z)")) return;
     Ink.clearPage(s.key, what); this.closePop();
-    this.say(what === "temp" ? "اتمسح الشرح المؤقت" : "اتمسح");
+    this.say(what === "temp" ? "مُسح الشرح المؤقت" : "مُسح");
   },
   shapePop(p) {
     p.append(h("h4", {}, "الأشكال"),
@@ -231,11 +231,11 @@ export const InkUI = {
     const sp = Ink.prefs.shape;
     p.append(h("div", { cls: "row" }, this.slider("سُمك الخط", 1, 14, 0.5, sp.sw, v => { sp.sw = v; Ink.savePrefs(); })),
       h("div", { cls: "row" },
-        h("label", {}, h("input", { type: "checkbox", checked: !!sp.fill, onchange: e => { sp.fill = e.target.checked ? (sp.fillC || Ink.prefs.color) : ""; Ink.savePrefs(); this.rerender(); } }), " مليان"),
+        h("label", {}, h("input", { type: "checkbox", checked: !!sp.fill, onchange: e => { sp.fill = e.target.checked ? (sp.fillC || Ink.prefs.color) : ""; Ink.savePrefs(); this.rerender(); } }), " ممتلئ"),
         sp.fill ? h("input", { type: "color", value: sp.fill, oninput: e => { sp.fill = sp.fillC = e.target.value; Ink.savePrefs(); } }) : null),
       sp.fill ? h("div", { cls: "row" }, this.slider("شفافية التعبئة", 0.05, 1, 0.05, sp.fo, v => { sp.fo = v; Ink.savePrefs(); }, v => Math.round(v * 100) + "%")) : "",
       ...this.colorRows(Ink.prefs.color, c => Ink.setColor(c)),
-      h("div", { cls: "hint" }, "Shift = مربع/دايرة مظبوطة أو سهم على زاوية مظبوطة. أي شكل فاضي بتمسكه من حدوده."));
+      h("div", { cls: "hint" }, "Shift = مربع/دائرة مضبوطة أو سهم بزاوية مضبوطة. أي شكل فارغ تمسكه من حدوده."));
   },
   textPop(p) {
     const T = Ink.prefs.text, save = () => Ink.savePrefs();
@@ -246,19 +246,19 @@ export const InkUI = {
         h("button", { cls: T.bold ? "on" : "", onclick: () => { T.bold = !T.bold; save(); this.rerender(); } }, h("b", {}, "B")),
         h("button", { cls: T.align === "right" ? "on" : "", title: "يمين", onclick: () => { T.align = "right"; save(); this.rerender(); } }, "⇥"),
         h("button", { cls: T.align === "center" ? "on" : "", title: "نص", onclick: () => { T.align = "center"; save(); this.rerender(); } }, "↔"),
-        h("button", { cls: T.align === "left" ? "on" : "", title: "شمال", onclick: () => { T.align = "left"; save(); this.rerender(); } }, "⇤"),
+        h("button", { cls: T.align === "left" ? "on" : "", title: "يسار", onclick: () => { T.align = "left"; save(); this.rerender(); } }, "⇤"),
         h("select", { title: "الاتجاه", style: { flex: "0 0 92px" }, onchange: e => { T.dir = e.target.value; save(); } },
           [["auto", "تلقائي"], ["rtl", "عربي ←"], ["ltr", "English →"]].map(([v, l]) => h("option", { value: v, selected: T.dir === v }, l)))),
       h("div", { cls: "row" }, h("label", {}, h("input", { type: "checkbox", checked: !!T.bg, onchange: e => { T.bg = e.target.checked ? "#fff3bf" : ""; save(); this.rerender(); } }), " خلفية"),
         T.bg ? h("input", { type: "color", value: T.bg, oninput: e => { T.bg = e.target.value; save(); } }) : null),
       ...this.colorRows(T.c, c => { T.c = c; Ink.useColor(c); save(); this.refresh(); }),
-      h("div", { cls: "hint" }, "كليك = نص جديد، أو اسحب مربع بالعرض اللي عايزه. دبل كليك على أي نص يعدّله. Esc أو Ctrl+Enter يخلّص."));
+      h("div", { cls: "hint" }, "انقر = نص جديد، أو اسحب مربعًا بالعرض الذي تريده. انقر نقرًا مزدوجًا على أي نص لتعديله. Esc أو Ctrl+Enter للإنهاء."));
   },
   stickerPop(p) {
     const tab = this._stab || "built";
     const T = (id, label) => h("button", { cls: tab === id ? "on" : "", onclick: () => { this._stab = id; this.rerender(); } }, label);
     p.append(h("div", { cls: "tabs" }, T("built", "ملصقات"), T("emoji", "إيموجي"), T("stamp", "أختام"), T("img", "صورة"), T("mine", "ملصقاتي")));
-    const pick = st => { Ink.setTool("sticker", st); this.closePop(); this.say("كليك مكان ما عايز تحطه — أو اسحب عشان تحدد المقاس"); };
+    const pick = st => { Ink.setTool("sticker", st); this.closePop(); this.say("انقر حيث تريد وضعه — أو اسحب لتحديد المقاس"); };
     if (tab === "built") p.append(h("div", { cls: "grid g4 stk" }, STICKERS.map(s => h("button", { title: s.label || "سهم", style: { color: s.label ? "" : s.color }, onclick: () => pick({ sid: s.id }) },
       s.arrow != null ? h("span", { style: { display: "inline-block", transform: `rotate(${s.arrow}deg)` } }, "➜") : (s.icon + " " + s.label)))));
     if (tab === "emoji") p.append(h("div", { cls: "grid" }, EMOJI.map(e => h("button", { onclick: () => pick({ emoji: e }) }, e))));
@@ -266,22 +266,22 @@ export const InkUI = {
       const st = Ink.prefs.stamps;
       p.append(h("div", { cls: "grid g4 stk" }, ["ممتاز", "راجع", "مهم جدًا", "تم", "سؤال امتحان", "لم يُشرح", "مطلوب", "سؤال", ...st.map(s => s.text)].map((t, i) => {
         const mine = st.find(s => s.text === t);
-        return h("button", { style: { color: mine ? mine.c : "#ff8787" }, oncontextmenu: mine ? e => { e.preventDefault(); Ink.prefs.stamps = st.filter(x => x !== mine); Ink.savePrefs(); this.rerender(); } : null, title: mine ? "كليك يمين يمسحه" : "", onclick: () => pick({ stamp: t, c: mine ? mine.c : "#e03131", shape: mine ? mine.shape : "round" }) }, t);
+        return h("button", { style: { color: mine ? mine.c : "#ff8787" }, oncontextmenu: mine ? e => { e.preventDefault(); Ink.prefs.stamps = st.filter(x => x !== mine); Ink.savePrefs(); this.rerender(); } : null, title: mine ? "النقر بالزر الأيمن يمسحه" : "", onclick: () => pick({ stamp: t, c: mine ? mine.c : "#e03131", shape: mine ? mine.shape : "round" }) }, t);
       })));
-      const txt = h("input", { type: "text", placeholder: "ختم جديد: اكتب كلامه…", maxlength: 24 });
+      const txt = h("input", { type: "text", placeholder: "ختم جديد: اكتب نصه…", maxlength: 24 });
       const col = h("input", { type: "color", value: "#1971c2" });
-      const shp = h("select", { style: { flex: "0 0 74px" } }, [["round", "مدوّر"], ["rect", "مربع"], ["circle", "دايرة"]].map(([v, l]) => h("option", { value: v }, l)));
-      p.append(h("h4", {}, "اعمل ختم بكلامك"), h("div", { cls: "row" }, txt, col, shp),
+      const shp = h("select", { style: { flex: "0 0 74px" } }, [["round", "مستدير"], ["rect", "مربع"], ["circle", "دائرة"]].map(([v, l]) => h("option", { value: v }, l)));
+      p.append(h("h4", {}, "أنشئ ختمًا بكلماتك"), h("div", { cls: "row" }, txt, col, shp),
         h("div", { cls: "row" }, h("button", { cls: "wide", onclick: () => { const t = txt.value.trim(); if (!t) return; Ink.prefs.stamps.push({ text: t, c: col.value, shape: shp.value }); Ink.savePrefs(); pick({ stamp: t, c: col.value, shape: shp.value }); } }, "➕ احفظه واستخدمه")));
     }
     if (tab === "img") {
       const f = h("input", { type: "file", accept: "image/*", hidden: true, onchange: e => { const file = e.target.files[0]; if (file) Ink.insertImageFile(file); this.closePop(); } });
-      p.append(f, h("button", { cls: "wide pen", onclick: () => f.click() }, "🖼 اختار صورة من الجهاز"),
-        h("div", { cls: "hint" }, "أو انسخ أي صورة (لقطة شاشة مثلًا) واعمل Ctrl+V وانت في وضع الشرح — بتتحط في نص الصفحة اللي قدامك وتقدر تكبرها وتلفها بأداة التحديد."));
+      p.append(f, h("button", { cls: "wide pen", onclick: () => f.click() }, "🖼 اختر صورة من الجهاز"),
+        h("div", { cls: "hint" }, "أو انسخ أي صورة (لقطة شاشة مثلًا) واضغط Ctrl+V وأنت في وضع الشرح — توضع في منتصف الصفحة التي أمامك ويمكنك تكبيرها وتدويرها بأداة التحديد."));
     }
     if (tab === "mine") {
       const list = Ink.prefs.myStickers;
-      if (!list.length) p.append(h("div", { cls: "hint" }, "حدد أي حاجة رسمتها (➤) ودوس ⭐ في الشريط الصغير اللي فوقها — هتتحفظ هنا وتستخدمها في أي كتاب."));
+      if (!list.length) p.append(h("div", { cls: "hint" }, "حدد أي شيء رسمته (➤) واضغط ⭐ في الشريط الصغير فوقه — سيُحفظ هنا لتستخدمه في أي كتاب."));
       for (const st of list) p.append(h("div", { cls: "mystk" },
         h("button", { onclick: () => pick({ mine: st }) }, "⭐ " + st.name),
         h("button", { title: "تغيير الاسم", onclick: () => { const n = prompt("اسم الملصق:", st.name); if (n) { st.name = n.trim(); Ink.savePrefs(); this.rerender(); } } }, "✎"),
@@ -291,27 +291,27 @@ export const InkUI = {
   presentPop(p) {
     const t = (id, label, tip) => h("button", { cls: "wide pen" + (Ink.tool === id ? " on" : ""), title: tip || "", onclick: () => { Ink.setTool(id); this.closePop(); if (tip) this.say(tip, 3500); } }, label);
     p.append(h("h4", {}, "أدوات الشرح والعرض"),
-      t("laser", "🔴 مؤشر ليزر (L)", "مؤشر ليزر: بيرسم أثر بيختفي لوحده"),
-      t("spot", "🔦 كشاف", "كشاف: كليك يحط الضوء، اسحب يعمل مستطيل، العجلة تكبّر الدايرة"),
-      t("lens", "🔍 عدسة مكبرة", "عدسة: حرّك الماوس على الكلام — Ctrl+العجلة تغير التكبير"),
-      t("curtain", "🎭 ستارة (كشف تدريجي)", "ستارة: اسحب مستطيل يغطي الإجابة — كليك عليه يكشف ربع ربع"),
+      t("laser", "🔴 مؤشر ليزر (L)", "مؤشر ليزر: يرسم أثرًا يختفي تلقائيًا"),
+      t("spot", "🔦 كشاف", "كشاف: النقر يضع الضوء، والسحب يرسم مستطيلًا، والعجلة تكبّر الدائرة"),
+      t("lens", "🔍 عدسة مكبرة", "عدسة: حرّك الفأرة على النص — Ctrl+العجلة تغيّر التكبير"),
+      t("curtain", "🎭 ستارة (كشف تدريجي)", "ستارة: اسحب مستطيلًا يغطي الإجابة — النقر عليه يكشفها ربعًا ربعًا"),
       h("div", { cls: "row" },
-        h("button", { onclick: () => { Ink.setTool("ruler"); this.closePop(); this.say("مسطرة: اسحبها، ولفها من الدايرة الزرقا أو بالعجلة — القلم بيمشي على حرفها"); } }, "📏 مسطرة"),
+        h("button", { onclick: () => { Ink.setTool("ruler"); this.closePop(); this.say("مسطرة: اسحبها، وأدرها من الدائرة الزرقاء أو بالعجلة — يسير القلم على حافتها"); } }, "📏 مسطرة"),
         h("button", { onclick: () => { Ink.setTool("protractor"); this.closePop(); } }, "📐 منقلة"),
-        h("button", { onclick: () => { Ink.resetCurtains(); this.closePop(); } }, "↺ اقفل الستاير")));
+        h("button", { onclick: () => { Ink.resetCurtains(); this.closePop(); } }, "↺ أغلق الستائر")));
   },
   colorPop(p) { p.append(...this.colorRows(Ink.currentColor(), c => Ink.setColor(c))); },
   morePop(p) {
     const chk = (label, val, fn, tip) => h("label", { cls: "wide", title: tip || "" }, h("input", { type: "checkbox", checked: !!val, onchange: e => { fn(e.target.checked); Ink.savePrefs(); } }), " " + label);
     p.append(h("h4", {}, "الكتابة"),
-      chk("القلم بس يرسم (اللمس يحرك الصفحة)", Ink.penOnly, v => { Ink.penOnly = Ink.prefs.penOnly = v; Ink.setTool(Ink.tool); }, "للشاشات اللمس: كف إيدك مابيرسمش"),
-      chk("تكملة الأشكال (ارسم دايرة بإيدك تبقى دايرة مظبوطة)", Ink.recognize, v => { Ink.recognize = Ink.prefs.recognize = v; }),
+      chk("القلم فقط يرسم (اللمس يحرّك الصفحة)", Ink.penOnly, v => { Ink.penOnly = Ink.prefs.penOnly = v; Ink.setTool(Ink.tool); }, "للشاشات اللمسية: كف اليد لا يرسم"),
+      chk("إكمال الأشكال (ارسم دائرة بيدك فتصبح دائرة مضبوطة)", Ink.recognize, v => { Ink.recognize = Ink.prefs.recognize = v; }),
       h("h4", {}, "العرض"),
       h("div", { cls: "row" },
         h("button", { onclick: () => { this.closePop(); if (this.opts.onPresent) this.opts.onPresent(); } }, "🖥 وضع العرض (F5)"),
-        h("button", { onclick: () => { Ink.flush(); this.closePop(); if (this.opts.onExport) this.opts.onExport(); } }, "💾 احفظ دلوقتي")),
+        h("button", { onclick: () => { Ink.flush(); this.closePop(); if (this.opts.onExport) this.opts.onExport(); } }, "💾 احفظ الآن")),
       h("h4", {}, "الاختصارات (وأدوات الشرح مفتوحة)"),
-      h("table", {}, h("tbody", {}, [["P", "قلم"], ["H", "تظليل"], ["E", "ممحاة"], ["S", "أشكال"], ["T", "نص"], ["V", "تحديد"], ["L", "ليزر"], ["Esc", "تحريك الكتاب / قفل"], ["Ctrl+Z / Y", "تراجع / إعادة"], ["Ctrl+C / X / V", "نسخ / قص / لصق"], ["Ctrl+D", "تكرار"], ["Delete", "مسح المتحدد"], ["Shift", "خط مستقيم / شكل مظبوط"], ["1…9", "ألوان سريعة"]].map(([k, v]) => h("tr", {}, h("td", {}, h("kbd", {}, k)), h("td", {}, v))))));
+      h("table", {}, h("tbody", {}, [["P", "قلم"], ["H", "تظليل"], ["E", "ممحاة"], ["S", "أشكال"], ["T", "نص"], ["V", "تحديد"], ["L", "ليزر"], ["Esc", "تحريك الكتاب / إغلاق"], ["Ctrl+Z / Y", "تراجع / إعادة"], ["Ctrl+C / X / V", "نسخ / قص / لصق"], ["Ctrl+D", "تكرار"], ["Delete", "مسح المحدد"], ["Shift", "خط مستقيم / شكل مضبوط"], ["1…9", "ألوان سريعة"]].map(([k, v]) => h("tr", {}, h("td", {}, h("kbd", {}, k)), h("td", {}, v))))));
   },
 
   // ---------------------------------------------------------------- شريط التحديد
@@ -321,13 +321,13 @@ export const InkUI = {
     const b = this.selbar; b.textContent = "";
     const its = Ink.selItems();
     b.append(...Ink.prefs.fav.slice(0, 6).map(c => h("button", { cls: "sw", style: { "--c": c }, title: "لوّن", onclick: () => Ink.recolorSel(c) })),
-      h("button", { title: "لون تاني", onclick: () => { this.popFor = null; this.openPop("color", this.colorPop); } }, "🎨"),
-      h("button", { title: "أتخن/أكبر", onclick: () => Ink.resizeSel(Math.min(40, (its[0].size || its[0].sw || 3) * 1.4)) }, "＋"),
+      h("button", { title: "لون آخر", onclick: () => { this.popFor = null; this.openPop("color", this.colorPop); } }, "🎨"),
+      h("button", { title: "أسمك/أكبر", onclick: () => Ink.resizeSel(Math.min(40, (its[0].size || its[0].sw || 3) * 1.4)) }, "＋"),
       h("button", { title: "أرفع/أصغر", onclick: () => Ink.resizeSel(Math.max(0.5, (its[0].size || its[0].sw || 3) / 1.4)) }, "－"),
-      h("button", { title: "قدّام (فوق الباقي)", onclick: () => Ink.orderSel(true) }, "⬆"),
-      h("button", { title: "ورا", onclick: () => Ink.orderSel(false) }, "⬇"),
+      h("button", { title: "إلى الأمام (فوق البقية)", onclick: () => Ink.orderSel(true) }, "⬆"),
+      h("button", { title: "خلف", onclick: () => Ink.orderSel(false) }, "⬇"),
       h("button", { title: "تكرار (Ctrl+D)", onclick: () => Ink.duplicateSel() }, "⧉"),
-      h("button", { title: "احفظه في «ملصقاتي»", onclick: () => { const n = prompt("اسم الملصق:", "ملصق " + (Ink.prefs.myStickers.length + 1)); if (n != null) { Ink.saveSelAsSticker(n.trim()); this.say("اتحفظ في «ملصقاتي» ⭐"); } } }, "⭐"),
+      h("button", { title: "احفظه في «ملصقاتي»", onclick: () => { const n = prompt("اسم الملصق:", "ملصق " + (Ink.prefs.myStickers.length + 1)); if (n != null) { Ink.saveSelAsSticker(n.trim()); this.say("حُفظ في «ملصقاتي» ⭐"); } } }, "⭐"),
       h("button", { title: "مسح (Delete)", onclick: () => Ink.deleteSel() }, "🗑"));
     b.hidden = false;
     this.placeSelBar();
@@ -354,7 +354,7 @@ export const InkUI = {
     if (ctrl && !e.altKey) {
       if (low === "z" && !e.shiftKey) { Ink.doUndo(); return ok(); }
       if (low === "y" || (low === "z" && e.shiftKey)) { Ink.doRedo(); return ok(); }
-      if (low === "c" && Ink.sel) { Ink.copySel(false); this.say("اتنسخ"); return ok(); }
+      if (low === "c" && Ink.sel) { Ink.copySel(false); this.say("نُسخ"); return ok(); }
       if (low === "x" && Ink.sel) { Ink.copySel(true); return ok(); }
       if (low === "d" && Ink.sel) { Ink.duplicateSel(); return ok(); }
       if (low === "a" && Ink.tool === "select") { const s = Ink.visibleSurface(); if (s) Ink.setSel({ key: s.key, ids: new Set(Ink.doc.items(s.key).map(i => i.id)) }); return ok(); }
@@ -367,7 +367,7 @@ export const InkUI = {
       if (!this.pop.hidden) { this.closePop(); return ok(); }
       if (Ink.sel) { Ink.setSel(null); return ok(); }
       if (document.body.classList.contains("present")) { if (this.opts.onPresent) this.opts.onPresent(false); return ok(); }
-      if (Ink.tool !== "hand") { Ink.setTool("hand"); this.say("تحريك الصفحة — Esc تاني يقفل أدوات الشرح"); return ok(); }
+      if (Ink.tool !== "hand") { Ink.setTool("hand"); this.say("تحريك الصفحة — Esc مرة أخرى يغلق أدوات الشرح"); return ok(); }
       this.setOn(false); return ok();
     }
     if (k === "F5") { if (this.opts.onPresent) this.opts.onPresent(); return ok(); }
@@ -376,7 +376,7 @@ export const InkUI = {
       if (t === "hl") this.tool("pen", "hl"); else if (t === "pen") this.tool("pen", Ink.pen === "hl" ? "pen" : Ink.pen); else this.tool(t);
       return ok();
     }
-    if (/^[1-9]$/.test(k) && !e.shiftKey) { const c = (Ink.prefs.recent.length ? [...new Set([...Ink.prefs.recent, ...COLORS])] : COLORS)[+k - 1]; if (c) { Ink.setColor(c); this.say("اللون اتغير"); } return ok(); }
+    if (/^[1-9]$/.test(k) && !e.shiftKey) { const c = (Ink.prefs.recent.length ? [...new Set([...Ink.prefs.recent, ...COLORS])] : COLORS)[+k - 1]; if (c) { Ink.setColor(c); this.say("تغيّر اللون"); } return ok(); }
     return false;
   }
 };

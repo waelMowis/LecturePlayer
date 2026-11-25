@@ -20,7 +20,7 @@ const h = (tag, attrs = {}, ...kids) => {
   for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
   return e;
 };
-const BOARDS = [["blank", "فاضية"], ["grid", "مربعات"], ["lined", "سطور"], ["dots", "نقط"]];
+const BOARDS = [["blank", "فارغة"], ["grid", "مربعات"], ["lined", "سطور"], ["dots", "نقاط"]];
 let uidN = 0;
 const nid = () => "e" + (++uidN);
 
@@ -40,7 +40,7 @@ export const PageEditor = {
     document.body.classList.add("pe-on");
   },
   close(force) {
-    if (!force && this.dirty && !confirm("في تعديلات ماتحفظتش — تقفل من غير حفظ؟")) return;
+    if (!force && this.dirty && !confirm("توجد تعديلات غير محفوظة — هل تغلق دون حفظ؟")) return;
     if (this.io) this.io.disconnect();
     this.root?.remove(); this.root = null;
     document.body.classList.remove("pe-on");
@@ -58,20 +58,20 @@ export const PageEditor = {
       h("span", { cls: "pe-title" }, "📑 محرر الصفحات — " + (this.ctx.title || "")),
       h("span", { cls: "pe-count" }),
       h("span", { cls: "pe-sp" }),
-      btn("board", "➕ صفحة سبورة ▾", "صفحة جديدة بعد المختارة (فاضية/مربعات/سطور/نقط)", e => this.menu(e.currentTarget, BOARDS.map(([k, l]) => [l, () => this.insertBoard(k)]))),
-      btn("image", "🖼 صفحة صورة", "صورة على صفحة لوحدها", () => this.pickImage()),
-      btn("merge", "📎 ضم PDF", "ضيف صفحات ملف PDF تاني", () => this.addPdf()),
-      btn("rotl", "↺", "لف شمال", () => this.rotate(-90)),
-      btn("rotr", "↻", "لف يمين", () => this.rotate(90)),
-      btn("dup", "⧉ تكرار", "كرر الصفحات المختارة", () => this.duplicate()),
+      btn("board", "➕ صفحة سبورة ▾", "صفحة جديدة بعد المختارة (فارغة/مربعات/سطور/نقاط)", e => this.menu(e.currentTarget, BOARDS.map(([k, l]) => [l, () => this.insertBoard(k)]))),
+      btn("image", "🖼 صفحة صورة", "صورة على صفحة مستقلة", () => this.pickImage()),
+      btn("merge", "📎 ضم PDF", "أضف صفحات ملف PDF آخر", () => this.addPdf()),
+      btn("rotl", "↺", "تدوير لليسار", () => this.rotate(-90)),
+      btn("rotr", "↻", "تدوير لليمين", () => this.rotate(90)),
+      btn("dup", "⧉ تكرار", "كرّر الصفحات المختارة", () => this.duplicate()),
       btn("del", "🗑 مسح", "امسح الصفحات المختارة (Delete)", () => this.remove()),
-      btn("extract", "📤 استخرج", "احفظ الصفحات المختارة ملف لوحدها", () => this.extract()),
+      btn("extract", "📤 استخرج", "احفظ الصفحات المختارة في ملف مستقل", () => this.extract()),
       btn("numbers", "🔢 أرقام", "ترقيم الصفحات", e => this.numbersDialog(e.currentTarget)),
       btn("stamp", "🏷 ختم", "ختم أو علامة مائية على الصفحات", e => this.stampDialog(e.currentTarget)),
-      btn("flatten", "🧷 ثبّت الشرح", "الشرح يبقى جزء من الملف نفسه (بيتمسح من طبقة الشرح)", () => this.flatten()),
+      btn("flatten", "🧷 ثبّت الشرح", "يصبح الشرح جزءًا من الملف نفسه (ويُمسح من طبقة الشرح)", () => this.flatten()),
       h("span", { cls: "pe-sp" }),
       btn("save", "💾 احفظ", "احفظ التعديلات في نسخة العمل (Ctrl+S)", () => this.save()),
-      btn("close", "✕", "قفل (Esc)", () => this.close()));
+      btn("close", "✕", "إغلاق (Esc)", () => this.close()));
     this.grid = h("div", { cls: "pe-grid", style: { direction: this.ctx.rtl ? "rtl" : "ltr" }, onclick: e => { if (e.target === this.grid) { this.sel.clear(); this.paint(); } } });
     this.status = h("div", { cls: "pe-status", hidden: true });
     this.root = h("div", { id: "pageEditor", tabindex: "0", onkeydown: e => this.key(e) }, this.bar, this.grid, this.status);
@@ -82,7 +82,7 @@ export const PageEditor = {
   },
   updateBar() {
     const n = this.sel.size;
-    this.bar.querySelector(".pe-count").textContent = `${this.entries.length} صفحة` + (n ? ` · مختار ${n}` : "") + (this.dirty ? " · ✎ مش محفوظ" : "");
+    this.bar.querySelector(".pe-count").textContent = `${this.entries.length} صفحة` + (n ? ` · مختار ${n}` : "") + (this.dirty ? " · ✎ غير محفوظ" : "");
     for (const a of ["rotl", "rotr", "dup", "del", "extract"]) this.bar.querySelector(`[data-a="${a}"]`).disabled = !n;
     this.bar.querySelector('[data-a="save"]').classList.toggle("on", this.dirty);
   },
@@ -203,7 +203,7 @@ export const PageEditor = {
     const list = [];
     for (let i = 0; i < d.numPages; i++) list.push({ id: nid(), kind: "merge", key, index: i, rot: 0 });
     this.add(list, this.insertAt());
-    this.say(`اتضافت ${d.numPages} صفحة`);
+    this.say(`أُضيفت ${d.numPages} صفحة`);
   },
   rotate(deg) {
     for (const e of this.entries) if (this.sel.has(e.id) && (e.kind === "src" || e.kind === "merge")) e.rot = (((e.rot || 0) + deg) % 360 + 360) % 360;
@@ -217,10 +217,10 @@ export const PageEditor = {
   },
   remove() {
     const n = this.sel.size; if (!n) return;
-    if (n === this.entries.length) { alert("مينفعش تمسح كل الصفحات"); return; }
+    if (n === this.entries.length) { alert("لا يمكن مسح كل الصفحات"); return; }
     this.entries = this.entries.filter(e => !this.sel.has(e.id));
     this.sel.clear(); this.setDirty(); this.renderGrid();
-    this.say(`اتمسحت ${n} صفحة — تقدر تقفل من غير حفظ لو غيرت رأيك`);
+    this.say(`مُسحت ${n} صفحة — يمكنك الإغلاق دون حفظ إن غيّرت رأيك`);
   },
   moveSelection(targetId, after) {
     if (this.sel.has(targetId)) return;
@@ -251,19 +251,19 @@ export const PageEditor = {
 
   /** حفظ في نسخة العمل نفسها + الشرح يمشي مع صفحاته. */
   async save(extraOps = []) {
-    if (!this.dirty && !extraOps.length) { this.say("مفيش تعديلات"); return; }
+    if (!this.dirty && !extraOps.length) { this.say("لا توجد تعديلات"); return; }
     const save = await this.ctx.pick("save-self");
-    if (!save) { this.say("الحفظ متاح لنسخة العمل بس"); return; }
+    if (!save) { this.say("الحفظ متاح لنسخة العمل فقط"); return; }
     const entries = this.entries.slice();
-    const r = await this.run("بحفظ", () => runJob({ job: "edit", src: this.ctx.src, save, ops: [{ op: "compose", pages: this.composePages(entries), merges: this.merges }, ...extraOps] },
-      p => this.say(`بحفظ… ${Math.round(p * 100)}%`, 600000)));
+    const r = await this.run("جارٍ الحفظ", () => runJob({ job: "edit", src: this.ctx.src, save, ops: [{ op: "compose", pages: this.composePages(entries), merges: this.merges }, ...extraOps] },
+      p => this.say(`جارٍ الحفظ… ${Math.round(p * 100)}%`, 600000)));
     if (!r) return;
     Ink.remapPages(entries, this.aspects);
     Ink.flush();
     // البرنامج ينقل العلامات والتظليل والمقروء: لكل صفحة جديدة [الصفحة القديمة، اللفة] (0 = صفحة جديدة)
     this.ctx.onMap && this.ctx.onMap(entries.map(e => e.kind === "src" ? [e.index + 1, e.rot || 0] : [0, 0]));
     this.dirty = false;
-    this.say("اتحفظ ✓");
+    this.say("حُفظ ✓");
     this.close(true);
     this.ctx.onSaved && this.ctx.onSaved(r);
   },
@@ -272,16 +272,16 @@ export const PageEditor = {
     const save = await this.ctx.pick("save-pdf", `${this.ctx.title || "صفحات"} — ${idx.length} صفحة.pdf`);
     if (!save) return;
     const entries = idx.map(i => this.entries[i]);
-    const r = await this.run("باستخرج", () => runJob({ job: "edit", src: this.ctx.src, save, ops: [{ op: "compose", pages: this.composePages(entries), merges: this.merges }] }));
-    if (r) this.say(`اتحفظت ${r.pages} صفحة ✓`);
+    const r = await this.run("جارٍ الاستخراج", () => runJob({ job: "edit", src: this.ctx.src, save, ops: [{ op: "compose", pages: this.composePages(entries), merges: this.merges }] }));
+    if (r) this.say(`حُفظت ${r.pages} صفحة ✓`);
   },
 
   numbersDialog(anchor) {
-    const pos = h("select", {}, [["center", "في النص"], ["right", "يمين"], ["left", "شمال"]].map(([v, l]) => h("option", { value: v }, l)));
+    const pos = h("select", {}, [["center", "في المنتصف"], ["right", "يمين"], ["left", "يسار"]].map(([v, l]) => h("option", { value: v }, l)));
     const fmt = h("select", {}, [["n", "1، 2، 3"], ["of", "1 / 20"], ["ar", "صفحة ١ من ٢٠"]].map(([v, l]) => h("option", { value: v }, l)));
     const start = h("input", { type: "number", value: 1, min: 0, style: { width: "70px" } });
     const skip = h("input", { type: "checkbox" });
-    this.dialog(anchor, "ترقيم الصفحات", [h("label", {}, "الشكل ", fmt), h("label", {}, "المكان ", pos), h("label", {}, "يبدأ من ", start), h("label", {}, skip, " من غير رقم على أول صفحة (الغلاف)")],
+    this.dialog(anchor, "ترقيم الصفحات", [h("label", {}, "الشكل ", fmt), h("label", {}, "المكان ", pos), h("label", {}, "يبدأ من ", start), h("label", {}, skip, " بدون رقم على الصفحة الأولى (الغلاف)")],
       async () => {
         const total = this.entries.length, st = +start.value || 1, first = skip.checked;
         const op = { op: "numbers", pos: pos.value, format: fmt.value, start: st, skipFirst: first };
@@ -297,9 +297,9 @@ export const PageEditor = {
   stampDialog(anchor) {
     const text = h("input", { type: "text", value: "سري", maxlength: 40 });
     const color = h("input", { type: "color", value: "#e03131" });
-    const mode = h("select", {}, [["diag", "علامة مائية مايلة في النص"], ["corner", "ختم فوق في الركن"]].map(([v, l]) => h("option", { value: v }, l)));
-    const which = h("select", {}, [["all", "كل الصفحات"], ["sel", "الصفحات المختارة بس"]].map(([v, l]) => h("option", { value: v }, l)));
-    this.dialog(anchor, "ختم / علامة مائية", [h("label", {}, "الكلام ", text), h("label", {}, "اللون ", color), h("label", {}, "الشكل ", mode), h("label", {}, "على ", which)],
+    const mode = h("select", {}, [["diag", "علامة مائية مائلة في المنتصف"], ["corner", "ختم في الزاوية العلوية"]].map(([v, l]) => h("option", { value: v }, l)));
+    const which = h("select", {}, [["all", "كل الصفحات"], ["sel", "الصفحات المختارة فقط"]].map(([v, l]) => h("option", { value: v }, l)));
+    this.dialog(anchor, "ختم / علامة مائية", [h("label", {}, "النص ", text), h("label", {}, "اللون ", color), h("label", {}, "الشكل ", mode), h("label", {}, "على ", which)],
       async () => {
         const t = text.value.trim(); if (!t) return;
         const pages = which.value === "sel" ? this.selIdx() : this.entries.map((_, i) => i);
@@ -310,7 +310,7 @@ export const PageEditor = {
   dialog(anchor, title, rows, ok) {
     document.querySelector(".pe-dialog")?.remove();
     const d = h("div", { cls: "pe-dialog" }, h("h4", {}, title), ...rows.map(r => h("div", { cls: "row" }, r)),
-      h("div", { cls: "row" }, h("button", { cls: "on", onclick: async () => { d.remove(); await ok(); } }, "تمام (وبيتحفظ)"), h("button", { onclick: () => d.remove() }, "إلغاء")));
+      h("div", { cls: "row" }, h("button", { cls: "on", onclick: async () => { d.remove(); await ok(); } }, "حسنًا (ويُحفظ)"), h("button", { onclick: () => d.remove() }, "إلغاء")));
     document.body.appendChild(d);
     const r = anchor.getBoundingClientRect();
     d.style.top = (r.bottom + 6) + "px"; d.style.left = Math.max(6, Math.min(innerWidth - d.offsetWidth - 6, r.left)) + "px";
@@ -326,13 +326,13 @@ export const PageEditor = {
 
   /** الشرح يتطبع في الملف (whiteout + كلام يبقى جزء من الصفحة) وطبقة الشرح تفضى. */
   async flatten() {
-    if (this.dirty) { this.say("احفظ ترتيب الصفحات الأول"); return; }
+    if (this.dirty) { this.say("احفظ ترتيب الصفحات أولًا"); return; }
     const pages = [...Ink.doc.pages.entries()].filter(([, v]) => v.some(i => i.ly !== "t"));
-    if (!pages.length) { this.say("مفيش شرح على الصفحات"); return; }
-    if (!confirm("الشرح هيتطبع جوه نسخة العمل نفسها ومش هيبقى قابل للتعديل (الأصل مش هيتلمس). نكمّل؟")) return;
+    if (!pages.length) { this.say("لا يوجد شرح على الصفحات"); return; }
+    if (!confirm("سيُطبع الشرح داخل نسخة العمل نفسها ولن يكون قابلًا للتعديل (لن يُمس الأصل). هل نتابع؟")) return;
     const save = await this.ctx.pick("save-self");
-    if (!save) { this.say("متاح لنسخة العمل بس"); return; }
-    const r = await this.run("بثبّت الشرح", async () => {
+    if (!save) { this.say("متاح لنسخة العمل فقط"); return; }
+    const r = await this.run("جارٍ تثبيت الشرح", async () => {
       const plans = [];
       for (const [k, items] of pages) {
         const n = +k; if (!(n >= 1 && n <= this.doc.numPages)) continue;

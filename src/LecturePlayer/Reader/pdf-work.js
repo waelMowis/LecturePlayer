@@ -10,17 +10,17 @@ const hex = c => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ""); const n = m ? p
 
 async function load(src) {
   const r = await fetch(src);
-  if (!r.ok) throw new Error("مقدرتش أقرا الكتاب (" + r.status + ")");
+  if (!r.ok) throw new Error("تعذّرت قراءة الكتاب (" + r.status + ")");
   const bytes = new Uint8Array(await r.arrayBuffer());
   const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false, throwOnInvalidObject: false });
-  if (doc.isEncrypted) throw new Error("الكتاب محمي بكلمة سر/تشفير — مقدرش أعدّل عليه");
+  if (doc.isEncrypted) throw new Error("الكتاب محمي بكلمة مرور/تشفير — لا يمكن تعديله");
   return doc;
 }
 
 async function saveTo(doc, save) {
   const out = await doc.save({ useObjectStreams: true, addDefaultPage: false });
   const r = await fetch(save, { method: "POST", body: out, headers: { "Content-Type": "application/pdf" } });
-  if (!r.ok) throw new Error("الحفظ فشل: " + (await r.text().catch(() => r.status)));
+  if (!r.ok) throw new Error("فشل الحفظ: " + (await r.text().catch(() => r.status)));
   return out.length;
 }
 
