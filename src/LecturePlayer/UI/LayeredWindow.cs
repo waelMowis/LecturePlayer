@@ -37,7 +37,7 @@ internal class LayeredWindow : Form
     protected override bool ShowWithoutActivation => _noActivate;
 
     /// <summary>الماوس يعدّي (true) أو يتمسك هنا (false).</summary>
-    public bool ClickThrough
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public bool ClickThrough
     {
         get => _clickThrough;
         set

@@ -22,8 +22,8 @@ internal sealed class ScreenInk : LayeredWindow
     private readonly List<(PointF P, DateTime T)> _laser = new();
     private readonly System.Windows.Forms.Timer _laserTimer = new() { Interval = 30 };
     public Tool Current { get; private set; } = Tool.Pen;
-    public Color Ink { get; set; } = Color.FromArgb(224, 49, 49);
-    public float PenWidth { get; set; } = 4;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public Color Ink { get; set; } = Color.FromArgb(224, 49, 49);
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public float PenWidth { get; set; } = 4;
     public int Count => _items.Count;
     public event Action? Changed;
     private ScreenInkBar? _bar;

@@ -13,12 +13,12 @@ internal sealed class CameraWindow : LayeredWindow
     private Bitmap? _frame;
     private readonly object _lock = new();
     private const int Pad = 14; // مساحة الظل
-    public Shape CamShape { get; set; } = Shape.Circle;
-    public int SizeIndex { get; set; } = 1;
-    public Color BorderColor { get; set; } = Color.White;
-    public int BorderWidth { get; set; } = 4;
-    public bool Shadow { get; set; } = true;
-    public bool Mirror { get; set; } = true;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public Shape CamShape { get; set; } = Shape.Circle;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public int SizeIndex { get; set; } = 1;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public Color BorderColor { get; set; } = Color.White;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public int BorderWidth { get; set; } = 4;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public bool Shadow { get; set; } = true;
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public bool Mirror { get; set; } = true;
     public event Action? SettingsChanged;
     public event Action? HideRequested;
     public int FramesShown { get; private set; }
