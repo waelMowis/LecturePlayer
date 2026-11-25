@@ -259,7 +259,7 @@ internal sealed partial class MainForm
     /// <summary>بيجهّز نص الكتب اللي لسه ماتقريتش (من غير OCR) عشان البحث يلاقي فيها.</summary>
     private async Task IndexAllBooksAsync(BookSearchForm form)
     {
-        var todo = _library.Books.Where(b => File.Exists(BookFile(b)) && BookText.Load(b) is var t && !t.Complete && (b.PageCount <= 0 || !t.HasAll(1, b.PageCount))).ToList();
+        var todo = _library.Books.Where(b => !b.IsBoard && File.Exists(BookFile(b)) && BookText.Load(b) is var t && !t.Complete && (b.PageCount <= 0 || !t.HasAll(1, b.PageCount))).ToList();
         int total = _library.Books.Count, done = total - todo.Count;
         form.SetStatus(todo.Count == 0 ? $"بيدوّر في {total} كتاب" : $"بيجهّز نص الكتب… {done}/{total}");
         foreach (var b in todo)

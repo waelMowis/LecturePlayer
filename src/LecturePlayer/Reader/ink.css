@@ -181,3 +181,28 @@ body.present .pdfViewer .page { box-shadow: none; }
 .pe-menu { display: flex; flex-direction: column; gap: 3px; padding: 5px; }
 .pe-menu button { text-align: right; justify-content: flex-start; height: 30px; }
 body.pe-on #inkbar, body.pe-on #inksel { display: none; }
+
+/* ===================== السبورة ===================== */
+#boardArea { position: absolute; inset: var(--bar-h) 0 0 0; display: flex; flex-direction: column; background: #26282c; }
+#boardArea[hidden] { display: none; }
+.bd-tools { display: flex; align-items: center; gap: 4px; padding: 5px 8px; background: #2b2d31; border-bottom: 1px solid #0004; flex-wrap: wrap; direction: rtl; }
+.bd-tools button { height: 28px; font-size: 13px; padding: 0 8px; }
+.bd-tools button.on { background: #1971c2; color: #fff; }
+.bd-tools .sep { width: 1px; height: 20px; background: #ffffff22; margin: 0 3px; }
+.bd-body { flex: 1; display: flex; min-height: 0; direction: rtl; }
+.bd-side { width: 128px; flex: none; overflow-y: auto; background: #202225; padding: 6px; display: flex; flex-direction: column; gap: 8px; }
+.bd-side-h { display: flex; justify-content: space-between; align-items: center; color: #a0a6ac; font-size: 12px; }
+.bd-side-h button { height: 22px; min-width: 22px; font-size: 14px; padding: 0 5px; }
+.bd-card { cursor: pointer; border: 2px solid transparent; border-radius: 6px; padding: 3px; }
+.bd-card.on { border-color: #4fc3f7; }
+.bd-thumb { position: relative; width: 100%; box-shadow: 0 1px 4px #0008; overflow: hidden; }
+.bd-thumb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bd-name { font-size: 11px; color: #a0a6ac; text-align: center; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-scroll { flex: 1; overflow: auto; outline: none; direction: ltr; }
+.bd-scroll.panning { cursor: grabbing; }
+.bd-pages { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 16px 24px 40px; width: max-content; min-width: 100%; box-sizing: border-box; }
+.bd-page { position: relative; flex: none; box-shadow: 0 3px 14px #000a; }
+.pe-menu hr { border: none; border-top: 1px solid #ffffff22; margin: 3px 0; }
+body.present #boardArea { inset: 0; }
+body.present .bd-tools, body.present .bd-side { display: none; }
+body.present .bd-scroll { background: #000; }

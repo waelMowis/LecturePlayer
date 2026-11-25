@@ -53,7 +53,7 @@ export const InkUI = {
     bar.textContent = "";
     bar.append(
       h("div", { cls: "grip", title: "اسحب الشريط لأي مكان — دبل كليك يقلبه أفقي/رأسي" }, "⠿"),
-      B("hand", "✋", "تحريك وتصفح الكتاب (Esc)", () => this.tool("hand")),
+      B("hand", "✋", "تحريك وتصفح (Esc)", () => this.tool("hand")),
       B("pen", "🖊", "الأقلام (P) — دوس تاني للألوان والمقاس", () => this.toolOrPop("pen", this.penPop)),
       B("hl", "🖍", "قلم التظليل (H) — لو وقفت ثانية في آخر الخط يتعدل مستقيم", () => { if (Ink.tool === "pen" && Ink.pen === "hl") this.openPop("hl", this.penPop); else this.tool("pen", "hl"); }),
       B("eraser", "🧽", "الممحاة (E) — دوس تاني لأنواعها", () => this.toolOrPop("eraser", this.eraserPop)),
@@ -359,7 +359,7 @@ export const InkUI = {
       if (!this.pop.hidden) { this.closePop(); return ok(); }
       if (Ink.sel) { Ink.setSel(null); return ok(); }
       if (document.body.classList.contains("present")) { if (this.opts.onPresent) this.opts.onPresent(false); return ok(); }
-      if (Ink.tool !== "hand") { Ink.setTool("hand"); this.say("تحريك الكتاب — Esc تاني يقفل أدوات الشرح"); return ok(); }
+      if (Ink.tool !== "hand") { Ink.setTool("hand"); this.say("تحريك الصفحة — Esc تاني يقفل أدوات الشرح"); return ok(); }
       this.setOn(false); return ok();
     }
     if (k === "F5") { if (this.opts.onPresent) this.opts.onPresent(); return ok(); }

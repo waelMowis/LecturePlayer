@@ -394,10 +394,11 @@ export const Ink = {
 
   // ---------------- الأسطح
   /** سطح جديد (أو تحديث): el = العنصر اللي الطبقة بتتحط جواه (صفحة)، aspect = الطول ÷ العرض. */
-  attach(el, key, aspect) {
+  attach(el, key, aspect, opts) {
     key = String(key);
     let s = this.surfaces.get(key);
     if (s && s.el === el) {
+      if (opts && !!opts.dark !== !!s.dark) { s.dark = !!opts.dark; this.render(s); }
       // نفس الصفحة: نرجّع نفس الطبقة (PDF.js بيشيل أي حاجة غريبة وهو بيعيد رسم الصفحة)
       if (!s.layer.isConnected) el.appendChild(s.layer);
       s.aspect = aspect || s.aspect; this.layout(s); return s;
@@ -410,7 +411,7 @@ export const Ink = {
     html.className = "ink-html"; ui.className = "ink-ui";
     layer.append(svg, html, live, ui);
     el.appendChild(layer);
-    s = { key, el, layer, svg, live, html, ui, aspect: aspect || 1.414 };
+    s = { key, el, layer, svg, live, html, ui, aspect: aspect || 1.414, dark: !!(opts && opts.dark) };
     this.surfaces.set(key, s);
     if (window.ResizeObserver) { s.ro = new ResizeObserver(() => this.layout(s)); s.ro.observe(layer); }
     this.bindPointer(s);
@@ -477,6 +478,10 @@ export const Ink = {
   renderAll() { for (const s of this.surfaces.values()) this.render(s); },
   renderOne(s, it) {
     const g = renderSvg(it);
+    if (s.dark) for (const e of g.querySelectorAll("[fill],[stroke]")) {
+      // سبورة سودا/خضرا: الحبر الأسود بيبان أبيض
+      for (const a of ["fill", "stroke"]) { const v = (e.getAttribute(a) || "").toLowerCase(); if (v === "#111111" || v === "#111" || v === "#000000") e.setAttribute(a, "#f1f3f5"); }
+    }
     if (it.t === "curtain") g.addEventListener("pointerdown", e => {
       // الستارة بتتكشف بكليك حتى وأدوات الشرح مقفولة (وانت بتعرض)
       if (this.on && !["hand", "laser", "spot", "lens"].includes(this.tool)) return;
@@ -514,7 +519,7 @@ export const Ink = {
     if (it.t === "callout") d.style.height = pct(it.h, s.H);
     d.style.fontFamily = (it.font || "Segoe UI") + ", Tahoma, sans-serif";
     d.style.fontSize = `calc(var(--k) * ${it.size || 22}px)`;
-    d.style.color = it.c || "#111";
+    d.style.color = s.dark && /^#(111|111111|000000)$/i.test(it.c || "#111") ? "#f1f3f5" : (it.c || "#111");
     if (it.bg && it.t === "text") d.style.background = it.bg;
     if (it.bold) d.style.fontWeight = "700";
     d.style.textAlign = it.align || "start";
@@ -853,9 +858,20 @@ export const Ink = {
     if (this.tool === "laser") this.laser.point(e.clientX, e.clientY);
     if (this.tool === "lens") this.lens.show(s, e);
   },
+  /** شكل تحت الطرف (للموصّلات): مستطيلات/دواير/نجوم/ملصقات/نص/صور. */
+  anchorAt(key, p) {
+    const items = this.doc.items(key);
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      if (it.lock || !isAnchor(it)) continue;
+      const b = bbox(it);
+      if (p[0] >= b[0] - 10 && p[0] <= b[2] + 10 && p[1] >= b[1] - 10 && p[1] <= b[3] + 10) return it;
+    }
+    return null;
+  },
   topAt(s, p, tol = 6) {
     const items = this.doc.items(s.key);
-    for (let i = items.length - 1; i >= 0; i--) if (hitDist(items[i], p) <= tol) return items[i];
+    for (let i = items.length - 1; i >= 0; i--) if (!items[i].lock && hitDist(items[i], p) <= tol) return items[i];
     return null;
   },
 
@@ -870,7 +886,8 @@ export const Ink = {
       const pv = ev => { if (!pr) return 0.5; let v = ev.pressure || 0.5; if (tilted && (ev.tiltX || ev.tiltY)) { const t = Math.min(90, Math.hypot(ev.tiltX || 0, ev.tiltY || 0)); v = Math.min(1, v * (1 + t / 90)); } return r2(v); };
       const straight = base.straight || e.shiftKey;
       p = this.ruler.snap(s, p);
-      const it = { id: uid(), t: "stroke", pen: name, c: o.c, size: o.size, o: o.o, pts: [[p[0], p[1], pv(e)]], ly: this.layer };
+      const pc = s.dark && /^#(111|111111|000000)$/i.test(o.c) ? "#f1f3f5" : o.c;
+      const it = { id: uid(), t: "stroke", pen: name, c: pc, size: o.size, o: o.o, pts: [[p[0], p[1], pv(e)]], ly: this.layer };
       if (pr) it.pr = 1;
       if (base.temp) it.tempPen = true;
       const live = el("path", { fill: it.c, "fill-opacity": it.o, class: base.blend ? "ink-hl" : "" }, s.live);
@@ -920,6 +937,7 @@ export const Ink = {
         const items = this.doc.items(key);
         let out = [];
         for (const it of items) {
+          if (it.lock) { out.push(it); continue; }
           if (mode === "partial" && it.t === "stroke") {
             const runs = []; let cur = [];
             for (const pt of it.pts) { if (dist(pt, q) <= R + it.size / 2) { if (cur.length) runs.push(cur); cur = []; } else cur.push(pt); }
@@ -944,7 +962,7 @@ export const Ink = {
           cursor.remove(); if (lasso) lasso.remove();
           if (mode === "area" && pts.length > 3) {
             const items = self.doc.items(key);
-            const keep = items.filter(it => { const b = bbox(it); const inside = inPoly([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], pts); if (inside) self.doc.del.set(it.id, now()); return !inside; });
+            const keep = items.filter(it => { if (it.lock) return true; const b = bbox(it); const inside = inPoly([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], pts); if (inside) self.doc.del.set(it.id, now()); return !inside; });
             if (keep.length !== items.length) { changed = true; self.doc.pages.set(key, keep); }
           }
           if (changed) { self.pushUndo(key, before); self.changed([key]); self.render(s); }
@@ -973,6 +991,12 @@ export const Ink = {
         end() {
           g.remove();
           if (Math.hypot(it.x2 - it.x1, it.y2 - it.y1) < 6) return;
+          if (["line", "arrow", "arrow2"].includes(k)) {
+            // موصّل: لو الطرف على شكل، بيتلزق فيه ويمشي معاه
+            const t1 = self.anchorAt(key, [it.x1, it.y1]), t2 = self.anchorAt(key, [it.x2, it.y2]);
+            if (t1) it.a1 = t1.id; if (t2 && t2 !== t1) it.a2 = t2.id;
+            if (it.a1 || it.a2) connect(it, self.doc.items(key));
+          }
           if (!["line", "arrow", "arrow2"].includes(k)) { const x0 = Math.min(it.x1, it.x2), y0 = Math.min(it.y1, it.y2), x1 = Math.max(it.x1, it.x2), y1 = Math.max(it.y1, it.y2); Object.assign(it, { x1: x0, y1: y0, x2: x1, y2: y1 }); }
           self.add(key, it);
         }
@@ -1062,7 +1086,12 @@ export const Ink = {
           const out = items.map(i => {
             const o = map.get(i.id); if (!o) return i;
             const n = clone(o);
-            if (mode === "move") moveItem(n, q[0] - p[0], q[1] - p[1]);
+            if (mode === "move") {
+              moveItem(n, q[0] - p[0], q[1] - p[1]);
+              // موصّل اتسحب لوحده (من غير الشكل اللي ماسك فيه): بيتفك
+              if (n.a1 && !map.has(n.a1)) delete n.a1;
+              if (n.a2 && !map.has(n.a2)) delete n.a2;
+            }
             else if (mode === "rot") { const a = Math.atan2(q[1] - c[1], q[0] - c[0]) - Math.atan2(p[1] - c[1], p[0] - c[0]); rotateItem(n, c, a * 180 / Math.PI); }
             else {
               const ax = mode.includes("w") ? b[2] : b[0], ay = mode.includes("n") ? b[3] : b[1];
@@ -1072,6 +1101,7 @@ export const Ink = {
             }
             return n;
           });
+          connectAll(out);
           self.doc.pages.set(key, out);
           self.render(s);
         },
@@ -1099,6 +1129,7 @@ export const Ink = {
         if (pts.length < 4) { self.setSel(null); return; }
         const ids = new Set();
         for (const it of self.doc.items(key)) {
+          if (it.lock) continue;
           if (it.t === "stroke") { const n = it.pts.filter(pt => inPoly(pt, pts)).length; if (n > it.pts.length / 2) ids.add(it.id); }
           else { const b = bbox(it); if (inPoly([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], pts)) ids.add(it.id); }
         }
@@ -1143,6 +1174,35 @@ export const Ink = {
     this.add(s.key, { t: "image", img: data, x: at ? at[0] - w / 2 : (W - w) / 2, y: cy - h / 2, w, h });
   }
 };
+
+// ---------------------------------------------------------------- الموصّلات
+const isAnchor = it => (it.t === "shape" && !["line", "arrow", "arrow2", "brace", "check", "cross"].includes(it.k)) || ["sticker", "text", "callout", "image", "step"].includes(it.t);
+/** نقطة على حدود الشكل في اتجاه نقطة تانية (مستطيل/دايرة). */
+function borderPoint(it, toward) {
+  const b = bbox(it), c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+  const dx = toward[0] - c[0], dy = toward[1] - c[1];
+  if (!dx && !dy) return c;
+  const hw = (b[2] - b[0]) / 2 + 4, hh = (b[3] - b[1]) / 2 + 4;
+  if ((it.t === "shape" && it.k === "ellipse") || it.t === "step") {
+    const t = 1 / Math.sqrt((dx * dx) / (hw * hw) + (dy * dy) / (hh * hh));
+    return [r2(c[0] + dx * t), r2(c[1] + dy * t)];
+  }
+  const t = Math.min(hw / Math.abs(dx || 1e-9), hh / Math.abs(dy || 1e-9));
+  return [r2(c[0] + dx * t), r2(c[1] + dy * t)];
+}
+const centerOf = it => { const b = bbox(it); return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; };
+/** خط/سهم ملزوق: أطرافه بتتحسب من الأشكال اللي ماسك فيها. */
+function connect(line, items) {
+  const A = line.a1 && items.find(i => i.id === line.a1), B = line.a2 && items.find(i => i.id === line.a2);
+  if (!A && !B) return false;
+  const pa = A ? centerOf(A) : [line.x1, line.y1], pb = B ? centerOf(B) : [line.x2, line.y2];
+  if (A) [line.x1, line.y1] = borderPoint(A, pb);
+  if (B) [line.x2, line.y2] = borderPoint(B, pa);
+  return true;
+}
+function connectAll(items) {
+  for (const it of items) if (it.t === "shape" && (it.a1 || it.a2)) connect(it, items);
+}
 
 // ---------------------------------------------------------------- تحويلات العناصر
 function moveItem(i, dx, dy) {

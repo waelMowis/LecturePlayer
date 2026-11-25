@@ -45,6 +45,8 @@ internal sealed class ReaderPane : Panel
     public event Action<int, string, string, string>? PickRequested;
     /// <summary>محرر الصفحات حفظ: لكل صفحة جديدة [الصفحة القديمة (0 = جديدة)، اللفة].</summary>
     public event Action<int, int[][]>? PagesRemapped;
+    /// <summary>السبورة اتغيرت (صفحات/خلفيات): (رقم الفتحة، JSON).</summary>
+    public event Action<int, string>? BoardChanged;
 
     /// <summary>رقم آخر كتاب اتفتح (الرسايل القديمة بتتجاهل).</summary>
     public int Generation { get; private set; }
@@ -131,6 +133,7 @@ internal sealed class ReaderPane : Panel
             ["marks"] = b.Marks.Select(m => m.Page).Distinct().ToArray(),
             ["highlights"] = HighlightsJson(b),
             ["ink"] = ink?.DeepClone(),
+            ["board"] = Data.BookFiles.FormatOf(file) == "board" ? SafeJson(File.ReadAllText(file)) : null,
             ["inkPrefs"] = string.IsNullOrWhiteSpace(inkPrefs) ? null : SafeJson(inkPrefs)
         };
         await core.ExecuteScriptAsync("masar.open(" + JsonSerializer.Serialize(o) + ")");
@@ -328,6 +331,8 @@ internal sealed class ReaderPane : Panel
     /// <summary>رابط قراية لملف من الجهاز.</summary>
     public string ServeUrl(string file) => Serve(file);
     public Task OpenPageEditorAsync() => Run("masar.pageEditor()");
+    public Task BoardImageAsync(string dataUrl, string name) => Run($"masar.boardImage({JsonSerializer.Serialize(dataUrl)}, {JsonSerializer.Serialize(name)})");
+    public Task BoardExportAsync(string which, bool send) => Run($"masar.boardExport({JsonSerializer.Serialize(which)}, {(send ? "true" : "false")})");
 
     /// <summary>نسخة مشروحة من ملف: الأصل + الشرح ← target.</summary>
     public Task<JobResult> BuildAnnotatedAsync(string srcFile, System.Text.Json.Nodes.JsonObject ink, string target, string title, IProgress<double>? progress, CancellationToken ct)
@@ -511,6 +516,7 @@ internal sealed class ReaderPane : Panel
         [JsonPropertyName("size")] public long Size { get; set; }
         [JsonPropertyName("kind")] public string? Kind { get; set; }
         [JsonPropertyName("map")] public int[][]? Map { get; set; }
+        [JsonPropertyName("board")] public JsonElement Board { get; set; }
     }
 
     private sealed class OutlineItem
@@ -592,6 +598,9 @@ internal sealed class ReaderPane : Panel
                     break;
                 case "pick" when m.Gen == Generation && m.Id != null:
                     PickRequested?.Invoke(m.Gen, m.Id, m.Kind ?? "", m.Name ?? "");
+                    break;
+                case "board" when m.Board.ValueKind == JsonValueKind.Object:
+                    BoardChanged?.Invoke(m.Gen, m.Board.GetRawText());
                     break;
                 case "pemap" when m.Gen == Generation && m.Map != null:
                     PagesRemapped?.Invoke(m.Gen, m.Map);

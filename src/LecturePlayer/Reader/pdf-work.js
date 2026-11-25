@@ -206,12 +206,38 @@ async function edit(m) {
   return { size, pages: doc.getPageCount() };
 }
 
+/** السبورة ← PDF: صفحة بمقاسها وخلفيتها ونقشتها، والرسم فوقها فيكتور. */
+async function boardPdf(m) {
+  const doc = await PDFDocument.create(), cache = new Map();
+  let i = 0;
+  for (const pl of m.plans) {
+    const page = doc.addPage([pl.w, pl.h]);
+    page.drawRectangle({ x: 0, y: 0, width: pl.w, height: pl.h, color: hex(pl.bg) });
+    const c = pl.dark ? rgb(0.42, 0.45, 0.48) : rgb(0.8, 0.82, 0.86);
+    if (pl.pat === "grid") {
+      for (let x = 20; x < pl.w; x += 20) page.drawLine({ start: { x, y: 0 }, end: { x, y: pl.h }, thickness: 0.4, color: c });
+      for (let y = pl.h - 20; y > 0; y -= 20) page.drawLine({ start: { x: 0, y }, end: { x: pl.w, y }, thickness: 0.4, color: c });
+    } else if (pl.pat === "lines") {
+      for (let y = pl.h - 24; y > 0; y -= 24) page.drawLine({ start: { x: 0, y }, end: { x: pl.w, y }, thickness: 0.5, color: c });
+    } else if (pl.pat === "dots") {
+      for (let x = 20; x < pl.w; x += 20) for (let y = pl.h - 20; y > 0; y -= 20) page.drawCircle({ x, y, size: 0.8, color: c });
+    }
+    await drawPlan(doc, page, pl, cache);
+    post({ id: m.id, progress: ++i / m.plans.length });
+  }
+  doc.setTitle(m.title || "سبورة");
+  doc.setProducer("مسار (Masar)");
+  doc.setCreationDate(new Date());
+  const size = await saveTo(doc, m.save);
+  return { size, pages: doc.getPageCount() };
+}
+
 function post(m) { self.postMessage(m); }
 
 self.onmessage = async e => {
   const m = e.data;
   try {
-    const r = m.job === "annotate" ? await annotate(m) : m.job === "edit" ? await edit(m) : null;
+    const r = m.job === "annotate" ? await annotate(m) : m.job === "edit" ? await edit(m) : m.job === "board" ? await boardPdf(m) : null;
     if (!r) throw new Error("job?");
     post({ id: m.id, ok: true, ...r });
   } catch (err) {

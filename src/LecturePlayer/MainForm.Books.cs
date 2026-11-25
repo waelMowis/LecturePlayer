@@ -306,7 +306,8 @@ internal sealed partial class MainForm
     {
         bool current = b == _currentBook && ReaderShown;
         n.Text = Modern.Bidi(b.Title);
-        string meta = (b.IsDone && b.PageCount > 0 ? $"{b.PageCount} ص" : b.PageCount > 0 ? $"{Math.Max(1, b.LastPage)}/{b.PageCount}" : b.IsOnline ? "🌐" : "جديد") + InkMeta(b);
+        string meta = b.IsBoard ? $"{Math.Max(1, b.PageCount)} ص" + InkMeta(b) : (b.IsDone && b.PageCount > 0 ? $"{b.PageCount} ص" : b.PageCount > 0 ? $"{Math.Max(1, b.LastPage)}/{b.PageCount}" : b.IsOnline ? "🌐" : "جديد") + InkMeta(b);
+        if (b.IsBoard) { _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, false, current, -1)); n.ImageKey = n.SelectedImageKey = ShelfImageKey("book", "whiteboard", b.IconKey, b.ColorHex, Theme.CourseColor, false); n.ForeColor = current ? Theme.Accent : CustomNameColor(b.ColorHex) ?? Theme.Text; n.NodeFont = null; n.Text = Modern.Bidi(b.Title); n.ToolTipText = $"{b.Title}\nسبورة: {Math.Max(1, b.PageCount)} صفحة" + (b.InkCount > 0 ? $" — عليها {b.InkCount} حاجة مرسومة" : "") + "\n" + b.LocalPath; return; }
         _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, b.IsDone, current, b.IsStarted && !b.IsDone ? b.Fraction : -1));
         bool missing = !b.IsOnline && !FileCache.Exists(b.LocalPath);
         n.ImageKey = n.SelectedImageKey = missing ? "missing" : ShelfImageKey("book", "book_open", b.IconKey, b.ColorHex, Theme.CourseColor, b.IsDone);
@@ -457,6 +458,7 @@ internal sealed partial class MainForm
         items.Add(MenuItem(shelf != null ? $"➕  رف جوه «{shelf.Name}»…" : "➕  رف جديد…", () => AddShelfDialog(shelf)));
         if (shelf != null) items.Add(MenuItem("➕  رف جديد (أساسي)…", () => AddShelfDialog(null)));
         items.Add(Sep());
+        items.Add(MenuItem("➕  سبورة بيضاء جديدة (صفحات ترسم وتشرح عليها)…", () => NewBoardDialog(null, shelf)));
         items.Add(MenuItem("➕  رف متشارك من حد (ملف ZIP من «مسار»)…", () => ReceiveSharedShelfDialog(shelf)));
     }
 
@@ -471,6 +473,7 @@ internal sealed partial class MainForm
         items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(s)));
         items.Add(MenuItem("➕  رف جوه الرف ده…", () => AddShelfDialog(s)));
         items.Add(MenuItem("➕  رف متشارك من حد (ZIP) جوه الرف ده…", () => ReceiveSharedShelfDialog(s)));
+        items.Add(MenuItem("➕  سبورة جديدة في الرف ده…", () => NewBoardDialog(null, s)));
         if (s.SourceFolder != null)
         {
             items.Add(Sep());
@@ -502,6 +505,7 @@ internal sealed partial class MainForm
 
     private void BuildBookMenu(Book b, ToolStripItemCollection items)
     {
+        if (b.IsBoard) { BuildBoardMenu(b, items); return; }
         items.Add(MenuItem(b.IsStarted && b.LastPage > 1 && !b.IsDone ? $"▶  كمّل من صفحة {b.LastPage}" : "▶  افتح الكتاب", () => OpenBook(b), "Enter"));
         if (b.LastPage > 1) items.Add(MenuItem("⏮  افتحه من الأول", () => OpenBook(b, 1)));
         if (BookFiles.FormatOf(BookFile(b)) == "pdf")
@@ -1033,7 +1037,7 @@ internal sealed partial class MainForm
     private void QueueProbe(IEnumerable<Book> books)
     {
         foreach (var b in books)
-            if (b.PageCount <= 0 && (b.IsOnline ? File.Exists(BookFile(b)) : !LibraryFiles.IsCloudPath(b.LocalPath)) && !_bookProbeQueue.Contains(b))
+            if (b.PageCount <= 0 && !b.IsBoard && (b.IsOnline ? File.Exists(BookFile(b)) : !LibraryFiles.IsCloudPath(b.LocalPath)) && !_bookProbeQueue.Contains(b))
                 _bookProbeQueue.Enqueue(b);
         if (!_bookProbing && _bookProbeQueue.Count > 0 && ReaderPane.Available) _ = BookProbeLoopAsync();
     }
@@ -1104,6 +1108,7 @@ internal sealed partial class MainForm
         pane.InkPrefsChanged += OnInkPrefsChanged;
         pane.PickRequested += OnReaderPick;
         pane.PagesRemapped += OnPagesRemapped;
+        pane.BoardChanged += OnBoardChanged;
         pane.Failed += (gen, code, message) =>
         {
             if (gen != _readerGen || IsDisposed) return;
@@ -1240,6 +1245,7 @@ internal sealed partial class MainForm
         if (gen != _readerGen || _currentBook is not { } b || IsDisposed) return;
         if (_inkOnOpen == b) { _inkOnOpen = null; _ = _reader?.SetInkModeAsync(true); }
         if (_peOnOpen == b) { _peOnOpen = null; _ = _reader?.OpenPageEditorAsync(); }
+        if (_boardExportOnOpen == b) { _boardExportOnOpen = null; _ = _reader?.BoardExportAsync(_boardExportArgs.Which, _boardExportArgs.Send); }
         int sections = b.Sections().Count;
         ApplyDocInfo(b, info);
         if (b.LastPage > b.PageCount && b.PageCount > 0) b.LastPage = b.PageCount;
@@ -1292,6 +1298,7 @@ internal sealed partial class MainForm
             case "ink-save": SaveAllInk(); ShowStatus("الشرح اتحفظ", 3); break;
             case "ink-off": SaveAllInk(); break;
             case "pe-open": OpenPageEditor(b); break;
+            case var bc when bc.StartsWith("board-", StringComparison.Ordinal): OnBoardCommand(bc); break;
             case "pe-saved": ReloadAfterPageEdit(b); break;
         }
     }

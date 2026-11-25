@@ -3,6 +3,7 @@ import { Ink } from "./ink.js";
 import { InkUI } from "./ink-ui.js";
 import { buildAnnotated, pagePng } from "./ink-export.js";
 import { PageEditor } from "./page-editor.js";
+import { Board } from "./board.js";
 const host = window.chrome && window.chrome.webview;
 function post(msg) {
   const s = JSON.stringify(msg);
@@ -38,11 +39,12 @@ const S = {
 };
 const epubArea = $("epubArea");
 const isEpubUrl = url => !!url && /\.epub$/i.test(decodeURIComponent(String(url).split("?")[0]));
-const hasDoc = () => S.kind === "epub" ? E.ready : !!S.doc;
-const curPage = () => S.kind === "epub" ? E.page() : viewer.currentPageNumber;
-const pageTotal = () => S.kind === "epub" ? E.total : (S.doc ? S.doc.numPages : 0);
+const boardArea = $("boardArea");
+const hasDoc = () => S.kind === "board" ? Board.ready : S.kind === "epub" ? E.ready : !!S.doc;
+const curPage = () => S.kind === "board" ? Board.page() : S.kind === "epub" ? E.page() : viewer.currentPageNumber;
+const pageTotal = () => S.kind === "board" ? Board.total : S.kind === "epub" ? E.total : (S.doc ? S.doc.numPages : 0);
 E.init({
-  onMoved: () => { updatePage(); postState(false); },
+  onMoved: () => { $("pageCount").textContent = Board.total; updatePage(); postState(false); },
   onKey: e => onKeyDown(e),
   onInput: () => { S.lastInput = Date.now(); },
   onSelected: (cfi, text, x, y, page) => {
@@ -76,6 +78,30 @@ async function open(o) {
   document.title = o.title || "قارئ مسار";
   setOverlay("loading", "بيفتح الكتاب…");
 
+  boardArea.hidden = true;
+  document.body.classList.toggle("board", o.format === "board");
+  if (o.format === "board") {
+    S.kind = "board";
+    container.hidden = true;
+    epubArea.hidden = true;
+    boardArea.hidden = false;
+    let info;
+    try { info = Board.open(o); }
+    catch (e) {
+      const msg = (e && e.message) || String(e);
+      setOverlay("failed", "مقدرتش أفتح السبورة: " + msg);
+      post({ t: "error", gen: o.gen, code: "board", message: msg });
+      return;
+    }
+    setOverlay("", "");
+    $("pageCount").textContent = info.pages;
+    updatePage();
+    post({ t: "loaded", gen: o.gen, pages: info.pages, title: info.title, outline: [] });
+    postState(true);
+    // السبورة مفتوحة = الأقلام جاهزة
+    InkUI.setOn(true);
+    return;
+  }
   if (o.format === "epub") {
     S.kind = "epub";
     container.hidden = true;
@@ -104,6 +130,7 @@ async function open(o) {
   S.kind = "pdf";
   container.hidden = false;
   epubArea.hidden = true;
+  boardArea.hidden = true;
   $("direction").hidden = false;
   $("zoomSelect").hidden = false;
 
@@ -159,6 +186,7 @@ async function closeDoc() {
   S.doc = null; S.task = null;
   findBarClose();
   if (E.ready) await E.close();
+  if (Board.ready) Board.close();
   if (d) { viewer.setDocument(null); linkService.setDocument(null, null); }
   try { if (t) await t.destroy(); else if (d) await d.destroy(); } catch (e) { }
   $("pageCount").textContent = "0";
@@ -298,7 +326,7 @@ function postState(now) {
   clearTimeout(stateTimer);
   const send = () => {
     const loc = viewer._location || null;
-    const msg = S.kind === "epub" ? { t: "state", gen: S.opts.gen, ...E.state(), theme: S.theme, rtl: S.rtl } : {
+    const msg = S.kind === "board" ? { t: "state", gen: S.opts.gen, ...Board.state(), spread: 0, theme: S.theme, rtl: S.rtl } : S.kind === "epub" ? { t: "state", gen: S.opts.gen, ...E.state(), theme: S.theme, rtl: S.rtl } : {
       t: "state", gen: S.opts.gen, page: viewer.currentPageNumber, pages: S.doc ? S.doc.numPages : 0,
       scale: String(viewer.currentScaleValue), top: loc ? loc.top : null, left: loc ? loc.left : null,
       spread: viewer.spreadMode, theme: S.theme, rtl: S.rtl
@@ -318,6 +346,7 @@ eventBus.on("pagerendered", e => decorate(e.pageNumber));
 // ---------------------------------------------------------------- الصفحات اللي اتقرت (قعدت قدامك readSeconds ثانية)
 function visiblePages() {
   if (S.kind === "epub") return E.visiblePages();
+  if (S.kind === "board") return [];
   if (!S.doc) return [];
   const cr = container.getBoundingClientRect();
   const area = cr.width * cr.height;
@@ -360,6 +389,7 @@ function updatePage() {
   if (document.activeElement !== $("pageInput")) $("pageInput").value = hasDoc() ? curPage() : "";
 }
 function goTo(p) {
+  if (S.kind === "board") { Board.goTo(p); return; }
   if (S.kind === "epub") { E.goTo(Math.round(p)); return; }
   if (!S.doc) return;
   p = Math.min(Math.max(1, Math.round(p)), S.doc.numPages);
@@ -367,12 +397,14 @@ function goTo(p) {
   container.focus();
 }
 function step(d) {
+  if (S.kind === "board") { Board.step(d); return; }
   if (S.kind === "epub") { E.step(d); return; }
   if (!S.doc) return;
   if (d > 0) viewer.nextPage(); else viewer.previousPage();
 }
 const ZOOMS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
 function zoom(dir) {
+  if (S.kind === "board") { Board.zoom(dir); return; }
   if (S.kind === "epub") { E.zoom(dir); return; }
   if (!S.doc) return;
   const cur = viewer.currentScale;
@@ -608,14 +640,14 @@ function onKeyDown(e) {
   const k = e.key, ctrl = e.ctrlKey || e.metaKey;
   if (document.body.classList.contains("pe-on")) return; // محرر الصفحات بيتعامل مع الكيبورد بتاعه
   if (InkUI.key(e)) return;
-  if (k === "F5" && S.kind === "pdf" && S.doc && !ctrl && !e.altKey) { e.preventDefault(); setPresent(); return; }
+  if (k === "F5" && (S.kind === "board" || (S.kind === "pdf" && S.doc)) && !ctrl && !e.altKey) { e.preventDefault(); setPresent(); return; }
   if (k === "Escape" && document.body.classList.contains("present")) { e.preventDefault(); setPresent(false); return; }
-  if (ctrl && e.shiftKey && (k === "d" || k === "D") && S.kind === "pdf" && S.doc) { e.preventDefault(); toggleInk(); return; }
+  if (ctrl && e.shiftKey && (k === "d" || k === "D") && (S.kind === "board" || (S.kind === "pdf" && S.doc))) { e.preventDefault(); toggleInk(); return; }
   if (ctrl && !e.altKey && (k === "f" || k === "F")) { e.preventDefault(); findBarOpen(); return; }
   if (ctrl && (k === "g" || k === "G")) { e.preventDefault(); pageInput.focus(); return; }
   if (ctrl && (k === "=" || k === "+")) { e.preventDefault(); zoom(1); return; }
   if (ctrl && (k === "-" || k === "_")) { e.preventDefault(); zoom(-1); return; }
-  if (ctrl && k === "0") { e.preventDefault(); if (S.kind === "epub") E.zoom(0); else if (S.doc) viewer.currentScaleValue = "page-width"; return; }
+  if (ctrl && k === "0") { e.preventDefault(); if (S.kind === "board") Board.zoom(0); else if (S.kind === "epub") E.zoom(0); else if (S.doc) viewer.currentScaleValue = "page-width"; return; }
   if (k === "Escape" && !hlbar.hidden) { e.preventDefault(); hideHlBar(); return; }
   if (k === "Escape" && findBarClose()) { e.preventDefault(); return; }
   const inText = typing(document.activeElement);
@@ -628,8 +660,9 @@ function onKeyDown(e) {
         return;
       }
     }
-    if (S.kind === "epub" && (k === "PageDown" || k === " ")) { e.preventDefault(); step(1); return; }
-    if (S.kind === "epub" && k === "PageUp") { e.preventDefault(); step(-1); return; }
+    if ((S.kind === "epub" || S.kind === "board") && k === "PageDown") { e.preventDefault(); step(1); return; }
+    if (S.kind === "epub" && k === " ") { e.preventDefault(); step(1); return; }
+    if ((S.kind === "epub" || S.kind === "board") && k === "PageUp") { e.preventDefault(); step(-1); return; }
     if (k === "Home" && hasDoc()) { e.preventDefault(); goTo(1); return; }
     if (k === "End" && hasDoc()) { e.preventDefault(); goTo(pageTotal()); return; }
     if (k === "b" || k === "B") { e.preventDefault(); $("mark").click(); return; }
@@ -676,6 +709,10 @@ window.masar = {
   /** رد البرنامج على طلب ملف (فتح/حفظ): رابط أو null. */
   pickResult: (id, url) => { const r = picks.get(id); if (r) { picks.delete(id); r(url || null); } return "ok"; },
   peTest: () => PageEditor,
+  boardTest: () => Board,
+  boardExport: (which, send) => { if (S.kind === "board") Board.exportPdf(which || "all", !!send); return "ok"; },
+  /** لقطة شاشة جاية من البرنامج ← صفحة جديدة في السبورة. */
+  boardImage: (dataUrl, name) => { if (S.kind === "board") Board.addImagePage(dataUrl, name); return "ok"; },
   /** صورة الصفحة بالشرح (PNG) ← save. */
   pagePng: (id, page, save, scale) => { runPagePng(id, page, save, scale); return "ok"; },
   state: () => JSON.stringify({ kind: S.kind, page: hasDoc() ? curPage() : 0, pages: pageTotal(), scale: S.kind === "epub" ? "font:" + E.font : String(viewer.currentScaleValue), spread: S.spread, theme: S.theme, rtl: S.rtl, read: [...S.read], gen: S.opts.gen })
@@ -722,12 +759,21 @@ async function openPageEditor() {
 }
 $("pagesBtn").addEventListener("click", () => post({ t: "cmd", gen: S.opts.gen, name: "pe-open", page: curPage() }));
 
+// ---------------------------------------------------------------- السبورة
+Board.init({
+  area: boardArea, post: m => post({ ...m, gen: S.opts.gen }), pick, pdfjsLib, docOpts: DOC_OPTS,
+  onMoved: () => { $("pageCount").textContent = Board.total; updatePage(); postState(false); }
+});
+
 // ---------------------------------------------------------------- أدوات الشرح
 Ink.init({ post: m => post({ ...m, gen: S.opts.gen }), container });
 Ink.keepAlive($("viewer"));
-Ink.onPinch = f => { if (S.doc) viewer.currentScale = Math.max(0.25, Math.min(6, viewer.currentScale * f)); };
-Ink.onPan = (dx, dy) => { container.scrollLeft += dx; container.scrollTop += dy; };
-Ink.onGoto = key => { const p = +key; if (p && S.doc && Math.abs(p - viewer.currentPageNumber) > 1) goTo(p); };
+Ink.onPinch = (f, cx, cy) => { if (S.kind === "board") Board.zoomAt(f, cx, cy); else if (S.doc) viewer.currentScale = Math.max(0.25, Math.min(6, viewer.currentScale * f)); };
+Ink.onPan = (dx, dy) => { const el = S.kind === "board" ? Board.scroller : container; el.scrollLeft += dx; el.scrollTop += dy; };
+Ink.onGoto = key => {
+  if (S.kind === "board") { const i = Board.pageOf(key); if (i >= 0 && i + 1 !== Board.page()) Board.goTo(i + 1); return; }
+  const p = +key; if (p && S.doc && Math.abs(p - viewer.currentPageNumber) > 1) goTo(p);
+};
 InkUI.init({
   onToggle: on => { $("inkBtn").classList.toggle("on", on); post({ t: "cmd", gen: S.opts.gen, name: on ? "ink-on" : "ink-off", page: curPage() }); },
   onPresent: on => setPresent(on),
@@ -743,12 +789,14 @@ function inkOpen(o) {
   if (o.inkPrefs) Ink.setPrefs(o.inkPrefs);
   applyInkPrefs();
   $("inkBtn").hidden = o.format === "epub"; // EPUB: التظليل بس (الصفحات بتتغير مع حجم الخط)
-  $("pagesBtn").hidden = o.format === "epub";
+  $("pagesBtn").hidden = o.format !== "pdf" && o.format !== undefined;
+  if (o.format === "board") for (const id of ["spread", "direction", "theme", "findButton", "ai", "zoomSelect", "mark"]) $(id).hidden = true;
+  else for (const id of ["spread", "theme", "findButton", "ai", "mark"]) $(id).hidden = false;
   if (document.body.classList.contains("pe-on")) PageEditor.close(true);
 }
 function inkClose() { if (Ink.on) InkUI.setOn(false); Ink.flush(); Ink.clearSurfaces(); setPresent(false); }
 function setInk(on) {
-  if (on && (S.kind !== "pdf" || !S.doc)) return;
+  if (on && !(S.kind === "board" || (S.kind === "pdf" && S.doc))) return;
   if (on === Ink.on) return;
   hideHlBar();
   InkUI.setOn(on);
@@ -760,7 +808,11 @@ function setPresent(on) {
   if (on == null) on = !document.body.classList.contains("present");
   if (on === document.body.classList.contains("present")) return;
   document.body.classList.toggle("present", on);
-  if (on && S.doc) {
+  if (S.kind === "board") {
+    if (on) { presentPrev = { board: Board.k }; Board.k = 1; } else if (presentPrev) { Board.k = presentPrev.board ?? 1; presentPrev = null; }
+    Board.layout(); Board.goTo(Board.page(), true);
+    post({ t: "cmd", gen: S.opts.gen, name: on ? "present-on" : "present-off", page: Board.page() });
+  } else if (on && S.doc) {
     // صفحة واحدة بس على الشاشة، مقاسها كامل، والأسهم/المسافة صفحة صفحة
     const p = viewer.currentPageNumber;
     presentPrev = { scale: viewer.currentScaleValue, scroll: viewer.scrollMode, spread: viewer.spreadMode };
@@ -780,8 +832,9 @@ function setPresent(on) {
   }
   if (on) InkUI.say("وضع العرض — الأسهم/المسافة للصفحات، F5 أو Esc للخروج", 3500);
 }
-window.addEventListener("resize", () => { if (presentPrev && S.doc) viewer.currentScaleValue = "page-fit"; });
+window.addEventListener("resize", () => { if (presentPrev && S.doc && S.kind === "pdf") viewer.currentScaleValue = "page-fit"; });
 $("inkBtn").addEventListener("click", () => toggleInk());
+{ const prev = Ink.onChange; Ink.onChange = () => { if (prev) prev(); if (S.kind === "board") Board.refreshSoon(); }; }
 // وضع العرض: الأسهم والمسافة صفحة صفحة حتى لو أدوات الشرح مقفولة
 window.addEventListener("keydown", e => {
   if (!document.body.classList.contains("present") || e.ctrlKey || e.altKey) return;

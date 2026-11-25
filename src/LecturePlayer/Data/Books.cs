@@ -110,6 +110,8 @@ public sealed class Book
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? AnnotatedOf { get; set; }
     /// <summary>نسخة عمل (محرر الصفحات): رقم الكتاب الأصلي. «مسار» يقدر يعدّل الملف ده بس، والأصل مابيتلمسش.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? WorkCopyOf { get; set; }
+    /// <summary>سبورة مربوطة بمحاضرة (رقم المحاضرة).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? LectureId { get; set; }
 
     public DateTime AddedUtc { get; set; } = DateTime.UtcNow;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DateTime? LastOpenedUtc { get; set; }
@@ -125,6 +127,7 @@ public sealed class Book
     public void TouchProgress() => ProgressUtc = DateTime.UtcNow;
 
     [JsonIgnore] public bool IsOnline => MediaFiles.IsUrl(Path);
+    [JsonIgnore] public bool IsBoard => BookFiles.FormatOf(Path) == "board";
     [JsonIgnore] public string Format => BookFiles.FormatOf(Path);
     [JsonIgnore] public PageSet Read => PageSet.Parse(ReadPages);
     [JsonIgnore] public int ReadCount => Read.Count(PageCount);
@@ -240,6 +243,8 @@ public sealed class PageSet
 public static class BookFiles
 {
     public static readonly string[] Extensions = { ".pdf", ".epub" };
+    /// <summary>سبورة «مسار»: ملف JSON فيه الصفحات (المقاس والخلفية) — الرسم نفسه في فولدر الشرح.</summary>
+    public const string BoardExtension = ".masar-board";
 
     public static string FormatOf(string path)
     {
@@ -247,7 +252,7 @@ public static class BookFiles
         int q = p.IndexOfAny(new[] { '?', '#' });
         if (MediaFiles.IsUrl(p) && q > 0) p = p[..q];
         string ext = System.IO.Path.GetExtension(p).ToLowerInvariant();
-        return ext == ".epub" ? "epub" : "pdf";
+        return ext == ".epub" ? "epub" : ext == BoardExtension ? "board" : "pdf";
     }
 
     public static bool IsBookFile(string path) =>

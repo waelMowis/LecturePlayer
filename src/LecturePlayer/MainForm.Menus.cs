@@ -291,11 +291,13 @@ internal sealed partial class MainForm
         items.Add(MenuItem("▶  تشغيل المحاضرة", () => PlayGroup(g)));
         items.Add(MenuItem("⏮  تشغيل من أول فيديو", () => { if (g.Videos.Count > 0) PlayVideo(g, g.Videos[0], 0); }));
         if (g.Attachments.Count > 0) items.Add(AttachmentsMenu(g));
+        if (BoardOf(g) != null) items.Add(MenuItem("▶  سبورة المحاضرة (اللي رسمته وانت بتذاكر)", () => OpenLectureBoard(g)));
         items.Add(Sep());
         items.Add(MenuItem("➕  فيديوهات من الجهاز…", () => AddVideosDialog(g)));
         items.Add(MenuItem("➕  فيديوهات من يوتيوب…", () => AddUrlsDialog(null, g)));
         items.Add(MenuItem("➕  مرفقات (PDF، سلايدات، كود)…", () => AddAttachmentFiles(g)));
         items.Add(MenuItem("➕  محاضرة جديدة بعدها…", () => AddGroup(after: g)));
+        if (BoardOf(g) == null) items.Add(MenuItem("➕  سبورة للمحاضرة دي (اشرح/لخّص بالرسم)…", () => OpenLectureBoard(g)));
         if (g.IsPlaylist) items.Add(MenuItem("🔄  هات الجديد من يوتيوب", () => _ = SyncPlaylistsAsync(new[] { g }, quiet: false)));
         items.Add(Sep());
         items.Add(MenuItem("✏  إعادة تسمية…", RenameSelected, "F2"));

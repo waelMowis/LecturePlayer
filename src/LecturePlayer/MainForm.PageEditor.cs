@@ -86,11 +86,13 @@ internal partial class MainForm
                 else ShowStatus("التعديل بيتحفظ في نسخة العمل بس", 4);
                 break;
             case "save-pdf":
+            case "save-png":
             {
+                bool png = kind == "save-png";
                 string? path = SmokeSavePath;
                 if (path == null)
                 {
-                    using var dlg = new SaveFileDialog { Title = "حفظ الصفحات", Filter = "PDF|*.pdf", FileName = string.IsNullOrWhiteSpace(name) ? "صفحات.pdf" : name, RestoreDirectory = true };
+                    using var dlg = new SaveFileDialog { Title = png ? "حفظ صورة" : "حفظ PDF", Filter = png ? "صورة PNG|*.png" : "PDF|*.pdf", FileName = string.IsNullOrWhiteSpace(name) ? (png ? "صفحة.png" : "صفحات.pdf") : name, RestoreDirectory = true };
                     if (dlg.ShowDialog(this) == DialogResult.OK) path = dlg.FileName;
                 }
                 if (path != null)
@@ -98,7 +100,7 @@ internal partial class MainForm
                     if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(BookFile(b)), StringComparison.OrdinalIgnoreCase) ||
                         _library.Books.Any(x => x.WorkCopyOf == null && string.Equals(x.LocalPath, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase)))
                         ShowStatus("مش هكتب فوق كتاب في المكتبة — اختار اسم تاني", 5);
-                    else url = _reader.SaveUrlFor(path);
+                    else { url = _reader.SaveUrlFor(path); _lastPickSave = path; }
                 }
                 break;
             }

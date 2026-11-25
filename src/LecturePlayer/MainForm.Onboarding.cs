@@ -172,6 +172,7 @@ internal sealed partial class MainForm
         RunBookSmartChecks();
         RunNotionChecks();
         RunInkChecks();
+        RunBoardChecks();
         RunStressAndPlaybackChecks();
 
         // تقرير الأعطال: تسجيل، وقراية، وبناء التقرير، وفتح الشاشة بتاعته
