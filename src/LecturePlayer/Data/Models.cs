@@ -67,6 +67,10 @@ public sealed class VideoItem
         set => _localPath = string.Equals(value, Path, StringComparison.OrdinalIgnoreCase) ? null : value;
     }
 
+    /// <summary>نوشن: مربع ☐ الفيديو ده جوه صفحة محاضرته (بيتعلّم ✓ لما يتشاف).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NotionBlockId { get; set; }
+
     /// <summary>فيديو جديد اتجاب في تحديث قائمة يوتيوب ولسه متفتحش.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsNew { get; set; }
@@ -180,6 +184,57 @@ public sealed class LectureGroup
     [JsonIgnore] public int WatchedCount => Videos.Count(v => v.Watched);
     [JsonIgnore] public long TotalDurationMs => Videos.Sum(v => v.DurationMs);
     [JsonIgnore] public bool IsCompleted => Videos.Count > 0 && Videos.All(v => v.Watched);
+
+    /// <summary>نوشن: صف المحاضرة في قاعدة «المحاضرات» بتاعة موضوعها.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NotionPageId { get; set; }
+    /// <summary>نوشن: القاعدة (data source) اللي الصف فيها — لو الكورس اتنقل لموضوع تاني بنعرف إن الصف القديم مش بتاعه.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NotionDsId { get; set; }
+    /// <summary>نوشن: صندوق «من مسار» اللي فيه الملاحظات والملخص جوه صفحة المحاضرة (بيتبدّل لو اتبعت تاني).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NotionNotesBlockId { get; set; }
+    /// <summary>خطة المحاضرة من نوشن (الموعد، الحضور، المهام).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LecturePlan? Plan { get; set; }
+}
+
+/// <summary>خطة المحاضرة (بتاعتك في نوشن): الموعد والحضور ومربعات المهام.</summary>
+public sealed class LecturePlan
+{
+    /// <summary>الموعد (تاريخ بس).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTime? Date { get; set; }
+    /// <summary>«حضرت» / «غبت» / null.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Attendance { get; set; }
+    public bool Task { get; set; }
+    public bool Search { get; set; }
+    public bool Summary { get; set; }
+    /// <summary>آخر تعديل (من هنا أو من نوشن) — للدمج بين الأجهزة.</summary>
+    public DateTime UpdatedUtc { get; set; }
+
+    [JsonIgnore] public bool IsEmpty => Date == null && Attendance == null && !Task && !Search && !Summary;
+    public LecturePlan Clone() => (LecturePlan)MemberwiseClone();
+    public bool SameAs(LecturePlan? o) => o != null && Date == o.Date && Attendance == o.Attendance && Task == o.Task && Search == o.Search && Summary == o.Summary;
+}
+
+/// <summary>ربط موضوع بنوشن: صفحة الموضوع وقواعده (الكورسات، المحاضرات، وسجل المذاكرة لو اتعمل).</summary>
+public sealed class NotionTopicLink
+{
+    public string PageId { get; set; } = "";
+    public string CoursesDbId { get; set; } = "";
+    public string CoursesDsId { get; set; } = "";
+    public string LecturesDbId { get; set; } = "";
+    public string LecturesDsId { get; set; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LogDbId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LogDsId { get; set; }
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+    /// <summary>آخر مرة الخطة اتسحبت من نوشن.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTime? PlanPulledUtc { get; set; }
 }
 
 /// <summary>
@@ -210,6 +265,10 @@ public sealed class Topic
     /// <summary>قديم (4.1.30): بيتنقل لـ <see cref="CourseLibrary.Links"/> وقت الفتح.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceFolder { get; set; }
+
+    /// <summary>الموضوع مربوط بقاعدة نوشن (اتعملت من «أنشئ قاعدة نوشن»).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NotionTopicLink? Notion { get; set; }
 
     /// <summary>آخر تعديل للاسم (للدمج بين الأجهزة).</summary>
     public DateTime InfoUpdatedUtc { get; set; }
@@ -323,6 +382,12 @@ public sealed class Course
 
     /// <summary>أيام المذاكرة للكورس ده (فاضية = كل الأيام).</summary>
     public List<DayOfWeek> StudyDays { get; set; } = new();
+
+    /// <summary>نوشن: صف الكورس في قاعدة «الكورسات» بتاعة موضوعه.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NotionPageId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NotionDsId { get; set; }
 
     /// <summary>آخر تعديل لبيانات الكورس (للدمج بين الأجهزة).</summary>
     public DateTime InfoUpdatedUtc { get; set; }
@@ -591,6 +656,19 @@ public sealed class AppSettings
     public int DailyPagesGoal { get; set; }
     /// <summary>لون صفحات القارئ: normal / night / sepia.</summary>
     public string ReaderTheme { get; set; } = "normal";
+    /// <summary>مفتاح نوشن (Internal Integration) متشفّر بحساب الويندوز — على الجهاز ده بس.</summary>
+    public string NotionTokenProtected { get; set; } = "";
+    [JsonIgnore]
+    public string NotionToken
+    {
+        get => SecretStore.Unprotect(NotionTokenProtected);
+        set => NotionTokenProtected = SecretStore.Protect(value?.Trim());
+    }
+    /// <summary>الصفحة اللي قواعد مسار بتتعمل جواها في نوشن (متشاركة مع الـ integration).</summary>
+    public string? NotionParentPage { get; set; }
+    /// <summary>التحديث التلقائي لنوشن (التقدّم والكورسات الجديدة).</summary>
+    public bool NotionAutoSync { get; set; } = true;
+
     /// <summary>جودة دروس المنصات (يوديمي، IT Legend…): أعلى جودة لحد الرقم ده (9999 = أعلى المتاح، 0 = سيبها للموقع).</summary>
     public int WebQualityCap { get; set; } = 9999;
     /// <summary>اللوحة الجانبية: library (الكورسات) أو books (الكتب).</summary>

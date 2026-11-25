@@ -34,7 +34,8 @@ internal sealed partial class MainForm
         node.ForeColor = current ? Theme.Accent : done ? Theme.Success : CustomNameColor(t.ColorHex) ?? Theme.Text;
         node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
             + (_library.PlacesOf(t).Any() ? "\n🏫 " + string.Join(" · ", _library.PlacesOf(t).Select(p => p.Name)) : "");
-        _tree.SetRow(node, new LectureTreeView.RowInfo("",
+        if (t.Notion != null) node.ToolTipText += "\n📓 مربوط بنوشن — التقدّم والجديد بيتحدّثوا لوحدهم";
+        _tree.SetRow(node, new LectureTreeView.RowInfo(t.Notion != null ? "📓" : "",
             courses.Count == 1 ? "كورس" : $"{courses.Count} كورس", done, LineAbove: HasLineAbove(t)));
     }
 

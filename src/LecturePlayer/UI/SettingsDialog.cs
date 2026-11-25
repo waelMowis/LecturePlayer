@@ -61,6 +61,12 @@ internal static class SettingsDialog
         kit.Note("«مسار» بيختار الجودة من قايمة ⚙ في مشغّل الموقع نفسه بعد ما الدرس يشتغل كام ثانية — مرة لكل درس، ولو غيّرتها بإيدك مش هيرجّعها. " +
                  "مايقدرش يعدّي أعلى جودة اترفع بيها الكورس. الشارة جنب السرعة بتوريك الدقة الحقيقية للفيديو.", 54);
 
+        kit.Header("نوشن");
+        var notionAuto = kit.Row("التحديث التلقائي", new ToggleSwitch { Text = "حدّث نوشن لوحده (التقدّم كل 3 دقايق، والخطة كل 10)", Checked = s.NotionAutoSync });
+        kit.Note(string.IsNullOrWhiteSpace(s.NotionToken)
+            ? "مش متربط لسه: كليك يمين على أي موضوع ← 📤 نوشن ← أنشئ قاعدة نوشن، وهيطلب منك المفتاح والصفحة."
+            : "متربط ✓ — المفتاح متشفّر على الجهاز ده. لتغيير المفتاح أو الصفحة: كليك يمين على موضوع ← 📤 نوشن ← إعدادات نوشن.", 40);
+
         kit.Header("التحديثات");
         var updates = kit.Row("تحديث تلقائي", new ToggleSwitch { Text = "اعرض عليّ الإصدارات الجديدة أول ما تنزل", Checked = s.CheckUpdates });
         kit.Note($"الإصدار الحالي: {UpdateChecker.CurrentVersion.ToString(3)}.  تقدر تتحقق بنفسك من: مساعدة ← التحقق من التحديثات.");
@@ -107,6 +113,7 @@ internal static class SettingsDialog
         s.AutoSyncPlaylists = autoSync.Checked;
         s.PlaylistSyncHours = (int)syncHours.Value;
         s.CheckUpdates = updates.Checked;
+        s.NotionAutoSync = notionAuto.Checked;
         s.WebQualityCap = WebQuality.Caps[Math.Max(0, quality.SelectedIndex)].Cap;
         s.OpenLastLibraryOnStart = openLast.Checked;
         s.OnlineCookiesBrowser = browsers[Math.Max(0, cookies.SelectedIndex)].Item1;

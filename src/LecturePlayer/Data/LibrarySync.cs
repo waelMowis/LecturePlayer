@@ -158,7 +158,46 @@ public static class LibrarySync
             }
         }
 
+        MergeNotion(local, remote, localVideos);
         return result;
+    }
+
+    /// <summary>
+    /// ربط نوشن: أرقام الصفوف والمربعات اللي جهاز تاني عملها بتتاخد (عشان مانعملش صف تاني لنفس الكورس)،
+    /// والخطة (الموعد والحضور والمهام) الأحدث تكسب.
+    /// </summary>
+    private static void MergeNotion(CourseLibrary local, CourseLibrary remote, Dictionary<string, VideoItem> localVideos)
+    {
+        foreach (var rt in remote.Topics)
+        {
+            if (rt.Notion == null) continue;
+            var lt = local.Topics.FirstOrDefault(t => t.Id == rt.Id);
+            if (lt == null) continue;
+            if (lt.Notion == null) lt.Notion = rt.Notion;
+            else if (lt.Notion.PageId == rt.Notion.PageId)
+            {
+                lt.Notion.LogDbId ??= rt.Notion.LogDbId;
+                lt.Notion.LogDsId ??= rt.Notion.LogDsId;
+                if (rt.Notion.PlanPulledUtc > (lt.Notion.PlanPulledUtc ?? DateTime.MinValue)) lt.Notion.PlanPulledUtc = rt.Notion.PlanPulledUtc;
+            }
+        }
+        foreach (var rc in remote.Courses)
+        {
+            var lc = local.Courses.FirstOrDefault(c => c.Id == rc.Id);
+            if (lc == null) continue;
+            if (lc.NotionPageId == null && rc.NotionPageId != null) { lc.NotionPageId = rc.NotionPageId; lc.NotionDsId = rc.NotionDsId; }
+            foreach (var rg in rc.Groups)
+            {
+                var lg = local.AllGroups.FirstOrDefault(g => g.Id == rg.Id);
+                if (lg == null) continue;
+                if (lg.NotionPageId == null && rg.NotionPageId != null) { lg.NotionPageId = rg.NotionPageId; lg.NotionDsId = rg.NotionDsId; }
+                lg.NotionNotesBlockId ??= rg.NotionNotesBlockId;
+                if (rg.Plan != null && (lg.Plan == null || rg.Plan.UpdatedUtc > lg.Plan.UpdatedUtc)) lg.Plan = rg.Plan.Clone();
+            }
+        }
+        foreach (var rv in remote.AllVideos)
+            if (rv.NotionBlockId != null && localVideos.TryGetValue(VideoKey(rv), out var lv) && lv.NotionBlockId == null)
+                lv.NotionBlockId = rv.NotionBlockId;
     }
 
     /// <summary>

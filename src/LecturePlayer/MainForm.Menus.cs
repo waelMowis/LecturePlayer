@@ -180,6 +180,7 @@ internal sealed partial class MainForm
             MenuItem("تعليم كل فيديوهات الموضوع كمُشاهَدة", ToggleWatchedSelected, "W"),
             MenuItem("↺  تصفير التقدّم في الموضوع كله…", () => ResetWatched(_library.CoursesOf(t).SelectMany(c => c.AllVideos), $"موضوع «{t.Name}»"))));
         items.Add(ExportMenuItem(t));
+        items.Add(NotionTopicMenu(t));
         items.Add(Sep());
         items.Add(MenuItem("🗑  حذف الموضوع (الكورسات بتفضل)", DeleteSelected, "Delete"));
     }
@@ -274,6 +275,7 @@ internal sealed partial class MainForm
         if (c.SourceUrl != null && MediaFiles.IsUrl(c.SourceUrl))
             source.Add(MenuItem("🌐  فتح صفحة الكورس في المتصفح", () => OpenInBrowser(c.SourceUrl)));
         if (source.Count > 0) items.Add(SubMenuOf("📂  المصدر", source.ToArray()));
+        if (NotionCourseMenu(c) is { } notion) items.Add(notion);
         items.Add(Sep());
         items.Add(MenuItem("🗑  حذف الكورس من المكتبة", DeleteSelected, "Delete"));
     }
@@ -333,6 +335,7 @@ internal sealed partial class MainForm
         items.Add(SubMenuOf("✔  التقدّم", progress.ToArray()));
         if (g.Videos.Any(x => x.IsDownloadable))
             items.Add(MenuItem("⬇  تنزيل فيديوهات يوتيوب (فيديو أو MP3)…", () => DownloadFromLibrary(g.Videos, g.Name)));
+        if (NotionGroupMenu(g) is { } notion) items.Add(notion);
         items.Add(Sep());
         items.Add(MenuItem("🗑  حذف المحاضرة من المكتبة", DeleteSelected, "Delete"));
     }

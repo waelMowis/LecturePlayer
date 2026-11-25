@@ -484,6 +484,20 @@ internal sealed partial class MainForm
             rows.Add(review);
         }
 
+        foreach (var (ng, nc, overdue, left) in NotionDue().Take(4))
+        {
+            var row = new Label
+            {
+                Dock = DockStyle.Top, Height = rowH, Cursor = Cursors.Hand, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleRight,
+                ForeColor = overdue ? Theme.Danger : Theme.Text,
+                Text = $"📓  {Modern.Bidi(ng.Name)}  ({Modern.Bidi(nc.Name)})  —  " +
+                       (overdue ? $"⚠ موعدها كان {ng.Plan!.Date:d/M}" : "موعدها النهارده") + $"  ·  فاضل: {left}"
+            };
+            var target = ng;
+            row.Click += (_, _) => { if (!target.IsCompleted) PlayGroup(target); else SelectItem(target); };
+            rows.Add(row);
+        }
+
         foreach (var p in plan)
         {
             string state = p.Status switch

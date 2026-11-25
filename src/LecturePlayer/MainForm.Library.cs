@@ -725,7 +725,8 @@ internal sealed partial class MainForm
         string clip = g.Attachments.Count > 0 ? $"   📎{g.Attachments.Count}" : "";
         node.Text = Modern.Bidi(g.Name) + clip;
         int fresh = g.NewCount;
-        string meta = g.IsPlaylist ? "🔄" : "";
+        string plan = PlanMeta(g);
+        string meta = (g.IsPlaylist ? "🔄" : "") + (plan.Length > 0 && g.IsPlaylist ? " " : "") + plan;
         _tree.SetRow(node, fresh > 0
             ? new LectureTreeView.RowInfo(meta, $"{fresh} جديد", Accent: true)
             : new LectureTreeView.RowInfo(meta, $"{g.WatchedCount}/{g.Videos.Count}", g.IsCompleted));
@@ -733,7 +734,8 @@ internal sealed partial class MainForm
         node.ForeColor = g == _currentGroup ? Theme.Accent : g.IsCompleted ? Theme.Success : Theme.Text;
         node.NodeFont = _groupNodeFont;
         node.ToolTipText = g.Name + (g.TotalDurationMs > 0 ? $"\n{g.Videos.Count} فيديو · المدة {TimeFormat.Format(g.TotalDurationMs)}" : "")
-            + (g.Attachments.Count == 0 ? "" : "\n" + string.Join("\n", g.Attachments.Select(a => (a.IsLink ? "🔗 " : "📄 ") + a.Name)));
+            + (g.Attachments.Count == 0 ? "" : "\n" + string.Join("\n", g.Attachments.Select(a => (a.IsLink ? "🔗 " : "📄 ") + a.Name)))
+            + PlanTooltip(g);
     }
 
     private void UpdateVideoNode(TreeNode node, VideoItem v)
