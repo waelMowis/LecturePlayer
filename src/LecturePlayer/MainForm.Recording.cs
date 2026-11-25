@@ -44,6 +44,8 @@ internal partial class MainForm
 
     // ---------------- اختصارات من أي مكان ----------------
     private HotkeyWindow? _hotkeys;
+    internal List<string> HotkeyConflicts { get; private set; } = new();
+    private static string KeyText(Keys k) => (k.HasFlag(Keys.Control) ? "Ctrl+" : "") + (k.HasFlag(Keys.Shift) ? "Shift+" : "") + (k.HasFlag(Keys.Alt) ? "Alt+" : "") + (k & Keys.KeyCode);
     private sealed class HotkeyWindow : NativeWindow, IDisposable
     {
         [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint vk);
@@ -72,10 +74,72 @@ internal partial class MainForm
     {
         if (_hotkeys != null) return;
         _hotkeys = new HotkeyWindow();
-        _hotkeys.Add(901, Keys.Control | Keys.Shift | Keys.F9, () => { if (Recording) _ = StopRecordingAsync(save: true); else StartRecordingDialog(null); });
-        _hotkeys.Add(902, Keys.Control | Keys.Shift | Keys.F8, ToggleScreenInk);
-        _hotkeys.Add(903, Keys.Control | Keys.Shift | Keys.F10, () => { if (Recording) _ = TogglePauseAsync(); });
-        _hotkeys.Add(904, Keys.Control | Keys.Shift | Keys.F7, () => { if (_rec?.CamWin is { } w) w.Visible = !w.Visible; });
+        var failed = new List<string>();
+        void Reg(int id, Keys k, string name, Action a) { if (!_hotkeys.Add(id, k, a)) failed.Add($"{name} ({KeyText(k)})"); }
+        Reg(901, Keys.Control | Keys.Shift | Keys.F9, "بداية/نهاية التسجيل", () => { if (Recording) _ = StopRecordingAsync(save: true); else StartRecordingDialog(SelectedGroup()); });
+        Reg(902, Keys.Control | Keys.Shift | Keys.F8, "أقلام على الشاشة", ToggleScreenInk);
+        Reg(903, Keys.Control | Keys.Shift | Keys.F10, "إيقاف مؤقت للتسجيل", () => { if (Recording) _ = TogglePauseAsync(); });
+        Reg(904, Keys.Control | Keys.Shift | Keys.F7, "الكاميرا", () => { if (_rec?.CamWin is { } w) w.Visible = !w.Visible; });
+        HotkeyConflicts = failed;
+        if (failed.Count > 0)
+        {
+            // اختصار محجوز لبرنامج تاني: نقول بدل ما يبقى مش شغال وخلاص
+            Log.Info("global hotkeys taken by another app: " + string.Join(", ", failed));
+            ShowBanner("الاختصارات دي محجوزة لبرنامج تاني فمش هتشتغل من برّه «مسار»: " + string.Join("، ", failed) +
+                " — الأوامر نفسها موجودة في «مذاكرة» وفي زرار ⏺ في الشريط الجانبي.", BannerKind.Warning, seconds: 20, key: "hotkeys");
+        }
+    }
+
+    // ---------------- زراير الشريط الجانبي ----------------
+    private void OnRecordActivity()
+    {
+        if (Recording) { _ = StopRecordingAsync(save: true); return; }
+        StartRecordingDialog(SelectedGroup());
+    }
+
+    /// <summary>زرار التسجيل في الشريط الجانبي: أحمر وبيقول «إنهاء» وانت بتسجل.</summary>
+    private void UpdateRecordActivity()
+    {
+        if (_activityRecord == null) return;
+        bool on = Recording;
+        _activityRecord.Caption = on ? "إنهاء" : "تسجيل";
+        _activityRecord.Glyph = on ? Glyphs.Stop : Glyphs.Record;
+        _activityRecord.ForeColor = on ? Color.FromArgb(240, 70, 70) : Theme.Muted;
+        _activityRecord.Active = on;
+        _toolTip.SetToolTip(_activityRecord, on ? "إنهاء التسجيل وحفظه (Ctrl+Shift+F9)" : "سجّل شرح: الشاشة والكاميرا والصوت وأقلام على الشاشة (Ctrl+Shift+F9 من أي برنامج)");
+        _activityRecord.Invalidate();
+    }
+
+    private void ShowBoardActivityMenu(Control anchor)
+    {
+        if (!EnsureLibrary()) return;
+        var m = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
+        void Add(string text, Action a) { var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text }; i.Click += (_, _) => a(); m.Items.Add(i); }
+        var g = SelectedGroup();
+        Add("➕  سبورة جديدة…", () => NewBoardDialog());
+        if (g != null) Add($"➕  سبورة للمحاضرة «{(g.Name.Length > 30 ? g.Name[..30] + "…" : g.Name)}»…", () => OpenLectureBoard(g));
+        var recent = _library.Books.Where(b => b.IsBoard).OrderByDescending(b => b.LastOpenedUtc ?? b.AddedUtc).Take(8).ToList();
+        if (recent.Count > 0)
+        {
+            m.Items.Add(new ToolStripSeparator());
+            foreach (var b in recent) { var bb = b; Add("🧑‍🏫  " + (b.Title.Length > 40 ? b.Title[..40] + "…" : b.Title), () => OpenBook(bb)); }
+        }
+        m.Items.Add(new ToolStripSeparator());
+        Add("📂  كل السبورات (رف «سبوراتي»)", ShowBoardsShelf);
+        Add("🖊  أقلام على الشاشة (Ctrl+Shift+F8)", ToggleScreenInk);
+        var at = anchor.PointToScreen(Point.Empty);
+        m.Show(new Point(at.X - m.PreferredSize.Width, at.Y));   // جنب الزرار ناحية الشاشة (الشريط على اليمين)
+        LastBoardMenu = m;
+    }
+    internal ContextMenuStrip? LastBoardMenu;
+
+    private void ShowBoardsShelf()
+    {
+        var shelf = BoardsShelf();
+        RebuildTree();
+        if (_split.Panel2Collapsed) ToggleSidePanel();
+        ShowShelf(true);
+        if (ShelfNodeOf(shelf) is { } n) { n.Expand(); SelectShelfItem(shelf); }
     }
 
     // ---------------- أقلام الشاشة ----------------
@@ -216,6 +280,7 @@ internal partial class MainForm
             RegisterGlobalHotkeys();
             Log.Info($"recording: {area} via {rec.Source}/{rec.Encoder}, mic={(s.Mic != null)}, system={(s.Sys != null)}, cam={c.Camera ?? "-"} scene={c.Scene}");
             RecordingMark("البداية");
+            UpdateRecordActivity();
             return true;
         }
         catch (Exception ex)
@@ -278,6 +343,7 @@ internal partial class MainForm
     {
         var s = _rec; if (s == null) return null;
         _rec = null;
+        UpdateRecordActivity();
         s.Tick?.Stop();
         s.Bar.Hide();
         string? screen = null, camFile = null;
@@ -286,7 +352,13 @@ internal partial class MainForm
             screen = await s.Rec.StopAsync();
             s.Mic?.Stop(); s.Sys?.Stop();
             s.Cam?.Stop();
-            if (s.Cam != null) camFile = await s.Cam.JoinAsync(s.Dir);
+            if (s.Cam != null)
+            {
+                var lens = new List<double>();
+                foreach (var seg in s.Rec.Segments) lens.Add(File.Exists(seg) ? await ScreenRecorder.DurationAsync(Tools.FindFfmpeg()!, seg) : 0);
+                camFile = await s.Cam.JoinAsync(s.Dir, s.Rec.SegmentStarts, RecordingEdit.EncoderArgs(s.Encoder!), lens);
+                Log.Info("camera sync offsets (s): " + string.Join(", ", s.Cam.Offsets.Select(o => o.ToString("0.000", CultureInfo.InvariantCulture))));
+            }
             LastRecordingScreen = screen; LastRecordingCamera = camFile;
         }
         catch (Exception ex)

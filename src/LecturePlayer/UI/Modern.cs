@@ -69,7 +69,8 @@ internal static class Glyphs
         Timer = "\uE916", Collapse = "\uE70E", Expand = "\uE70D",
         MiniPlayer = "\uE73F", Help = "\uE897", Radio = "\uE8D6", Home = "\uE80F", RepeatOne = "\uE8ED", RepeatAll = "\uE8EE",
         Fold = "\uE8FD", // قايمة بنقط (للطي والتوسيع)
-        Education = "\uE7BE", Book = "\uE736"; // قبعة التخرج (كورس من منصة)
+        Education = "\uE7BE", Book = "\uE736",
+        Board = "\uE76D", Record = "\uE7C8";   // قلم الحبر (سبورة) — دايرة التسجيل // قبعة التخرج (كورس من منصة)
 
     private static string? _family;
 

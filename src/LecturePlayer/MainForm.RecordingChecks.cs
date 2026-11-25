@@ -26,6 +26,15 @@ internal sealed partial class MainForm
             try { Check(RecordSetupDialog(new() { "كاميرا الفحص" }, AudioRecorder.Microphones(), null) == null, "setup dialog (shot)"); }
             finally { SmokeDialogShots = false; }
 
+            // زراير الشريط الجانبي: سبورة (قايمة) وتسجيل
+            Check(_activityBoard.Caption == "سبورة" && _activityRecord.Caption == "تسجيل", "rail buttons");
+            ShowBoardActivityMenu(_activityBoard);
+            Pump(300);
+            var bm = LastBoardMenu!;
+            Check(bm.Visible && bm.Items.OfType<ToolStripMenuItem>().Any(i => i.Text!.Contains("سبورة جديدة")) && bm.Items.OfType<ToolStripMenuItem>().Any(i => i.Text!.Contains("سبوراتي")), "board rail menu");
+            SaveSmokeShot(this, "rail-board-menu");
+            bm.Close();
+
             string enc = Run(() => ScreenRecorder.PickEncoderAsync(ff));
             bool dda = Run(() => ScreenRecorder.DdagrabWorksAsync(ff));
             Console.WriteLine($"SMOKE record: encoder={enc} ddagrab={dda} mics={AudioRecorder.Microphones().Count}");
@@ -38,6 +47,7 @@ internal sealed partial class MainForm
             Check(Run(() => StartRecordingAsync(choice)), "recording started");
             var s = _rec!;
             Check(s.Rec.Running && s.Bar.Visible, "recorder + bar up: " + s.Rec.Source + "/" + s.Rec.Encoder);
+            Check(_activityRecord.Caption == "إنهاء", "rail record button shows «إنهاء» while recording");
             // أقلام على الشاشة: مستطيل أحمر تقيل في نص «مسار»
             ToggleScreenInk();
             Check(_screenInk != null, "screen ink opened");
@@ -71,6 +81,9 @@ internal sealed partial class MainForm
             Check(v != null && File.Exists(v.Path), "saved: " + v?.Path + " log: " + s.Rec.LastLog);
             final = v!.Path;
             Check(!Recording && !s.Bar.Visible, "bar closed");
+            Check(_activityRecord.Caption == "تسجيل", "rail record button back to «تسجيل»");
+            Console.WriteLine("SMOKE record: camera sync offsets " + string.Join(", ", s.Cam!.Offsets.Select(x => x.ToString("0.000"))));
+            Check(s.Cam.Offsets.Count == 2, "camera aligned per segment (2 segments after pause)");
             double dur = Run(() => ScreenRecorder.DurationAsync(ff, final));
             double expect = recorded - 0.5 - 1.0;
             Console.WriteLine($"SMOKE record: recorded {recorded:0.00}s → final {dur:0.00}s (expect ≈{expect:0.00}), marks: {string.Join(" | ", v.Bookmarks.Select(b => b.TimeMs + ":" + b.Note))}");

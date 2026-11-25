@@ -527,6 +527,7 @@ internal sealed partial class MainForm : Form
     }
     private GlyphButton _activityExplorer = null!;
     private GlyphButton _activityHome = null!;
+    private GlyphButton _activityBoard = null!, _activityRecord = null!;
 
     /// <summary>شريط الأيقونات على طرف الشاشة (زي المحررات الحديثة): القايمة، البحث، المراجعة، الإحصائيات…</summary>
     private void BuildActivityBar()
@@ -556,6 +557,8 @@ internal sealed partial class MainForm : Form
         _activityBooks = Act(Glyphs.Book, "الكتب", "رف الكتب: كتبك (PDF) وفين وصلت في كل كتاب (Ctrl+Shift+B)", ToggleShelf, top);
         UpdateActivityIndicators();
         Act(Glyphs.Radio, "بث مباشر", "راديو وتليفزيون على الهوا، ومنهم الحرم المكي والمدني (Ctrl+Shift+L)", ShowLiveWindow, top);
+        _activityBoard = Act(Glyphs.Board, "سبورة", "السبورة البيضاء: سبورة جديدة أو افتح واحدة من سبوراتك", () => ShowBoardActivityMenu(_activityBoard), top);
+        _activityRecord = Act(Glyphs.Record, "تسجيل", "سجّل شرح: الشاشة والكاميرا والصوت وأقلام على الشاشة (Ctrl+Shift+F9 من أي برنامج)", OnRecordActivity, top);
         // أدوات الوضع المتقدم (بتستخبى في الوضع البسيط)
         _advancedActivity.Add(Act(Glyphs.Search, "بحث", "دوّر على كلمة اتقالت جوه الفيديوهات (Ctrl+Shift+F)", ShowTranscriptSearch, top));
         _advancedActivity.Add(Act(Glyphs.History, "مراجعة", "العلامات اللي عليها الدور تراجعها النهارده (F7)", ShowReview, top));

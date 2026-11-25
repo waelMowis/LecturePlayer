@@ -138,6 +138,8 @@ public sealed class CameraFeed : IDisposable
     public string? Device { get; private set; }
     public string? TestInput { get; set; }
     public List<string> Files { get; } = new();
+    /// <summary>وقت أول إطار في كل ملف (Stopwatch.GetTimestamp) — نفس ترتيب Files.</summary>
+    public List<long> FirstFrames { get; } = new();
     public bool Running => _proc is { HasExited: false };
 
     public CameraFeed(string ffmpeg) { _ffmpeg = ffmpeg; }
@@ -149,10 +151,12 @@ public sealed class CameraFeed : IDisposable
         Device = device;
         string input = TestInput ?? $"-f dshow -rtbufsize 200M -i video=\"{device.Replace("\"", "")}\"";
         string prev = $"scale={PreviewW}:{PreviewH}:force_original_aspect_ratio=increase,crop={PreviewW}:{PreviewH}{(mirror ? ",hflip" : "")},format=bgra";
+        // الملف بيتسجل زي المعاينة بالظبط (مراية لو المراية شغالة) — اللي بتشوفه هو اللي بيطلع
         string args = file == null
             ? $"-hide_banner -v error {input} -vf {prev} -f rawvideo pipe:1"
-            : $"-hide_banner -v error -y {input} -filter_complex \"[0:v]split=2[p][r];[p]{prev}[pv];[r]scale=trunc(iw/2)*2:trunc(ih/2)*2[rv]\" -map \"[pv]\" -f rawvideo pipe:1 -map \"[rv]\" {encoderArgs} -movflags +faststart \"{file}\"";
-        if (file != null) Files.Add(file);
+            : $"-hide_banner -v error -y {input} -filter_complex \"[0:v]split=2[p][r];[p]{prev}[pv];[r]{(mirror ? "hflip," : "")}scale=trunc(iw/2)*2:trunc(ih/2)*2[rv]\" -map \"[pv]\" -f rawvideo pipe:1 -map \"[rv]\" {encoderArgs} -movflags +faststart \"{file}\"";
+        int fileIndex = -1;
+        if (file != null) { Files.Add(file); FirstFrames.Add(0); fileIndex = Files.Count - 1; }
         var p = new Process
         {
             StartInfo = new ProcessStartInfo(_ffmpeg, args) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardInput = true, RedirectStandardError = true, CreateNoWindow = true },
@@ -175,6 +179,7 @@ public sealed class CameraFeed : IDisposable
                 {
                     int got = 0;
                     while (got < size) { int n = stream.Read(buf, got, size - got); if (n <= 0) return; got += n; }
+                    if (fileIndex >= 0 && FirstFrames[fileIndex] == 0) FirstFrames[fileIndex] = Stopwatch.GetTimestamp();
                     Frame?.Invoke((byte[])buf.Clone());
                 }
             }
@@ -192,17 +197,48 @@ public sealed class CameraFeed : IDisposable
         p.Dispose();
     }
 
-    /// <summary>ملفات الأجزاء ملزوقة (أو null لو مفيش).</summary>
-    public async Task<string?> JoinAsync(string workDir)
+    /// <summary>
+    /// ملفات الأجزاء ملزوقة (أو null لو مفيش). screenStarts = بداية كل جزء من تسجيل الشاشة:
+    /// الكاميرا بتبدأ متأخرة شوية (أو بدري) عن الشاشة، فكل جزء بيتظبط عليها — يتمد بأول إطار أو يتقص من أوله —
+    /// عشان الكاميرا والشاشة والصوت يفضلوا متزامنين حتى بعد إيقاف مؤقت كذا مرة.
+    /// </summary>
+    public async Task<string?> JoinAsync(string workDir, IReadOnlyList<long>? screenStarts = null, string? encoderArgs = null, IReadOnlyList<double>? screenDurations = null)
     {
-        var segs = Files.Where(f => System.IO.File.Exists(f) && new FileInfo(f).Length > 0).ToList();
+        var all = Files.Select((f, i) => (File: f, First: i < FirstFrames.Count ? FirstFrames[i] : 0, Index: i)).ToList();
+        var segs = all.Where(x => System.IO.File.Exists(x.File) && new FileInfo(x.File).Length > 0).ToList();
         if (segs.Count == 0) return null;
-        if (segs.Count == 1) return segs[0];
+        if (screenStarts != null && encoderArgs != null && segs.Count == screenStarts.Count)
+        {
+            var aligned = new List<string>();
+            for (int i = 0; i < segs.Count; i++)
+            {
+                double d = segs[i].First == 0 ? 0 : (segs[i].First - screenStarts[i]) / (double)Stopwatch.Frequency;
+                Offsets.Add(d);
+                // والكاميرا بتقف بعد الشاشة بشوية ← بنقصها على طول جزء الشاشة بالظبط
+                double? len = screenDurations != null && i < screenDurations.Count && screenDurations[i] > 0 ? screenDurations[i] : null;
+                if (Math.Abs(d) < 0.04 && len == null) { aligned.Add(segs[i].File); continue; }
+                string o = Path.Combine(workDir, $"cam-sync{i + 1:00}.mp4");
+                static string N(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                string t = len is { } l ? $"-t {N(l)} " : "";
+                string ff = d >= 0.04
+                    ? $"-hide_banner -v error -y -i \"{segs[i].File}\" -vf tpad=start_duration={N(d)}:start_mode=clone {t}{encoderArgs} \"{o}\""
+                    : d <= -0.04
+                        ? $"-hide_banner -v error -y -ss {N(-d)} -i \"{segs[i].File}\" {t}{encoderArgs} \"{o}\""
+                        : $"-hide_banner -v error -y -i \"{segs[i].File}\" {t}{encoderArgs} \"{o}\"";
+                var rr = await ScreenRecorder.RunAsync(_ffmpeg, ff, 1_800_000);
+                aligned.Add(rr.Code == 0 && System.IO.File.Exists(o) ? o : segs[i].File);
+            }
+            segs = aligned.Select((f, i) => (f, 0L, i)).ToList();
+        }
+        if (segs.Count == 1) return segs[0].File;
         string list = Path.Combine(workDir, "camera.txt"), outFile = Path.Combine(workDir, "camera.mp4");
-        System.IO.File.WriteAllLines(list, segs.Select(s => $"file '{s.Replace("'", "'\\''")}'"));
+        System.IO.File.WriteAllLines(list, segs.Select(s => $"file '{s.File.Replace("'", "'\\''")}'"));
         var r = await ScreenRecorder.RunAsync(_ffmpeg, $"-hide_banner -v error -y -f concat -safe 0 -i \"{list}\" -c copy \"{outFile}\"", 120_000);
-        return r.Code == 0 ? outFile : segs[0];
+        return r.Code == 0 ? outFile : segs[0].File;
     }
+
+    /// <summary>فرق بداية الكاميرا عن الشاشة لكل جزء (ثواني، موجب = الكاميرا اتأخرت) — بعد JoinAsync.</summary>
+    public List<double> Offsets { get; } = new();
 
     public void Dispose() => Stop();
 }

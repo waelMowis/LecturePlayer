@@ -30,6 +30,8 @@ public sealed class ScreenRecorder : IDisposable
     public TimeSpan Elapsed => _acc + _seg.Elapsed;
     public IReadOnlyList<Mark> Marks => _marks;
     public IReadOnlyList<string> Segments => _segments;
+    /// <summary>بداية كل جزء (Stopwatch.GetTimestamp) — عشان ملفات الكاميرا تتظبط عليها.</summary>
+    public List<long> SegmentStarts { get; } = new();
     public string? Encoder { get; private set; }
     public string? Source { get; private set; }
     public string LastLog => _log.ToString();
@@ -113,6 +115,7 @@ public sealed class ScreenRecorder : IDisposable
         if (!p.Start()) throw new InvalidOperationException("ffmpeg ماشتغلش");
         // الساعة والصوت بيبدأوا مع العملية نفسها (تقرير ffmpeg عن أول إطار بيتأخر نص ثانية)
         _seg.Restart();
+        SegmentStarts.Add(Stopwatch.GetTimestamp());
         Paused = false;
         SegmentStarted?.Invoke();
         p.BeginErrorReadLine();
@@ -125,6 +128,7 @@ public sealed class ScreenRecorder : IDisposable
             _seg.Reset();
             _proc = null;
             _segments.Remove(seg);
+            SegmentStarts.RemoveAt(SegmentStarts.Count - 1);
             // ddagrab ممكن يقع (مثلًا شاشة مقفولة/RDP): نجرب gdigrab مرة
             if (Source == "ddagrab") { Source = "gdigrab"; _ddagrab = false; await StartSegmentAsync(); return; }
             throw new InvalidOperationException("ffmpeg مقدرش يسجل: " + LastLine());
