@@ -168,12 +168,18 @@ public static class LibrarySync
     /// </summary>
     private static void MergeNotion(CourseLibrary local, CourseLibrary remote, Dictionary<string, VideoItem> localVideos)
     {
+        // موضوع اتعمل من جديد على الجهاز التاني (شكل أحدث): الربط الجديد وأرقامه كلها تكسب
+        var rebuilt = new HashSet<string>();
         foreach (var rt in remote.Topics)
         {
             if (rt.Notion == null) continue;
             var lt = local.Topics.FirstOrDefault(t => t.Id == rt.Id);
             if (lt == null) continue;
-            if (lt.Notion == null) lt.Notion = rt.Notion;
+            if (lt.Notion == null || (lt.Notion.PageId != rt.Notion.PageId && rt.Notion.CreatedUtc > lt.Notion.CreatedUtc))
+            {
+                if (lt.Notion != null) rebuilt.Add(lt.Id);
+                lt.Notion = rt.Notion;
+            }
             else if (lt.Notion.PageId == rt.Notion.PageId)
             {
                 lt.Notion.LogDbId ??= rt.Notion.LogDbId;
@@ -185,12 +191,24 @@ public static class LibrarySync
         {
             var lc = local.Courses.FirstOrDefault(c => c.Id == rc.Id);
             if (lc == null) continue;
-            if (lc.NotionPageId == null && rc.NotionPageId != null) { lc.NotionPageId = rc.NotionPageId; lc.NotionDsId = rc.NotionDsId; }
+            bool force = lc.TopicId != null && rebuilt.Contains(lc.TopicId);
+            if (force || (lc.NotionPageId == null && rc.NotionPageId != null))
+            {
+                lc.NotionPageId = rc.NotionPageId; lc.NotionDsId = rc.NotionDsId;
+                lc.NotionLecturesDbId = rc.NotionLecturesDbId; lc.NotionLecturesDsId = rc.NotionLecturesDsId;
+            }
+            else if (lc.NotionLecturesDsId == null && rc.NotionLecturesDsId != null && lc.NotionPageId == rc.NotionPageId)
+            { lc.NotionLecturesDbId = rc.NotionLecturesDbId; lc.NotionLecturesDsId = rc.NotionLecturesDsId; }
             foreach (var rg in rc.Groups)
             {
                 var lg = local.AllGroups.FirstOrDefault(g => g.Id == rg.Id);
                 if (lg == null) continue;
-                if (lg.NotionPageId == null && rg.NotionPageId != null) { lg.NotionPageId = rg.NotionPageId; lg.NotionDsId = rg.NotionDsId; }
+                if (force || (lg.NotionPageId == null && rg.NotionPageId != null))
+                {
+                    lg.NotionPageId = rg.NotionPageId; lg.NotionDsId = rg.NotionDsId; lg.NotionNotesBlockId = rg.NotionNotesBlockId;
+                    foreach (var rv in rg.Videos)
+                        if (localVideos.TryGetValue(VideoKey(rv), out var fv)) fv.NotionBlockId = rv.NotionBlockId;
+                }
                 lg.NotionNotesBlockId ??= rg.NotionNotesBlockId;
                 if (rg.Plan != null && (lg.Plan == null || rg.Plan.UpdatedUtc > lg.Plan.UpdatedUtc)) lg.Plan = rg.Plan.Clone();
             }

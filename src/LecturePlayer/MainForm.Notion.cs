@@ -40,7 +40,9 @@ internal sealed partial class MainForm
 
     private NotionState NotionStateLoaded => _notionState ??= NotionState.Load();
     private bool NotionReady => !string.IsNullOrWhiteSpace(_settings.NotionToken) && NotionClient.ParseId(_settings.NotionParentPage) != null;
-    private IEnumerable<Topic> NotionTopics => _library.Topics.Where(t => t.Notion != null);
+    private IEnumerable<Topic> NotionTopics => _library.Topics.Where(t => t.Notion is { Layout: >= NotionSync.CurrentLayout });
+    private IEnumerable<Topic> OldNotionTopics => _library.Topics.Where(t => t.Notion is { Layout: < NotionSync.CurrentLayout });
+    private bool _notionOldAsked;
     private static string NotionLogPath => Path.Combine(Storage.AppDataDir, "notion-log.txt");
 
     private Topic? NotionTopicOf(Course? c) => c != null && _library.TopicOf(c) is { Notion: not null } t ? t : null;
@@ -187,6 +189,13 @@ internal sealed partial class MainForm
     private void NotionAutoTick()
     {
         if (_notionBusy || !_settings.NotionAutoSync || !NotionReady || SmokeTest.Active) return;
+        // مواضيع اتعملت بالشكل القديم (جدول محاضرات واحد): مرة واحدة نعرض إعادة البناء
+        if (!_notionOldAsked && OldNotionTopics.FirstOrDefault() is { } old && Environment.TickCount64 > _dueNotionSync - 30_000)
+        {
+            _notionOldAsked = true;
+            ShowBanner($"📓 قاعدة «{old.Name}» في نوشن بالشكل القديم (كل المحاضرات في جدول واحد) — الشكل الجديد زي شجرة مسار",
+                BannerKind.Warning, "أعد البناء", () => RebuildNotionTopic(old), seconds: 0, key: "notion-old");
+        }
         if (Due(ref _dueNotionSync, 180_000) && NotionTopics.Any())
             _ = RunNotionAsync("تحديث تلقائي", async (s, ct) => { foreach (var t in NotionTopics.ToList()) await s.SyncTopicAsync(t, ct); }, quiet: true);
         else if (Due(ref _dueNotionPull, 600_000) && NotionTopics.Any())
@@ -207,9 +216,9 @@ internal sealed partial class MainForm
         if (t.Notion != null) { ShowStatus("الموضوع ده مربوط بنوشن بالفعل", 3); return; }
         if (!await EnsureNotionSetupAsync()) return;
         int courses = _library.CoursesOf(t).Count(), lectures = _library.CoursesOf(t).Sum(c => c.Groups.Count);
-        if (!Dialogs.Confirm(this, $"هعمل في نوشن صفحة «{t.Name}» جواها:\n" +
-                                   $"• قاعدة «الكورسات» ({courses} كورس) — المصدر، المدرّس، الحالة، التقدّم، الساعات، وقت المذاكرة…\n" +
-                                   $"• قاعدة «المحاضرات» ({lectures} محاضرة) — الحالة، التقدّم، الموعد، الحضور، TASK، SEARCH، SUMMARY\n" +
+        if (!Dialogs.Confirm(this, $"هعمل في نوشن صفحة «{t.Name}» بنفس شكل شجرة مسار:\n" +
+                                   $"• «الكورسات» ({courses} كورس) مقسومة بالمصدر وبنفس الترتيب — الحالة، التقدّم، اتشاف، الساعات، وقت المذاكرة…\n" +
+                                   $"• جوه صفحة كل كورس جدول محاضراته ({lectures} محاضرة في الكل) — الحالة، التقدّم، الموعد، الحضور، TASK، SEARCH، SUMMARY\n" +
                                    "• الفيديوهات مربعات ☐ جوه صفحة كل محاضرة، وبتتعلّم لوحدها لما تتفرج.\n\n" +
                                    "بعد كده أي كورس أو محاضرة تتضاف للموضوع بتتضاف هناك لوحدها، والتقدّم بيتحدّث كل كام دقيقة.\n" +
                                    (lectures > 150 ? $"الإنشاء الأول هياخد حوالي {Math.Max(1, lectures / 60)} دقيقة (نوشن بيقبل كام طلب في الثانية) — تقدر تكمّل شغلك عادي.\n" : "") +
@@ -255,6 +264,28 @@ internal sealed partial class MainForm
             if (!IsDisposed) ShowStatus("🗓️ «سجل المذاكرة» اتعمل — كل يوم بتذاكر فيه بيتضاف لوحده", 6);
         }, quiet: false);
 
+    /// <summary>«أعد البناء»: الصفحة اللي مسار عملها تروح سلة نوشن (بترجع منها لحد 30 يوم)، ويتعمل الموضوع بالشكل الجديد بخطته.</summary>
+    private async void RebuildNotionTopic(Topic t)
+    {
+        HideBanner("notion-old");
+        if (t.Notion == null) return;
+        if (!await EnsureNotionSetupAsync()) return;
+        if (!Dialogs.Confirm(this, $"هعيد بناء «{t.Name}» في نوشن بنفس شكل شجرة مسار:\n" +
+                                   "• الكورسات مقسومة بالمصدر وبنفس الترتيب.\n" +
+                                   "• كل كورس جوه صفحته جدول محاضراته هو بس (الموعد، الحضور، TASK، SEARCH، SUMMARY).\n\n" +
+                                   "الخطة اللي كتبتها (المواعيد والحضور والمهام) هتتنقل للصفحة الجديدة.\n" +
+                                   "الصفحة القديمة اللي مسار عملها هتروح سلة نوشن (تقدر ترجّعها لحد 30 يوم).\n\nنبدأ؟"))
+            return;
+        string parent = SmokeNotionParent ?? NotionClient.ParseId(_settings.NotionParentPage)!;
+        Checkpoint("إعادة بناء نوشن");
+        if (await RunNotionAsync($"إعادة بناء «{t.Name}»", (s, ct) => s.RebuildTopicAsync(t, parent, ct), quiet: false))
+        {
+            ShowBanner($"📓 «{t.Name}» اتعمل من جديد بشكل الشجرة ✓ — والقديمة في السلة", BannerKind.Success, "افتحه", () => OpenNotionPage(t.Notion?.PageId), seconds: 12);
+            RefreshTopicNode(t);
+            RefreshHomePlan();
+        }
+    }
+
     private void UnlinkNotion(Topic t)
     {
         if (!Dialogs.Confirm(this, $"تفك ربط «{t.Name}» بنوشن؟\nالصفحة والقواعد بتفضل في نوشن زي ما هي (مسار مابيمسحش حاجة)، بس التحديث بيقف.\nتقدر تعمل قاعدة جديدة بعد كده.")) return;
@@ -281,6 +312,12 @@ internal sealed partial class MainForm
                 MenuItem("📓  أنشئ قاعدة نوشن للموضوع ده…", () => CreateNotionForTopic(t)),
                 Sep(),
                 MenuItem("⚙  إعدادات نوشن (المفتاح والصفحة)…", () => _ = EnsureNotionSetupAsync(force: true)));
+        if (t.Notion.Layout < NotionSync.CurrentLayout)
+            return SubMenuOf("📤  نوشن",
+                MenuItem("🧱  أعد البناء بشكل الشجرة (القديمة تروح السلة)…", () => RebuildNotionTopic(t)),
+                MenuItem("↗  افتح الموضوع في نوشن", () => OpenNotionPage(t.Notion.PageId)),
+                Sep(),
+                MenuItem("✂  فك الربط (نوشن مابيتمسحش)…", () => UnlinkNotion(t)));
         var items = new List<ToolStripItem>
         {
             MenuItem("↗  افتح الموضوع في نوشن", () => OpenNotionPage(t.Notion.PageId)),
@@ -293,6 +330,7 @@ internal sealed partial class MainForm
         items.Add(Sep());
         items.Add(MenuItem("📜  سجل المزامنة", ShowNotionLog));
         items.Add(MenuItem("🔁  زامن من الأول (رجّع الصفوف اللي اتشالت من نوشن)", () => SyncNotionTopic(t, fromScratch: true)));
+        items.Add(MenuItem("🧱  أعد البناء من جديد (القديمة تروح السلة)…", () => RebuildNotionTopic(t)));
         items.Add(MenuItem("⚙  إعدادات نوشن…", () => _ = EnsureNotionSetupAsync(force: true)));
         items.Add(MenuItem("✂  فك الربط (نوشن مابيتمسحش)…", () => UnlinkNotion(t)));
         return SubMenuOf("📤  نوشن", items.ToArray());

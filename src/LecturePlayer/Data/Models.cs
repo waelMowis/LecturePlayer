@@ -219,9 +219,13 @@ public sealed class LecturePlan
     public bool SameAs(LecturePlan? o) => o != null && Date == o.Date && Attendance == o.Attendance && Task == o.Task && Search == o.Search && Summary == o.Summary;
 }
 
-/// <summary>ربط موضوع بنوشن: صفحة الموضوع وقواعده (الكورسات، المحاضرات، وسجل المذاكرة لو اتعمل).</summary>
+/// <summary>
+/// ربط موضوع بنوشن: صفحة الموضوع وقاعدة الكورسات (وسجل المذاكرة لو اتعمل).
+/// الشكل 2: محاضرات كل كورس في قاعدة جوه صفحة الكورس. الشكل 1 (القديم): قاعدة محاضرات واحدة لكل الموضوع.
+/// </summary>
 public sealed class NotionTopicLink
 {
+    public int Layout { get; set; } = 1;
     public string PageId { get; set; } = "";
     public string CoursesDbId { get; set; } = "";
     public string CoursesDsId { get; set; } = "";
@@ -388,6 +392,11 @@ public sealed class Course
     public string? NotionPageId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NotionDsId { get; set; }
+    /// <summary>نوشن: قاعدة «المحاضرات» اللي جوه صفحة الكورس.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NotionLecturesDbId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NotionLecturesDsId { get; set; }
 
     /// <summary>آخر تعديل لبيانات الكورس (للدمج بين الأجهزة).</summary>
     public DateTime InfoUpdatedUtc { get; set; }

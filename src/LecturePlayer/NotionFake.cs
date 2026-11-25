@@ -27,6 +27,9 @@ internal sealed class NotionFake : HttpMessageHandler
     public readonly Dictionary<string, Ds> Sources = new();
     public readonly Dictionary<string, string> Databases = new(); // db ← ds
     public readonly Dictionary<string, Block> Blocks = new();
+    /// <summary>الـ View الافتراضي لكل قاعدة: رقمه، والترتيب، والتقسيم (رقم العمود).</summary>
+    public sealed class View { public string Id = "", DbId = ""; public JsonArray? Sorts; public string? GroupByPropertyId; }
+    public readonly Dictionary<string, View> Views = new();
     public string Token = "secret_test";
     /// <summary>الطلب رقم كام يرد 429 (0 = لأ).</summary>
     public int ThrottleAt;
@@ -63,6 +66,7 @@ internal sealed class NotionFake : HttpMessageHandler
         Calls++;
         string body = req.Content == null ? "" : await req.Content.ReadAsStringAsync(ct);
         string path = req.RequestUri!.AbsolutePath;
+        string query = req.RequestUri.Query.TrimStart('?');
         int v1 = path.IndexOf("/v1/", StringComparison.Ordinal);
         if (v1 >= 0) path = path[(v1 + 4)..];
         path = path.Trim('/');
@@ -84,7 +88,7 @@ internal sealed class NotionFake : HttpMessageHandler
         }
         try
         {
-            lock (this) return Route(req.Method, path, json ?? new JsonObject());
+            lock (this) return Route(req.Method, path, json ?? new JsonObject(), query);
         }
         catch (FakeError e) { return Err(e.Status, e.Code, e.Message); }
     }
@@ -108,9 +112,45 @@ internal sealed class NotionFake : HttpMessageHandler
         return null;
     }
 
-    private HttpResponseMessage Route(HttpMethod m, string path, JsonObject b)
+    private HttpResponseMessage Route(HttpMethod m, string path, JsonObject b, string query = "")
     {
         var parts = path.Split('/');
+        if (m == HttpMethod.Get && path == "views")
+        {
+            string db = query.Split('&').Select(x => x.Split('=')).Where(x => x[0] == "database_id").Select(x => x[1]).FirstOrDefault() ?? throw Bad("database_id or data_source_id is required");
+            if (!Databases.ContainsKey(db)) throw NotFound(db);
+            var arr = new JsonArray();
+            foreach (var v in Views.Values.Where(v => v.DbId == db)) arr.Add(new JsonObject { ["object"] = "view", ["id"] = v.Id });
+            return Ok(new JsonObject { ["object"] = "list", ["results"] = arr, ["has_more"] = false });
+        }
+        if (parts[0] == "views" && parts.Length == 2 && m == HttpMethod.Patch)
+        {
+            if (!Views.TryGetValue(parts[1], out var v)) throw NotFound(parts[1]);
+            var ds = Sources[Databases[v.DbId]];
+            if (b["sorts"] is JsonArray sorts)
+            {
+                foreach (var so in sorts)
+                {
+                    string prop = so?["property"]?.GetValue<string>() ?? throw Bad("sorts.property");
+                    if (ds.Schema[prop] == null) throw Bad($"Could not find sort property with name or id: {prop}");
+                }
+                v.Sorts = (JsonArray)sorts.DeepClone();
+            }
+            if (b["configuration"]?["group_by"] is JsonObject gb)
+            {
+                string pid = gb["property_id"]?.GetValue<string>() ?? throw Bad("group_by.property_id");
+                var prop = ds.Schema.FirstOrDefault(kv => kv.Value?["id"]?.GetValue<string>() == pid);
+                if (prop.Value == null) throw Bad("group_by property not found");
+                if (prop.Value["type"]?.GetValue<string>() != gb["type"]?.GetValue<string>()) throw Bad("group_by.type doesn't match the property type");
+                v.GroupByPropertyId = pid;
+            }
+            return Ok(new JsonObject { ["object"] = "view", ["id"] = v.Id });
+        }
+        if (m == HttpMethod.Get && parts[0] == "data_sources" && parts.Length == 2)
+        {
+            if (!Sources.TryGetValue(parts[1], out var ds)) throw NotFound(parts[1]);
+            return Ok(new JsonObject { ["object"] = "data_source", ["id"] = ds.Id, ["properties"] = ds.Schema.DeepClone() });
+        }
         if (m == HttpMethod.Get && path == "users/me") return Ok(new JsonObject { ["object"] = "user", ["name"] = "Masar test", ["type"] = "bot" });
         if (m == HttpMethod.Post && path == "databases") return CreateDatabase(b);
         if (m == HttpMethod.Get && parts[0] == "databases" && parts.Length == 2)
@@ -164,13 +204,15 @@ internal sealed class NotionFake : HttpMessageHandler
             if (type == "select")
                 foreach (var o in def["select"]?["options"]?.AsArray() ?? new JsonArray())
                     if ((o?["name"]?.GetValue<string>() ?? "").Contains(',')) throw Bad("select option names can't contain commas");
-            schema[kv.Key] = new JsonObject { ["type"] = type, [type] = def[type]?.DeepClone() };
+            schema[kv.Key] = new JsonObject { ["id"] = "p" + schema.Count, ["name"] = kv.Key, ["type"] = type, [type] = def[type]?.DeepClone() };
         }
         if (titles != 1) throw Bad("A database must have exactly one title property");
         string dbId = NewId(), dsId = NewId();
         Sources[dsId] = new Ds { Id = dsId, DbId = dbId, ParentPage = parent, Schema = schema, Title = Text(b["title"]) };
         Databases[dbId] = dsId;
         pp.Children.Add(dbId);
+        var view = new View { Id = NewId(), DbId = dbId };
+        Views[view.Id] = view;
         return Ok(DbJson(dbId, dsId));
     }
 

@@ -60,11 +60,13 @@ public sealed class NotionState
 public sealed class NotionSync
 {
     // أسماء الأعمدة (لو اتغيرت في نوشن، المزامنة بتقول إن العمود مش موجود)
-    public const string CTitle = "الكورس", CSource = "المصدر", CTeacher = "المدرّس", CStatus = "الحالة", CProgress = "التقدّم",
-        CLectures = "المحاضرات", CVideos = "الفيديوهات", CWatched = "اتشاف", CHours = "المدة (ساعة)", CStudy = "وقت المذاكرة (ساعة)",
+    public const string CTitle = "الكورس", COrder = "ترتيب", CSource = "المصدر", CSubSource = "المصدر الفرعي", CTeacher = "المدرّس", CStatus = "الحالة",
+        CProgress = "التقدّم", CLectures = "المحاضرات", CWatched = "اتشاف", CHours = "المدة (ساعة)", CStudy = "وقت المذاكرة (ساعة)",
         CLast = "آخر مذاكرة", CDeadline = "موعد الانتهاء", CLink = "الرابط";
-    public const string LTitle = "المحاضرة", LCourse = "الكورس", LOrder = "#", LStatus = "الحالة", LProgress = "التقدّم", LVideos = "الفيديوهات",
+    public const string LTitle = "المحاضرة", LOrder = "#", LStatus = "الحالة", LProgress = "التقدّم", LVideos = "اتشاف",
         LMinutes = "المدة (دقيقة)", LDate = "الموعد", LAttendance = "الحضور", LTask = "TASK", LSearch = "SEARCH", LSummary = "SUMMARY", LLast = "آخر مشاهدة";
+    public const string NoSource = "بدون مصدر";
+    public const int CurrentLayout = 2;
     public const string GTitle = "اليوم", GDate = "التاريخ", GMinutes = "الدقايق", GCourses = "الكورسات";
 
     public const string NotStarted = "لم يبدأ", Started = "جاري", Done = "خلص", Paused = "متوقف", Planned = "مخطط", Removed = "اتشال من مسار";
@@ -110,28 +112,29 @@ public sealed class NotionSync
     public static JsonObject CoursesSchema() => new()
     {
         [CTitle] = Empty("title"),
+        [COrder] = Num(),
         [CSource] = new JsonObject { ["select"] = Options() },
-        [CTeacher] = Empty("rich_text"),
+        [CSubSource] = new JsonObject { ["select"] = Options() },
         [CStatus] = new JsonObject { ["select"] = StatusOptions() },
         [CProgress] = Num("percent"),
+        [CWatched] = Empty("rich_text"),
         [CLectures] = Num(),
-        [CVideos] = Num(),
-        [CWatched] = Num(),
         [CHours] = Num(),
         [CStudy] = Num(),
         [CLast] = Empty("date"),
         [CDeadline] = Empty("date"),
+        [CTeacher] = Empty("rich_text"),
         [CLink] = Empty("url"),
     };
 
-    public static JsonObject LecturesSchema(string coursesDsId) => new()
+    /// <summary>محاضرات كورس واحد (قاعدة جوه صفحة الكورس، زي LEC في KAIZEN).</summary>
+    public static JsonObject LecturesSchema() => new()
     {
         [LTitle] = Empty("title"),
-        [LCourse] = new JsonObject { ["relation"] = new JsonObject { ["data_source_id"] = coursesDsId, ["type"] = "single_property", ["single_property"] = new JsonObject() } },
         [LOrder] = Num(),
         [LStatus] = new JsonObject { ["select"] = StatusOptions() },
         [LProgress] = Num("percent"),
-        [LVideos] = Num(),
+        [LVideos] = Empty("rich_text"),
         [LMinutes] = Num(),
         [LDate] = Empty("date"),
         [LAttendance] = new JsonObject { ["select"] = Options((Present, "green"), (Absent, "red")) },
@@ -153,7 +156,7 @@ public sealed class NotionSync
     //  الإنشاء
     // =====================================================================
 
-    /// <summary>صفحة الموضوع + قاعدة الكورسات + قاعدة المحاضرات، وبعدين يملاهم من مسار.</summary>
+    /// <summary>صفحة الموضوع + قاعدة الكورسات (مقسومة بالمصدر وبترتيب مسار)، وجوه كل كورس قاعدة محاضراته، وبعدين يملاهم.</summary>
     public async Task CreateTopicAsync(Topic t, string parentPageId, CancellationToken ct)
     {
         if (t.Notion != null) throw new InvalidOperationException("الموضوع مربوط بنوشن بالفعل");
@@ -161,27 +164,86 @@ public sealed class NotionSync
         string page = await _api.CreatePageAsync(
             new JsonObject { ["type"] = "page_id", ["page_id"] = parentPageId },
             new JsonObject { ["title"] = NotionClient.TitleProp(t.Name) }, "📚",
-            new JsonArray(NotionClient.Callout("اتعملت من «مسار» — التقدّم والكورسات الجديدة بيتحدّثوا لوحدهم.", "🎓",
+            new JsonArray(NotionClient.Callout("اتعملت من «مسار» — بنفس ترتيب المكتبة، والتقدّم والجديد بيتحدّثوا لوحدهم.", "🎓",
                 new JsonArray(
+                    NotionClient.Bullet("الكورسات مقسومة بالمصدر. دوس على أي كورس تلاقي جدول محاضراته جوه صفحته."),
                     NotionClient.Bullet("الموعد والحضور وTASK وSEARCH وSUMMARY بتوعك: عدّلهم هنا أو من مسار."),
-                    NotionClient.Bullet("ماتغيّرش أسماء الأعمدة (المزامنة بتدوّر عليها بالاسم). تقدر تزوّد أعمدة وViews براحتك."),
-                    NotionClient.Bullet("مسار مابيمسحش حاجة هنا: الكورس اللي يتشال من مسار بيتعلّم «اتشال من مسار».")))), ct);
+                    NotionClient.Bullet("ماتغيّرش أسماء الأعمدة (المزامنة بتدوّر عليها بالاسم). مسار مابيمسحش حاجة هنا.")))), ct);
         Progress?.Invoke("بعمل قاعدة الكورسات…");
         var (cdb, cds) = await _api.CreateDatabaseAsync(page, "الكورسات", "🎓", CoursesSchema(), ct);
-        Progress?.Invoke("بعمل قاعدة المحاضرات…");
-        var (ldb, lds) = await _api.CreateDatabaseAsync(page, "المحاضرات", "📖", LecturesSchema(cds), ct);
-        t.Notion = new NotionTopicLink { PageId = page, CoursesDbId = cdb, CoursesDsId = cds, LecturesDbId = ldb, LecturesDsId = lds, CreatedUtc = DateTime.UtcNow };
+        await ConfigureViewAsync(cdb, cds, COrder, CSource, ct);
+        t.Notion = new NotionTopicLink { Layout = CurrentLayout, PageId = page, CoursesDbId = cdb, CoursesDsId = cds, CreatedUtc = DateTime.UtcNow };
         _state.Hash["topic:" + page] = Hash(t.Name);
         LibraryChanged = true;
-        Changes.Add($"اتعملت صفحة «{t.Name}» وقاعدتين الكورسات والمحاضرات");
+        Changes.Add($"اتعملت صفحة «{t.Name}» وقاعدة الكورسات");
         // أرقام قديمة لكورسات الموضوع من ربط قديم اتفك ماتنفعش (اللي في موضوع تاني مربوط بنسيبها عشان صفها القديم يتعلّم)
-        var linked = _lib.Topics.Where(x => x.Notion != null && x != t).SelectMany(x => new[] { x.Notion!.CoursesDsId, x.Notion.LecturesDsId }).ToHashSet();
+        var linked = _lib.Topics.Where(x => x.Notion != null && x != t).Select(x => x.Notion!.CoursesDsId).ToHashSet();
         foreach (var c in _lib.CoursesOf(t))
-        {
-            if (c.NotionDsId != null && !linked.Contains(c.NotionDsId)) { c.NotionPageId = null; c.NotionDsId = null; }
-            foreach (var g in c.Groups) if (g.NotionDsId != null && !linked.Contains(g.NotionDsId)) ResetLecture(g);
-        }
+            if (c.NotionDsId == null || !linked.Contains(c.NotionDsId)) ResetCourse(c);
         await SyncTopicAsync(t, ct);
+    }
+
+    /// <summary>
+    /// «أعد البناء»: الصفحة القديمة (اللي مسار عملها) بتروح سلة نوشن (بترجع منها لحد 30 يوم)، وبيتعمل الموضوع من جديد.
+    /// الخطة (الموعد والحضور والمهام) محفوظة في مسار فبتتنقل للصفحة الجديدة.
+    /// </summary>
+    public async Task RebuildTopicAsync(Topic t, string parentPageId, CancellationToken ct)
+    {
+        if (t.Notion is { } old)
+        {
+            try { await PullPlanAsync(t, ct); } catch (NotionException ex) when (IsGone(ex)) { }
+            Progress?.Invoke("بحط الصفحة القديمة في السلة…");
+            try
+            {
+                await _api.PatchAsync("pages/" + old.PageId, new JsonObject { ["in_trash"] = true }, ct);
+                Changes.Add($"صفحة «{t.Name}» القديمة راحت سلة نوشن");
+            }
+            catch (NotionException ex) when (IsGone(ex)) { }
+            foreach (var k in _state.Known.Where(kv => kv.Value.StartsWith(t.Id + "|", StringComparison.Ordinal)).Select(kv => kv.Key).ToList())
+                _state.Known.Remove(k);
+            t.Notion = null;
+            foreach (var c in _lib.CoursesOf(t)) ResetCourse(c);
+            LibraryChanged = true;
+        }
+        await CreateTopicAsync(t, parentPageId, ct);
+    }
+
+    private static void ResetCourse(Course c)
+    {
+        c.NotionPageId = null; c.NotionDsId = null; c.NotionLecturesDbId = null; c.NotionLecturesDsId = null;
+        foreach (var g in c.Groups) ResetLecture(g);
+    }
+
+    /// <summary>
+    /// شكل الجدول في نوشن: الترتيب (بعمود) والتقسيم (بعمود select) — من الـ Views API.
+    /// لو نوشن رفض (خطة قديمة أو API اتغير) بنكمّل عادي: الجدول بيشتغل، بس من غير الترتيب.
+    /// </summary>
+    private async Task ConfigureViewAsync(string dbId, string dsId, string sortBy, string? groupBy, CancellationToken ct)
+    {
+        try
+        {
+            var views = await _api.GetAsync("views?database_id=" + dbId, ct);
+            string? viewId = views["results"]?.AsArray().FirstOrDefault()?["id"]?.GetValue<string>();
+            if (viewId == null) return;
+            var body = new JsonObject { ["sorts"] = new JsonArray(new JsonObject { ["property"] = sortBy, ["direction"] = "ascending" }) };
+            if (groupBy != null)
+            {
+                var ds = await _api.GetAsync("data_sources/" + dsId, ct);
+                string? pid = ds["properties"]?[groupBy]?["id"]?.GetValue<string>();
+                if (pid != null)
+                    body["configuration"] = new JsonObject
+                    {
+                        ["type"] = "table",
+                        ["group_by"] = new JsonObject { ["type"] = "select", ["property_id"] = pid, ["sort"] = new JsonObject { ["type"] = "manual" }, ["hide_empty_groups"] = true }
+                    };
+            }
+            await _api.PatchAsync("views/" + viewId, body, ct);
+        }
+        catch (NotionException ex)
+        {
+            Log.Info($"notion view: {ex.Status} {ex.Message}");
+            Changes.Add("ترتيب العرض في نوشن مااتظبطش لوحده (رتّب الجدول بعمود «" + sortBy + "» من نوشن)");
+        }
     }
 
     /// <summary>سجل المذاكرة اليومي للموضوع (قاعدة تالتة).</summary>
@@ -216,13 +278,16 @@ public sealed class NotionSync
             Changes.Add($"اسم الموضوع بقى «{t.Name}»");
         }
 
-        var courses = _lib.CoursesOf(t).ToList();
+        if (link.Layout < CurrentLayout) throw new InvalidOperationException(OldLayoutMessage(t));
+        var ordered = TreeOrder(t);
+        var courses = ordered.Select(x => x.Course).ToList();
         int done = 0, total = courses.Sum(c => c.Groups.Count) + courses.Count;
         var alive = new HashSet<string>();
-        foreach (var c in courses)
+        for (int ci = 0; ci < ordered.Count; ci++)
         {
             ct.ThrowIfCancellationRequested();
-            await SyncCourseAsync(t, link, c, ct);
+            var (c, top, sub) = ordered[ci];
+            await SyncCourseAsync(t, link, c, ci + 1, top, sub, ct);
             if (c.NotionPageId != null) alive.Add(c.NotionPageId);
             Progress?.Invoke($"«{c.Name}» ({++done}/{total})");
             var groups = c.Groups.ToList(); // المكتبة ممكن تتغير وإحنا مستنيين نوشن
@@ -260,17 +325,33 @@ public sealed class NotionSync
     private static bool IsGone(NotionException ex) =>
         ex.Status == 404 || (ex.Status == 400 && (ex.Message.Contains("archived", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("trash", StringComparison.OrdinalIgnoreCase)));
 
-    private async Task SyncCourseAsync(Topic t, NotionTopicLink link, Course c, CancellationToken ct)
+    public static string OldLayoutMessage(Topic t) => $"قاعدة «{t.Name}» في نوشن بالشكل القديم — أعد بناءها بالشكل الجديد (📤 نوشن ← 🧱 أعد البناء).";
+
+    /// <summary>كورسات الموضوع بنفس ترتيب شجرة مسار: كل مصدر (مصادره الفرعية الأول وبعدين كورساته)، وبعدها الكورسات اللي تحت الموضوع على طول.</summary>
+    public List<(Course Course, Place? Top, Place? Sub)> TreeOrder(Topic t)
+    {
+        var list = new List<(Course, Place?, Place?)>();
+        foreach (var top in _lib.TopPlacesOf(t))
+        {
+            foreach (var sub in _lib.ChildrenOf(top))
+                foreach (var c in _lib.CoursesInPlace(sub)) list.Add((c, top, sub));
+            foreach (var c in _lib.CoursesInPlace(top)) list.Add((c, top, null));
+        }
+        foreach (var c in _lib.DirectCoursesOf(t)) list.Add((c, null, null));
+        foreach (var c in _lib.CoursesOf(t)) if (!list.Any(x => x.Item1 == c)) list.Add((c, _lib.PlaceOf(c), null));
+        return list;
+    }
+
+    private async Task SyncCourseAsync(Topic t, NotionTopicLink link, Course c, int order, Place? top, Place? sub, CancellationToken ct)
     {
         if (c.NotionPageId != null && c.NotionDsId != link.CoursesDsId)
         {
-            // الكورس اتنقل من موضوع تاني مربوط: صفه القديم يتعلّم، ويتعمل صف هنا
+            // الكورس اتنقل من موضوع تاني مربوط: صفه القديم يتعلّم، ويتعمل صف هنا بمحاضراته
             await MarkRemovedAsync(c.NotionPageId, ct);
-            c.NotionPageId = null;
-            c.NotionDsId = null;
+            ResetCourse(c);
             LibraryChanged = true;
         }
-        var props = CourseProps(c);
+        var props = CourseProps(c, order, top, sub);
         string h = Hash(props.ToJsonString());
         if (c.NotionPageId == null)
         {
@@ -282,43 +363,58 @@ public sealed class NotionSync
             _state.Hash[id] = h;
             _state.Known[id] = $"{t.Id}|c|{c.Id}";
             Changes.Add($"كورس جديد في نوشن: «{c.Name}»");
-            return;
         }
-        _state.Known[c.NotionPageId] = $"{t.Id}|c|{c.Id}";
-        if (_state.Detached.Contains(c.NotionPageId)) return;
-        if (_state.Hash.TryGetValue(c.NotionPageId, out var old) && old == h) return;
-        try
+        else
         {
-            await _api.UpdatePageAsync(c.NotionPageId, props, ct);
-            _state.Hash[c.NotionPageId] = h;
-            Changes.Add($"اتحدّث «{c.Name}»");
+            _state.Known[c.NotionPageId] = $"{t.Id}|c|{c.Id}";
+            if (_state.Detached.Contains(c.NotionPageId)) return;
+            if (!_state.Hash.TryGetValue(c.NotionPageId, out var old) || old != h)
+            {
+                try
+                {
+                    await _api.UpdatePageAsync(c.NotionPageId, props, ct);
+                    _state.Hash[c.NotionPageId] = h;
+                    Changes.Add($"اتحدّث «{c.Name}»");
+                }
+                catch (NotionException ex) when (IsGone(ex))
+                {
+                    _state.Detached.Add(c.NotionPageId);
+                    Changes.Add($"صف «{c.Name}» اتشال من نوشن — مش هيترجع لوحده (🔄 زامن من الأول لو عايزه)");
+                    return;
+                }
+            }
         }
-        catch (NotionException ex) when (IsGone(ex))
+        // جدول محاضرات الكورس جوه صفحته
+        if (c.NotionLecturesDsId == null)
         {
-            _state.Detached.Add(c.NotionPageId);
-            Changes.Add($"صف «{c.Name}» اتشال من نوشن — مش هيترجع لوحده (🔄 زامن من الأول لو عايزه)");
+            var (ldb, lds) = await _api.CreateDatabaseAsync(c.NotionPageId!, "المحاضرات", "📖", LecturesSchema(), ct);
+            await ConfigureViewAsync(ldb, lds, LOrder, null, ct);
+            c.NotionLecturesDbId = ldb;
+            c.NotionLecturesDsId = lds;
+            LibraryChanged = true;
         }
     }
 
     private async Task SyncLectureAsync(Topic t, NotionTopicLink link, Course c, LectureGroup g, int order, CancellationToken ct)
     {
-        if (c.NotionPageId == null || _state.Detached.Contains(c.NotionPageId)) return;
-        if (g.NotionPageId != null && g.NotionDsId != link.LecturesDsId)
+        if (c.NotionPageId == null || c.NotionLecturesDsId == null || _state.Detached.Contains(c.NotionPageId)) return;
+        string lds = c.NotionLecturesDsId;
+        if (g.NotionPageId != null && g.NotionDsId != lds)
         {
             await MarkRemovedAsync(g.NotionPageId, ct);
             ResetLecture(g);
         }
-        var props = LectureProps(c, g, order);
+        var props = LectureProps(g, order);
         int rank = Rank(g);
         if (g.NotionPageId == null)
         {
             // الخطة لو جاية من موضوع تاني (أو اتكتبت هنا قبل الربط) بتتبعت مع الصف
             if (g.Plan != null) foreach (var kv in PlanProps(g.Plan)) props[kv.Key] = kv.Value!.DeepClone();
-            string id = await _api.CreatePageAsync(new JsonObject { ["type"] = "data_source_id", ["data_source_id"] = link.LecturesDsId }, props, null, null, ct);
+            string id = await _api.CreatePageAsync(new JsonObject { ["type"] = "data_source_id", ["data_source_id"] = lds }, props, null, null, ct);
             g.NotionPageId = id;
-            g.NotionDsId = link.LecturesDsId;
+            g.NotionDsId = lds;
             LibraryChanged = true;
-            _state.Hash[id] = Hash(LectureProps(c, g, order).ToJsonString());
+            _state.Hash[id] = Hash(LectureProps(g, order).ToJsonString());
             _state.Rank[id] = rank;
             _state.Known[id] = $"{t.Id}|l|{g.Id}";
             _state.PendingPlan.Remove(g.Id);
@@ -431,14 +527,25 @@ public sealed class NotionSync
 
     // ---------------- القيم ----------------
 
-    private static double Fraction(IEnumerable<VideoItem> videos)
+    /// <summary>
+    /// التقدّم: اللي اتشاف كامل + مكانك في اللي بدأته (بالمدة، أو بالعدد لو المدد مش معروفة).
+    /// مايوصلش 100% غير لما كله يتعلّم «اتشاف» — عشان النسبة والحالة يقولوا نفس الحاجة.
+    /// </summary>
+    public static double Fraction(IEnumerable<VideoItem> videos)
     {
         var list = videos.ToList();
         if (list.Count == 0) return 0;
-        long total = list.Sum(v => v.DurationMs);
-        if (total <= 0) return (double)list.Count(v => v.Watched) / list.Count;
-        long seen = list.Sum(v => v.Watched ? v.DurationMs : Math.Clamp(v.LastPositionMs, 0, v.DurationMs));
-        return Math.Clamp((double)seen / total, 0, 1);
+        if (list.All(v => v.Watched)) return 1;
+        double f;
+        if (list.Any(v => v.DurationMs <= 0))
+            f = list.Sum(v => v.Watched ? 1.0 : v.DurationMs > 0 ? Math.Clamp((double)v.LastPositionMs / v.DurationMs, 0, 0.95) : 0) / list.Count;
+        else
+        {
+            long total = list.Sum(v => v.DurationMs);
+            long seen = list.Sum(v => v.Watched ? v.DurationMs : Math.Clamp(v.LastPositionMs, 0, (long)(v.DurationMs * 0.95)));
+            f = (double)seen / total;
+        }
+        return Math.Min(Math.Floor(f * 100) / 100, 0.99);
     }
 
     private static bool AnyStarted(IEnumerable<VideoItem> videos) => videos.Any(v => v.Watched || v.LastPositionMs > 0);
@@ -453,29 +560,26 @@ public sealed class NotionSync
         : c.Status == LecturePlayer.Data.CourseStatus.Planned ? Planned
         : NotStarted;
 
-    private string? SourceOf(Course c) => _lib.PlaceOf(c) is { } p ? (_lib.ParentOf(p) is { } pp ? pp.Name : p.Name) : null;
-
     private static string SelectSafe(string s) => s.Replace(",", "،").Trim() is { Length: > 0 } x ? (x.Length > 90 ? x[..90] : x) : "—";
 
-    private JsonObject CourseProps(Course c)
+    private JsonObject CourseProps(Course c, int order, Place? top, Place? sub)
     {
         var study = StudyOf?.Invoke(c) ?? (0, null);
-        string? teacher = c.Instructor;
-        if (string.IsNullOrWhiteSpace(teacher) && _lib.PlaceOf(c) is { } p && _lib.ParentOf(p) != null) teacher = p.Name; // مصدر فرعي = المدرّس
         return new JsonObject
         {
             [CTitle] = NotionClient.TitleProp(c.Name),
-            [CSource] = NotionClient.SelectProp(SourceOf(c) is { } s ? SelectSafe(s) : null),
-            [CTeacher] = NotionClient.TextProp(teacher),
+            [COrder] = NotionClient.NumberProp(order),
+            [CSource] = NotionClient.SelectProp(top != null ? SelectSafe(top.Name) : NoSource),
+            [CSubSource] = NotionClient.SelectProp(sub != null ? SelectSafe(sub.Name) : null),
             [CStatus] = NotionClient.SelectProp(CourseState(c)),
-            [CProgress] = NotionClient.NumberProp(Math.Round(Fraction(c.AllVideos), 2)),
+            [CProgress] = NotionClient.NumberProp(Fraction(c.AllVideos)),
+            [CWatched] = NotionClient.TextProp($"{c.WatchedCount} من {c.VideoCount}"),
             [CLectures] = NotionClient.NumberProp(c.Groups.Count),
-            [CVideos] = NotionClient.NumberProp(c.VideoCount),
-            [CWatched] = NotionClient.NumberProp(c.WatchedCount),
             [CHours] = NotionClient.NumberProp(Math.Round(c.TotalDurationMs / 3_600_000.0, 1)),
             [CStudy] = NotionClient.NumberProp(Math.Round(study.Seconds / 3600.0, 1)),
             [CLast] = NotionClient.DateProp(study.LastUtc?.ToLocalTime().Date),
             [CDeadline] = NotionClient.DateProp(c.Deadline?.Date),
+            [CTeacher] = NotionClient.TextProp(c.Instructor),
             [CLink] = NotionClient.UrlProp(LinkOf(c)),
         };
     }
@@ -491,17 +595,16 @@ public sealed class NotionSync
         return null;
     }
 
-    private static JsonObject LectureProps(Course c, LectureGroup g, int order)
+    private static JsonObject LectureProps(LectureGroup g, int order)
     {
         DateTime? last = g.Videos.Where(v => v.Watched || v.LastPositionMs > 0).Select(v => (DateTime?)v.UpdatedUtc).DefaultIfEmpty(null).Max();
         return new JsonObject
         {
             [LTitle] = NotionClient.TitleProp(g.Name),
-            [LCourse] = NotionClient.RelationProp(c.NotionPageId!),
             [LOrder] = NotionClient.NumberProp(order),
             [LStatus] = NotionClient.SelectProp(LectureState(g)),
-            [LProgress] = NotionClient.NumberProp(Math.Round(Fraction(g.Videos), 2)),
-            [LVideos] = NotionClient.NumberProp(g.Videos.Count),
+            [LProgress] = NotionClient.NumberProp(Fraction(g.Videos)),
+            [LVideos] = NotionClient.TextProp($"{g.WatchedCount} من {g.Videos.Count}"),
             [LMinutes] = NotionClient.NumberProp(Math.Round(g.TotalDurationMs / 60_000.0)),
             [LLast] = NotionClient.DateProp(last is { Year: > 2000 } l ? l.ToLocalTime().Date : null),
         };
@@ -528,8 +631,16 @@ public sealed class NotionSync
         var link = t.Notion ?? throw new InvalidOperationException("الموضوع مش مربوط بنوشن");
         var byPage = _lib.CoursesOf(t).SelectMany(c => c.Groups).Where(g => g.NotionPageId != null)
             .GroupBy(g => g.NotionPageId!).ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+        var rows = new List<JsonObject>();
+        if (link.Layout < CurrentLayout) rows.AddRange(await _api.QueryAllAsync(link.LecturesDsId, ct));
+        else
+            foreach (var c in _lib.CoursesOf(t).Where(c => c.NotionLecturesDsId != null && c.NotionPageId != null && !_state.Detached.Contains(c.NotionPageId)).ToList())
+            {
+                try { rows.AddRange(await _api.QueryAllAsync(c.NotionLecturesDsId!, ct)); }
+                catch (NotionException ex) when (IsGone(ex)) { }
+            }
         int changed = 0;
-        foreach (var row in await _api.QueryAllAsync(link.LecturesDsId, ct))
+        foreach (var row in rows)
         {
             string id = row["id"]?.GetValue<string>() ?? "";
             if (!byPage.TryGetValue(id, out var g)) continue;

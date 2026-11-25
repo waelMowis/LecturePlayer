@@ -53,7 +53,9 @@ internal sealed partial class MainForm
             Check(t.Notion != null && fake.Sources.Count == 2, "page + 2 databases");
             Check(c.NotionPageId != null && c.Groups.All(g => g.NotionPageId != null) && c.AllVideos.All(v => v.NotionBlockId != null), "rows + to-dos created");
             Check(fake.Pages[c.NotionPageId!].Props["المصدر"]?["select"]?["name"]?.GetValue<string>() == "ROUTE", "source column");
-            Check(fake.Sources[t.Notion!.LecturesDsId].Schema["الحضور"] != null, "attendance column");
+            Check(t.Notion!.Layout == NotionSync.CurrentLayout && c.NotionLecturesDsId != null && fake.Sources[c.NotionLecturesDsId].Schema["الحضور"] != null
+                  && fake.Sources[c.NotionLecturesDsId].ParentPage == c.NotionPageId, "lectures table inside the course page, with attendance");
+            Check(fake.Views.Values.Any(v => v.DbId == t.Notion.CoursesDbId && v.GroupByPropertyId != null && v.Sorts != null), "courses grouped by source, sorted like the tree");
             Check(_tree.RowOf(_topicNodes[t])?.Meta == "📓", "topic shows notion mark");
             Check(_dirty, "library marked dirty (ids saved)");
 
@@ -159,6 +161,20 @@ internal sealed partial class MainForm
             Check(local2.Topics.First(x => x.Id == t.Id).Notion?.PageId == t.Notion.PageId && mc.NotionPageId == c.NotionPageId
                   && mc.Groups[1].Plan?.Search == true && mc.AllVideos.All(v => v.NotionBlockId != null), "merge keeps notion ids + plan");
 
+            // الشكل القديم ← «أعد البناء»: القديمة للسلة والخطة بتتنقل
+            t.Notion.Layout = 1;
+            string oldPage = t.Notion.PageId;
+            using (var m = new ContextMenuStrip())
+            {
+                BuildNodeMenu(t, m.Items);
+                var first = m.Items.OfType<ToolStripMenuItem>().First(x => x.Text!.StartsWith("📤  نوشن")).DropDownItems.OfType<ToolStripMenuItem>().First();
+                Check(first.Text!.Contains("أعد البناء"), "old layout: rebuild first in menu: " + first.Text);
+            }
+            var rebuild = RunNotionAsync("إعادة بناء", (s, ct) => s.RebuildTopicAsync(t, root, ct), quiet: true);
+            Check(Until(() => rebuild.IsCompleted, 30_000) && rebuild.Result, "rebuild: " + string.Join(" | ", _notionLog.TakeLast(2)));
+            Check(fake.Pages[oldPage].Trash && t.Notion!.PageId != oldPage && t.Notion.Layout == NotionSync.CurrentLayout, "old page trashed, new layout");
+            Check(fake.Pages[c.Groups[1].NotionPageId!].Props["SEARCH"]?["checkbox"]?.GetValue<bool>() == true, "plan carried to rebuilt page");
+
             // فك الربط ← القايمة ترجع «أنشئ»، ونوشن زي ما هو
             int pagesBefore = fake.Pages.Count(p => !p.Value.Trash);
             t.Notion = null;
@@ -171,7 +187,7 @@ internal sealed partial class MainForm
 
             // مفتاح غلط ← رسالة مفهومة (من غير رسايل في الفحص: quiet)
             _settings.NotionToken = "wrong-token-123";
-            t.Notion = new NotionTopicLink { PageId = root, CoursesDsId = fake.Sources.Keys.First(), LecturesDsId = fake.Sources.Keys.Last() };
+            t.Notion = new NotionTopicLink { Layout = NotionSync.CurrentLayout, PageId = root, CoursesDsId = fake.Sources.Keys.First() };
             var bad = RunNotionAsync("مفتاح غلط", (s, ct) => s.SyncTopicAsync(t, ct), quiet: true);
             Check(Until(() => bad.IsCompleted, 10_000) && !bad.Result && _notionLog.Last().Contains("مفتاح"), "bad token logged: " + _notionLog.Last());
             Console.WriteLine($"SMOKE notion: ok ({fake.Calls} api calls, throttle retried)");
