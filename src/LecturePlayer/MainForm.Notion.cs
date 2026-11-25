@@ -28,6 +28,7 @@ internal sealed partial class MainForm
     private bool SmokeShowDialog(FormKit kit, string shot)
     {
         if (!SmokeDialogShots) return false;
+        kit.Prepare();
         kit.Form.StartPosition = FormStartPosition.CenterParent;
         kit.Form.Show(this);
         var until = DateTime.UtcNow.AddMilliseconds(700);

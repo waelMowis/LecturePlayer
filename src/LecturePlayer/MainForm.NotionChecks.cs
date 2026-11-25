@@ -106,6 +106,7 @@ internal sealed partial class MainForm
             Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.StartsWith("📓") && l.Text.Contains("Lecture 2")), "home shows notion row");
             // صور: الشجرة بعلامات الخطة والرئيسية، وشبابيك الموعد والتوزيع والتجهيز
             GoHome();
+            if (_shelfMode) ShowShelf(false);
             if (_groupNodes.TryGetValue(g2, out var g2n)) { g2n.EnsureVisible(); _tree.SelectedNode = g2n; }
             Until(() => false, 600); SaveSmokeShot(this, "notion-home-tree");
             SmokeDialogShots = true;

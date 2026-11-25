@@ -213,12 +213,18 @@ internal sealed class FormKit : IDisposable
 
     public DialogResult Show(IWin32Window owner)
     {
+        Prepare();
+        return Form.ShowDialog(owner);
+    }
+
+    /// <summary>المقاس النهائي (بيتعمل لوحده في Show؛ للفحص اللي بيعرض الشباك من غير ما يستنى).</summary>
+    public void Prepare()
+    {
         CloseCard();
         int content = _outerY + Margin - CardGap;
         int max = (int)(Screen.FromPoint(Cursor.Position).WorkingArea.Height * 0.85) - 40;
         Form.ClientSize = new Size(_width, Math.Min(content + _footer.Height, Math.Max(300, max)));
         Form.ResumeLayout(false);
-        return Form.ShowDialog(owner);
     }
 
     public void Dispose() => Form.Dispose();
