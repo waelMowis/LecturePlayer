@@ -99,6 +99,12 @@ internal sealed partial class MainForm
             r = Run(() => ScreenRecorder.RunAsync(ff, $"-hide_banner -v error -y -ss 1 -i \"{final}\" -frames:v 1 \"{png2}\"", 30_000));
             Check(r.Code == 0 && File.Exists(png2), "final frame: " + r.Err);
             SaveSmokeShotFile(png2, "record-final");
+            // لو الفقاعة كانت مستخبية: «الشاشة + الكاميرا صغيرة» بتتركّب دايرة من ملف الكاميرا (بنفس الـ encoder اللي على الجهاز)
+            string circ = Path.Combine(work, "circle.mp4"), png3 = Path.Combine(work, "circle.png");
+            Run(async () => { await RecordingEdit.ComposeAsync(ff, LastRecordingScreen!, LastRecordingCamera, RecordingEdit.Scene.ScreenWithCam, RecordingEdit.Corner.TopLeft, 0.28, Array.Empty<(string, double)>(), RecordingEdit.EncoderArgs(enc), circ, camInScreen: false); return 0; });
+            r = Run(() => ScreenRecorder.RunAsync(ff, $"-hide_banner -v error -y -ss 1 -i \"{circ}\" -frames:v 1 \"{png3}\"", 30_000));
+            Check(r.Code == 0 && File.Exists(png3), "circle camera compose: " + r.Err);
+            SaveSmokeShotFile(png3, "record-circle");
             Console.WriteLine($"SMOKE record: ok in {sw.Elapsed.TotalSeconds:0}s");
         }
         finally

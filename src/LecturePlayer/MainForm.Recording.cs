@@ -308,7 +308,8 @@ internal partial class MainForm
         {
             ShowStatus("⏺ بجهّز الفيديو…", 60);
             string composed = Path.Combine(s.Dir, "final.mp4");
-            await RecordingEdit.ComposeAsync(ff, screen!, camFile, s.Scene, RecordingEdit.Corner.BottomRight, 0.32, audio, RecordingEdit.EncoderArgs(s.Encoder!), composed);
+            bool camInScreen = s.Choice.Scene == RecordingEdit.Scene.ScreenWithCam;   // الفقاعة كانت ظاهرة في الشاشة ولا مستخبية
+            await RecordingEdit.ComposeAsync(ff, screen!, camFile, s.Scene, RecordingEdit.Corner.BottomRight, s.Scene == RecordingEdit.Scene.ScreenWithCam ? 0.28 : 0.32, audio, RecordingEdit.EncoderArgs(s.Encoder!), composed, camInScreen);
             double dur = await ScreenRecorder.DurationAsync(ff, composed);
             // تعديل بعد التسجيل: قص ومكان الكاميرا والمشهد
             var edit = SmokeRecordEdit ?? (quick ? new RecordEdit(s.Choice.Title, 0, 0, new(), s.Scene, RecordingEdit.Corner.BottomRight) : PostRecordDialog(s.Choice.Title, dur, camFile != null, s.Scene));
@@ -316,7 +317,7 @@ internal partial class MainForm
             if (camFile != null && (edit.Scene != s.Scene || edit.Corner != RecordingEdit.Corner.BottomRight))
             {
                 string re = Path.Combine(s.Dir, "final2.mp4");
-                await RecordingEdit.ComposeAsync(ff, screen!, camFile, edit.Scene, edit.Corner, 0.32, audio, RecordingEdit.EncoderArgs(s.Encoder!), re);
+                await RecordingEdit.ComposeAsync(ff, screen!, camFile, edit.Scene, edit.Corner, edit.Scene == RecordingEdit.Scene.ScreenWithCam ? 0.28 : 0.32, audio, RecordingEdit.EncoderArgs(s.Encoder!), re, camInScreen);
                 composed = re;
             }
             var keep = RecordingEdit.Keep(dur, edit.Start, edit.End, edit.Cuts);
@@ -404,7 +405,7 @@ internal partial class MainForm
         if (camera)
         {
             sc = kit.Row("المشهد", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
-            sc.Items.AddRange(new object[] { "الشاشة + الكاميرا صغيرة (زي ما كانت)", "الكاميرا كبيرة + الشاشة صغيرة", "الكاميرا بس", "الشاشة بس" });
+            sc.Items.AddRange(new object[] { "الشاشة + الكاميرا صغيرة", "الكاميرا كبيرة + الشاشة صغيرة", "الكاميرا بس", "الشاشة بس" });
             sc.SelectedIndex = (int)scene;
             corner = kit.Row("مكان الصغير", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
             corner.Items.AddRange(new object[] { "تحت يمين", "تحت شمال", "فوق يمين", "فوق شمال" });

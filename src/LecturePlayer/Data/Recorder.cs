@@ -243,11 +243,12 @@ public static class RecordingEdit
     /// audio = (ملف، تأخير عن بداية الصورة بالثواني).
     /// </summary>
     public static async Task ComposeAsync(string ffmpeg, string screen, string? camera, Scene scene, Corner corner, double camSize,
-        IReadOnlyList<(string File, double Offset)> audio, string encoderArgs, string outFile)
+        IReadOnlyList<(string File, double Offset)> audio, string encoderArgs, string outFile, bool camInScreen = true)
     {
         var args = new StringBuilder("-hide_banner -v error -y ");
         var inputs = new List<string> { screen };
-        bool useCam = camera != null && File.Exists(camera) && scene != Scene.ScreenWithCam && scene != Scene.ScreenOnly;
+        // camInScreen = فقاعة الكاميرا كانت ظاهرة في تسجيل الشاشة نفسه؛ لو لأ و«الشاشة + الكاميرا صغيرة» ← نركّبها دايرة من ملف الكاميرا
+        bool useCam = camera != null && File.Exists(camera) && scene != Scene.ScreenOnly && (scene != Scene.ScreenWithCam || !camInScreen);
         if (useCam) inputs.Add(camera!);
         foreach (var i in inputs) args.Append($"-i {Q(i)} ");
         foreach (var (f, off) in audio) args.Append(off > 0.01 ? $"-itsoffset {F(off)} -i {Q(f)} " : $"-i {Q(f)} ");
@@ -256,6 +257,16 @@ public static class RecordingEdit
         if (useCam)
         {
             if (scene == Scene.CamOnly) { fc.Add("[1:v]scale=trunc(iw/2)*2:trunc(ih/2)*2[v]"); vmap = "[v]"; }
+            else if (scene == Scene.ScreenWithCam)
+            {
+                // دايرة الكاميرا في الركن، حجمها نسبة من طول الشاشة
+                string pos = Pos(corner);
+                fc.Add("[1:v]crop='min(iw,ih)':'min(iw,ih)'[sq];" +
+                       $"[sq][0:v]scale2ref=w='trunc(main_h*{F(camSize)}/2)*2':h='trunc(main_h*{F(camSize)}/2)*2'[c0][scr];" +
+                       "[c0]format=yuva444p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(lte(hypot(X-W/2,Y-H/2),W/2-1),255,0)'[cam];" +
+                       $"[scr][cam]overlay={pos}:format=auto,format=yuv420p[v]");
+                vmap = "[v]";
+            }
             else
             {
                 // الكاميرا تملا الصورة والشاشة صغيرة في الركن
