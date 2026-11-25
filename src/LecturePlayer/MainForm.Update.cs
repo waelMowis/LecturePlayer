@@ -152,7 +152,7 @@ internal sealed partial class MainForm
             var notes = kit.Full(new TextBox
             {
                 Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, WordWrap = true,
-                Text = Truncate(r.Notes.Replace("\r\n", "\n").Replace("\n", "\r\n"), 4000),
+                Text = Truncate(PlainNotes(r.Notes).Replace("\n", "\r\n"), 4000),
                 RightToLeft = RightToLeft.Yes
             }, 170);
             notes.SelectionStart = 0;
@@ -164,6 +164,27 @@ internal sealed partial class MainForm
 
         kit.Buttons("حدّث دلوقتي", "بعدين", ("تخطّى الإصدار ده", () => kit.Form.DialogResult = DialogResult.Ignore));
         return kit.Show(this);
+    }
+
+    /// <summary>ملاحظات الإصدار (Markdown) لنص عادي يتقري: عناوين وعلامات • من غير ## ولا **.</summary>
+    internal static string PlainNotes(string md)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var raw in md.Replace("\r\n", "\n").Split('\n'))
+        {
+            string line = raw.TrimEnd();
+            int indent = line.Length - line.TrimStart().Length;
+            string t = line.Trim();
+            if (t.StartsWith("### ")) t = "▸ " + t[4..];
+            else if (t.StartsWith("## ")) { if (sb.Length > 0) sb.Append('\n'); t = "■ " + t[3..]; }
+            else if (t.StartsWith("# ")) t = t[2..];
+            else if (t.StartsWith("- ") || t.StartsWith("* ")) t = (indent >= 2 ? "      ◦ " : "• ") + t[2..];
+            t = System.Text.RegularExpressions.Regex.Replace(t, @"\*\*(.+?)\*\*", "$1");
+            t = System.Text.RegularExpressions.Regex.Replace(t, @"`([^`]+)`", "$1");
+            t = System.Text.RegularExpressions.Regex.Replace(t, @"\[([^\]]+)\]\([^)]+\)", "$1");
+            sb.Append(t).Append('\n');
+        }
+        return System.Text.RegularExpressions.Regex.Replace(sb.ToString(), "\n{3,}", "\n\n").Trim();
     }
 
     private async Task DownloadAndInstallAsync(UpdateChecker.Release r, string repo)

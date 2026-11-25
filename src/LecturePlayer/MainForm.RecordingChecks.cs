@@ -26,6 +26,20 @@ internal sealed partial class MainForm
             try { Check(RecordSetupDialog(new() { "كاميرا الفحص" }, AudioRecorder.Microphones(), null) == null, "setup dialog (shot)"); }
             finally { SmokeDialogShots = false; }
 
+            // ملاحظات التحديث من غير ## و**، واختيار مقاس الكاميرا، وترتيب شاشات DXGI، ومستوى المايك
+            Check(PlainNotes("## عنوان\n\n- **مهم** كلام `كود`\n  - فرعي") == "■ عنوان\n\n• مهم كلام كود\n      ◦ فرعي", "release notes as plain text: " + PlainNotes("## عنوان\n\n- **مهم** كلام `كود`\n  - فرعي"));
+            string listing = "[dshow @ 0] DirectShow video device options (from video devices)\n[dshow @ 0]  Pin \"Capture\"\n" +
+                "[dshow @ 0]   vcodec=mjpeg  min s=3840x2160 fps=30 max s=3840x2160 fps=30\n" +
+                "[dshow @ 0]   vcodec=mjpeg  min s=1280x720 fps=5 max s=1280x720 fps=30\n" +
+                "[dshow @ 0]   pixel_format=yuyv422  min s=1280x720 fps=5 max s=1280x720 fps=10\n" +
+                "[dshow @ 0]   pixel_format=yuyv422  min s=640x480 fps=5 max s=640x480 fps=30\n";
+            Check(CameraFeed.PickMode(listing) == "-video_size 1280x720 -framerate 30 -vcodec mjpeg", "camera mode pick: " + CameraFeed.PickMode(listing));
+            Check(CameraFeed.PickMode("[dshow @ 0]   pixel_format=yuyv422  min s=640x480 fps=5 max s=640x480 fps=30\n") == "", "camera mode: keep default when no HD");
+            Console.WriteLine("SMOKE record: dxgi outputs [" + string.Join(", ", DxgiOutputs.FirstAdapterOutputs()) + "], screens [" + string.Join(", ", Screen.AllScreens.Select(x => x.DeviceName)) + "]");
+            var pcm = new byte[8]; BitConverter.GetBytes((short)16384).CopyTo(pcm, 0);
+            Check(Math.Abs(AudioRecorder.Peak(new NAudio.Wave.WaveFormat(48000, 16, 2), pcm, 8) - 0.5f) < 0.01f, "mic level from 16-bit PCM");
+            Check(AudioRecorder.Peak(new NAudio.Wave.WaveFormat(48000, 16, 2), new byte[8], 8) == 0, "silence = 0");
+
             // زراير الشريط الجانبي: سبورة (قايمة) وتسجيل
             Check(_activityBoard.Caption == "سبورة" && _activityRecord.Caption == "تسجيل", "rail buttons");
             ShowBoardActivityMenu(_activityBoard);

@@ -67,12 +67,34 @@ public sealed class AudioRecorder : IDisposable
     public void Begin() { lock (_lock) { _active = true; _seg.Restart(); _segBytes = 0; } }
     public void Pause() { lock (_lock) { FillTo(_seg.Elapsed); _active = false; _seg.Reset(); } }
 
+    /// <summary>أعلى مستوى من ساعة Begin (0..1) — لو فضل صفر يبقى المايك بيبعت سكوت تام (مقفول/ممنوع في الخصوصية).</summary>
+    public float MaxLevel { get; private set; }
+
+    /// <summary>أعلى قيمة في البافر (0..1) — float أو PCM 16/24/32، وكمان WAVE_FORMAT_EXTENSIBLE اللي WASAPI بيرجعه عادةً.</summary>
+    internal static float Peak(WaveFormat f, byte[] buf, int count)
+    {
+        bool isFloat = f.Encoding == WaveFormatEncoding.IeeeFloat ||
+                       (f is WaveFormatExtensible x && x.SubFormat == new Guid("00000003-0000-0010-8000-00aa00389b71"));
+        int bytes = Math.Max(1, f.BitsPerSample / 8);
+        int step = bytes * Math.Max(1, f.Channels);
+        float peak = 0;
+        for (int i = 0; i + bytes <= count; i += step)
+        {
+            float v = isFloat && bytes == 4 ? BitConverter.ToSingle(buf, i)
+                : bytes == 2 ? BitConverter.ToInt16(buf, i) / 32768f
+                : bytes == 3 ? ((buf[i] | (buf[i + 1] << 8) | ((sbyte)buf[i + 2] << 16)) / 8388608f)
+                : bytes == 4 ? BitConverter.ToInt32(buf, i) / 2147483648f : 0;
+            v = Math.Abs(v);
+            if (v > peak && !float.IsNaN(v)) peak = v;
+        }
+        return Math.Min(1, peak);
+    }
+
     private void OnData(object? s, WaveInEventArgs e)
     {
-        float peak = 0;
-        if (_w != null && _w.WaveFormat.Encoding == WaveFormatEncoding.IeeeFloat)
-            for (int i = 0; i + 4 <= e.BytesRecorded; i += 4 * Math.Max(1, _w.WaveFormat.Channels)) peak = Math.Max(peak, Math.Abs(BitConverter.ToSingle(e.Buffer, i)));
+        float peak = _w != null ? Peak(_w.WaveFormat, e.Buffer, e.BytesRecorded) : 0;
         Level = peak;
+        if (_active && peak > MaxLevel) MaxLevel = peak;
         lock (_lock)
         {
             if (!_active || _w == null || e.BytesRecorded == 0) return;
@@ -144,12 +166,49 @@ public sealed class CameraFeed : IDisposable
 
     public CameraFeed(string ffmpeg) { _ffmpeg = ffmpeg; }
 
+    /// <summary>خيارات الكاميرا (المقاس/الكودك) — من ModeAsync. فاضية = الافتراضي بتاع الكاميرا (ممكن 4K وتقيل).</summary>
+    public string InputOptions { get; set; } = "";
+
+    /// <summary>
+    /// بيختار مقاس مناسب من اللي الكاميرا بتدعمه: 1280×720 (بعده 1920×1080) بـ 30 فريم، وMJPEG لو موجود (أخف على الـ USB).
+    /// كاميرات الـ 4K بتشتغل افتراضيًا على أعلى مقاس، وده بيتقل التسجيل والملف من غير فايدة للفقاعة.
+    /// </summary>
+    public static async Task<string> ModeAsync(string ffmpeg, string device)
+    {
+        try
+        {
+            var r = await ScreenRecorder.RunAsync(ffmpeg, $"-hide_banner -list_options true -f dshow -i video=\"{device.Replace("\"", "")}\"", 15_000);
+            return PickMode(r.Err);
+        }
+        catch { return ""; }
+    }
+
+    internal static string PickMode(string listing)
+    {
+        var modes = new List<(string Kind, string Value, int W, int H, double Fps)>();
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(listing,
+                     @"(vcodec|pixel_format)=(\S+)\s+min s=\d+x\d+ fps=[\d.]+\s+max s=(\d+)x(\d+) fps=([\d.]+)"))
+            modes.Add((m.Groups[1].Value, m.Groups[2].Value, int.Parse(m.Groups[3].Value), int.Parse(m.Groups[4].Value),
+                double.Parse(m.Groups[5].Value, System.Globalization.CultureInfo.InvariantCulture)));
+        foreach (var (w, h) in new[] { (1280, 720), (1920, 1080) })
+        {
+            var ok = modes.Where(x => x.W == w && x.H == h && x.Fps >= 29).ToList();
+            if (ok.Count == 0) continue;
+            var best = ok.FirstOrDefault(x => x.Kind == "vcodec" && x.Value == "mjpeg");
+            if (best.Value == null) best = ok.FirstOrDefault(x => x.Kind == "pixel_format");
+            if (best.Value == null) continue;
+            string fmt = best.Kind == "vcodec" ? $"-vcodec {best.Value}" : $"-pixel_format {best.Value}";
+            return $"-video_size {w}x{h} -framerate 30 {fmt}";
+        }
+        return "";
+    }
+
     /// <summary>بيشغّل الكاميرا. file = ملف جزء جديد (أو null = معاينة بس).</summary>
     public void Start(string device, bool mirror, string? file, string encoderArgs)
     {
         Stop();
         Device = device;
-        string input = TestInput ?? $"-f dshow -rtbufsize 200M -i video=\"{device.Replace("\"", "")}\"";
+        string input = TestInput ?? $"-f dshow -rtbufsize 200M {InputOptions} -i video=\"{device.Replace("\"", "")}\"";
         string prev = $"scale={PreviewW}:{PreviewH}:force_original_aspect_ratio=increase,crop={PreviewW}:{PreviewH}{(mirror ? ",hflip" : "")},format=bgra";
         // الملف بيتسجل زي المعاينة بالظبط (مراية لو المراية شغالة) — اللي بتشوفه هو اللي بيطلع
         string args = file == null

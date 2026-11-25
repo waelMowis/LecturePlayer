@@ -29,6 +29,7 @@ internal partial class MainForm
         public System.Windows.Forms.Timer? Tick;
         public RecordingEdit.Scene Scene;
         public string? Encoder;
+        public bool MicWarned;
     }
 
     private RecSession? _rec;
@@ -236,7 +237,12 @@ internal partial class MainForm
         int mon = Array.IndexOf(screens, scr);
         string dir = Path.Combine(RecordingsDir, ".work", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         // أكتر من شاشة: ترتيب ddagrab ممكن يختلف عن ويندوز — نستخدم gdigrab (أكيد) في الحالة دي
-        string? force = SmokeScreenInput ?? (screens.Length > 1 ? $"-f gdigrab -framerate 30 -draw_mouse 1 -offset_x {area.X} -offset_y {area.Y} -video_size {area.Width & ~1}x{area.Height & ~1} -i desktop" : null);
+        // أكتر من شاشة: ddagrab بيرقّم الشاشات بترتيب كارت الشاشة مش ترتيب ويندوز — بنجيب رقمها من DXGI،
+        // ولو الشاشة مش على أول كارت (أو DXGI مش متاح) نرجع لـ gdigrab (أكيد بس أتقل)
+        int? ddaIndex = screens.Length > 1 ? DxgiOutputs.IndexOf(scr.DeviceName) : 0;
+        if (screens.Length > 1) Log.Info($"recording screen {scr.DeviceName} → ddagrab output {(ddaIndex?.ToString() ?? "none")} ({string.Join(", ", DxgiOutputs.FirstAdapterOutputs())})");
+        string? force = SmokeScreenInput ?? (ddaIndex == null ? $"-f gdigrab -framerate 30 -draw_mouse 1 -offset_x {area.X} -offset_y {area.Y} -video_size {area.Width & ~1}x{area.Height & ~1} -i desktop" : null);
+        if (ddaIndex is { } di) mon = di;
         var rec = new ScreenRecorder(ff, new ScreenRecorder.Options(new ScreenRecorder.Area(area.X, area.Y, area.Width, area.Height, Math.Max(0, mon), scr.Bounds.X, scr.Bounds.Y), 30, dir, ForceInput: force));
         var bar = new RecordBar(c.Camera != null);
         var s = new RecSession { Rec = rec, Choice = c, Dir = dir, Area = area, Bar = bar, Scene = c.Scene };
@@ -253,6 +259,7 @@ internal partial class MainForm
                 if (c.Scene != RecordingEdit.Scene.ScreenWithCam) LayeredWindow.ExcludeFromCapture(s.CamWin); // المشهد هيتركّب بعدين
                 s.CamWin.HideRequested += () => s.CamWin.Visible = false;
                 s.Cam = new CameraFeed(ff) { TestInput = SmokeCameraInput };
+                if (SmokeCameraInput == null) { s.Cam.InputOptions = await CameraFeed.ModeAsync(ff, c.Camera); Log.Info("camera mode: " + (s.Cam.InputOptions.Length > 0 ? s.Cam.InputOptions : "default")); }
                 s.Cam.Frame += f => s.CamWin?.SetFrame(f);
                 s.Cam.Failed += m => BeginInvoke(() => ShowStatus("📷 الكاميرا: " + m, 6));
                 s.Cam.Start(c.Camera, s.CamWin.Mirror, null, "");
@@ -274,7 +281,21 @@ internal partial class MainForm
             bar.Location = new Point(scr.WorkingArea.Left + (scr.WorkingArea.Width - bar.Width) / 2, scr.WorkingArea.Top + 6);
             bar.Command += cmd => OnRecordBar(cmd);
             s.Tick = new System.Windows.Forms.Timer { Interval = 250 };
-            s.Tick.Tick += (_, _) => bar.SetTime(rec.Elapsed, rec.Paused);
+            s.Tick.Tick += (_, _) =>
+            {
+                bar.SetTime(rec.Elapsed, rec.Paused);
+                bool silent = s.Mic != null && rec.Elapsed.TotalSeconds > 4 && s.Mic.MaxLevel < 0.0005f;
+                bar.SetMic(s.Mic?.Level, silent);
+                if (silent && !s.MicWarned)
+                {
+                    // المايك بيبعت أصفار: غالبًا Mute أو ويندوز مانع البرامج من المايك — نقول وهو لسه بيسجل
+                    s.MicWarned = true;
+                    Log.Info("recording: microphone sends pure silence");
+                    ShowBanner("🎙 المايك بيبعت سكوت تام — الصوت مش بيتسجل. اتأكد إن المايك مش مقفول (Mute)، " +
+                        "وإن «إعدادات ويندوز ← الخصوصية ← الميكروفون ← اسمح للبرامج تستخدم المايك» شغالة، أو اختار مايك تاني.",
+                        BannerKind.Warning, "إعدادات المايك", () => { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:privacy-microphone") { UseShellExecute = true }); } catch { } }, seconds: 0, key: "mic-silent");
+                }
+            };
             s.Tick.Start();
             RegisterGlobalHotkeys();
             Log.Info($"recording: {area} via {rec.Source}/{rec.Encoder}, mic={(s.Mic != null)}, system={(s.Sys != null)}, cam={c.Camera ?? "-"} scene={c.Scene}");

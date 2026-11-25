@@ -22,6 +22,8 @@ internal sealed class RecordBar : Form
         _time.MouseMove += (_, e) => { if (e.Button == MouseButtons.Left) Location = new Point(Left + e.X - _drag.X, Top + e.Y - _drag.Y); };
         _p.Controls.Add(_dot);
         _p.Controls.Add(_time);
+        _p.Controls.Add(_mic);
+        new ToolTip().SetToolTip(_mic, "مستوى المايك");
         _pause = Btn("⏸", "إيقاف مؤقت / كمّل (Ctrl+Shift+F10)", "pause");
         Btn("⏹", "إنهاء التسجيل (Ctrl+Shift+F9)", "stop").BackColor = Color.FromArgb(200, 50, 50);
         Btn("🔖", "علامة هنا", "mark");
@@ -33,6 +35,19 @@ internal sealed class RecordBar : Form
         Btn("✕", "إلغاء التسجيل (من غير حفظ)", "cancel");
         _blink.Tick += (_, _) => _dot.Visible = !_dot.Visible || _paused;
         _blink.Start();
+    }
+
+    private readonly Label _mic = new() { AutoSize = false, Size = new Size(30, 32), TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.Gray, Text = "🎙", Font = new Font("Segoe UI Emoji", 11f), Visible = false };
+    private float _shown;
+
+    /// <summary>مستوى المايك: أخضر بيتحرك مع الصوت، وأحمر لو المايك بيبعت سكوت تام.</summary>
+    public void SetMic(float? level, bool silent)
+    {
+        _mic.Visible = level != null;
+        if (level is not { } l) return;
+        _shown = Math.Max(l, _shown * 0.7f);
+        _mic.BackColor = silent ? Color.FromArgb(150, 40, 40)
+            : Color.FromArgb(32 + (int)(Math.Min(1, _shown * 4) * 30), 33 + (int)(Math.Min(1, _shown * 4) * 120), 36 + (int)(Math.Min(1, _shown * 4) * 30));
     }
 
     private bool _paused;

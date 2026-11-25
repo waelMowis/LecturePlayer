@@ -88,7 +88,7 @@ public sealed class ScreenRecorder : IDisposable
     public async Task StartAsync()
     {
         Encoder = await PickEncoderAsync(_ffmpeg);
-        Source = _o.ForceInput != null ? "test" : await DdagrabWorksAsync(_ffmpeg) ? "ddagrab" : "gdigrab";
+        Source = _o.ForceInput != null ? (_o.ForceInput.Contains("gdigrab") ? "gdigrab" : "test") : await DdagrabWorksAsync(_ffmpeg) ? "ddagrab" : "gdigrab";
         await StartSegmentAsync();
     }
 

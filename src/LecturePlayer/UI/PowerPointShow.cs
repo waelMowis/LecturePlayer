@@ -80,12 +80,49 @@ internal sealed class PowerPointShow : IDisposable
         ss.ShowWithNarration = MsoTrue;
         ss.AdvanceMode = useTimings ? 2 : 1; // 2 = بالتوقيت المتسجّل، 1 = يدوي
         _win = ss.Run();
-        Hwnd = new IntPtr((int)_win.HWND);
+        Hwnd = FindShowWindow(_win);
         Embedded = Embed(host);
         if (fromSlide > 1) GoTo(fromSlide);
     }
 
     // ---------------- الشباك ----------------
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
+    delegate bool EnumProc(IntPtr h, IntPtr l);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+
+    /// <summary>
+    /// شباك العرض: SlideShowWindow.HWND — وعلى بعض نسخ Office الـ late binding بيرجع «Error while invoking HWND»،
+    /// فبنجرب InvokeMember، وبعدين بندوّر على شباك العرض نفسه (class «screenClass») في عملية PowerPoint.
+    /// </summary>
+    private static IntPtr FindShowWindow(object win)
+    {
+        try { return new IntPtr(Convert.ToInt64(((dynamic)win).HWND)); } catch (Exception ex) { Data.Log.Info("powerpoint HWND (dynamic): " + ex.Message); }
+        foreach (var flags in new[] { System.Reflection.BindingFlags.GetProperty, System.Reflection.BindingFlags.GetProperty | System.Reflection.BindingFlags.InvokeMethod })
+            try { var v = win.GetType().InvokeMember("HWND", flags, null, win, null); if (v != null) return new IntPtr(Convert.ToInt64(v)); }
+            catch (Exception ex) { Data.Log.Info("powerpoint HWND (" + flags + "): " + (ex.InnerException ?? ex).Message); }
+        var pids = System.Diagnostics.Process.GetProcessesByName("POWERPNT").Select(p => (uint)p.Id).ToHashSet();
+        for (int attempt = 0; attempt < 30; attempt++)
+        {
+            IntPtr found = IntPtr.Zero;
+            EnumWindows((h, _) =>
+            {
+                if (!IsWindowVisible(h)) return true;
+                GetWindowThreadProcessId(h, out uint pid);
+                if (pids.Count > 0 && !pids.Contains(pid)) return true;
+                var sb = new System.Text.StringBuilder(64);
+                GetClassName(h, sb, 64);
+                if (sb.ToString() == "screenClass") { found = h; return false; }
+                return true;
+            }, IntPtr.Zero);
+            if (found != IntPtr.Zero) { Data.Log.Info("powerpoint show window found by class"); return found; }
+            Thread.Sleep(100);
+        }
+        Data.Log.Info("powerpoint show window not found");
+        return IntPtr.Zero;
+    }
+
     const int GWL_STYLE = -16;
     const long WS_CHILD = 0x40000000, WS_POPUP = 0x80000000, WS_CAPTION = 0x00C00000, WS_THICKFRAME = 0x00040000, WS_VISIBLE = 0x10000000, WS_SYSMENU = 0x00080000;
     [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetParent(IntPtr child, IntPtr parent);
