@@ -312,7 +312,7 @@ internal sealed partial class MainForm
 
     private void StopPlaybackCore(bool clearCurrent)
     {
-        if (PresentationShown) EndPresentation(showHome: false);
+        if (PresentationShown) SuspendPresentation();   // بيستخبى بس — الرجوع له فوري ومن نفس الشريحة
         if (clearCurrent) CloseReader(showHome: false);
         SaveCurrentPosition();
         _playRequest++;            // يلغي أي فيديو نت لسه بيتجهّز

@@ -100,6 +100,21 @@ internal partial class MainForm
                 "افتحه بالبرنامج العادي", () => OpenExternally(b), seconds: 0, key: "pptx");
             return;
         }
+        if (PresentationShown && _presBook == b && slide == null) { _presPane!.Resume(); return; }   // مفتوح أصلًا
+        // نفس العرض كان متشال على جنب (فتحت سبورة/كتاب): يرجع فورًا من نفس الشريحة، من غير ما PowerPoint يفتح من الأول
+        if (_presSuspended == b && _presPane is { Running: true } sp && slide == null)
+        {
+            if (_currentVideo != null || _currentLive != null || UdemyActive || ReaderShown) StopPlaybackCore(clearCurrent: true);
+            _presSuspended = null;
+            _presBook = b;
+            _welcome.Visible = false; _videoView.Visible = false; ControlChromeVisible = false;
+            sp.Resume();
+            _presSlideSince = DateTime.UtcNow;
+            b.LastOpenedUtc = DateTime.UtcNow;
+            UpdateTitle();
+            return;
+        }
+        FinishSuspendedPresentation();
         if (PresentationShown) EndPresentation(showHome: false);
         if (_currentVideo != null || _currentLive != null || UdemyActive || ReaderShown) StopPlaybackCore(clearCurrent: true);
         if (_fullscreen && _miniMode) ToggleMiniMode();
@@ -158,6 +173,7 @@ internal partial class MainForm
     /// <summary>كل ثانية والعرض شغال: الشريحة اللي قدامك تتحسب لما يعدّي وقت القراية.</summary>
     private void PresentationTick()
     {
+        if (_presSuspended != null && DateTime.UtcNow - _presSuspendedUtc > TimeSpan.FromMinutes(20)) FinishSuspendedPresentation();
         if (!PresentationShown || _presBook is not { } b) return;
         if (DateTime.UtcNow - _presSlideSince >= TimeSpan.FromSeconds(Math.Max(1, _settings.ReadSeconds)) && !b.Read.Contains(b.LastPage))
         {
@@ -166,8 +182,40 @@ internal partial class MainForm
         }
     }
 
+    private Book? _presSuspended;
+    private DateTime _presSuspendedUtc;
+
+    /// <summary>
+    /// فتحت حاجة تانية (سبورة، كتاب، فيديو) والعرض شغال: العرض بيستخبى بس (PowerPoint يفضل فاتح على نفس الشريحة)
+    /// عشان لما ترجعله يظهر فورًا. بيتقفل بجد لو فتحت عرض تاني، أو عدّى عليه 20 دقيقة مستخبي.
+    /// </summary>
+    private void SuspendPresentation()
+    {
+        if (!PresentationShown || _presPane is not { } pane || _presBook is not { } b) return;
+        MarkPresentationViewed(b);
+        _presSuspended = b;
+        _presSuspendedUtc = DateTime.UtcNow;
+        _presBook = null;
+        pane.Suspend();
+        _videoView.Visible = true;
+        if (!_fullscreen) ControlChromeVisible = true;
+        if (_shelfMode) RefreshBookRows(b);
+        MarkPositionDirty();
+    }
+
+    /// <summary>العرض المستخبي يتقفل بجد (نسخة مشروحة لو كتبت، وسجل المذاكرة).</summary>
+    private void FinishSuspendedPresentation()
+    {
+        if (_presSuspended is not { } b) return;
+        _presSuspended = null;
+        _presBook = b;
+        EndPresentation(showHome: false, restoreView: false);
+    }
+
     /// <summary>قفل العرض: لو PowerPoint احتفظ بالكتابة (اخترت «احتفظ») بتتحفظ نسخة مشروحة في «شروحاتي».</summary>
-    internal void EndPresentation(bool showHome)
+    internal void EndPresentation(bool showHome) => EndPresentation(showHome, restoreView: true);
+
+    private void EndPresentation(bool showHome, bool restoreView)
     {
         var pane = _presPane; var b = _presBook;
         if (pane == null || b == null) { pane?.Stop(); return; }
@@ -188,8 +236,11 @@ internal partial class MainForm
                 Kind = JournalEntry.Pages, StartUtc = _presStartUtc, EndUtc = DateTime.UtcNow,
                 CourseId = "book:" + b.Id, VideoPath = b.Path, Score = _presViewed, Total = b.PageCount
             });
-        _videoView.Visible = true;
-        if (!_fullscreen) ControlChromeVisible = true;
+        if (restoreView)
+        {
+            _videoView.Visible = true;
+            if (!_fullscreen) ControlChromeVisible = true;
+        }
         if (showHome) { _welcome.Visible = true; RefreshHome(); }
         if (_shelfMode) RefreshBookRows(b);
         MarkPositionDirty();

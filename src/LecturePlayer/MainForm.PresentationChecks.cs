@@ -157,6 +157,13 @@ internal partial class MainForm
             SaveSmokeShot(this, "pptx");
             _presPane.ToggleInk();
             Check(_presPane.InkOverlay == null, "ink overlay closed");
+
+            // فتحت حاجة تانية (سبورة/كتاب): العرض يستخبى بس، والرجوع فوري من نفس الشريحة ومن غير ما يتفتح تاني
+            int opens = fake.Presentations.Open_.Count;
+            StopPlaybackCore(clearCurrent: false);
+            Check(!PresentationShown && _presPane.Running && !_presPane.Visible, "presentation suspended, PowerPoint still running");
+            OpenBook(b);
+            Check(PresentationShown && _presPane.Visible && fake.Presentations.Open_.Count == opens && b.LastPage == 2 && _presPane.Current == 2, "resumed instantly on the same slide (no reopen)");
             _presPane.Show!.Pointer(PowerPointShow.PointerPen, Color.Red);
             Check(win.View.PointerType == PowerPointShow.PointerPen && win.View.PointerColor.RGB == 0x0000FF, "PowerPoint pen + colour (BGR)");
             // كتابة اتحفظت في الشريحة 2 ← نسخة مشروحة
@@ -195,6 +202,7 @@ internal partial class MainForm
         }
         finally
         {
+            FinishSuspendedPresentation();
             if (PresentationShown) EndPresentation(showHome: true);
             PowerPointShow.TestFactory = null;
             SmokeVideoChoice = null;

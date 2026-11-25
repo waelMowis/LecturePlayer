@@ -13,6 +13,8 @@ internal sealed class PresentationPane : Panel
     private PowerPointShow? _show;
     private Form? _owner;
     private int _last;
+    private int _pendingSlide;
+    private DateTime _pendingUntil;
     private readonly List<(PillButton Btn, int Type, Color? Color)> _penButtons = new();
     private PillButton _erase = null!, _inkBtn = null!;
     private ScreenInk? _ink;
@@ -158,6 +160,10 @@ internal sealed class PresentationPane : Panel
         }
         _show = show;
         _last = 0;
+        // الرجوع لآخر شريحة: GoTo على طول بعد التشغيل ممكن يضيع (الشباك لسه بيتعمل) — بنكرره لحد ما يوصل،
+        // ومانبلّغش «الشريحة 1» في النص عشان آخر مكان مايتمسحش
+        _pendingSlide = from > 1 ? from : 0;
+        _pendingUntil = DateTime.UtcNow.AddSeconds(5);
         FillSlides(titles);
         SetPensEnabled(true);
         Fit();
@@ -237,6 +243,11 @@ internal sealed class PresentationPane : Panel
         if (_show == null) return;
         if (_show.Ended) { _poll.Stop(); Ended?.Invoke(); return; }
         int cur = _show.Current;
+        if (_pendingSlide > 0)
+        {
+            if (cur == _pendingSlide || DateTime.UtcNow > _pendingUntil) _pendingSlide = 0;
+            else { _show.GoTo(_pendingSlide); return; }
+        }
         if (cur <= 0 || cur == _last) return;
         _last = cur;
         _pos.Text = $"شريحة {cur} من {Total}";
@@ -246,6 +257,25 @@ internal sealed class PresentationPane : Panel
     }
 
     public int Current => _last;
+
+    /// <summary>يستخبى والعرض شغال (نفس الشريحة).</summary>
+    public void Suspend()
+    {
+        _poll.Stop();
+        _ink?.Hide();
+        Visible = false;
+    }
+
+    /// <summary>يرجع فورًا زي ما كان.</summary>
+    public void Resume()
+    {
+        Visible = true;
+        BringToFront();
+        Fit();
+        if (_ink is { IsDisposed: false }) { _ink.Show(); InkFollow(); }
+        _poll.Start();
+        if (_images != null) _view.Focus(); else _show?.Focus();
+    }
 
     /// <summary>بيقفل العرض. keep = عدد الشرايح اللي عليها كتابة اتحفظت (قبل القفل) لو حد عايز يعمل نسخة.</summary>
     public void Stop()

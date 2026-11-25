@@ -299,7 +299,7 @@ internal sealed partial class MainForm
         n.ImageKey = n.SelectedImageKey = ShelfImageKey("shelf", "library", s.IconKey, s.ColorHex, Theme.PlaceColor, all);
         n.ForeColor = all ? Theme.Success : CustomNameColor(s.ColorHex) ?? Theme.Text;
         n.NodeFont = _topicNodeFont;
-        n.ToolTipText = s.Name + $"\n{books.Count} كتاب · خلصت {done}" + (s.SourceFolder != null ? "\nمربوط بفولدر: " + s.SourceFolder : "");
+        n.ToolTipText = s.Name + $"\n{books.Count} كتاب · خلصت {done}" + (s.SourceFolder != null ? " · مربوط بفولدر" : "");
     }
 
     private void UpdateBookNode(TreeNode n, Book b)
@@ -307,7 +307,7 @@ internal sealed partial class MainForm
         bool current = b == _currentBook && ReaderShown;
         n.Text = Modern.Bidi(b.Title);
         string meta = b.IsBoard ? $"{Math.Max(1, b.PageCount)} ص" + InkMeta(b) : (b.IsDone && b.PageCount > 0 ? $"{b.PageCount} ص" : b.PageCount > 0 ? $"{Math.Max(1, b.LastPage)}/{b.PageCount}" : b.IsOnline ? "🌐" : "جديد") + InkMeta(b);
-        if (b.IsBoard) { _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, false, current, -1)); n.ImageKey = n.SelectedImageKey = ShelfImageKey("book", "whiteboard", b.IconKey, b.ColorHex, Theme.CourseColor, false); n.ForeColor = current ? Theme.Accent : CustomNameColor(b.ColorHex) ?? Theme.Text; n.NodeFont = null; n.Text = Modern.Bidi(b.Title); n.ToolTipText = $"{b.Title}\nسبورة: {Math.Max(1, b.PageCount)} صفحة" + (b.InkCount > 0 ? $" — عليها {b.InkCount} حاجة مرسومة" : "") + "\n" + b.LocalPath; return; }
+        if (b.IsBoard) { _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, false, current, -1)); n.ImageKey = n.SelectedImageKey = ShelfImageKey("book", "whiteboard", b.IconKey, b.ColorHex, Theme.CourseColor, false); n.ForeColor = current ? Theme.Accent : CustomNameColor(b.ColorHex) ?? Theme.Text; n.NodeFont = null; n.Text = Modern.Bidi(b.Title); n.ToolTipText = $"{b.Title}\nسبورة · {Math.Max(1, b.PageCount)} صفحة"; return; }
         _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, b.IsDone, current, b.IsStarted && !b.IsDone ? b.Fraction : -1));
         bool missing = !b.IsOnline && !FileCache.Exists(b.LocalPath);
         n.ImageKey = n.SelectedImageKey = missing ? "missing" : ShelfImageKey("book", b.IsPresentation ? "slide_text" : "book_open", b.IconKey, b.ColorHex, Theme.CourseColor, b.IsDone);
@@ -316,21 +316,16 @@ internal sealed partial class MainForm
         n.ToolTipText = BookTooltip(b, missing);
     }
 
+    /// <summary>تلميح قصير (سطرين): الاسم والتقدّم — التفاصيل (المعدّل، المسار) في كليك يمين ← 📂 الملف / بيانات الكتاب.</summary>
     private string BookTooltip(Book b, bool missing)
     {
+        string unit = b.IsPresentation ? "شريحة" : "صفحة";
         var lines = new List<string> { b.Title };
-        if (!string.IsNullOrWhiteSpace(b.Author)) lines.Add("المؤلف: " + b.Author);
-        if (b.PageCount > 0)
-        {
-            int read = b.ReadCount;
-            lines.Add($"قريت {read} من {b.PageCount} صفحة ({(int)Math.Round(b.Fraction * 100)}%) · آخر صفحة {Math.Max(1, b.LastPage)}");
-            var f = BookForecast(b);
-            if (f.PagesPerDay > 0)
-                lines.Add($"معدّلك {f.PagesPerDay:0.#} صفحة/يوم" + (f.Finish is { } d && !b.IsDone ? $" — هتخلّصه حوالي {d:yyyy-MM-dd}" : ""));
-        }
-        if (b.LastOpenedUtc is { } lo) lines.Add("آخر قراية: " + RelativeDay(lo));
-        if (b.InkCount > 0) lines.Add($"🖊 عليه شرح بإيدك ({b.InkCount} حاجة) — الأصل زي ما هو");
-        lines.Add(missing ? "⚠ الملف مش موجود: " + b.Path : b.IsOnline ? b.Path : b.LocalPath);
+        if (missing) lines.Add("⚠ الملف مش موجود — كليك يمين ← 📂 الملف");
+        else if (b.PageCount > 0)
+            lines.Add($"{(int)Math.Round(b.Fraction * 100)}% · {(b.IsPresentation ? "آخر شريحة" : "آخر صفحة")} {Math.Max(1, b.LastPage)} من {b.PageCount} {unit}" +
+                      (b.LastOpenedUtc is { } lo ? " · " + RelativeDay(lo) : ""));
+        if (b.InkCount > 0) lines[^1] += " · 🖊 عليه شرح";
         return string.Join("\n", lines);
     }
 

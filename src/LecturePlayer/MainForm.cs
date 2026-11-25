@@ -1475,6 +1475,7 @@ internal sealed partial class MainForm : Form
 
         if (Recording) { try { await StopRecordingAsync(save: true, quick: true); } catch (Exception ex) { Log.Error("recording close", ex); } }
         try { _screenInk?.Close(); _hotkeys?.Dispose(); _hotkeys = null; } catch { }
+        try { FinishSuspendedPresentation(); } catch (Exception ex) { Log.Error("presentation close", ex); }
         await FlushInkForCloseAsync();
         SaveCurrentPosition();
         CommitNotes();
