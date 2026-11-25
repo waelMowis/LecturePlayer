@@ -23,7 +23,7 @@
     <Copyright>© 2026 د. وائل عويس — جميع الحقوق محفوظة</Copyright>
     <Description>مسار (Masar) — مكتبة فيديو منظّمة بتكمّل من حيث وقفت. تطوير د. وائل عويس</Description>
     <!-- أول رقمين من الإصدار. التالت = رقم النشر الرسمي على GitHub (شوف LpStampVersion تحت) -->
-    <LpBaseVersion>4.2</LpBaseVersion>
+    <LpBaseVersion>4.3</LpBaseVersion>
     <Version>$(LpBaseVersion).0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <!-- عشان الـ restore العادي يجهّز win-x64 كمان، والنشر مايحتاجش restore لوحده -->
