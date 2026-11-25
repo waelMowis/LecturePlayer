@@ -73,16 +73,17 @@ internal partial class MainForm
         int from = Math.Max(1, slide ?? b.LastPage);
         ShowStatus($"بيفتح «{b.Title}» في PowerPoint…", 10);
         var titles = b.Chapters.OrderBy(c => c.Page).Select(c => c.Title).ToList();
+        _presBook = b; // قبل التشغيل: أول شريحة بتتبلّغ وهو بيبدأ
+        _presSlideSince = DateTime.UtcNow;
         string? error = pane.Start(file, from, useTimings: false, titles);
         if (error != null)
         {
+            _presBook = null;
             _videoView.Visible = true; ControlChromeVisible = true; _welcome.Visible = true;
             ShowBanner("مقدرتش أعرض الملف: " + error, BannerKind.Warning, "افتحه بالبرنامج العادي", () => OpenExternally(b), seconds: 0, key: "pptx");
             return;
         }
-        _presBook = b;
         _presStartUtc = DateTime.UtcNow;
-        _presSlideSince = DateTime.UtcNow;
         _presViewed = 0;
         b.LastOpenedUtc = DateTime.UtcNow;
         _library.LastBookId = b.Id;
