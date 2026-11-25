@@ -528,6 +528,8 @@ internal sealed partial class MainForm : Form
     private GlyphButton _activityExplorer = null!;
     private GlyphButton _activityHome = null!;
     private GlyphButton _activityBoard = null!, _activityRecord = null!;
+    private readonly Dictionary<GlyphButton, string?> _railCaptions = new();
+    private bool _railCompact;
 
     /// <summary>شريط الأيقونات على طرف الشاشة (زي المحررات الحديثة): القايمة، البحث، المراجعة، الإحصائيات…</summary>
     private void BuildActivityBar()
@@ -574,6 +576,24 @@ internal sealed partial class MainForm : Form
         help.Dock = DockStyle.Bottom;
         _activity.Controls.Add(top);
         _activity.Controls.Add(bottom);
+        // الشباك صغير؟ الزراير تصغر عشان آخر زرار مايتغطاش بالإعدادات (والكلام تحت الأيقونة يختفي لو المكان ضيق قوي)
+        void FitRail()
+        {
+            var buttons = top.Controls.OfType<GlyphButton>().Where(b => b.Visible).ToList();
+            if (buttons.Count == 0) return;
+            int full = LogicalToDeviceUnits(56), min = LogicalToDeviceUnits(36);
+            int h = Math.Clamp((top.ClientSize.Height - top.Padding.Vertical) / buttons.Count, min, full);
+            _railCompact = h < LogicalToDeviceUnits(46);
+            foreach (var b in buttons)
+            {
+                if (b.Height != h) b.Height = h;
+                if (!_railCaptions.ContainsKey(b)) _railCaptions[b] = b.Caption;
+                b.Caption = _railCompact ? null : _railCaptions[b];
+                b.Invalidate();
+            }
+        }
+        top.Resize += (_, _) => FitRail();
+        top.VisibleChanged += (_, _) => FitRail();
     }
 
     private void BuildSidePanel()

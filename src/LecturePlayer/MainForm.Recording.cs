@@ -103,7 +103,8 @@ internal partial class MainForm
     {
         if (_activityRecord == null) return;
         bool on = Recording;
-        _activityRecord.Caption = on ? "إنهاء" : "تسجيل";
+        _railCaptions[_activityRecord] = on ? "إنهاء" : "تسجيل";
+        _activityRecord.Caption = _railCompact ? null : _railCaptions[_activityRecord];
         _activityRecord.Glyph = on ? Glyphs.Stop : Glyphs.Record;
         _activityRecord.ForeColor = on ? Color.FromArgb(240, 70, 70) : Theme.Muted;
         _activityRecord.Active = on;
