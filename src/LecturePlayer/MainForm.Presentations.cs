@@ -53,6 +53,43 @@ internal partial class MainForm
         catch (Exception ex) { Log.Info("pptx read: " + ex.Message); return false; }
     }
 
+    /// <summary>
+    /// «📽 عرض PowerPoint…»: تختار ملف (أو أكتر) وبيتحط على الرف — في الرف اللي واقف عليه، أو رف «عروضي».
+    /// لو ملف واحد بيتفتح على طول.
+    /// </summary>
+    internal void AddPresentationsDialog(Shelf? shelf = null)
+    {
+        if (!EnsureLibrary()) return;
+        using var dlg = new OpenFileDialog
+        {
+            Title = "اختار عرض PowerPoint" + (shelf != null ? $" — هيتحط في «{shelf.Name}»" : ""),
+            Filter = "عروض PowerPoint|*.pptx;*.ppsx;*.pptm;*.ppt;*.pps|كل الملفات|*.*", Multiselect = true, RestoreDirectory = true
+        };
+        var files = SmokePresentationFiles ?? (dlg.ShowDialog(this) == DialogResult.OK ? dlg.FileNames : null);
+        if (files == null) return;
+        var picked = files.Where(Pptx.IsPresentation).ToList();
+        if (picked.Count == 0) { ShowStatus("ده مش ملف PowerPoint", 4); return; }
+        shelf ??= PresentationsShelf();
+        var added = AddBooks(picked, shelf);
+        if (!_shelfMode || _split.Panel2Collapsed) ToggleShelf();
+        RebuildShelf();
+        // ملف واحد (جديد أو كان موجود): نفتحه على طول — ده غالبًا اللي إنت عايزه
+        var target = added.FirstOrDefault() ?? _library.Books.FirstOrDefault(b => string.Equals(Path.GetFullPath(b.Path), Path.GetFullPath(picked[0]), StringComparison.OrdinalIgnoreCase));
+        if (picked.Count == 1 && target != null) { SelectShelfItem(target); OpenBook(target); }
+        else AnnounceAdded(added.Count, picked.Count);
+    }
+    internal string[]? SmokePresentationFiles;
+
+    private Shelf PresentationsShelf()
+    {
+        var s = _library.Shelves.FirstOrDefault(x => x.Kind == "presentations");
+        if (s != null) return s;
+        s = AddShelf("عروضي", null);
+        s.Kind = "presentations";
+        MarkDirty();
+        return s;
+    }
+
     internal void OpenPresentation(Book b, int? slide = null)
     {
         string file = BookFile(b);

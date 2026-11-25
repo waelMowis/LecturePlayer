@@ -697,6 +697,8 @@ internal sealed partial class MainForm
                 if (!_shelfMode || _split.Panel2Collapsed) ToggleShelf();
                 AddBooksDialog(SelectedShelfContext());
             }));
+        _homeActions.Controls.Add(Tile(Glyphs.Slides, empty ? "اعرض PowerPoint" : "عرض PowerPoint",
+            "افتح عرض PowerPoint جوه «مسار» بالحركات، واشرح عليه بالأقلام", Color.FromArgb(232, 89, 12), () => AddPresentationsDialog(SelectedShelfContext())));
         _homeActions.Controls.Add(Tile(Glyphs.Radio, empty ? "اسمع راديو أو شوف الحرم" : "بث مباشر",
             "آلاف محطات الراديو، وبث مباشر من مكة والمدينة", Theme.Success, ShowLiveWindow));
         if (empty)

@@ -420,6 +420,7 @@ internal sealed partial class MainForm
         if (topic == null)
         {
             items.Add(CourseSourcesMenu("➕  كورس (من غير موضوع)", null, null));
+            AddShelfItems(items);
             return;
         }
         items.Add(Sep());
@@ -442,5 +443,15 @@ internal sealed partial class MainForm
             items.Add(MenuItem($"➕  فيديوهات من يوتيوب في «{group.Name}»…", () => AddUrlsDialog(null, group)));
             items.Add(MenuItem($"➕  مرفقات في «{group.Name}»…", () => AddAttachmentFiles(group)));
         }
+        AddShelfItems(items);
+    }
+
+    /// <summary>كتاب واحد أو عرض أو سبورة من أي مكان (مش لازم فولدر كامل) — بيروحوا لرف الكتب.</summary>
+    private void AddShelfItems(ToolStripItemCollection items)
+    {
+        items.Add(Sep());
+        items.Add(MenuItem("📖  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(SelectedShelfContext())));
+        items.Add(MenuItem("📽  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), "Ctrl+Shift+P"));
+        items.Add(MenuItem("🧑‍🏫  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())));
     }
 }

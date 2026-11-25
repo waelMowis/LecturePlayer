@@ -66,7 +66,7 @@ internal sealed partial class MainForm
         addMenu.Items.Add(new ToolStripMenuItem("…"));
         var addButton = new PillButton("＋  إضافة", PillStyle.Ghost) { Dock = DockStyle.Left, Width = LogicalToDeviceUnits(82), Margin = Padding.Empty, TabStop = false };
         addButton.Click += (_, _) => addMenu.Show(addButton, new Point(0, addButton.Height + 2));
-        _toolTip.SetToolTip(addButton, "رف جديد، أو كتب (PDF) من ملفات أو فولدر — بتتحط في الرف اللي واقف عليه");
+        _toolTip.SetToolTip(addButton, "رف جديد، أو كتب (PDF / EPUB) أو عروض PowerPoint من ملفات أو فولدر — بتتحط في الرف اللي واقف عليه");
         titleRow.Controls.Add(addButton);
         var searchAll = new GlyphButton(Glyphs.Search, 11f) { Size = new Size(LogicalToDeviceUnits(26), LogicalToDeviceUnits(24)), Dock = DockStyle.Left };
         searchAll.Click += (_, _) => ShowBookSearch();
@@ -451,9 +451,10 @@ internal sealed partial class MainForm
             _ => null
         };
         string where = shelf != null ? $" في «{shelf.Name}»" : "";
-        items.Add(MenuItem("➕  كتب (PDF / EPUB) من ملفات…" + where, () => AddBooksDialog(shelf)));
-        items.Add(MenuItem("➕  كتب من فولدر (رف للفولدر)…" + where, () => AddBooksFromFolderDialog(shelf)));
+        items.Add(MenuItem("📖  كتاب (PDF / EPUB) — ملف واحد أو أكتر…" + where, () => AddBooksDialog(shelf)));
+        items.Add(MenuItem("📁  فولدر كتب كامل (يبقى رف)…" + where, () => AddBooksFromFolderDialog(shelf)));
         items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…" + where, () => AddBookLinksDialog(shelf)));
+        items.Add(MenuItem("📽  عرض PowerPoint من ملف…" + where, () => AddPresentationsDialog(shelf)));
         items.Add(Sep());
         items.Add(MenuItem(shelf != null ? $"➕  رف جوه «{shelf.Name}»…" : "➕  رف جديد…", () => AddShelfDialog(shelf)));
         if (shelf != null) items.Add(MenuItem("➕  رف جديد (أساسي)…", () => AddShelfDialog(null)));
@@ -468,12 +469,13 @@ internal sealed partial class MainForm
                    ?? _library.AllBooksUnder(s).FirstOrDefault(b => !b.IsDone);
         if (last != null) items.Add(MenuItem($"▶  كمّل القراية: {last.Title}", () => OpenBook(last)));
         items.Add(Sep());
-        items.Add(MenuItem("➕  كتب (PDF / EPUB) من ملفات…", () => AddBooksDialog(s)));
-        items.Add(MenuItem("➕  كتب من فولدر (رف للفولدر)…", () => AddBooksFromFolderDialog(s)));
+        items.Add(MenuItem("📖  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(s)));
+        items.Add(MenuItem("📁  فولدر كتب كامل (يبقى رف)…", () => AddBooksFromFolderDialog(s)));
         items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(s)));
         items.Add(MenuItem("➕  رف جوه الرف ده…", () => AddShelfDialog(s)));
         items.Add(MenuItem("➕  رف متشارك من حد (ZIP) جوه الرف ده…", () => ReceiveSharedShelfDialog(s)));
         items.Add(MenuItem("➕  سبورة جديدة في الرف ده…", () => NewBoardDialog(null, s)));
+        items.Add(MenuItem("📽  عرض PowerPoint في الرف ده…", () => AddPresentationsDialog(s)));
         if (s.SourceFolder != null)
         {
             items.Add(Sep());
@@ -633,11 +635,19 @@ internal sealed partial class MainForm
         if (!EnsureLibrary()) return;
         using var dlg = new OpenFileDialog
         {
-            Title = "اختار كتب (PDF)" + (shelf != null ? $" — هتتحط في «{shelf.Name}»" : ""),
+            Title = "اختار كتاب أو أكتر (PDF / EPUB / PowerPoint)" + (shelf != null ? $" — هيتحط في «{shelf.Name}»" : ""),
             Filter = "كتب وعروض (PDF و EPUB و PowerPoint)|*.pdf;*.epub;*.pptx;*.ppsx;*.pptm;*.ppt;*.pps|كل الملفات|*.*", Multiselect = true, RestoreDirectory = true
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         var added = AddBooks(dlg.FileNames.Where(BookFiles.IsBookFile), shelf);
+        if (added.Count > 0)
+        {
+            // يظهر في الرف على طول (حتى لو كنت في «مكتبتي»)، وكتاب واحد بيتفتح
+            if (!_shelfMode || _split.Panel2Collapsed) ToggleShelf();
+            RebuildShelf();
+            SelectShelfItem(added[0]);
+            if (added.Count == 1) { OpenBook(added[0]); return; }
+        }
         AnnounceAdded(added.Count, dlg.FileNames.Length);
     }
 
@@ -1316,6 +1326,7 @@ internal sealed partial class MainForm
     private bool HandleBookKeys(Keys keyData)
     {
         if (keyData == (Keys.Control | Keys.Shift | Keys.B)) { ToggleShelf(); return true; }
+        if (keyData == (Keys.Control | Keys.Shift | Keys.P)) { AddPresentationsDialog(SelectedShelfContext()); return true; }
         if (keyData == (Keys.Control | Keys.Shift | Keys.D) && ReaderShown) { ToggleInkMode(); return true; }
         if (keyData == (Keys.Control | Keys.W) && ReaderShown) { CloseReader(showHome: true); return true; }
         if (_shelfTree.Focused)

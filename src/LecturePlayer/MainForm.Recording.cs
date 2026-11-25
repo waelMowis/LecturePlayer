@@ -128,6 +128,7 @@ internal partial class MainForm
         }
         m.Items.Add(new ToolStripSeparator());
         Add("📂  كل السبورات (رف «سبوراتي»)", ShowBoardsShelf);
+        Add("📽  افتح عرض PowerPoint…", () => AddPresentationsDialog(null));
         Add("🖊  أقلام على الشاشة (Ctrl+Shift+F8)", ToggleScreenInk);
         m.Show(anchor, new Point(-4, 0), ToolStripDropDownDirection.Left);   // جنب الزرار ناحية الشاشة (الشريط على اليمين)
         LastBoardMenu = m;

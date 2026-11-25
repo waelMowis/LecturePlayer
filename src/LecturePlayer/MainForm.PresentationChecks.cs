@@ -156,6 +156,19 @@ internal partial class MainForm
             added.Add(copy!);
             Check(fake.Presentations.Count == 0, "presentation closed in PowerPoint");
 
+            // ---------- أمر «عرض PowerPoint» المباشر: من قايمة الإضافة في «مكتبتي»، بيروح لرف «عروضي» ويتفتح ----------
+            var addItems = new ContextMenuStrip(); BuildAddMenu(null, addItems.Items);
+            Check(addItems.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("عرض PowerPoint")) && addItems.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("كتاب (PDF")), "library add menu has single book + PowerPoint");
+            string file2 = Path.Combine(dir, "عرض تاني.pptx");
+            Pptx.WriteTest(file2, ("أول", "١", "", false), ("تاني", "٢", "", false));
+            SmokePresentationFiles = new[] { file2 };
+            try { AddPresentationsDialog(null); } finally { SmokePresentationFiles = null; }
+            var b2 = _library.Books.FirstOrDefault(x => x.Path == Path.GetFullPath(file2));
+            Check(b2 != null && _library.ShelfOf(b2)?.Kind == "presentations" && _library.ShelfOf(b2)!.Name == "عروضي", "presentation added to «عروضي»");
+            Check(PresentationShown && _presBook == b2, "single presentation opens right away");
+            added.Add(b2!);
+            EndPresentation(showHome: true);
+
             // ---------- فيديو ----------
             SmokeVideoChoice = (720, 3, false);
             ConvertPresentationToVideo(b);
@@ -174,7 +187,7 @@ internal partial class MainForm
             SmokeVideoChoice = null;
             _settings.ReadSeconds = readSeconds;
             foreach (var x in added) { if (x.AnnotatedOf != null) try { File.Delete(x.LocalPath); } catch { } _library.Books.Remove(x); }
-            _library.Shelves.RemoveAll(s => s.Name == "عروض الفحص");
+            _library.Shelves.RemoveAll(s => s.Name == "عروض الفحص" || s.Kind == "presentations");
             _library.Shelves.RemoveAll(s => s.Kind == AnnotatedShelfKind && !_library.Books.Any(bk => bk.ShelfId == s.Id));
             foreach (var x in added) try { File.Delete(BookText.PathFor(x)); } catch { }
             RebuildTree();
