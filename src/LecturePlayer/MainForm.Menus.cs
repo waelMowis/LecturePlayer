@@ -373,6 +373,8 @@ internal sealed partial class MainForm
         }
         else if (IsAvailable(v)) file.Add(MenuItem("📂  فتح مكان الملف", () => OpenInExplorer(v.LocalPath)));
         if (file.Count > 0) items.Add(SubMenuOf(v.IsOnline ? "🌐  الرابط والتنزيل" : "📂  الملف", file.ToArray()));
+        if (owner?.NotionPageId != null && NotionTopicOf(owner) != null)
+            items.Add(MenuItem("📤  ابعت ملاحظات المحاضرة لنوشن", () => SendNotesToNotion(owner)));
         items.Add(Sep());
         items.Add(MenuItem("🗑  إزالة من المكتبة", DeleteSelected, "Delete"));
     }

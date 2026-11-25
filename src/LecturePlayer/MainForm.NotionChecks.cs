@@ -135,6 +135,15 @@ internal sealed partial class MainForm
             var inside = fake.ChildBlocks(box.Id).Select(b => NotionFake.Text(b.Data["rich_text"])).ToList();
             Check(box.Type == "callout" && inside.Any(x => x.Contains("ملاحظة مهمة")) && inside.Any(x => x.Contains("1:05") && x.Contains("هنا")), "notes box content: " + string.Join(" | ", inside));
 
+            // سجل المذاكرة اليومي (قاعدة تالتة)
+            var log = RunNotionAsync("سجل المذاكرة", (s, ct) => s.CreateLogAsync(t, ct), quiet: true);
+            Check(Until(() => log.IsCompleted, 10_000) && log.Result && t.Notion!.LogDsId != null && fake.Sources[t.Notion.LogDsId].Title == "سجل المذاكرة", "study log database");
+            using (var m = new ContextMenuStrip())
+            {
+                BuildNodeMenu(g1.Videos[0], m.Items);
+                Check(m.Items.OfType<ToolStripMenuItem>().Any(x => x.Text!.StartsWith("📤") && x.Text.Contains("نوشن")), "video menu: send notes");
+            }
+
             // توزيع المواعيد (من غير الشباك)
             var end = NotionSync.Schedule(c.Groups, new DateTime(2026, 12, 6), new[] { DayOfWeek.Sunday }, 10, onlyEmpty: false);
             Check(c.Groups.Where(g => !g.IsCompleted).All(g => g.Plan?.Date?.DayOfWeek == DayOfWeek.Sunday) && end != null, "schedule");

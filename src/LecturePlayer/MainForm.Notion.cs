@@ -59,15 +59,15 @@ internal sealed partial class MainForm
         {
             using var kit = new FormKit("ربط مسار بنوشن", 640);
             kit.Header("خطوتين في نوشن (مرة واحدة)");
-            kit.Note("1) افتح notion.so/my-integrations ← New integration ← اختار مساحة العمل ← Type: Internal ← Save.\n" +
-                     "     من Capabilities علّم Read content وUpdate content وInsert content، وانسخ «Internal Integration Secret».\n" +
-                     "2) اعمل صفحة في نوشن اسمها «مسار» (أو استخدم صفحة موجودة) ← ⋯ فوق ← Connections ← اختار الـ integration بتاعك.\n" +
-                     "     مسار هيعمل قواعد مواضيعك جوه الصفحة دي بس، ومش هيشوف باقي نوشن.", 104);
+            kit.Note("1) دوس «افتح صفحة الربط» تحت، واعمل ربط جديد (New integration) نوعه Internal.\n" +
+                     "     من Capabilities علّم القراية والتعديل والإضافة (Read / Update / Insert)، وبعدين انسخ المفتاح (Secret).\n" +
+                     "2) في نوشن اعمل صفحة اسمها «مسار»، ومن ⋯ اللي فوق اختار Connections، وضيف الربط بتاعك.\n" +
+                     "     مسار هيعمل مواضيعك جوه الصفحة دي بس، ومش هيشوف باقي نوشن.", 104);
             kit.Header("البيانات");
             var tokenBox = kit.Row("المفتاح (Secret)", new TextBox { Text = token, UseSystemPasswordChar = true, RightToLeft = RightToLeft.No });
             var pageBox = kit.Row("رابط صفحة «مسار»", new TextBox { Text = parent, RightToLeft = RightToLeft.No });
             kit.Note("انسخ رابط الصفحة من نوشن (Share ← Copy link، أو ⋯ ← Copy link). المفتاح بيتحفظ متشفّر على الجهاز ده بس.", 40);
-            kit.Buttons("اربط", "إلغاء", ("افتح صفحة الـ integrations", () => OpenInBrowser("https://www.notion.so/my-integrations")));
+            kit.Buttons("اربط", "إلغاء", ("افتح صفحة الربط", () => OpenInBrowser("https://www.notion.so/my-integrations")));
             if (SmokeShowDialog(kit, "notion-setup")) return false;
             if (kit.Show(this) != DialogResult.OK) return false;
             token = tokenBox.Text.Trim();
