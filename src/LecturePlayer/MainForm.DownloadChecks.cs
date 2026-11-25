@@ -101,9 +101,12 @@ internal sealed partial class MainForm
         if (YtDlp.FindYtDlp() == null) Run(async () => { await YtDlp.DownloadToolsAsync(false, new Progress<string>(), CancellationToken.None); return 0; });
         if (Tools.FindFfmpeg() == null) Run(async () => { await Tools.DownloadFfmpegAsync(new Progress<string>(), CancellationToken.None); return 0; });
         Check(YtDlp.FindYtDlp() != null && Tools.FindFfmpeg() != null, "tools");
-        var enc = Run(() => ProcessRunner.RunAsync(Tools.FindFfmpeg()!, new[] { "-hide_banner", "-encoders" }, TimeSpan.FromSeconds(30)));
+        // أول تشغيل لـ ffmpeg ممكن ياخد وقت (فحص الأنتي فيروس) — مهلة أطول ومحاولة تانية قبل ما نحكم
+        var enc = Run(() => ProcessRunner.RunAsync(Tools.FindFfmpeg()!, new[] { "-hide_banner", "-encoders" }, TimeSpan.FromSeconds(120)));
+        if (!enc.StdOut.Contains("libmp3lame")) enc = Run(() => ProcessRunner.RunAsync(Tools.FindFfmpeg()!, new[] { "-hide_banner", "-encoders" }, TimeSpan.FromSeconds(120)));
         bool lame = enc.StdOut.Contains("libmp3lame");
-        Console.WriteLine($"SMOKE download tools ready in {sw.Elapsed.TotalSeconds:0}s, ffmpeg has libmp3lame: {lame}");
+        Console.WriteLine($"SMOKE download tools ready in {sw.Elapsed.TotalSeconds:0}s, ffmpeg has libmp3lame: {lame}" +
+            (lame ? "" : $" (exit {enc.ExitCode}, timedOut {enc.TimedOut}, {enc.StdOut.Length} chars, err: {ProcessRunner.LastErrorLine(enc.StdErr, "-")}, path {Tools.FindFfmpeg()})"));
         Check(lame, "the ffmpeg build the app downloads has no MP3 encoder (libmp3lame)");
 
         string formats = SmokeTest.RepoPath(Path.Combine("tests", "formats")) ?? throw new Exception("download: tests/formats missing");
