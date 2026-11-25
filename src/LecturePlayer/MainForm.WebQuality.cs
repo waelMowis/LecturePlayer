@@ -100,7 +100,7 @@ internal sealed partial class MainForm
 
     private void UpdateQualityChip(UdemyPane.PlayerState? s)
     {
-        bool show = UdemyActive && s is { HasVideo: true, VideoHeight: > 0 };
+        bool show = UdemyActive && !_miniMode && s is { HasVideo: true, VideoHeight: > 0 };
         if (!show) { if (_qualityChip.Visible) _qualityChip.Visible = false; return; }
         int p = WebQuality.NominalHeight(s!.VideoWidth, s.VideoHeight);
         string text = WebQuality.Label(s.VideoWidth, s.VideoHeight);
