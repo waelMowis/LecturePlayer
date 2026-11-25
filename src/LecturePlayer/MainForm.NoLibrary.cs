@@ -35,6 +35,7 @@ internal sealed partial class MainForm
         _undo.Clear();
         _statusFile.Text = "";
         _statusFile.ToolTipText = "";
+        RestoreTabs();
         RebuildTree();
         UpdateLibraryHeader();
         UpdateTitle();

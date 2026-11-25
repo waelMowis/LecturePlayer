@@ -25,7 +25,7 @@ internal partial class MainForm
         p.Ended += () => BeginInvoke(() => EndPresentation(showHome: true));
         p.Command += c =>
         {
-            if (c == "end") EndPresentation(showHome: true);
+            if (c == "end") CloseActiveTab();
             else if (c == "video" && _presBook != null) ConvertPresentationToVideo(_presBook);
         };
         _presPane = p;

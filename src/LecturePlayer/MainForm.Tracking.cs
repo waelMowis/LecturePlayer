@@ -230,6 +230,8 @@ internal sealed partial class MainForm
             ApplyMode();
             SaveSettings();
             UpdateStudyStatus();
+            RefreshTabStrip();
+            RefreshHome();
             if (ReaderShown) _ = _reader!.SetReadSecondsAsync(_settings.ReadSeconds);
             ShowStatus("حُفظت الإعدادات ✓");
         }
@@ -455,6 +457,7 @@ internal sealed partial class MainForm
         };
         head.Click += (_, _) => ShowStats();
         rows.Add(head);
+        rows.AddRange(SessionHomeRows(rowH));
 
         var fresh = NewVideos().Where(x => _library.FindCourseOf(x.Group) is { } fc && InHomeScope(fc)).ToList();
         if (fresh.Count > 0)

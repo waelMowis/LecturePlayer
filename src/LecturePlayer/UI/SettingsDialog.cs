@@ -11,9 +11,12 @@ internal static class SettingsDialog
         bool adv = s.AdvancedMode == true;
 
         kit.Header("شكل البرنامج");
-        var advanced = kit.Row("الوضع المتقدم", new ToggleSwitch { Text = "اعرض كل الأدوات", Checked = adv });
-        kit.Note("الوضع البسيط يعرض الأساسيات فقط: المكتبة، والتشغيل، والعلامات، ويوتيوب، والبث المباشر.\n" +
-                 "الوضع المتقدم يضيف: الذكاء الاصطناعي، والإحصائيات، والمراجعة، ووضع التركيز، ومعمل الكود.", 40);
+        var role = kit.Row("أستخدم البرنامج", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList });
+        role.Items.AddRange(new object[] { "طالبًا", "معلمًا", "طالبًا ومعلمًا" });
+        role.SelectedIndex = s.Role switch { "teacher" => 1, "both" => 2, _ => 0 };
+        kit.Note("يغيّر التسميات فقط (جلسة مذاكرة أو حصة)، ويُظهر للمعلم المجموعات وجدولها.", 22);
+        var advanced = kit.Row("الوضع المتقدم", new ToggleSwitch { Text = "اعرض شريط الحالة", Checked = adv });
+        kit.Note("شريط الحالة في الأسفل: رسائل البرنامج، واسم ملف المكتبة، ومذاكرة اليوم والسلسلة. والأوامر كلها موجودة في القوائم في الحالتين.", 40);
 
         kit.Header("المكتبة");
         var openLast = kit.Row("عند فتح البرنامج", new ToggleSwitch { Text = "افتح آخر مكتبة مباشرة", Checked = s.OpenLastLibraryOnStart });
@@ -100,6 +103,7 @@ internal static class SettingsDialog
         if (kit.Show(owner) != DialogResult.OK) return false;
 
         s.AdvancedMode = advanced.Checked;
+        s.Role = role.SelectedIndex switch { 1 => "teacher", 2 => "both", _ => "student" };
         s.DailyGoalMinutes = (int)goal.Value;
         s.ReadSeconds = (int)readSeconds.Value;
         s.DailyPagesGoal = (int)pagesGoal.Value;

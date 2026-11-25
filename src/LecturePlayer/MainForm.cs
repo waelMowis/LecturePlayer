@@ -314,6 +314,7 @@ internal sealed partial class MainForm : Form
         _videoCard.Dock = DockStyle.Fill;
         _videoArea.BackColor = Theme.Panel;
         _videoCard.Controls.Add(_videoArea);
+        BuildTabStrip();
         // شريط التحكم كارت لوحده تحت كارت الفيديو، وبينهم فراغ
         _controlCard.Dock = DockStyle.Bottom;
         _controlBar.Dock = DockStyle.Fill;
@@ -883,10 +884,11 @@ internal sealed partial class MainForm : Form
             Item("المشغل الصغير", ToggleMiniMode, display: "P"),
             _alwaysOnTopItem = Item("دائمًا فوق النوافذ الأخرى", ToggleAlwaysOnTop, display: "T"),
             Item("الشاشة الرئيسية", GoHome, display: "Alt+Home"),
+            BuildTabsMenu(),
             new ToolStripSeparator(),
             seekPreview,
             new ToolStripSeparator(),
-            _advancedItem = Item("الوضع المتقدم (أزرار جانبية وشريط حالة إضافي)", () => SetAdvancedMode(!AdvancedMode)));
+            _advancedItem = Item("الوضع المتقدم (شريط الحالة)", () => SetAdvancedMode(!AdvancedMode)));
 
         // ---------------- مذاكرة: العلامات والمراجعة والتركيز والإحصائيات ----------------
         var study = SubMenu("المذاكرة",
@@ -944,6 +946,10 @@ internal sealed partial class MainForm : Form
         var lab = tools.DropDownItems.OfType<ToolStripMenuItem>().Last();
         lab.ShortcutKeyDisplayString = null; lab.ShortcutKeys = Keys.Control | Keys.L;
         tools.DropDownItems.Add(new ToolStripSeparator());
+        var sessions = SubMenu("📚  الجلسات والحصص");
+        sessions.DropDownOpening += (_, _) => { sessions.DropDownItems.Clear(); sessions.DropDownItems.AddRange(SessionMenuItems().ToArray()); };
+        sessions.DropDownItems.AddRange(SessionMenuItems().ToArray());
+        tools.DropDownItems.Add(sessions);
         tools.DropDownItems.Add(study);
         tools.DropDownItems.Add(smart);
         tools.DropDownItems.Add(online);
@@ -1104,6 +1110,7 @@ internal sealed partial class MainForm : Form
             if (_pendingExternal is { } files) { _pendingExternal = null; BeginInvoke(() => OpenExternalFiles(files)); }
             bool tour = ShouldShowFirstRunTour(withFiles);
             if (tour) BeginInvoke(new Action(StartTour));
+            else if (!withFiles && !SmokeTest.Active && _settings.Role == null) BeginInvoke(new Action(AskRoleIfNeeded));
             AfterStartupUpdateCheck(firstRunTour: tour);
             CheckLastCrash();
             BeginInvoke(new Action(OfferResumeDownloads));
@@ -1217,6 +1224,7 @@ internal sealed partial class MainForm : Form
             if (keyData == Keys.Down) { _shelfTree.Focus(); return true; }
             return base.ProcessCmdKey(ref msg, keyData);
         }
+        if (HandleTabKeys(keyData)) return true;
         if (HandleBookKeys(keyData)) return true;
         if (_searchBox.Focused)
         {
@@ -1355,6 +1363,7 @@ internal sealed partial class MainForm : Form
             _prevWindowState = WindowState;
             _prevBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
             _fullscreen = true;
+            UpdateTabStripVisible();
 
             SuspendLayout();
             _menuHost.Visible = _statusHost.Visible = _activityHost.Visible = false;
@@ -1371,6 +1380,7 @@ internal sealed partial class MainForm : Form
         else
         {
             _fullscreen = false;
+            UpdateTabStripVisible();
             _udemyPane?.ExitPageFullscreen();
             SuspendLayout();
             FormBorderStyle = FormBorderStyle.Sizable;
@@ -1442,11 +1452,12 @@ internal sealed partial class MainForm : Form
 
     private void UpdateTitle()
     {
-        if (_currentLive != null) { Text = $"{_currentLive.Name}  —  مباشر  —  {AppTitle}"; return; }
-        if (ReaderShown) { Text = $"{_currentBook!.Title}  —  {AppTitle}"; return; }
-        Text = _currentVideo != null
-            ? $"{_currentVideo.Title}  —  {_currentGroup?.Name}  —  {AppTitle}"
+        Text = _currentLive != null ? $"{_currentLive.Name}  —  مباشر  —  {AppTitle}"
+            : PresentationShown ? $"{_presBook!.Title}  —  {AppTitle}"
+            : ReaderShown ? $"{_currentBook!.Title}  —  {AppTitle}"
+            : _currentVideo != null ? $"{_currentVideo.Title}  —  {_currentGroup?.Name}  —  {AppTitle}"
             : HasLibrary ? $"{_library.Name}  —  {AppTitle}" : AppTitle;
+        SyncTabs();
     }
 
     private void UpdateNowPlaying()
@@ -1485,6 +1496,7 @@ internal sealed partial class MainForm : Form
         CommitNotes();
         if (ReaderShown) FlushReading();
         FlushSession();
+        SaveTabsForClose();
         // المكتبة لازم تتحفظ على آخر حالة: لو الحفظ فشل (الدرايف مش متاح مثلًا) نسأل بدل ما التغييرات تضيع
         while (HasLibrary && !TrySaveLibrary(out string? error))
         {

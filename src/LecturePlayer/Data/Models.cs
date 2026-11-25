@@ -451,6 +451,11 @@ public sealed class CourseLibrary
     public string? LastGroupId { get; set; }
     public string? LastVideoPath { get; set; }
 
+    /// <summary>جلسات المذاكرة / الحصص: مجموعة تبويبات محفوظة باسم (تتزامن مع المكتبة).</summary>
+    public List<StudySession> Sessions { get; set; } = new();
+    /// <summary>للمعلم: المجموعات أو الصفوف وجدولها.</summary>
+    public List<ClassGroup> Classes { get; set; } = new();
+
     // ---------------- الكتب ----------------
 
     /// <summary>الرف الأكبر (null لو رف أساسي أو الأكبر اتمسح).</summary>
@@ -655,8 +660,75 @@ public sealed class CourseLibrary
 }
 
 /// <summary>إعدادات البرنامج نفسه (مش الكورس).</summary>
+/// <summary>تبويب مفتوح: دورة (والفيديو الحالي فيها) أو كتاب/سبورة/عرض.</summary>
+public sealed class WorkTab
+{
+    public const string CourseKind = "course", BookKind = "book";
+    public string Kind { get; set; } = CourseKind;
+    /// <summary>رقم الدورة أو الكتاب.</summary>
+    public string Ref { get; set; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? GroupId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ItemPath { get; set; }
+    /// <summary>الموضع داخل الجلسة (الصفحة أو الشريحة) — لكل مجموعة موضعها.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Page { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public long? PositionMs { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Title { get; set; }
+
+    public bool Same(WorkTab o) => Kind == o.Kind && Ref == o.Ref;
+    public WorkTab Copy() => (WorkTab)MemberwiseClone();
+}
+
+/// <summary>التبويبات المفتوحة لمكتبة على هذا الجهاز.</summary>
+public sealed class TabsState
+{
+    public List<WorkTab> Tabs { get; set; } = new();
+    public int Active { get; set; } = -1;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? SessionId { get; set; }
+}
+
+/// <summary>جلسة مذاكرة (أو حصة للمعلم): تبويبات محفوظة باسم بمواضعها، وخطة وواجب.</summary>
+public sealed class StudySession
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ClassId { get; set; }
+    public List<WorkTab> Tabs { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Plan { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Homework { get; set; }
+    public bool Done { get; set; }
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+    public DateTime LastOpenedUtc { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>موعد أسبوعي لمجموعة: اليوم (0 = الأحد) والساعة والمدة.</summary>
+public sealed class ClassSlot
+{
+    public int Day { get; set; }
+    public string Start { get; set; } = "08:00";
+    public int Minutes { get; set; } = 45;
+
+    public TimeSpan StartTime => TimeSpan.TryParse(Start, System.Globalization.CultureInfo.InvariantCulture, out var t) ? t : TimeSpan.Zero;
+}
+
+/// <summary>للمعلم: مجموعة أو صف، وجدوله الأسبوعي، وحصته الحالية (وفيها موضعه في كل ملف).</summary>
+public sealed class ClassGroup
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    public List<ClassSlot> Schedule { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? CurrentSessionId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Note { get; set; }
+    public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
+}
+
 public sealed class AppSettings
 {
+    /// <summary>طالب أو معلم أو الاثنان (null = لم يُسأل بعد). يغيّر التسميات فقط (جلسة/حصة) ويُظهر المجموعات للمعلم.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Role { get; set; }
+    /// <summary>التبويبات المفتوحة لكل مكتبة (المفتاح = مسار ملف المكتبة).</summary>
+    public Dictionary<string, TabsState> OpenTabs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>خط فاصل بين كل الموضوعات في الشجرة.</summary>
     public bool TopicSeparators { get; set; }
     /// <summary>الصفحة بتتحسب «اتقرت» لو فضلت قدامك الثواني دي.</summary>

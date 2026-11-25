@@ -36,6 +36,8 @@ public static class LibrarySync
     public static string LiveKey(LiveChannel l) => "l:" + l.Id;
     public static string ShelfKey(Shelf s) => "s:" + s.Id;
     public static string BookKey(Book b) => "b:" + b.Id;
+    public static string SessionKey(StudySession x) => "ss:" + x.Id;
+    public static string ClassKey(ClassGroup x) => "cl:" + x.Id;
 
     public static Result Merge(CourseLibrary local, CourseLibrary remote, ISet<string>? deletedKeys = null)
     {
@@ -106,6 +108,24 @@ public static class LibrarySync
 
         // 1.7) الكتب
         MergeBooks(local, remote, deletedKeys, result);
+
+        // 1.8) الجلسات والمجموعات: الجديد يُضاف، والأحدث يفوز
+        local.Sessions ??= new();
+        foreach (var rs in remote.Sessions ?? new List<StudySession>())
+        {
+            if (deletedKeys.Contains(SessionKey(rs))) continue;
+            int i = local.Sessions.FindIndex(x => x.Id == rs.Id);
+            if (i < 0) { local.Sessions.Add(rs); result.UpdatedInfo++; }
+            else if (rs.UpdatedUtc > local.Sessions[i].UpdatedUtc) { local.Sessions[i] = rs; result.UpdatedInfo++; }
+        }
+        local.Classes ??= new();
+        foreach (var rc in remote.Classes ?? new List<ClassGroup>())
+        {
+            if (deletedKeys.Contains(ClassKey(rc))) continue;
+            int i = local.Classes.FindIndex(x => x.Id == rc.Id);
+            if (i < 0) { local.Classes.Add(rc); result.UpdatedInfo++; }
+            else if (rc.UpdatedUtc > local.Classes[i].UpdatedUtc) { local.Classes[i] = rc; result.UpdatedInfo++; }
+        }
 
         // 2) الحاجات الجديدة اللي اتضافت على الجهاز التاني
         foreach (var rc in remote.Courses)

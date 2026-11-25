@@ -131,6 +131,7 @@ internal sealed partial class MainForm
 
         QueueProbe(_library.AllVideos);
         if (_dirty) SaveLibrary();
+        RestoreTabs();
         RefreshNotesPane();
         RefreshHome();
     }

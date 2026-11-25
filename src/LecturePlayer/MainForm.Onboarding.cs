@@ -101,6 +101,7 @@ internal sealed partial class MainForm
     {
         var choice = TourForm.Run(this);
         if (!_settings.TourShown) { _settings.TourShown = true; SaveSettings(); }
+        AskRoleIfNeeded();
         switch (choice)
         {
             case TourChoice.AddFolder: ImportCourseDialog(); break;
@@ -174,6 +175,7 @@ internal sealed partial class MainForm
         RunInkChecks();
         RunBoardChecks();
         RunPresentationChecks();
+        RunTabChecks();
         RunRecordingChecks();
         RunStressAndPlaybackChecks();
 

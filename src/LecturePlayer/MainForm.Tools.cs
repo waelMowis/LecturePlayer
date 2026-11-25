@@ -91,6 +91,7 @@ internal sealed partial class MainForm
             _preMiniBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
             _preMiniTopMost = TopMost;
             _miniMode = true;
+            UpdateTabStripVisible();
 
             SuspendLayout();
             _menuHost.Visible = _statusHost.Visible = _activityHost.Visible = false;
@@ -114,6 +115,7 @@ internal sealed partial class MainForm
         else
         {
             _miniMode = false;
+            UpdateTabStripVisible();
             SuspendLayout();
             MinimumSize = new Size(900, 560);
             Bounds = _preMiniBounds;
