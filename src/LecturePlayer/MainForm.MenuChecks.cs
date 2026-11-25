@@ -100,14 +100,14 @@ internal sealed partial class MainForm
                 return m.Items.OfType<ToolStripMenuItem>().Select(i => i.Text ?? "").ToList();
             }
             var none = Add(null);
-            Check(none.Count == 2 && none[0].Contains("موضوع جديد") && none[1].Contains("كورس"), "add: nothing selected");
+            Check(none.Count == 5 && none[0].Contains("موضوع جديد") && none[1].Contains("كورس") && none[2].Contains("كتاب") && none[3].Contains("PowerPoint") && none[4].Contains("سبورة"), "add: nothing selected: " + string.Join(" | ", none));
             var deep = Add(v);
             int Idx(string s) => deep.FindIndex(x => x.Contains(s));
             Check(deep[0].Contains("موضوع جديد") && Idx("مصدر جديد في") < Idx("مصدر فرعي في") && Idx("مصدر فرعي في") < Idx("كورس في «Menu Source»")
                   && Idx("كورس في") < Idx("محاضرة في «Menu Course»") && Idx("محاضرة في") < Idx("فيديوهات من الجهاز في «Menu Lecture»"),
                 "add: hierarchy order: " + string.Join(" | ", deep));
             var onTopic = Add(t);
-            Check(onTopic.Count == 3 && onTopic[1].Contains("مصدر جديد في «Menu Topic»") && onTopic[2].Contains("كورس في «Menu Topic»"), "add on topic: " + string.Join(" | ", onTopic));
+            Check(onTopic.Count == 6 && onTopic[1].Contains("مصدر جديد في «Menu Topic»") && onTopic[2].Contains("كورس في «Menu Topic»") && onTopic[3].Contains("كتاب"), "add on topic: " + string.Join(" | ", onTopic));
 
             // المساحة الفاضية
             using (var m = new ContextMenuStrip())
