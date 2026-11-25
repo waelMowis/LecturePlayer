@@ -591,6 +591,8 @@ public sealed class AppSettings
     public int DailyPagesGoal { get; set; }
     /// <summary>لون صفحات القارئ: normal / night / sepia.</summary>
     public string ReaderTheme { get; set; } = "normal";
+    /// <summary>جودة دروس المنصات (يوديمي، IT Legend…): أعلى جودة لحد الرقم ده (9999 = أعلى المتاح، 0 = سيبها للموقع).</summary>
+    public int WebQualityCap { get; set; } = 9999;
     /// <summary>اللوحة الجانبية: library (الكورسات) أو books (الكتب).</summary>
     public string SideView { get; set; } = "library";
 

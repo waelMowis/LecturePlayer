@@ -477,6 +477,7 @@ internal sealed partial class MainForm : Form
         _volumeBar.Margin = new Padding(0, 10, 8, 4);
 
         right.Controls.AddRange(new Control[] { speedLabel, _speedCombo, _btnRepeat, _btnMute, _volumeBar, _btnPlaylist, _btnMini, _btnFullscreen });
+        SetupQualityChip(right);
 
         _nowPlayingLabel.Dock = DockStyle.Fill;
         _nowPlayingLabel.TextAlign = ContentAlignment.MiddleCenter;

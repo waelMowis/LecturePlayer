@@ -13,12 +13,16 @@ namespace LecturePlayer.UI;
 internal sealed class UdemyPane : Panel
 {
     /// <summary>حالة الفيديو في الصفحة (آخر قراية).</summary>
-    public sealed record PlayerState(bool HasVideo, double TimeSec, double DurationSec, bool Paused, bool Ended, double Rate, string Href)
+    public sealed record PlayerState(bool HasVideo, double TimeSec, double DurationSec, bool Paused, bool Ended, double Rate, string Href,
+        int VideoWidth = 0, int VideoHeight = 0, QualityResult? Quality = null)
     {
         public long TimeMs => (long)(TimeSec * 1000);
         public long DurationMs => (long)(DurationSec * 1000);
         public bool Playing => HasVideo && !Paused && !Ended;
     }
+
+    /// <summary>نتيجة آخر محاولة «أعلى جودة» في الإطار اللي فيه الفيديو (من window.__masarQ).</summary>
+    public sealed record QualityResult(string Status, int Token, string Picked, int Max, int[] Available, bool Already, bool Changed, string? Error);
 
     public WebView2 Web { get; } = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.Black };
     public PlayerState? State { get; private set; }
@@ -47,6 +51,8 @@ internal sealed class UdemyPane : Panel
     public long OpenedLectureId { get; private set; }
     /// <summary>من إمتى الصفحة اتفتحت (ms) — يوديمي ممكن يعمل تحويل في الأول، فبنستنى قبل ما نصدّق تغيّر الدرس.</summary>
     public long MsSinceOpen => Environment.TickCount64 - _openedTick;
+    /// <summary>بيزيد مع كل درس بيتفتح (عشان «مسار» يعرف إن ده فيديو جديد).</summary>
+    public int Generation => _gen;
 
     public UdemyPane()
     {
@@ -172,8 +178,39 @@ internal sealed class UdemyPane : Panel
             !has || r.GetProperty("p").GetBoolean(),
             has && r.GetProperty("e").GetBoolean(),
             has ? r.GetProperty("r").GetDouble() : 1,
-            href);
+            href,
+            has && r.TryGetProperty("w", out var w) ? w.GetInt32() : 0,
+            has && r.TryGetProperty("vh", out var vh) ? vh.GetInt32() : 0,
+            r.TryGetProperty("q", out var q) ? ReadQuality(q) : null);
         if (has && State.DurationSec > 0 && !HoldPending) ApplyPending();
+    }
+
+    private static QualityResult? ReadQuality(JsonElement q)
+    {
+        if (q.ValueKind != JsonValueKind.Object) return null;
+        static string Str(JsonElement e, string n) => e.TryGetProperty(n, out var x) && x.ValueKind == JsonValueKind.String ? x.GetString() ?? "" : "";
+        static int Num(JsonElement e, string n) => e.TryGetProperty(n, out var x) && x.ValueKind == JsonValueKind.Number && x.TryGetInt32(out int k) ? k : 0;
+        static bool Flag(JsonElement e, string n) => e.TryGetProperty(n, out var x) && x.ValueKind == JsonValueKind.True;
+        int[] list = q.TryGetProperty("list", out var l) && l.ValueKind == JsonValueKind.Array
+            ? l.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Number).Select(x => x.GetInt32()).ToArray() : Array.Empty<int>();
+        string err = Str(q, "err");
+        return new QualityResult(Str(q, "s"), Num(q, "tok"), Str(q, "p"), Num(q, "max"), list, Flag(q, "already"), Flag(q, "picked"), err.Length > 0 ? err : null);
+    }
+
+    /// <summary>
+    /// «أعلى جودة»: بيفتح قايمة الجودة في مشغّل الموقع ويختار الأعلى (لحد cap). بيشتغل في الإطار اللي فيه الفيديو
+    /// (صفحة يوديمي نفسها، أو إطار VdoCipher في IT Legend). النتيجة بتيجي في State.Quality بنفس الـ token.
+    /// </summary>
+    public void ApplyBestQuality(int cap, int token)
+    {
+        if (!_ready || Web.CoreWebView2 == null) return;
+        string script = WebQuality.Script(cap, token);
+        if (_mediaFrame != null)
+        {
+            try { _ = _mediaFrame.ExecuteScriptAsync(script); return; }
+            catch (Exception) { _mediaFrame = null; }
+        }
+        _ = Web.CoreWebView2.ExecuteScriptAsync(script);
     }
 
     /// <summary>لسه بنختار الدرس في الصفحة: الفيديو الظاهر مش بتاعنا، فماناخدش منه مكان ولا نغيّر سرعته.</summary>
@@ -400,5 +437,5 @@ internal sealed class UdemyPane : Panel
         "(() => { const v = " + MainVideoJs + "; if (!v) return JSON.stringify({ v: 0, h: location.href }); " +
         "const b = v.getBoundingClientRect(); " +
         "return JSON.stringify({ v: 1, a: b.width * b.height, t: v.currentTime || 0, d: isFinite(v.duration) ? v.duration : 0, " +
-        "p: v.paused, e: v.ended, r: v.playbackRate || 1, h: location.href }); })()";
+        "p: v.paused, e: v.ended, r: v.playbackRate || 1, h: location.href, w: v.videoWidth || 0, vh: v.videoHeight || 0, q: window.__masarQ || null }); })()";
 }

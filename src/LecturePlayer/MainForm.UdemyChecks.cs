@@ -173,12 +173,28 @@ internal sealed partial class MainForm
                 <div class="content-col" style="transform:translateZ(0);height:75vh;overflow:hidden">
                   <div class="player" style="position:relative;height:100%">
                     <div class="aspect" style="height:62vh;max-height:62vh"><video src="/v.mp4" autoplay muted loop playsinline style="width:100%;height:100%"></video></div>
-                    <div class="controls" style="position:absolute;left:0;right:0;bottom:0;height:40px"><button>play</button><button>next</button></div>
+                    <div class="controls" style="position:absolute;left:0;right:0;bottom:0;height:40px"><button>play</button><button>next</button>
+                      <button data-purpose="settings-button" aria-label="Settings" id="gear">⚙</button></div>
                   </div>
                 </div>
                 <video src="/v.mp4" muted style="width:20px;height:20px"></video>
                 <div class="tabs" style="height:30vh">Overview / Q&A</div>
                 <input id="q" placeholder="Q&A">
+                <button aria-label="Account settings" id="acct" onclick="window.acctClicked = 1">account</button>
+                <script>
+                  // زي قايمة ⚙ في يوديمي: بتتبني لما تدوس وبتختفي بعد الاختيار
+                  let cur = 'Auto';
+                  document.getElementById('gear').addEventListener('click', () => {
+                    const m = document.getElementById('qmenu'); if (m) { m.remove(); return; }
+                    const d = document.createElement('div'); d.id = 'qmenu'; d.setAttribute('role', 'menu');
+                    d.style.cssText = 'position:fixed;right:10px;bottom:50px;background:#333;z-index:2147483600';
+                    for (const q of ['Auto', '1080p', '720p', '480p', '360p']) {
+                      const b = document.createElement('button'); b.setAttribute('role', 'menuitemradio'); b.setAttribute('aria-checked', q === cur ? 'true' : 'false');
+                      b.innerHTML = '<span>' + q + '</span>'; b.addEventListener('click', () => { cur = q; window.pickedQuality = q; d.remove(); }); d.appendChild(b);
+                    }
+                    document.body.appendChild(d);
+                  });
+                </script>
                 </body></html>
                 """);
         }
@@ -188,7 +204,17 @@ internal sealed partial class MainForm
         File.Copy(sample, Path.Combine(playerRoot, "v.mp4"), true);
         File.WriteAllText(Path.Combine(playerRoot, "embed.html"), """
             <!doctype html><html><body style="margin:0;background:#000">
-            <video src="/v.mp4" autoplay muted loop playsinline style="width:100%;height:100%"></video></body></html>
+            <video src="/v.mp4" autoplay muted loop playsinline style="width:100%;height:100%"></video>
+            <button aria-label="Settings" id="g" style="position:fixed;right:8px;bottom:8px">gear</button><div id="panel" style="position:fixed;right:8px;bottom:40px;color:#fff"></div>
+            <script>
+              // زي VdoCipher: ⚙ ← «Quality» ← قايمة الدقات
+              let cur = 'Auto'; const P = document.getElementById('panel');
+              document.getElementById('g').onclick = () => { if (P.innerHTML) { P.innerHTML = ''; return; }
+                P.innerHTML = '<div id="qe"><span>Quality</span> <span>' + cur + '</span></div><div>Speed 1x</div>';
+                document.getElementById('qe').onclick = () => { P.innerHTML = '';
+                  for (const q of ['1080p HD', '720p', '480p', 'Auto']) { const d = document.createElement('div'); d.className = 'opt' + (q === cur ? ' active' : ''); d.textContent = q;
+                    d.onclick = () => { cur = q; window.pickedQuality = q; P.innerHTML = ''; }; P.appendChild(d); } }; };
+            </script></body></html>
             """);
         string dir103 = Directory.CreateDirectory(Path.Combine(root, "course", "demo", "learn", "lecture", "103")).FullName;
         File.WriteAllText(Path.Combine(dir103, "p.html"), """
@@ -264,6 +290,16 @@ internal sealed partial class MainForm
             TogglePlay();
             SaveSmokeShot(this, "udemy-pane");
 
+            // «أعلى جودة»: بعد كام ثانية تشغيل «مسار» يختار 1080p من قايمة ⚙ ويقفلها، وزرار «إعدادات» تاني في الصفحة مايتلمسش
+            Check(Until(() => pane.State?.Quality is { Status: "ok" }, 20_000), "best quality picked in the page menu: " + pane.State?.Quality);
+            var picked = pane.Web.CoreWebView2.ExecuteScriptAsync("JSON.stringify([window.pickedQuality || '', !!document.getElementById('qmenu'), window.acctClicked || 0])");
+            Check(Until(() => picked.IsCompleted, 5000) && picked.Result.Contains("1080p") && picked.Result.Contains("false") && !picked.Result.Contains(",1]"), "1080p chosen, menu closed, other buttons untouched: " + picked.Result);
+            Check(pane.State!.Quality!.Max == 1080 && pane.State.Quality.Changed, "quality result: " + pane.State.Quality);
+            Check(Until(() => _qualityChip.Visible && _qualityChip.Text == WebQuality.Label(pane.State!.VideoWidth, pane.State.VideoHeight), 3000),
+                $"resolution chip shows the real size: '{_qualityChip.Text}' visible={_qualityChip.Visible} ({pane.State?.VideoWidth}x{pane.State?.VideoHeight})");
+            Check(WebQuality.NominalHeight(1920, 1080) == 1080 && WebQuality.NominalHeight(1920, 800) == 1080 && WebQuality.NominalHeight(1280, 720) == 720 &&
+                  WebQuality.Label(3840, 2160) == "4K" && WebQuality.NominalHeight(1080, 1920) == 1080, "nominal resolution names");
+
             // يوديمي راح للدرس التالي لوحده ← «مسار» يمشي معاه
             Pump(3200); // بعد مهلة التحويلات الأولى
             pane.Web.CoreWebView2.ExecuteScriptAsync($"location.href = 'https://{host}/course/demo/learn/lecture/102/p.html'");
@@ -278,6 +314,9 @@ internal sealed partial class MainForm
             TogglePlay();
             SetRate(1.25f);
             Check(Until(() => pane.State is { Rate: > 1.2 and < 1.3 }, 5000), "rate on iframe player: " + pane.State);
+            // «أعلى جودة» جوه إطار المشغّل (زي VdoCipher): ⚙ ← Quality ← 1080p HD
+            Check(Until(() => pane.State?.Quality is { Status: "ok" }, 20_000), "best quality inside the player frame: " + pane.State?.Quality);
+            Check(pane.State!.Quality!.Picked.StartsWith("1080p") && pane.State.Quality.Changed, "frame quality result: " + pane.State.Quality);
             SetRate(1f);
             double d3 = pane.State!.DurationSec;
             SeekToFraction(0.5);

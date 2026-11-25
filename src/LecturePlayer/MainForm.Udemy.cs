@@ -107,6 +107,7 @@ internal sealed partial class MainForm
             _udemyPane.Visible = false;
             _udemyShown = false;
         }
+        _qualityChip.Visible = false;
         _videoView.Visible = true;
     }
 
@@ -140,7 +141,8 @@ internal sealed partial class MainForm
         var pane = _udemyPane!;
         if (Due(ref _dueUdemyPoll, 450)) pane.Poll();
         var s = pane.State;
-        if (s == null) return;
+        if (s == null) { UpdateQualityChip(null); return; }
+        WebQualityTick(pane, s);
 
         // يوديمي بيروح للدرس التالي لوحده (أو إنت اخترت درس من جوه الصفحة): «مسار» يمشي معاه
         if (v.IsItLegend) { ItLegendSelectTick(v); if (_itlPendingNode != null || pane.HoldPending) return; }
