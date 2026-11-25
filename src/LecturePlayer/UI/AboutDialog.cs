@@ -8,6 +8,17 @@ internal static class AboutDialog
     public const string DeveloperAr = "د. وائل عويس";
     public const string DeveloperEn = "Dr. Wael Owais";
 
+    /// <summary>ما الذي يبقى على الجهاز، ومتى يتصل البرنامج بالإنترنت.</summary>
+    public const string PrivacyText =
+        "• بياناتك على جهازك: المكتبة والتقدّم والملاحظات والشرح في ملفات تختار مكانها، والإعدادات في مجلد Data بجانب البرنامج. لا يوجد حساب ولا خادم لـ «مسار».\n\n" +
+        "• لا تتبّع ولا إحصاءات استخدام تُرسَل إلى أحد. سجل الأخطاء يبقى على جهازك، ولا يُرسَل إلا إذا أرسلته بنفسك.\n\n" +
+        "• المفاتيح وبيانات الدخول: مفتاح Claude ومفتاح نوشن ودخول Moodle تُحفظ مشفّرة بحساب ويندوز على هذا الجهاز فقط، ولا تُكتب في ملف المكتبة. " +
+        "وكلمات مرور يوديمي وIT Legend تذهب إلى مواقعها مباشرة ولا يراها «مسار».\n\n" +
+        "• لا يتصل البرنامج بالإنترنت إلا لما تطلبه: يوتيوب والمنصات عند تشغيل دروسها، وClaude عند استخدام الذكاء الاصطناعي (يُرسَل نص الفيديو أو الصفحة المطلوبة فقط)، " +
+        "ونوشن إن ربطته، ودليل Radio Browser للراديو، وGitHub للتحقق من التحديثات.\n\n" +
+        "• المزامنة بين أجهزتك عبر OneDrive أو Google Drive تتم بحسابك أنت.\n\n" +
+        "• التسجيلات والتصدير تُحفظ على جهازك، ولا يُشارَك شيء إلا إذا أرسلته بنفسك.";
+
     public static void Show(IWin32Window owner, string version, string technicalDetails)
     {
         using var form = new Form
@@ -25,7 +36,7 @@ internal static class AboutDialog
             Font = new Font("Segoe UI", 9.75f),
             AutoScaleDimensions = new SizeF(96F, 96F),
             AutoScaleMode = AutoScaleMode.Dpi,
-            ClientSize = new Size(440, 440),
+            ClientSize = new Size(540, 440),
             Padding = new Padding(14, 14, 14, 0),
             KeyPreview = true
         };
@@ -76,7 +87,7 @@ internal static class AboutDialog
 
         Line(AppName, 20f, Color.White, FontStyle.Bold);
         Line(AppNameEn + "  ·  الإصدار " + version, 9.5f, Theme.Muted);
-        Line("فيديوهاتك مرتّبة في مسار واضح، وتكمل من حيث توقفت", 9.5f, Theme.Text, top: 8);
+        Line("فيديوهاتك وكتبك وشروحك مرتّبة في مسار واضح، وتكمل من حيث توقفت", 9.5f, Theme.Text, top: 8);
 
         var sep = new Panel { Height = 1, Dock = DockStyle.Top, BackColor = Theme.Border, Margin = new Padding(30, 14, 30, 10) };
         body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -103,8 +114,11 @@ internal static class AboutDialog
         details.Click += (_, _) => Dialogs.Info(form, technicalDetails, "تفاصيل تقنية");
         var guide = new PillButton("دليل الاستخدام", PillStyle.Ghost) { Size = new Size(124, 34), Margin = new Padding(3, 3, 8, 3) };
         guide.Click += (_, _) => HelpGuide.Open(form);
+        var privacy = new PillButton("الخصوصية", PillStyle.Ghost) { Size = new Size(100, 34), Margin = new Padding(3, 3, 8, 3) };
+        privacy.Click += (_, _) => Dialogs.Info(form, PrivacyText, "الخصوصية في «مسار»");
         footer.Controls.Add(ok);
         footer.Controls.Add(guide);
+        footer.Controls.Add(privacy);
         footer.Controls.Add(details);
 
         form.Controls.Add(card);
