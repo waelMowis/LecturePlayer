@@ -165,7 +165,7 @@ internal sealed partial class MainForm
             SmokeClaudeReply = user =>
             {
                 prompt = user;
-                return user.Contains("الشكل بالظبط")
+                return user.Contains("الشكل بالضبط")
                     ? "[{\"question\":\"الصفحة فيها إيه؟\",\"options\":[\"a\",\"b\",\"c\",\"d\"],\"answer\":1,\"explanation\":\"…\",\"page\":8}]"
                     : "## ملخص الفحص";
             };

@@ -40,7 +40,7 @@ internal sealed partial class MainForm
         Check(p != null && Math.Abs(p.Percent - 75) < 0.1 && p.Stage.Contains("الصوت"), "half of audio = 75%: " + p);
         r.Read(YtDlp.ProgressTag + " 100|100|NA|NA|NA");
         p = r.Read("[Merger] Merging formats into \"v.mp4\"");
-        Check(p != null && p.Stage.Contains("بيدمج") && Math.Abs(p.Percent - 100) < 0.1, "merge stage keeps 100%: " + p);
+        Check(p != null && p.Stage.Contains("دمج") && Math.Abs(p.Percent - 100) < 0.1, "merge stage keeps 100%: " + p);
         var r1 = new YtDlp.ProgressReader();
         p = r1.Read(YtDlp.ProgressTag + " 30|60|NA|NA|NA");
         Check(p != null && Math.Abs(p.Percent - 50) < 0.1, "single part: " + p);

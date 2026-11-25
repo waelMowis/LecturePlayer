@@ -72,7 +72,7 @@ internal sealed partial class MainForm
             {
                 BuildNodeMenu(t, m.Items);
                 var subs = m.Items.OfType<ToolStripMenuItem>().First(x => x.Text!.StartsWith("📤  نوشن")).DropDownItems.OfType<ToolStripMenuItem>().Select(x => x.Text ?? "").ToList();
-                Check(subs.Any(x => x.Contains("زامن دلوقتي")) && subs.Any(x => x.Contains("وزّع المواعيد")) && subs.Any(x => x.Contains("سجل المذاكرة")) && subs.Any(x => x.Contains("فك الربط")),
+                Check(subs.Any(x => x.Contains("زامن الآن")) && subs.Any(x => x.Contains("وزّع المواعيد")) && subs.Any(x => x.Contains("سجل المذاكرة")) && subs.Any(x => x.Contains("فك الربط")),
                     "topic menu when linked: " + string.Join(" | ", subs));
             }
 
