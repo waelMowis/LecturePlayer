@@ -704,10 +704,27 @@ function setPresent(on) {
   if (on == null) on = !document.body.classList.contains("present");
   if (on === document.body.classList.contains("present")) return;
   document.body.classList.toggle("present", on);
-  if (on && S.doc) { presentPrev = viewer.currentScaleValue; const p = viewer.currentPageNumber; viewer.currentScaleValue = "page-fit"; viewer.currentPageNumber = p; post({ t: "cmd", gen: S.opts.gen, name: "present-on", page: p }); }
-  else if (!on && S.doc && presentPrev) { const p = viewer.currentPageNumber; viewer.currentScaleValue = presentPrev; viewer.currentPageNumber = p; presentPrev = null; post({ t: "cmd", gen: S.opts.gen, name: "present-off", page: p }); }
+  if (on && S.doc) {
+    // صفحة واحدة بس على الشاشة، مقاسها كامل، والأسهم/المسافة صفحة صفحة
+    const p = viewer.currentPageNumber;
+    presentPrev = { scale: viewer.currentScaleValue, scroll: viewer.scrollMode, spread: viewer.spreadMode };
+    viewer.spreadMode = 0;
+    viewer.scrollMode = 3; // PAGE
+    viewer.currentScaleValue = "page-fit";
+    viewer.currentPageNumber = p;
+    post({ t: "cmd", gen: S.opts.gen, name: "present-on", page: p });
+  } else if (!on && S.doc && presentPrev) {
+    const p = viewer.currentPageNumber;
+    viewer.scrollMode = presentPrev.scroll;
+    viewer.spreadMode = presentPrev.spread;
+    viewer.currentScaleValue = presentPrev.scale;
+    viewer.currentPageNumber = p;
+    presentPrev = null;
+    post({ t: "cmd", gen: S.opts.gen, name: "present-off", page: p });
+  }
   if (on) InkUI.say("وضع العرض — الأسهم/المسافة للصفحات، F5 أو Esc للخروج", 3500);
 }
+window.addEventListener("resize", () => { if (presentPrev && S.doc) viewer.currentScaleValue = "page-fit"; });
 $("inkBtn").addEventListener("click", () => toggleInk());
 // وضع العرض: الأسهم والمسافة صفحة صفحة حتى لو أدوات الشرح مقفولة
 window.addEventListener("keydown", e => {

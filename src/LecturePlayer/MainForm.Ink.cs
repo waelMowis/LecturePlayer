@@ -176,6 +176,7 @@ internal partial class MainForm
     /// <summary>وضع العرض في القارئ: لو مش ملء الشاشة بنعمله، ولما يخلص نرجّع زي ما كان.</summary>
     private void OnReaderPresent(bool on)
     {
+        if (on) HideBanner();   // التنبيهات مابتظهرش فوق العرض
         if (on && !_fullscreen) { _presentFullscreen = true; ToggleFullscreen(); }
         else if (!on && _presentFullscreen) { _presentFullscreen = false; if (_fullscreen) ToggleFullscreen(); }
     }
