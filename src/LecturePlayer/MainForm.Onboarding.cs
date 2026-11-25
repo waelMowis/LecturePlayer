@@ -130,7 +130,7 @@ internal sealed partial class MainForm
             var tops = _menu.Items.Cast<ToolStripItem>().Where(i => i.Available).Select(i => i.Text).ToList();
             Console.WriteLine($"SMOKE menus ({(adv ? "advanced" : "simple")}): {tops.Count}");
             // نفس القوايم ونفس الأوامر في الوضعين (الفرق في عناصر الشاشة بس)
-            if (!tops.SequenceEqual(new[] { "ملف", "تعديل", "المكتبة", "التشغيل", "عرض", "مذاكرة", "ذكاء", "إنترنت", "مساعدة" }))
+            if (!tops.SequenceEqual(new[] { "ملف", "تحرير", "المكتبة", "التشغيل", "عرض", "الأدوات", "مساعدة" }))
                 throw new Exception("top menus: " + string.Join(" | ", tops));
             int hidden = CountHidden(_menu.Items);
             if (hidden > 0) throw new Exception($"{hidden} menu commands hidden in {(adv ? "advanced" : "simple")} mode");

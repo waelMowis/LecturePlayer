@@ -28,7 +28,7 @@ internal sealed partial class MainForm
     private readonly LectureTreeView _shelfTree = new();
     private readonly TextBox _shelfSearch = new();
     private readonly Label _shelfEmpty = new();
-    private GlyphButton? _activityBooks;
+
     private bool _shelfMode;
     private readonly Dictionary<object, TreeNode> _shelfNodes = new();
     private readonly Queue<Book> _bookProbeQueue = new();
@@ -136,26 +136,45 @@ internal sealed partial class MainForm
         _shelfCard.Controls.Add(titleRow);
         _sidePanel.Controls.Add(_shelfCard);
         _shelfCard.BringToFront();
+        BuildLibrarySwitch();
         if (_settings.SideView == "books") ShowShelf(true);
+    }
+
+    // ---------------- المكتبة الموحّدة: مفتاح واحد بين الدورات والكتب/العروض/السبورات ----------------
+    private PillButton? _segCourses, _segBooks;
+
+    private void BuildLibrarySwitch()
+    {
+        var bar = new TableLayoutPanel { Dock = DockStyle.Top, Height = LogicalToDeviceUnits(38), ColumnCount = 2, RowCount = 1, BackColor = Theme.Window, Padding = new Padding(0, 0, 0, LogicalToDeviceUnits(6)), RightToLeft = RightToLeft.Yes };
+        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        _segCourses = new PillButton("الدورات والفيديوهات", PillStyle.Ghost) { Dock = DockStyle.Fill, Margin = new Padding(LogicalToDeviceUnits(2), 0, LogicalToDeviceUnits(2), 0), TabStop = false };
+        _segBooks = new PillButton("الكتب والعروض والسبورات", PillStyle.Ghost) { Dock = DockStyle.Fill, Margin = new Padding(LogicalToDeviceUnits(2), 0, LogicalToDeviceUnits(2), 0), TabStop = false };
+        _segCourses.Click += (_, _) => { if (_split.Panel2Collapsed) ToggleSidePanel(); ShowShelf(false); };
+        _segBooks.Click += (_, _) => { if (_split.Panel2Collapsed) ToggleSidePanel(); ShowShelf(true); };
+        _toolTip.SetToolTip(_segCourses, "الدورات والمحاضرات والفيديوهات (يوتيوب، المنصات، فولدرات الجهاز)");
+        _toolTip.SetToolTip(_segBooks, "الكتب (PDF / EPUB) وعروض PowerPoint والسبورات (Ctrl+Shift+B)");
+        bar.Controls.Add(_segCourses, 0, 0);
+        bar.Controls.Add(_segBooks, 1, 0);
+        _sidePanel.Controls.Add(bar);
+        UpdateActivityIndicators();
     }
 
     private void UpdateActivityIndicators()
     {
         bool visible = !_split.Panel2Collapsed;
-        if (_activityExplorer is { } ex) ex.Active = visible && !_shelfMode;
-        if (_activityBooks != null) _activityBooks.Active = visible && _shelfMode;
+        if (_activityExplorer is { } ex) ex.Active = visible;   // «المكتبة» واحدة: الدورات والكتب جواها
+        if (_segCourses != null) _segCourses.Style = !_shelfMode ? PillStyle.Primary : PillStyle.Ghost;
+        if (_segBooks != null) _segBooks.Style = _shelfMode ? PillStyle.Primary : PillStyle.Ghost;
     }
 
-    /// <summary>زرار «مكتبتي»: من «الكتب» بيرجع للكورسات، وإلا بيخفي/يظهر اللوحة.</summary>
+    /// <summary>زرار «المكتبة»: بيظهر/يخفي اللوحة (والمفتاح اللي فوقها بيختار الدورات أو الكتب).</summary>
     private void OnExplorerActivity()
     {
         if (_fullscreen) return;
-        if (_shelfMode && !_split.Panel2Collapsed) { ShowShelf(false); return; }
-        if (_shelfMode) ShowShelf(false);
         ToggleSidePanel();
     }
 
-    /// <summary>زرار «الكتب» (Ctrl+Shift+B): يظهر الرف، ولو ظاهر يخفي اللوحة.</summary>
     private void ToggleShelf()
     {
         if (_fullscreen) return;
@@ -1322,6 +1341,7 @@ internal sealed partial class MainForm
     {
         if (keyData == (Keys.Control | Keys.Shift | Keys.B)) { ToggleShelf(); return true; }
         if (keyData == (Keys.Control | Keys.Shift | Keys.P)) { AddPresentationsDialog(SelectedShelfContext()); return true; }
+        if (keyData == (Keys.Control | Keys.Shift | Keys.Space)) { ShowCommandPalette(); return true; }
         if (keyData == (Keys.Control | Keys.Shift | Keys.D) && ReaderShown) { ToggleInkMode(); return true; }
         if (keyData == (Keys.Control | Keys.W) && ReaderShown) { CloseReader(showHome: true); return true; }
         if (_shelfTree.Focused)

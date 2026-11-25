@@ -143,6 +143,32 @@ internal sealed partial class MainForm
                 SaveSmokeShot(this, shot);
                 _nodeMenu.Close();
             }
+            // «الأدوات» في الشريط الجانبي، و«ابحث عن أمر»
+            ShowToolsMenu(_activityTools);
+            for (int i = 0; i < 20; i++) { Application.DoEvents(); Thread.Sleep(15); }
+            var tm = LastToolsMenu!;
+            var tt = tm.Items.OfType<ToolStripMenuItem>().Select(i => i.Text ?? "").ToList();
+            Check(tm.Visible && tt.Any(x => x.Contains("ابحث عن أمر")) && tt.Any(x => x.Contains("PowerPoint")) && tt.Any(x => x.Contains("مراجعة")) && tt.Any(x => x.Contains("بث مباشر")), "tools rail menu: " + string.Join(" | ", tt));
+            SaveSmokeShot(this, "rail-tools-menu");
+            tm.Close();
+            var cmds = CollectCommands();
+            Console.WriteLine($"SMOKE commands: {cmds.Count}");
+            Check(cmds.Count > 80, "command list from the menus: " + cmds.Count);
+            Check(RankCommands(cmds, "سبوره").FirstOrDefault()?.Title.Contains("سبورة") == true, "search «سبوره» finds the board (ة/ه): " + RankCommands(cmds, "سبوره").FirstOrDefault()?.Title);
+            Check(RankCommands(cmds, "powerpoint").Any(), "search PowerPoint");
+            Check(RankCommands(cmds, "مراجعه").FirstOrDefault()?.Title.Contains("مراجعة") == true, "search review");
+            SmokeDialogShots = true;
+            try
+            {
+                ShowCommandPalette();
+                var pal = CommandPalette!;
+                pal.Controls[0].Controls.OfType<TextBox>().First().Text = "سبورة";
+                for (int i = 0; i < 30; i++) { Application.DoEvents(); Thread.Sleep(15); }
+                Check(pal.Visible && pal.Controls[0].Controls.OfType<ListBox>().First().Items.Count > 0, "command palette shows results");
+                SaveSmokeShot(pal, "command-palette");
+                pal.Close();
+            }
+            finally { SmokeDialogShots = false; }
             Console.WriteLine("SMOKE menus: ok");
         }
         finally

@@ -527,7 +527,7 @@ internal sealed partial class MainForm : Form
     }
     private GlyphButton _activityExplorer = null!;
     private GlyphButton _activityHome = null!;
-    private GlyphButton _activityBoard = null!, _activityRecord = null!;
+    private GlyphButton _activityBoard = null!, _activityRecord = null!, _activityTools = null!;
     private readonly Dictionary<GlyphButton, string?> _railCaptions = new();
     private bool _railCompact;
 
@@ -554,20 +554,13 @@ internal sealed partial class MainForm : Form
             parent.Controls.Add(b);
             return b;
         }
-        _activityHome = Act(Glyphs.Home, "الرئيسية", "الشاشة الرئيسية: كمّل اللي بدأته، وضيف فيديوهات (Alt+Home)\nلو فيه فيديو شغال، مكانك بيتحفظ وتقدر تكمّل منه", GoHome, top);
-        _activityExplorer = Act(Glyphs.Library, "مكتبتي", "مكتبتك: الكورسات والفيديوهات — اضغط تخفيها أو تظهرها (F6)", OnExplorerActivity, top);
-        _activityBooks = Act(Glyphs.Book, "الكتب", "رف الكتب: كتبك (PDF) وفين وصلت في كل كتاب (Ctrl+Shift+B)", ToggleShelf, top);
+        // الشريط الجانبي المرتّب: الرئيسية · المكتبة (الدورات والكتب في مكان واحد) · سبورة · تسجيل · الأدوات (كل الباقي)
+        _activityHome = Act(Glyphs.Home, "الرئيسية", "الشاشة الرئيسية: كمّل اللي بدأته، وضيف محتوى (Alt+Home)", GoHome, top);
+        _activityExplorer = Act(Glyphs.Library, "المكتبة", "المكتبة: الدورات والفيديوهات، والكتب والعروض والسبورات — اضغط تخفيها أو تظهرها (F6)", OnExplorerActivity, top);
         UpdateActivityIndicators();
-        Act(Glyphs.Radio, "بث مباشر", "راديو وتليفزيون على الهوا، ومنهم الحرم المكي والمدني (Ctrl+Shift+L)", ShowLiveWindow, top);
         _activityBoard = Act(Glyphs.Board, "سبورة", "السبورة البيضاء: سبورة جديدة أو افتح واحدة من سبوراتك", () => ShowBoardActivityMenu(_activityBoard), top);
         _activityRecord = Act(Glyphs.Record, "تسجيل", "سجّل شرح: الشاشة والكاميرا والصوت وأقلام على الشاشة (Ctrl+Shift+F9 من أي برنامج)", OnRecordActivity, top);
-        // أدوات الوضع المتقدم (بتستخبى في الوضع البسيط)
-        _advancedActivity.Add(Act(Glyphs.Search, "بحث", "دوّر على كلمة اتقالت جوه الفيديوهات (Ctrl+Shift+F)", ShowTranscriptSearch, top));
-        _advancedActivity.Add(Act(Glyphs.History, "مراجعة", "العلامات اللي عليها الدور تراجعها النهارده (F7)", ShowReview, top));
-        _advancedActivity.Add(Act(Glyphs.Chart, "إحصائيات", "ذاكرت قد إيه النهارده والأسبوع ده (F8)", ShowStats, top));
-        _advancedActivity.Add(Act(Glyphs.Chat, "اسأل", "اسأل عن أي حاجة في الكورس والذكاء الاصطناعي يجاوبك من كلام المحاضرات (Ctrl+K)", AskCourse, top));
-        _advancedActivity.Add(Act(Glyphs.Code, "كود", "جرّب الكود اللي في المحاضرة (Ctrl+L)", () => OpenCodeLab(""), top));
-        _advancedActivity.Add(Act(Glyphs.Timer, "تركيز", "وضع التركيز: مذاكرة بوقت محدد وبريك", StartFocusDialog, top));
+        _activityTools = Act(Glyphs.Tools, "الأدوات", "كل الأدوات: عرض PowerPoint، أقلام الشاشة، المراجعة، الإحصائيات، التركيز، البث المباشر، التنزيل… — وابحث عن أي أمر (Ctrl+Shift+Space)", () => ShowToolsMenu(_activityTools), top);
 
         var bottom = new Panel { Dock = DockStyle.Bottom, Height = LogicalToDeviceUnits(112), BackColor = Theme.Panel };
         var settings = Act(Glyphs.Settings, "الإعدادات", "الإعدادات (Ctrl+,)", SettingsDialog, bottom);
@@ -725,8 +718,8 @@ internal sealed partial class MainForm : Form
     // =====================================================================
 
     /// <summary>
-    /// شريط القوايم (المرحلة التانية من ترتيب الأوامر): 9 قوايم ثابتة في الوضع البسيط والمتقدم —
-    /// ملف · تعديل · المكتبة · التشغيل · عرض · مذاكرة · ذكاء · إنترنت · مساعدة.
+    /// شريط القوايم: 7 قوايم ثابتة — ملف · تحرير · المكتبة · التشغيل · عرض · الأدوات · مساعدة
+    /// («الأدوات» فيها الشرح والمذاكرة والذكاء والإنترنت).
     /// كل أمر ليه مكان واحد حسب معناه، والوضع المتقدم بيغيّر عناصر الشاشة بس (مش الأوامر).
     /// </summary>
     private void BuildMenus()
@@ -753,7 +746,7 @@ internal sealed partial class MainForm : Form
         // ---------------- تعديل ----------------
         var undo = Item("تراجع", UndoLast, display: "Ctrl+Z");
         var redo = Item("إعادة", RedoLast, display: "Ctrl+Y");
-        var edit = SubMenu("تعديل",
+        var edit = SubMenu("تحرير",
             undo, redo,
             new ToolStripSeparator(),
             Item("إعادة تسمية المحدد…", RenameSelected, display: "F2"),
@@ -794,14 +787,14 @@ internal sealed partial class MainForm : Form
             Item("كورس فاضي…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
             Item("محاضرة فاضية في الكورس المحدد…", () => AddGroup(), Keys.Control | Keys.G),
             Item("فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),
+            new ToolStripSeparator(),
             Item("📖  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(SelectedShelfContext())),
+            Item("📁  فولدر كتب كامل (يبقى رف)…", () => AddBooksFromFolderDialog(SelectedShelfContext())),
+            Item("🔗  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(SelectedShelfContext())),
             Item("📽  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), display: "Ctrl+Shift+P"),
-            SubMenu("📚  كتب (PDF)",
-                Item("كتاب أو أكتر من الجهاز…", () => AddBooksDialog(SelectedShelfContext())),
-                Item("فولدر كتب كامل (يبقى رف)…", () => AddBooksFromFolderDialog(SelectedShelfContext())),
-                Item("كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(SelectedShelfContext())),
-                Item("🔍  دوّر جوه كل الكتب…", () => ShowBookSearch()),
-                Item("رف جديد…", () => AddShelfDialog(null))),
+            Item("🧑‍🏫  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())),
+            Item("رف جديد…", () => AddShelfDialog(null)),
+            Item("🔍  بحث داخل كل الكتب…", () => ShowBookSearch()),
             new ToolStripSeparator(),
             Item("🔄  هات الجديد من كل الفولدرات المتابَعة", () => _ = SyncLinkedFoldersAsync(null, manual: true)),
             Item("🔄  هات الجديد من كل قوايم يوتيوب", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
@@ -885,7 +878,8 @@ internal sealed partial class MainForm : Form
         var view = SubMenu("عرض",
             Item("ملء الشاشة", ToggleFullscreen, display: "F11"),
             Item("إظهار / إخفاء المكتبة", ToggleSidePanel, display: "F6"),
-            Item("📚  الكتب (رف الكتب)", ToggleShelf, display: "Ctrl+Shift+B"),
+            Item("المكتبة: الكتب والعروض والسبورات", () => { if (_split.Panel2Collapsed) ToggleSidePanel(); ShowShelf(true); }, display: "Ctrl+Shift+B"),
+            Item("المكتبة: الدورات والفيديوهات", () => { if (_split.Panel2Collapsed) ToggleSidePanel(); ShowShelf(false); }),
             Item("المشغل الصغير", ToggleMiniMode, display: "P"),
             _alwaysOnTopItem = Item("دايمًا فوق الشبابيك التانية", ToggleAlwaysOnTop, display: "T"),
             Item("الشاشة الرئيسية", GoHome, display: "Alt+Home"),
@@ -895,7 +889,7 @@ internal sealed partial class MainForm : Form
             _advancedItem = Item("الوضع المتقدم (أزرار جانبية وشريط حالة زيادة)", () => SetAdvancedMode(!AdvancedMode)));
 
         // ---------------- مذاكرة: العلامات والمراجعة والتركيز والإحصائيات ----------------
-        var study = SubMenu("مذاكرة",
+        var study = SubMenu("المذاكرة",
             Item("علامة عند اللحظة دي", () => AddBookmark(false), display: "B"),
             Item("علامة بملاحظة…", () => AddBookmark(true), display: "Shift+B"),
             Item("علامة مراجعة (تفكّرني أراجعها)…", AddReviewBookmark, display: "R"),
@@ -911,13 +905,7 @@ internal sealed partial class MainForm : Form
             Item("إنهاء وضع التركيز", () => EndFocus(early: true)),
             new ToolStripSeparator(),
             Item("إحصائيات المذاكرة", ShowStats, Keys.F8),
-            Item("صفحة إنجازاتي (تفتح في المتصفح)…", ExportAchievements),
-            new ToolStripSeparator(),
-            Item("⏺  سجّل شرح (الشاشة والكاميرا والصوت)…", () => { if (Recording) _ = StopRecordingAsync(save: true); else StartRecordingDialog(SelectedGroup()); }, display: "Ctrl+Shift+F9"),
-            Item("🖊  أقلام على الشاشة (فوق أي برنامج)", ToggleScreenInk, display: "Ctrl+Shift+F8"),
-            Item("🧑‍🏫  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())),
-            new ToolStripSeparator(),
-            Item("معمل الكود…", () => OpenCodeLab(""), Keys.Control | Keys.L));
+            Item("صفحة إنجازاتي (تفتح في المتصفح)…", ExportAchievements));
 
         // ---------------- مساعدة ----------------
         var help = SubMenu("مساعدة",
@@ -945,7 +933,23 @@ internal sealed partial class MainForm : Form
                 "\n\nفولدر البيانات" + (Storage.IsPortable ? " (جنب البرنامج)" : " (%AppData% — مفيش صلاحية كتابة جنب البرنامج)") +
                 ":\n" + Storage.AppDataDir)));
 
-        _menu.Items.AddRange(new ToolStripItem[] { file, edit, library, play, view, study, BuildSmartMenu(), BuildOnlineMenu(), help });
+        // ---------------- الأدوات: الشرح فوق، وبعدها المذاكرة والذكاء والإنترنت (كانت 3 قوايم منفصلة) ----------------
+        var smart = BuildSmartMenu(); smart.Text = "الذكاء الاصطناعي";
+        var online = BuildOnlineMenu(); online.Text = "الإنترنت والمنصات";
+        var tools = SubMenu("الأدوات",
+            Item("🔎  ابحث عن أمر…", ShowCommandPalette, display: "Ctrl+Shift+Space"),
+            new ToolStripSeparator());
+        foreach (var it in TeachingToolItems()) tools.DropDownItems.Add(it);
+        // معمل الكود هنا بالاختصار الحقيقي (Ctrl+L)
+        var lab = tools.DropDownItems.OfType<ToolStripMenuItem>().Last();
+        lab.ShortcutKeyDisplayString = null; lab.ShortcutKeys = Keys.Control | Keys.L;
+        tools.DropDownItems.Add(new ToolStripSeparator());
+        tools.DropDownItems.Add(study);
+        tools.DropDownItems.Add(smart);
+        tools.DropDownItems.Add(online);
+
+        // 7 قوايم بدل 9: ملف · تحرير · المكتبة · التشغيل · عرض · الأدوات · مساعدة
+        _menu.Items.AddRange(new ToolStripItem[] { file, edit, library, play, view, tools, help });
     }
 
     private static ToolStripMenuItem SubMenu(string text, params ToolStripItem[] items)

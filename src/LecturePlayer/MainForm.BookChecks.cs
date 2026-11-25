@@ -127,9 +127,13 @@ internal sealed partial class MainForm
             _settings.ReadSeconds = 1;
             if (_split.Panel2Collapsed) ToggleSidePanel();
             ToggleShelf();
-            Check(_shelfMode && _shelfCard.Visible && !_treeCard.Visible && _activityBooks!.Active && !_activityExplorer.Active, "books panel shown");
+            Check(_shelfMode && _shelfCard.Visible && !_treeCard.Visible && _activityExplorer.Active && _segBooks!.Style == PillStyle.Primary && _segCourses!.Style != PillStyle.Primary, "books panel shown (unified library switch)");
+            _segCourses.PerformClick();
+            Check(!_shelfMode && _treeCard.Visible && _activityExplorer.Active && _segCourses.Style == PillStyle.Primary && _segBooks.Style != PillStyle.Primary, "back to courses");
             OnExplorerActivity();
-            Check(!_shelfMode && _treeCard.Visible && _activityExplorer.Active && !_activityBooks.Active, "back to courses");
+            Check(_split.Panel2Collapsed && !_activityExplorer.Active, "library button hides the panel");
+            OnExplorerActivity();
+            Check(!_split.Panel2Collapsed && _activityExplorer.Active, "and shows it again");
             ToggleShelf();
 
             var shelf = AddShelf("رف الفحص", null);
