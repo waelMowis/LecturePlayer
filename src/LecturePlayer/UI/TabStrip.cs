@@ -68,7 +68,7 @@ internal sealed class TabStrip : Control
         int avail = right - left;
         if (_items.Count == 0) { _visible = 0; _moreRect = Rectangle.Empty; return; }
 
-        var natural = _items.Select(i => Math.Clamp(TextRenderer.MeasureText(i.Title, Font).Width + S(58), S(110), S(230))).ToList();
+        var natural = _items.Select(i => Math.Clamp(TextRenderer.MeasureText(i.Glyph + "  " + i.Title, Font).Width + S(48), S(110), S(240))).ToList();
         int min = S(96);
         int total = natural.Sum() + S(4) * _items.Count;
         List<int> widths = natural;
