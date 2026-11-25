@@ -456,6 +456,8 @@ internal sealed partial class MainForm
         items.Add(Sep());
         items.Add(MenuItem(shelf != null ? $"➕  رف جوه «{shelf.Name}»…" : "➕  رف جديد…", () => AddShelfDialog(shelf)));
         if (shelf != null) items.Add(MenuItem("➕  رف جديد (أساسي)…", () => AddShelfDialog(null)));
+        items.Add(Sep());
+        items.Add(MenuItem("➕  رف متشارك من حد (ملف ZIP من «مسار»)…", () => ReceiveSharedShelfDialog(shelf)));
     }
 
     private void BuildShelfMenu(Shelf s, ToolStripItemCollection items)
@@ -468,6 +470,7 @@ internal sealed partial class MainForm
         items.Add(MenuItem("➕  كتب من فولدر (رف للفولدر)…", () => AddBooksFromFolderDialog(s)));
         items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(s)));
         items.Add(MenuItem("➕  رف جوه الرف ده…", () => AddShelfDialog(s)));
+        items.Add(MenuItem("➕  رف متشارك من حد (ZIP) جوه الرف ده…", () => ReceiveSharedShelfDialog(s)));
         if (s.SourceFolder != null)
         {
             items.Add(Sep());
@@ -488,6 +491,7 @@ internal sealed partial class MainForm
             items.Add(SubMenuOf("✔  التقدّم",
                 MenuItem("تعليم كل الكتب «اتقرت»", () => SetBooksDone(books, true)),
                 MenuItem("↺  تصفير التقدّم في الرف…", () => { if (Confirm("تصفّر الصفحات المقروءة في كل كتب الرف؟")) SetBooksDone(books, false); })));
+        if (books.Count > 0) items.Add(MenuItem("📤  شارك الرف (ملف ZIP تبعته لحد)…", () => ShareShelfDialog(s)));
         if (s.SourceFolder != null)
             items.Add(SubMenuOf("📂  المصدر",
                 MenuItem("📂  فتح الفولدر", () => OpenFolder(s.SourceFolder)),

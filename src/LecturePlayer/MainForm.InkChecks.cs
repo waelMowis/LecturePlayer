@@ -34,6 +34,8 @@ internal partial class MainForm
         string pdf = Path.Combine(dir, "Ink Book.pdf");
         TestPdf.Write(pdf, 6, "Ink", new("Intro", 1), new("Two", 4));
         var added = new List<Book>();
+        var receivedShelves = new List<string>();
+        var receivedBooks = new List<string>();
         string? inkFile = null;
         bool wasFull = _fullscreen;
         try
@@ -172,6 +174,25 @@ internal partial class MainForm
             Check(Until(() => probe.IsCompleted, 30_000) && probe.Result?.Pages == 2, "extracted 2 pages: " + probe.Result?.Pages);
             Js("masar.peTest().close(true)");
 
+            // ---------- شارك الرف واستقبله ----------
+            SmokeShareOptions = null;
+            ShareShelfDialog(shelf);                     // صورة الشباك بس
+            SmokeShareOptions = new ShelfShare.Options(Progress: true, Annotations: true, AnnotatedCopies: true);
+            SmokeSavePath = Path.Combine(dir, "share.zip");
+            _lastShareZip = null;
+            ShareShelfDialog(shelf);
+            Check(Until(() => _lastShareZip == SmokeSavePath && File.Exists(SmokeSavePath), 30_000), "share zip made");
+            var recv = ReceiveSharedShelfAsync(SmokeSavePath, null, Path.Combine(dir, "recv"));
+            Check(Until(() => recv.IsCompleted, 30_000) && recv.Result != null, "shared shelf received");
+            var rr = recv.Result!;
+            receivedShelves.AddRange(rr.Shelves.Select(x => x.Id)); receivedBooks.AddRange(rr.Books.Select(x => x.Id));
+            var rb = rr.Books.FirstOrDefault(x => x.Title == book.Title);
+            Check(rr.Shelves.Any(x => x.Name == "أقلام الفحص (متشارك)") && rb != null && File.Exists(rb.LocalPath) && rb.Id != book.Id, "received shelf & book");
+            Check(rb!.InkCount == book.InkCount && InkStore.Count(InkStore.Load(InkStore.FileFor(_libraryPath, rb.Id))) == book.InkCount, "ink came with it: " + rb.InkCount);
+            Check(rr.Books.Any(x => x.AnnotatedOf == rb.Id && File.Exists(x.LocalPath)), "annotated copy came with it");
+            Check(rb.ReadPages == book.ReadPages, "progress came with it");
+            SmokeShareOptions = null;
+
             // ---------- وضع العرض ----------
             Js("window.dispatchEvent(new KeyboardEvent('keydown',{key:'F5',bubbles:true}))");
             Check(Until(() => _fullscreen && Js("String(document.body.classList.contains('present'))") == "true", 8000), "present mode → fullscreen");
@@ -190,6 +211,10 @@ internal partial class MainForm
         {
             SmokeAskText = null;
             SmokeSavePath = null;
+            SmokeShareOptions = null;
+            foreach (var id in receivedBooks) { try { File.Delete(InkStore.FileFor(_libraryPath, id)); } catch { } }
+            _library.Books.RemoveAll(x => receivedBooks.Contains(x.Id));
+            _library.Shelves.RemoveAll(x => receivedShelves.Contains(x.Id));
             if (_fullscreen != wasFull) ToggleFullscreen();
             if (ReaderShown) CloseReader(showHome: true);
             var ids = added.Select(x => x.Id).ToHashSet();
