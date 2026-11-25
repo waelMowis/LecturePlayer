@@ -100,6 +100,7 @@ internal partial class MainForm
     {
         if (_presBook is not { } b) return;
         MarkPresentationViewed(b);
+        if (Recording && b.LastPage != n) RecordingMark($"📽 {b.Title} — شريحة {n}");
         b.LastPage = n;
         b.TouchProgress();
         _presSlideSince = DateTime.UtcNow;

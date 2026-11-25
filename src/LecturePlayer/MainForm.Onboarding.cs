@@ -174,6 +174,7 @@ internal sealed partial class MainForm
         RunInkChecks();
         RunBoardChecks();
         RunPresentationChecks();
+        RunRecordingChecks();
         RunStressAndPlaybackChecks();
 
         // تقرير الأعطال: تسجيل، وقراية، وبناء التقرير، وفتح الشاشة بتاعته

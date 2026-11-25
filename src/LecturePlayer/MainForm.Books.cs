@@ -1275,6 +1275,7 @@ internal sealed partial class MainForm
         b.TouchProgress();
         MarkPositionDirty();
         if (oldPage != st.Page && _shelfMode) RefreshBookRows(b);
+        if (oldPage != st.Page && Recording) RecordingMark((b.IsBoard ? "🧑‍🏫 " : "📖 ") + b.Title + " — صفحة " + st.Page);
     }
 
     private void OnPagesRead(int gen, int[] pages)

@@ -888,6 +888,10 @@ internal sealed partial class MainForm : Form
             Item("إحصائيات المذاكرة", ShowStats, Keys.F8),
             Item("صفحة إنجازاتي (تفتح في المتصفح)…", ExportAchievements),
             new ToolStripSeparator(),
+            Item("⏺  سجّل شرح (الشاشة والكاميرا والصوت)…", () => { if (Recording) _ = StopRecordingAsync(save: true); else StartRecordingDialog(SelectedGroup()); }, display: "Ctrl+Shift+F9"),
+            Item("🖊  أقلام على الشاشة (فوق أي برنامج)", ToggleScreenInk, display: "Ctrl+Shift+F8"),
+            Item("🧑‍🏫  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())),
+            new ToolStripSeparator(),
             Item("معمل الكود…", () => OpenCodeLab(""), Keys.Control | Keys.L));
 
         // ---------------- مساعدة ----------------
@@ -1063,6 +1067,7 @@ internal sealed partial class MainForm : Form
         };
         Shown += (_, _) =>
         {
+            try { RegisterGlobalHotkeys(); } catch (Exception ex) { Log.Error("hotkeys", ex); }
             ApplySidePanelWidth();
             if (!_splitAutoFixDisabledForTest) FixSplitPanelSize();
             BeginInvoke(new Action(CheckLeftoverFocusBlock));
@@ -1443,6 +1448,8 @@ internal sealed partial class MainForm : Form
         if (_closing) return;
         _closing = true;
 
+        if (Recording) { try { await StopRecordingAsync(save: true, quick: true); } catch (Exception ex) { Log.Error("recording close", ex); } }
+        try { _screenInk?.Close(); _hotkeys?.Dispose(); _hotkeys = null; } catch { }
         await FlushInkForCloseAsync();
         SaveCurrentPosition();
         CommitNotes();
