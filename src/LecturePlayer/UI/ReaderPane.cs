@@ -253,7 +253,24 @@ internal sealed class ReaderPane : Panel
             for (int attempt = 0; ; attempt++)
             {
                 try { File.Move(tmp, target, overwrite: true); return; }
-                catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < 30) { Thread.Sleep(200); }
+                catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < 8) { Thread.Sleep(200); }
+                catch (Exception) { break; }
+            }
+            // ويندوز مابيسمحش يستبدل ملف حد فاتحه (حتى بمشاركة الحذف) — بس بيسمح نكتب جواه لو فاتحينه بمشاركة الكتابة (زي القارئ)
+            for (int attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    using (var src = new FileStream(tmp, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    using (var dst = new FileStream(target, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
+                    {
+                        src.CopyTo(dst);
+                        dst.SetLength(src.Length);
+                    }
+                    try { File.Delete(tmp); } catch { }
+                    return;
+                }
+                catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < 15) { Thread.Sleep(300); }
                 catch (Exception ex) { error = ex; try { File.Delete(tmp); } catch { } return; }
             }
         });
@@ -341,6 +358,15 @@ internal sealed class ReaderPane : Panel
             }
             fs.Dispose();
             return env.CreateWebResourceResponse(null, 416, "Range Not Satisfiable", $"Content-Range: bytes */{len}\r\n{common}");
+        }
+        if (len <= 16L << 20)
+        {
+            // ملف صغير: نقراه كله ونقفله على طول (لو PDF.js قطع الطلب الملف كان بيفضل ممسوك لحد ما الذاكرة تتنضف)
+            var mem = new MemoryStream((int)len);
+            fs.CopyTo(mem);
+            fs.Dispose();
+            mem.Position = 0;
+            return env.CreateWebResourceResponse(mem, 200, "OK", $"Content-Type: {type}\r\nContent-Length: {mem.Length}\r\n{common}");
         }
         return env.CreateWebResourceResponse(fs, 200, "OK", $"Content-Type: {type}\r\nContent-Length: {len}\r\n{common}");
     }
