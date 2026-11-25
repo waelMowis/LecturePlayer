@@ -113,6 +113,8 @@ internal sealed partial class MainForm
     internal static List<CommandEntry> RankCommands(IEnumerable<CommandEntry> all, string query)
     {
         var q = BookText.Normalize(query).Trim();
+        // نفس الأمر ممكن يكون في أكتر من قايمة: يظهر مرة واحدة
+        all = all.GroupBy(c => BookText.Normalize(c.Title)).Select(g => g.First()).ToList();
         if (q.Length == 0) return all.Take(40).ToList();
         var words = q.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return all.Select(c =>

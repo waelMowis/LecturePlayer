@@ -598,6 +598,7 @@ internal sealed partial class MainForm
 
         _homeCards.Dock = DockStyle.Fill;
         _homeCards.AutoScroll = true;
+        _homeCards.HandleCreated += (_, _) => NativeMethods.UseDarkExplorerTheme(_homeCards);   // شريط التمرير غامق زي باقي الشاشة
         _homeCards.WrapContents = true;
         _homeCards.FlowDirection = FlowDirection.LeftToRight; // مع RightToLeft = من اليمين
         _homeCards.RightToLeft = RightToLeft.Yes;
