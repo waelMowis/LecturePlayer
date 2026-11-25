@@ -108,7 +108,8 @@ internal sealed partial class MainForm
             var nb = got.Books.First(b => !b.IsBoard);
             Check(InkStore.PagesWithInk(InkStore.Load(InkStore.FileFor(_libraryPath, nb.Id))).SequenceEqual(new[] { 2, 5 }), "imported ink");
             string coverPng = Path.Combine(dir, "cover.png");
-            RenderTextPage(coverPng, session.Name, "الصف الأول — أ  ·  اليوم", new() { ("الخطة", SplitLines(session.Plan!)), ("المحتوى", new() { "سبورة «سبورة الحصة» — 2 صفحة", "كتاب «درس اليوم» — الصفحات المشروحة: 2، 5" }) });
+            var tp = Wait(_reader!.TextPageAsync(session.Name, "الصف الأول — أ  ·  اليوم", new List<(string, List<string>)> { ("الخطة", SplitLines(session.Plan!)), ("المحتوى", new() { "🧑‍🏫 سبورة «سبورة الحصة» — 2 صفحة", "📖 «درس اليوم» — الصفحات المشروحة: 2، 5" }) }, coverPng), 30_000);
+            Check(tp.Ok && File.Exists(coverPng), "cover page png: " + tp.Error);
             SaveSmokeShotFile(coverPng, "session-cover");
             Console.WriteLine("SMOKE session export: ok");
         }

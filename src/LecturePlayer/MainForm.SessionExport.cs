@@ -155,7 +155,7 @@ internal partial class MainForm
                 {
                     var v = t.ItemPath == null ? null : _library.AllVideos.FirstOrDefault(x => x.Path == t.ItemPath);
                     long pos = t.PositionMs ?? v?.LastPositionMs ?? 0;
-                    contents.Add($"فيديو: {t.Title}" + (v != null ? $" — {v.Title}" + (pos > 0 ? $" (حتى {TimeFormat.Format(pos)})" : "") : "") + (v?.Bookmarks.Count > 0 ? $" · {v.Bookmarks.Count} علامة" : ""));
+                    contents.Add($"▶ {t.Title}" + (v != null ? $" — {v.Title}" + (pos > 0 ? $" (حتى {TimeFormat.Format(pos)})" : "") : "") + (v?.Bookmarks.Count > 0 ? $" · {v.Bookmarks.Count} علامة" : ""));
                     continue;
                 }
                 var b = _library.Books.FirstOrDefault(x => x.Id == t.Ref);
@@ -167,14 +167,14 @@ internal partial class MainForm
                 {
                     string outp = Path.Combine(tmp, $"{k}-board.pdf");
                     var r = await reader.BoardPdfFileAsync(file, ink, outp, b.Title, ct);
-                    if (r.Ok) { parts.Add(new(Pdf: outp)); contents.Add($"سبورة «{b.Title}» — {r.Pages} صفحة"); }
+                    if (r.Ok) { parts.Add(new(Pdf: outp)); contents.Add($"🧑‍🏫 سبورة «{b.Title}» — {r.Pages} صفحة"); }
                     else notes.Add($"سبورة «{b.Title}»: {r.Error}");
                 }
                 else if (b.IsPresentation)
                 {
                     var slides = await Task.Run(() => ExportAnnotatedSlides(b, tmp, k, notes), ct);
                     foreach (var (img, w, h) in slides) parts.Add(new(Image: img, W: 842, H: Math.Round(842.0 * h / w)));
-                    contents.Add($"عرض «{b.Title}» — " + (slides.Count > 0 ? $"{slides.Count} شريحة مشروحة" : $"حتى الشريحة {t.Page ?? b.LastPage}"));
+                    contents.Add($"📽 عرض «{b.Title}» — " + (slides.Count > 0 ? $"{slides.Count} شريحة مشروحة" : $"حتى الشريحة {t.Page ?? b.LastPage}"));
                 }
                 else if (BookFiles.FormatOf(file) == "pdf")
                 {
@@ -183,12 +183,12 @@ internal partial class MainForm
                     {
                         string outp = Path.Combine(tmp, $"{k}-book.pdf");
                         var r = await reader.BuildAnnotatedAsync(file, ink, outp, b.Title, null, ct);
-                        if (r.Ok) { parts.Add(new(Pdf: outp, Pages: inked.Select(p => p - 1).ToArray())); contents.Add($"كتاب «{b.Title}» — الصفحات المشروحة: {PageList(inked)}"); }
+                        if (r.Ok) { parts.Add(new(Pdf: outp, Pages: inked.Select(p => p - 1).ToArray())); contents.Add($"📖 «{b.Title}» — الصفحات المشروحة: {PageList(inked)}"); }
                         else notes.Add($"«{b.Title}»: {r.Error}");
                     }
-                    else contents.Add($"كتاب «{b.Title}» — حتى الصفحة {t.Page ?? b.LastPage} (لا شرح عليها)");
+                    else contents.Add($"📖 «{b.Title}» — حتى الصفحة {t.Page ?? b.LastPage} (لا شرح عليها)");
                 }
-                else contents.Add($"كتاب «{b.Title}» — حتى الصفحة {t.Page ?? b.LastPage}");
+                else contents.Add($"📖 «{b.Title}» — حتى الصفحة {t.Page ?? b.LastPage}");
             }
 
             string? cls = s.ClassId != null ? _library.Classes.FirstOrDefault(c => c.Id == s.ClassId)?.Name : null;
@@ -197,13 +197,13 @@ internal partial class MainForm
             if (!string.IsNullOrWhiteSpace(s.Plan)) cover.Add(("الخطة", SplitLines(s.Plan)));
             if (contents.Count > 0) cover.Add(("المحتوى", contents));
             string coverFile = Path.Combine(tmp, "0-cover.png");
-            RenderTextPage(coverFile, s.Name, (cls != null ? cls + "  ·  " : "") + date, cover);
-            parts.Insert(0, new(Image: coverFile, W: 595, H: 842));
+            var cr = await reader.TextPageAsync(s.Name, (cls != null ? cls + "  ·  " : "") + date, cover, coverFile);
+            if (cr.Ok) parts.Insert(0, new(Image: coverFile, W: 595, H: 842)); else notes.Add("الغلاف: " + cr.Error);
             if (!string.IsNullOrWhiteSpace(s.Homework))
             {
                 string hw = Path.Combine(tmp, "9-homework.png");
-                RenderTextPage(hw, "الواجب", s.Name, new() { ("", SplitLines(s.Homework)) });
-                parts.Add(new(Image: hw, W: 595, H: 842));
+                var hr = await reader.TextPageAsync("الواجب", s.Name, new List<(string, List<string>)> { ("", SplitLines(s.Homework)) }, hw);
+                if (hr.Ok) parts.Add(new(Image: hw, W: 595, H: 842)); else notes.Add("الواجب: " + hr.Error);
             }
             var res = await reader.ComposeAsync(parts, target, s.Name, null, ct);
             if (!res.Ok) { notes.Add("ملف PDF: " + res.Error); return 0; }
@@ -225,52 +225,6 @@ internal partial class MainForm
             parts.Add(a == b ? a.ToString() : $"{a}–{b}");
         }
         return string.Join("، ", parts);
-    }
-
-    /// <summary>صفحة A4 نصية (غلاف/واجب) كصورة: عنوان وسطر فرعي وأقسام بنقاط — بـ GDI (يشكّل العربية صحيحًا).</summary>
-    internal static void RenderTextPage(string file, string title, string subtitle, List<(string Head, List<string> Lines)> sections)
-    {
-        const int W = 1240, H = 1754, M = 110;
-        using var bmp = new Bitmap(W, H);
-        bmp.SetResolution(150, 150);
-        using (var g = Graphics.FromImage(bmp))
-        {
-            g.Clear(Color.White);
-            var flags = TextFormatFlags.RightToLeft | TextFormatFlags.Right | TextFormatFlags.WordBreak | TextFormatFlags.NoPadding;
-            var accent = Color.FromArgb(0, 92, 175);
-            var ink = Color.FromArgb(30, 30, 34);
-            var muted = Color.FromArgb(110, 110, 118);
-            using var fTitle = new Font("Segoe UI", 26f, FontStyle.Bold);
-            using var fSub = new Font("Segoe UI", 12.5f);
-            using var fHead = new Font("Segoe UI", 15f, FontStyle.Bold);
-            using var fBody = new Font("Segoe UI", 12.5f);
-            using (var bar = new SolidBrush(accent)) g.FillRectangle(bar, 0, 0, W, 18);
-            int y = 90, width = W - 2 * M;
-            int Text(string text, Font f, Color c, int indent = 0)
-            {
-                var sz = TextRenderer.MeasureText(g, text, f, new Size(width - indent, int.MaxValue), flags);
-                TextRenderer.DrawText(g, text, f, new Rectangle(M, y, width - indent, sz.Height), c, Color.White, flags);
-                return sz.Height;
-            }
-            y += Text(title, fTitle, ink) + 12;
-            if (subtitle.Length > 0) y += Text(subtitle, fSub, muted) + 20;
-            using (var pen = new Pen(Color.FromArgb(220, 222, 228), 2)) g.DrawLine(pen, M, y, W - M, y);
-            y += 30;
-            foreach (var (head, lines) in sections)
-            {
-                if (y > H - 200) break;
-                if (head.Length > 0) y += Text(head, fHead, accent) + 14;
-                foreach (var line in lines)
-                {
-                    if (y > H - 160) { Text("…", fBody, muted); y = H; break; }
-                    y += Text("•  " + line, fBody, ink, 20) + 12;
-                }
-                y += 24;
-            }
-            y = H - 90;
-            Text("أُعدّ بـ «مسار»", fSub, muted);
-        }
-        bmp.Save(file, ImageFormat.Png);
     }
 
     /// <summary>

@@ -349,6 +349,21 @@ internal sealed class ReaderPane : Panel
         return RunJobAsync(id => $"masar.boardPdfFile({id}, {JsonSerializer.Serialize(board)}, {JsonSerializer.Serialize(ink.ToJsonString())}, {JsonSerializer.Serialize(save)}, {JsonSerializer.Serialize(title)})", null, ct);
     }
 
+    /// <summary>صفحة A4 نصية (عنوان وسطر فرعي وأقسام بنقاط) ← PNG، يرسمها المتصفح (يشكّل العربية صحيحًا).</summary>
+    public Task<JobResult> TextPageAsync(string title, string subtitle, IEnumerable<(string Head, List<string> Lines)> sections, string target)
+    {
+        string save = SaveUrl(target);
+        var o = new System.Text.Json.Nodes.JsonObject
+        {
+            ["title"] = title, ["subtitle"] = subtitle,
+            ["sections"] = new System.Text.Json.Nodes.JsonArray(sections.Select(s => (System.Text.Json.Nodes.JsonNode)new System.Text.Json.Nodes.JsonObject
+            {
+                ["head"] = s.Head, ["lines"] = new System.Text.Json.Nodes.JsonArray(s.Lines.Select(l => (System.Text.Json.Nodes.JsonNode)l!).ToArray())
+            }).ToArray())
+        };
+        return RunJobAsync(id => $"masar.textPage({id}, {JsonSerializer.Serialize(o.ToJsonString())}, {JsonSerializer.Serialize(save)})", null, CancellationToken.None, 60_000);
+    }
+
     /// <summary>جزء من ملف مجمّع: صفحات من PDF (من 0، أو كلها) أو صورة بمقاس صفحة (بالنقاط).</summary>
     public sealed record ComposePart(string? Pdf = null, int[]? Pages = null, string? Image = null, double W = 0, double H = 0);
 

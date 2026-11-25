@@ -710,6 +710,7 @@ window.masar = {
   annotate: (id, src, save, inkJson, title) => { runAnnotate(id, src, save, inkJson, title); return "ok"; },
   boardPdfFile: (id, boardJson, inkJson, save, title) => { runBoardFile(id, boardJson, inkJson, save, title); return "ok"; },
   compose: (id, partsJson, save, title) => { runCompose(id, partsJson, save, title); return "ok"; },
+  textPage: (id, pageJson, save) => { runTextPage(id, pageJson, save); return "ok"; },
   /** محرر الصفحات (البرنامج بيفتحه على نسخة العمل بس). */
   pageEditor: () => { openPageEditor(); return "ok"; },
   /** رد البرنامج على طلب ملف (فتح/حفظ): رابط أو null. */
@@ -739,6 +740,50 @@ async function runBoardFile(id, boardJson, inkJson, save, title) {
     if (!plans.length) throw new Error("السبورة فارغة");
     const r = await runJob({ job: "board", save, plans, title: title || "سبورة" }, p => post({ t: "job", id, progress: p }));
     post({ t: "job", id, ok: true, size: r.size, pages: r.pages });
+  } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
+}
+/** صفحة A4 نصية (غلاف/واجب) كصورة PNG: المتصفح يشكّل العربية والرموز صحيحًا. */
+async function runTextPage(id, pageJson, save) {
+  try {
+    const p = typeof pageJson === "string" ? JSON.parse(pageJson) : pageJson;
+    const W = 1240, H = 1754, M = 110, width = W - 2 * M;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d");
+    x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
+    x.fillStyle = "#005caf"; x.fillRect(0, 0, W, 18);
+    x.direction = "rtl"; x.textAlign = "right"; x.textBaseline = "top";
+    const font = (size, bold) => `${bold ? "700 " : ""}${size}px "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif`;
+    let y = 90;
+    const wrap = (text, size, bold, color, indent = 0) => {
+      x.font = font(size, bold); x.fillStyle = color;
+      const words = String(text).split(/\s+/), max = width - indent, lh = Math.round(size * 1.55);
+      let line = "";
+      const flush = () => { if (y < H - 140) x.fillText(line, W - M - indent, y); y += lh; line = ""; };
+      for (const w of words) {
+        const t = line ? line + " " + w : w;
+        if (line && x.measureText(t).width > max) { flush(); line = w; } else line = t;
+      }
+      if (line) flush();
+    };
+    wrap(p.title || "", 54, true, "#1e1e22");
+    y += 6;
+    if (p.subtitle) { wrap(p.subtitle, 26, false, "#6e6e76"); y += 14; }
+    x.fillStyle = "#dcdee4"; x.fillRect(M, y, width, 2); y += 32;
+    for (const s of p.sections || []) {
+      if (y > H - 220) break;
+      if (s.head) { wrap(s.head, 32, true, "#005caf"); y += 8; }
+      for (const l of s.lines || []) {
+        if (y > H - 170) { x.font = font(26); x.fillStyle = "#6e6e76"; x.fillText("…", W - M, y); y = H; break; }
+        x.font = font(26); x.fillStyle = "#1e1e22"; x.fillText("•", W - M, y);
+        wrap(l, 26, false, "#1e1e22", 34); y += 6;
+      }
+      y += 26;
+    }
+    x.font = font(24); x.fillStyle = "#6e6e76"; x.fillText(p.footer || "أُعدّ بـ «مسار»", W - M, H - 90);
+    const blob = await new Promise(r => c.toBlob(r, "image/png"));
+    const res = await fetch(save, { method: "POST", body: blob, headers: { "Content-Type": "image/png" } });
+    if (!res.ok) throw new Error("فشل الحفظ");
+    post({ t: "job", id, ok: true, size: blob.size });
   } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
 }
 /** ملف واحد من أجزاء: صفحات من ملفات PDF وصور (صفحة لكل صورة). */
