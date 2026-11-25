@@ -107,6 +107,9 @@ internal sealed partial class MainForm
                   && s2.Tabs.All(t => got.Books.Any(b => b.Id == t.Ref)) && s2.Tabs[1].Page == 5, "session imported with mapped tabs");
             var nb = got.Books.First(b => !b.IsBoard);
             Check(InkStore.PagesWithInk(InkStore.Load(InkStore.FileFor(_libraryPath, nb.Id))).SequenceEqual(new[] { 2, 5 }), "imported ink");
+            string coverPng = Path.Combine(dir, "cover.png");
+            RenderTextPage(coverPng, session.Name, "الصف الأول — أ  ·  اليوم", new() { ("الخطة", SplitLines(session.Plan!)), ("المحتوى", new() { "🧑‍🏫 سبورة «سبورة الحصة» — 2 صفحة", "📖 «درس اليوم» — الصفحات المشروحة: 2، 5" }) });
+            SaveSmokeShotFile(coverPng, "session-cover");
             Console.WriteLine("SMOKE session export: ok");
         }
         finally
