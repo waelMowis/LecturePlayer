@@ -751,6 +751,7 @@ export const Ink = {
           // لفة 90° مع عقارب الساعة: (u,v) ← (H−v, u) وبعدين نصغّر للعرض الجديد
           rotateItem(c, [0, 0], 90); moveItem(c, H, 0);
           const k = W / H; scaleItem(c, [0, 0], k, k); H = W * W / H;
+          if (c.t === "shape" && c.sw) c.sw = r2(c.sw * k); // سُمك الخط كمان (الصفحة بقت أعرض)
         }
         return c;
       }));
