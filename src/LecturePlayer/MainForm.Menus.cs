@@ -450,8 +450,8 @@ internal sealed partial class MainForm
     private void AddShelfItems(ToolStripItemCollection items)
     {
         items.Add(Sep());
-        items.Add(MenuItem("📖  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(SelectedShelfContext())));
-        items.Add(MenuItem("📽  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), "Ctrl+Shift+P"));
-        items.Add(MenuItem("🧑‍🏫  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())));
+        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(SelectedShelfContext())));
+        items.Add(MenuItem("➕  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), "Ctrl+Shift+P"));
+        items.Add(MenuItem("➕  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())));
     }
 }

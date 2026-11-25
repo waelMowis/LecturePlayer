@@ -451,10 +451,10 @@ internal sealed partial class MainForm
             _ => null
         };
         string where = shelf != null ? $" في «{shelf.Name}»" : "";
-        items.Add(MenuItem("📖  كتاب (PDF / EPUB) — ملف واحد أو أكتر…" + where, () => AddBooksDialog(shelf)));
-        items.Add(MenuItem("📁  فولدر كتب كامل (يبقى رف)…" + where, () => AddBooksFromFolderDialog(shelf)));
+        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكتر…" + where, () => AddBooksDialog(shelf)));
+        items.Add(MenuItem("➕  فولدر كتب كامل (يبقى رف)…" + where, () => AddBooksFromFolderDialog(shelf)));
         items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…" + where, () => AddBookLinksDialog(shelf)));
-        items.Add(MenuItem("📽  عرض PowerPoint من ملف…" + where, () => AddPresentationsDialog(shelf)));
+        items.Add(MenuItem("➕  عرض PowerPoint من ملف…" + where, () => AddPresentationsDialog(shelf)));
         items.Add(Sep());
         items.Add(MenuItem(shelf != null ? $"➕  رف جوه «{shelf.Name}»…" : "➕  رف جديد…", () => AddShelfDialog(shelf)));
         if (shelf != null) items.Add(MenuItem("➕  رف جديد (أساسي)…", () => AddShelfDialog(null)));
@@ -469,13 +469,13 @@ internal sealed partial class MainForm
                    ?? _library.AllBooksUnder(s).FirstOrDefault(b => !b.IsDone);
         if (last != null) items.Add(MenuItem($"▶  كمّل القراية: {last.Title}", () => OpenBook(last)));
         items.Add(Sep());
-        items.Add(MenuItem("📖  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(s)));
-        items.Add(MenuItem("📁  فولدر كتب كامل (يبقى رف)…", () => AddBooksFromFolderDialog(s)));
+        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(s)));
+        items.Add(MenuItem("➕  فولدر كتب كامل (يبقى رف)…", () => AddBooksFromFolderDialog(s)));
         items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(s)));
         items.Add(MenuItem("➕  رف جوه الرف ده…", () => AddShelfDialog(s)));
         items.Add(MenuItem("➕  رف متشارك من حد (ZIP) جوه الرف ده…", () => ReceiveSharedShelfDialog(s)));
         items.Add(MenuItem("➕  سبورة جديدة في الرف ده…", () => NewBoardDialog(null, s)));
-        items.Add(MenuItem("📽  عرض PowerPoint في الرف ده…", () => AddPresentationsDialog(s)));
+        items.Add(MenuItem("➕  عرض PowerPoint في الرف ده…", () => AddPresentationsDialog(s)));
         if (s.SourceFolder != null)
         {
             items.Add(Sep());
