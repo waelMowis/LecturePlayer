@@ -27,10 +27,10 @@ internal static class Ocr
             if (Windows.Media.Ocr.OcrEngine.IsLanguageSupported(lang)) engine = Windows.Media.Ocr.OcrEngine.TryCreateFromLanguage(lang);
         }
         engine ??= Windows.Media.Ocr.OcrEngine.TryCreateFromUserProfileLanguages();
-        if (engine == null) throw new InvalidOperationException("الويندوز محتاج حزمة لغة عشان يقرا الكلام من الصورة (الإعدادات ← الوقت واللغة ← اللغة).");
+        if (engine == null) throw new InvalidOperationException("يحتاج ويندوز إلى حزمة لغة لقراءة النص من الصورة (الإعدادات ← الوقت واللغة ← اللغة).");
 
         if (bitmap.PixelWidth > Windows.Media.Ocr.OcrEngine.MaxImageDimension || bitmap.PixelHeight > Windows.Media.Ocr.OcrEngine.MaxImageDimension)
-            throw new InvalidOperationException("الصورة كبيرة قوي على قراءة الكلام منها.");
+            throw new InvalidOperationException("الصورة كبيرة جدًا لقراءة النص منها.");
 
         var result = await engine.RecognizeAsync(bitmap);
         return string.Join(Environment.NewLine, result.Lines.Select(l => l.Text));
@@ -40,6 +40,6 @@ internal static class Ocr
     public static int MaxDimension => 2600;
 
     public static Task<string> RecognizeAsync(string imagePath, string? preferredLanguage = "en-US") =>
-        throw new PlatformNotSupportedException("قراءة الكلام من الشاشة محتاجة Windows 10 أو أحدث.");
+        throw new PlatformNotSupportedException("قراءة النص من الشاشة تحتاج Windows 10 أو أحدث.");
 #endif
 }

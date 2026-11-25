@@ -21,14 +21,14 @@ internal sealed class ReviewForm : ToolWindow
         _play = play;
         _graded = graded;
         _bar = ButtonBar();
-        _bar.Controls.Add(Btn("✓ فاكرها", () => Grade(true), accent: true));
-        _bar.Controls.Add(Btn("✗ مش فاكرها", () => Grade(false)));
-        _bar.Controls.Add(Btn("▶ شغّل الجزء ده", () => _play(_items[_index])));
-        _bar.Controls.Add(Btn("شيلها من المراجعة", () => Grade(null)));
+        _bar.Controls.Add(Btn("✓ أتذكّرها", () => Grade(true), accent: true));
+        _bar.Controls.Add(Btn("✗ لا أتذكّرها", () => Grade(false)));
+        _bar.Controls.Add(Btn("▶ شغّل هذا الجزء", () => _play(_items[_index])));
+        _bar.Controls.Add(Btn("أزلها من المراجعة", () => Grade(null)));
         var hint = new Label
         {
             Dock = DockStyle.Bottom, Height = 40, ForeColor = Theme.Muted, TextAlign = ContentAlignment.MiddleCenter,
-            Text = "حاول تفتكر الفكرة دي الأول من غير ما تشغّل… وبعدين شغّل الجزء واتأكد."
+            Text = "حاول تذكّر هذه الفكرة أولًا دون تشغيل… ثم شغّل الجزء وتأكد."
         };
         Controls.Add(_note);
         Controls.Add(hint);
@@ -45,14 +45,14 @@ internal sealed class ReviewForm : ToolWindow
         {
             _progress.Text = "";
             _where.Text = "";
-            _note.Text = $"خلصت مراجعة النهارده 👏\nافتكرت {_remembered} من {_items.Count}";
+            _note.Text = $"انتهت مراجعة اليوم 👏\nتذكّرت {_remembered} من {_items.Count}";
             foreach (Control c in _bar.Controls) c.Enabled = false;
             return;
         }
         var it = _items[i];
         _progress.Text = $"{i + 1} من {_items.Count}   ·   المرحلة {it.Bookmark.ReviewStage + 1} من {ReviewScheduler.IntervalsDays.Length}";
         _where.Text = $"{it.Course.Name}  ›  {it.Group.Name}\n{it.Video.Title}  —  {Transcript.Short(it.Bookmark.TimeMs)}";
-        _note.Text = string.IsNullOrWhiteSpace(it.Bookmark.Note) ? "(علامة من غير ملاحظة — شغّل الجزء)" : it.Bookmark.Note;
+        _note.Text = string.IsNullOrWhiteSpace(it.Bookmark.Note) ? "(علامة بدون ملاحظة — شغّل الجزء)" : it.Bookmark.Note;
     }
 
     private void Grade(bool? remembered)
@@ -107,7 +107,7 @@ internal sealed class CodeLabForm : ToolWindow
         var hint = new Label
         {
             Dock = DockStyle.Bottom, Height = 22, ForeColor = Theme.Muted, TextAlign = ContentAlignment.MiddleRight,
-            Text = "C# بيشتغل بـ «dotnet run» (محتاج .NET 10 SDK) · Python محتاج py · JavaScript محتاج node"
+            Text = "C# يعمل بـ «dotnet run» (يحتاج .NET 10 SDK) · Python يحتاج py · JavaScript يحتاج node"
         };
         Controls.Add(split);
         Controls.Add(hint);
@@ -131,14 +131,14 @@ internal sealed class CodeLabForm : ToolWindow
         _cts = new CancellationTokenSource();
         _run.Enabled = false;
         _stop.Enabled = true;
-        _output.Text = $"▶ {CodeRunner.Label(lang)}…" + (lang == CodeLang.CSharp ? " (أول مرة بتاخد شوية عشان البناء)" : "") + "\r\n";
+        _output.Text = $"▶ {CodeRunner.Label(lang)}…" + (lang == CodeLang.CSharp ? " (المرة الأولى تستغرق وقتًا للبناء)" : "") + "\r\n";
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             var r = await CodeRunner.RunAsync(lang, _code.Text, _workDir, TimeSpan.FromMinutes(3), Append, _cts.Token);
-            Append(r.TimedOut ? "⏱ وقف لأنه عدّى 3 دقايق." : $"— خلص (كود الخروج {r.ExitCode}) في {sw.Elapsed.TotalSeconds:0.0} ث");
+            Append(r.TimedOut ? "⏱ توقف لأنه تجاوز 3 دقائق." : $"— انتهى (رمز الخروج {r.ExitCode}) في {sw.Elapsed.TotalSeconds:0.0} ث");
         }
-        catch (OperationCanceledException) { Append("— اتوقف."); }
+        catch (OperationCanceledException) { Append("— توقف."); }
         catch (Exception ex) { Append("✗ " + ex.Message); }
         finally
         {

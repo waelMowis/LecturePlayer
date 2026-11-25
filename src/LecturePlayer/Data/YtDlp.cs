@@ -99,33 +99,33 @@ public static partial class YtDlp
         bool Has(params string[] keys) => keys.Any(k => r.Contains(k, StringComparison.OrdinalIgnoreCase));
 
         if (Has("confirm your age", "age-restricted", "Sign in to confirm your age"))
-            return ("الفيديو ده محتاج تسجيل دخول (للكبار بس).\nالحل: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح».", false);
+            return ("هذا الفيديو يحتاج إلى تسجيل الدخول (للكبار فقط).\nالحل: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح».", false);
         if (Has("Sign in to confirm", "not a bot"))
-            return ("يوتيوب طالب يتأكد إنك مش روبوت (بيحصل على بعض الشبكات زي شبكات الشغل والمدارس).\n" +
-                    "البرنامج جرّب لوحده كذا طريقة بديلة ومنفعتش.\n" +
-                    "الحل: افتح يوتيوب في Firefox وسجّل دخولك، وبعدين: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح» ← Firefox.\n" +
-                    "(Chrome وEdge الجداد بيمنعوا البرامج تقرا تسجيل الدخول، فـ Firefox هو الأضمن.)", false);
+            return ("يطلب يوتيوب التأكد من أنك لست روبوتًا (يحدث في بعض الشبكات مثل شبكات العمل والمدارس).\n" +
+                    "جرّب البرنامج تلقائيًا عدة طرق بديلة ولم تنجح.\n" +
+                    "الحل: افتح يوتيوب في Firefox وسجّل الدخول، ثم: الإعدادات ← يوتيوب والإنترنت ← «تسجيل الدخول من المتصفح» ← Firefox.\n" +
+                    "(متصفحا Chrome وEdge الحديثان يمنعان البرامج من قراءة تسجيل الدخول، لذا فإن Firefox هو الأضمن.)", false);
         if (Has("Private video"))
-            return ("الفيديو ده خاص (Private) ومش متاح غير لصاحبه.", false);
+            return ("هذا الفيديو خاص (Private) ومتاح لصاحبه فقط.", false);
         if (Has("members-only", "Join this channel", "available to this channel's members"))
-            return ("الفيديو ده للأعضاء المشتركين في القناة بس.", false);
+            return ("هذا الفيديو لأعضاء القناة المشتركين فقط.", false);
         if (Has("Video unavailable", "has been removed", "no longer available", "This video has been", "account associated with this video has been terminated"))
-            return ("الفيديو ده اتمسح أو مش متاح على يوتيوب.", false);
+            return ("حُذف هذا الفيديو أو أنه غير متاح على يوتيوب.", false);
         if (Has("not available in your country", "geo restrict", "geo-restrict"))
-            return ("الفيديو ده مش متاح في بلدك.", false);
+            return ("هذا الفيديو غير متاح في بلدك.", false);
         if (Has("not currently live", "is not live", "no live"))
-            return ("القناة مش بتبث لايف دلوقتي. جرّب بعد شوية.", true);
+            return ("القناة لا تبث مباشرة الآن. حاول بعد قليل.", true);
         if (Has("live event will begin", "Premieres in", "This live event"))
-            return ("البث ده لسه مابدأش.", false);
+            return ("هذا البث لم يبدأ بعد.", false);
         if (Has("Unsupported URL"))
-            return ("الرابط ده مش لصفحة فيها فيديو معروف للبرنامج.\nلو هو صفحة فيها فيديو، افتح الفيديو نفسه وانسخ رابطه.", false);
+            return ("هذا الرابط ليس لصفحة فيها فيديو يعرفه البرنامج.\nإن كانت صفحة فيها فيديو، فافتح الفيديو نفسه وانسخ رابطه.", false);
         if (Has("Unable to download webpage", "getaddrinfo", "timed out", "Connection reset", "Temporary failure in name resolution", "No route to host"))
-            return ("مشكلة في الاتصال بالنت. اتأكد إن النت شغال وجرّب تاني.", true);
+            return ("مشكلة في الاتصال بالإنترنت. تأكد من أن الإنترنت يعمل وحاول مرة أخرى.", true);
         if (Has("HTTP Error 403", "Forbidden"))
-            return ("الموقع رفض الطلب (403). غالبًا أداة يوتيوب محتاجة تحديث: منيو إنترنت ← تحديث أداة يوتيوب.", true);
+            return ("رفض الموقع الطلب (403). غالبًا تحتاج أداة يوتيوب إلى تحديث: الأدوات ← الإنترنت والمنصات ← تحديث أداة يوتيوب.", true);
         if (Has("Requested format is not available"))
-            return ("مفيش جودة مناسبة للفيديو ده. جرّب تغيير الجودة من منيو إنترنت ← جودة فيديوهات النت.", true);
-        return (r.Length > 0 ? r : "خطأ مش معروف", true);
+            return ("لا توجد جودة مناسبة لهذا الفيديو. جرّب تغيير الجودة من الأدوات ← الإنترنت والمنصات ← جودة فيديوهات الإنترنت.", true);
+        return (r.Length > 0 ? r : "خطأ غير معروف", true);
     }
 
     /// <summary>أخطاء غالبًا بتتحل بتحديث yt-dlp (يوتيوب غيّر حاجة في الموقع).</summary>
@@ -175,7 +175,7 @@ public static partial class YtDlp
                 Log.Info("added via oEmbed (bot check): " + url);
                 return new OnlineListing(null, false, new List<OnlineEntry> { new(NormalizeUrl(url), title, 0) });
             }
-            throw new InvalidOperationException(ErrorFrom(stderr, "مقدرتش أقرا الرابط"));
+            throw new InvalidOperationException(ErrorFrom(stderr, "تعذّرت قراءة الرابط"));
         }
 
         return ParseListing(stdout, url);
@@ -272,7 +272,7 @@ public static partial class YtDlp
         var warnings = stderr.Split('\n').Select(l => l.Trim()).Where(l => l.StartsWith("WARNING", StringComparison.Ordinal)).Take(6).ToList();
         if (warnings.Count > 0) Log.Info("yt-dlp warnings:\n    " + string.Join("\n    ", warnings));
         if (code != 0 || string.IsNullOrWhiteSpace(stdout))
-            throw new InvalidOperationException(ErrorFrom(stderr, "مقدرتش أجيب الفيديو"));
+            throw new InvalidOperationException(ErrorFrom(stderr, "تعذّر جلب الفيديو"));
 
         return ParseStream(stdout);
     }
@@ -302,7 +302,7 @@ public static partial class YtDlp
             videoUrl = single;
             parts.Add(PartFrom(root, root, single));
         }
-        if (videoUrl == null) throw new InvalidOperationException("أداة يوتيوب مرجّعتش رابط تشغيل");
+        if (videoUrl == null) throw new InvalidOperationException("لم تُرجع أداة يوتيوب رابط تشغيل");
 
         string? userAgent = null, referer = null;
         if (root.TryGetProperty("http_headers", out var headers) && headers.ValueKind == JsonValueKind.Object)
@@ -357,11 +357,11 @@ public static partial class YtDlp
         {
             string zip = Path.Combine(ToolsDir, "deno.zip");
             await DownloadFileAsync(http, DenoDownloadUrl, zip, "الأداة المساعدة", progress, ct);
-            progress.Report("بجهّز الأداة المساعدة…");
+            progress.Report("جارٍ تجهيز الأداة المساعدة…");
             using (var archive = ZipFile.OpenRead(zip))
             {
                 var entry = archive.Entries.FirstOrDefault(e => e.Name.Equals("deno.exe", StringComparison.OrdinalIgnoreCase))
-                            ?? throw new InvalidOperationException("ملف Deno المضغوط مفيهوش deno.exe");
+                            ?? throw new InvalidOperationException("ملف Deno المضغوط لا يحتوي على deno.exe");
                 entry.ExtractToFile(Path.Combine(ToolsDir, "deno.exe"), overwrite: true);
             }
             File.Delete(zip);
@@ -391,7 +391,7 @@ public static partial class YtDlp
                 if (percent != lastPercent)
                 {
                     lastPercent = percent;
-                    progress.Report(percent >= 0 ? $"بنزّل {label}… {percent}%" : $"بنزّل {label}… {done / 1_048_576} ميجا");
+                    progress.Report(percent >= 0 ? $"جارٍ تنزيل {label}… {percent}%" : $"جارٍ تنزيل {label}… {done / 1_048_576} ميجابايت");
                 }
             }
         }
@@ -409,7 +409,7 @@ public static partial class YtDlp
     public static async Task<string> DownloadVideoAsync(string url, string outDir, int maxHeight,
         IProgress<int> percent, CancellationToken ct)
     {
-        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
+        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب غير موجودة");
         Directory.CreateDirectory(outDir);
         string sort = maxHeight > 0 ? $"res:{maxHeight},vcodec:h264,acodec:m4a" : "vcodec:h264,acodec:m4a";
         var args = new List<string>
@@ -430,7 +430,7 @@ public static partial class YtDlp
         });
         string? file = r.StdOut.Split('\n').Select(l => l.Trim()).LastOrDefault(l => l.Length > 0 && File.Exists(l));
         if (r.ExitCode != 0 || file == null)
-            throw new InvalidOperationException(ErrorFrom(r.StdErr, "مقدرتش أنزّل الفيديو"));
+            throw new InvalidOperationException(ErrorFrom(r.StdErr, "تعذّر تنزيل الفيديو"));
         return file;
     }
 
@@ -465,7 +465,7 @@ public static partial class YtDlp
     /// </summary>
     public static Process StartPipe(string url, string format)
     {
-        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
+        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب غير موجودة");
         var psi = new ProcessStartInfo(exe)
         {
             UseShellExecute = false,
@@ -588,7 +588,7 @@ public static partial class YtDlp
     private static async Task<(int Code, string StdOut, string StdErr)> RunOnceAsync(
         IEnumerable<string> args, CancellationToken ct, TimeSpan timeout)
     {
-        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
+        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب غير موجودة");
 
         var psi = new ProcessStartInfo(exe)
         {
@@ -621,7 +621,7 @@ public static partial class YtDlp
         {
             try { process.Kill(entireProcessTree: true); } catch { }
             if (ct.IsCancellationRequested) throw;
-            throw new TimeoutException("أداة يوتيوب أخدت وقت طويل ومردّتش — جرّب تاني أو اعمل تحديث للأداة");
+            throw new TimeoutException("استغرقت أداة يوتيوب وقتًا طويلًا ولم تستجب — حاول مرة أخرى أو حدّث الأداة");
         }
 
         return (process.ExitCode, await stdoutTask, await stderrTask);

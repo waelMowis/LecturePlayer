@@ -124,10 +124,10 @@ public static class ShelfShare
                     ["books"] = copies.Count, ["progress"] = o.Progress, ["annotations"] = o.Annotations, ["annotatedCopies"] = o.AnnotatedCopies
                 }.ToJsonString());
                 Text("اقرأني.txt",
-                    $"ده رف متشارك من «مسار»: {plan.Name}\r\n\r\n" +
-                    "الطريقة الأسهل: من «مسار» ← الكتب ← إضافة ← «رف متشارك (ZIP)» واختار الملف ده — الرفوف هتتضاف لمكتبتك.\r\n" +
+                    $"هذا رف مشترك من «مسار»: {plan.Name}\r\n\r\n" +
+                    "الطريقة الأسهل: من «مسار» ← الكتب ← إضافة ← «رف مشترك (ZIP)» واختر هذا الملف — ستُضاف الرفوف إلى مكتبتك.\r\n" +
                     $"أو فك الضغط وافتح «{LibName}» من «فتح مكتبة».\r\n\r\n" +
-                    "الكتب نفسها في فولدر books.\r\n");
+                    "الكتب نفسها في مجلد books.\r\n");
                 if (o.Annotations)
                     foreach (var b in plan.Books)
                     {
@@ -197,7 +197,7 @@ public static class ShelfShare
                 if (lplEntry == null && e.FullName.EndsWith(Storage.LibraryExtension, StringComparison.OrdinalIgnoreCase) && !e.FullName.Contains('/')) lplEntry = target;
             }
         }
-        if (lplEntry == null) throw new InvalidDataException("الملف ده مش رف متشارك من «مسار» (مفيش مكتبة جواه)");
+        if (lplEntry == null) throw new InvalidDataException("هذا الملف ليس رفًا مشتركًا من «مسار» (لا توجد مكتبة بداخله)");
         var shared = Storage.FromJson(File.ReadAllText(lplEntry, Encoding.UTF8), lplEntry);
         string name = shared.Name is { Length: > 0 } n ? n : Path.GetFileNameWithoutExtension(zipPath);
 
@@ -208,7 +208,7 @@ public static class ShelfShare
         {
             bool top = s.ParentId == null || !shelfMap.ContainsKey(s.ParentId);
             string sname = s.Name;
-            if (top && into.ShelvesIn(parent).Any(x => string.Equals(x.Name, sname, StringComparison.CurrentCultureIgnoreCase))) sname += " (متشارك)";
+            if (top && into.ShelvesIn(parent).Any(x => string.Equals(x.Name, sname, StringComparison.CurrentCultureIgnoreCase))) sname += " (مشترك)";
             shelves.Add(new Shelf
             {
                 Id = shelfMap[s.Id], Name = sname, IconKey = s.IconKey, ColorHex = s.ColorHex, Expanded = true,

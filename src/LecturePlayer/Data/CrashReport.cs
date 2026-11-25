@@ -25,7 +25,7 @@ public static class CrashReport
             sb.AppendLine($"الوقت: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             sb.AppendLine($"الإصدار: {Version}");
             sb.AppendLine($"ويندوز: {Environment.OSVersion.VersionString}  ({(Environment.Is64BitProcess ? "64" : "32")}-bit)");
-            sb.AppendLine($"المكان: {where}{(fatal ? " (البرنامج اتقفل)" : "")}");
+            sb.AppendLine($"المكان: {where}{(fatal ? " (أُغلق البرنامج)" : "")}");
             sb.AppendLine();
             sb.AppendLine(ex.ToString());
             Directory.CreateDirectory(Storage.AppDataDir);

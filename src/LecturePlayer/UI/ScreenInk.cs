@@ -250,17 +250,17 @@ internal sealed class ScreenInkBar : Form
         _p.Controls.Add(grip);
         void T(string text, string tip, ScreenInk.Tool t) { var b = Btn(text, tip, () => _ink.SetTool(t)); _tools.Add((b, t)); }
         // أهم زرارين أول حاجة وبكلام واضح: ترجع للماوس، أو تقفل الأقلام خالص
-        var close = Btn("✕  قفل الأقلام", "قفل أقلام الشاشة (Ctrl+Shift+F8)", () => _ink.Close());
+        var close = Btn("✕  إغلاق الأقلام", "إغلاق أقلام الشاشة (Ctrl+Shift+F8)", () => _ink.Close());
         close.Width = 118; close.BackColor = Color.FromArgb(200, 50, 50); close.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-        var mouse = Btn("🖱  ماوس", "ارجع للماوس وتشتغل على البرامج والرسم ظاهر — Esc أو كليك يمين", () => _ink.SetTool(ScreenInk.Tool.Mouse));
+        var mouse = Btn("🖱  الفأرة", "عُد إلى الفأرة لتعمل على البرامج مع بقاء الرسم ظاهرًا — Esc أو النقر بالزر الأيمن", () => _ink.SetTool(ScreenInk.Tool.Mouse));
         mouse.Width = 92; mouse.Font = new Font("Segoe UI Emoji", 10f);
         _tools.Add((mouse, ScreenInk.Tool.Mouse));
         T("🖊", "قلم", ScreenInk.Tool.Pen);
         T("🖍", "تظليل", ScreenInk.Tool.Highlighter);
-        T("╱", "خط (Shift = زاوية مظبوطة)", ScreenInk.Tool.Line);
+        T("╱", "خط (Shift = زاوية مضبوطة)", ScreenInk.Tool.Line);
         T("➜", "سهم", ScreenInk.Tool.Arrow);
         T("▭", "مستطيل", ScreenInk.Tool.Rect);
-        T("◯", "دايرة", ScreenInk.Tool.Ellipse);
+        T("◯", "دائرة", ScreenInk.Tool.Ellipse);
         T("🧽", "ممحاة", ScreenInk.Tool.Eraser);
         T("🔴", "ليزر", ScreenInk.Tool.Laser);
         foreach (var c in new[] { Color.FromArgb(224, 49, 49), Color.FromArgb(25, 113, 194), Color.FromArgb(47, 158, 68), Color.FromArgb(245, 159, 0), Color.Black, Color.White })
@@ -272,7 +272,7 @@ internal sealed class ScreenInkBar : Form
         foreach (var w in new[] { 2f, 4f, 8f }) { var ww = w; Btn(w switch { 2 => "·", 4 => "•", _ => "●" }, "المقاس", () => _ink.PenWidth = ww); }
         Btn("↶", "تراجع (Ctrl+Z)", _ink.Undo);
         Btn("🗑", "امسح الرسم", _ink.ClearAll);
-        _p.Controls.Add(new Label { Text = "Esc / كليك يمين = ماوس", ForeColor = Color.Gray, AutoSize = false, Size = new Size(150, 32), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8.5f) });
+        _p.Controls.Add(new Label { Text = "Esc / النقر بالزر الأيمن = الفأرة", ForeColor = Color.Gray, AutoSize = false, Size = new Size(150, 32), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8.5f) });
     }
 
     private Button Btn(string text, string tip, Action a)

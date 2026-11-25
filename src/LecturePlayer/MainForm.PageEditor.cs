@@ -17,7 +17,7 @@ internal partial class MainForm
     /// <summary>من القائمة أو زرار 📑: لو ده الأصل بنعمل/نفتح نسخة العمل، ولو هو نسخة العمل بنفتح المحرر.</summary>
     internal void OpenPageEditor(Book b)
     {
-        if (!HasLibrary || BookFiles.FormatOf(BookFile(b)) != "pdf") { ShowStatus("محرر الصفحات للـ PDF بس", 4); return; }
+        if (!HasLibrary || BookFiles.FormatOf(BookFile(b)) != "pdf") { ShowStatus("محرر الصفحات لملفات PDF فقط", 4); return; }
         if (b.WorkCopyOf != null)
         {
             if (ReaderShown && _currentBook == b) _ = _reader?.OpenPageEditorAsync();
@@ -27,7 +27,7 @@ internal partial class MainForm
         var copy = WorkCopyOf(b);
         if (copy == null || !File.Exists(copy.LocalPath))
         {
-            if (!Confirm($"التعديل على الصفحات بيتعمل على «نسخة عمل» من «{b.Title}» في فولدر «{AnnotatedFolderName}» — الكتاب الأصلي مش هيتلمس.\nالشرح اللي عليه هيتنسخ معاها. نكمّل؟")) return;
+            if (!Confirm($"يُجرى تعديل الصفحات على «نسخة عمل» من «{b.Title}» في مجلد «{AnnotatedFolderName}» — لن يُلمس الكتاب الأصلي.\nسيُنسخ الشرح الذي عليه معها. هل نتابع؟")) return;
             copy = CreateWorkCopy(b, copy);
             if (copy == null) return;
         }
@@ -42,7 +42,7 @@ internal partial class MainForm
         {
             SaveAllInk();
             string src = BookFile(b);
-            if (!File.Exists(src)) { ShowStatus("ملف الكتاب مش موجود", 4); return null; }
+            if (!File.Exists(src)) { ShowStatus("ملف الكتاب غير موجود", 4); return null; }
             string safe = new string(b.Title.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c).ToArray()).Trim();
             if (safe.Length > 80) safe = safe[..80];
             string target = Path.Combine(AnnotatedDir, (safe.Length > 0 ? safe : "كتاب") + " — نسخة عمل.pdf");
@@ -68,7 +68,7 @@ internal partial class MainForm
         catch (Exception ex)
         {
             Log.Error("work copy", ex);
-            ShowBanner("مقدرتش أعمل نسخة العمل: " + ex.Message, BannerKind.Warning, seconds: 10);
+            ShowBanner("تعذّر إنشاء نسخة العمل: " + ex.Message, BannerKind.Warning, seconds: 10);
             return null;
         }
     }
@@ -83,7 +83,7 @@ internal partial class MainForm
             case "save-self":
                 // نسخة العمل بس — الأصل عمره ما بيتكتب عليه
                 if (b.WorkCopyOf != null && File.Exists(BookFile(b))) url = _reader.SaveUrlFor(BookFile(b));
-                else ShowStatus("التعديل بيتحفظ في نسخة العمل بس", 4);
+                else ShowStatus("يُحفظ التعديل في نسخة العمل فقط", 4);
                 break;
             case "save-pdf":
             case "save-png":
@@ -99,7 +99,7 @@ internal partial class MainForm
                 {
                     if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(BookFile(b)), StringComparison.OrdinalIgnoreCase) ||
                         _library.Books.Any(x => x.WorkCopyOf == null && string.Equals(x.LocalPath, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase)))
-                        ShowStatus("مش هكتب فوق كتاب في المكتبة — اختار اسم تاني", 5);
+                        ShowStatus("لن أكتب فوق كتاب في المكتبة — اختر اسمًا آخر", 5);
                     else { url = _reader.SaveUrlFor(path); _lastPickSave = path; }
                 }
                 break;
@@ -109,7 +109,7 @@ internal partial class MainForm
                 string? path = SmokeOpenPath;
                 if (path == null)
                 {
-                    using var dlg = new OpenFileDialog { Title = "اختار ملف PDF تضم صفحاته", Filter = "PDF|*.pdf", RestoreDirectory = true };
+                    using var dlg = new OpenFileDialog { Title = "اختر ملف PDF لضم صفحاته", Filter = "PDF|*.pdf", RestoreDirectory = true };
                     if (dlg.ShowDialog(this) == DialogResult.OK) path = dlg.FileName;
                 }
                 if (path != null && File.Exists(path)) url = _reader.ServeUrl(path);
@@ -152,6 +152,6 @@ internal partial class MainForm
         int page = Math.Max(1, b.LastPage);
         CloseReader(showHome: false);
         OpenBook(b, page);
-        ShowStatus("اتحفظت الصفحات ✓", 4);
+        ShowStatus("حُفظت الصفحات ✓", 4);
     }
 }

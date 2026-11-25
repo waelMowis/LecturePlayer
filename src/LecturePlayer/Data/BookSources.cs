@@ -137,13 +137,13 @@ public static class BookSources
     /// </summary>
     public static async Task<Download> DownloadAsync(string url, string target, IProgress<(long Done, long Total)>? progress, CancellationToken ct)
     {
-        var link = Parse(url) ?? throw new ArgumentException("رابط مش مفهوم");
+        var link = Parse(url) ?? throw new ArgumentException("رابط غير مفهوم");
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         using var req = new HttpRequestMessage(HttpMethod.Get, link.Download);
         req.Headers.Accept.ParseAdd("application/pdf,application/octet-stream;q=0.9,*/*;q=0.5");
         using var res = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
-            throw new NotPdfException(res.StatusCode == HttpStatusCode.NotFound ? "الملف مش موجود على الرابط ده (أو خاص بيك)" : "الملف خاص — محتاج تسجيل دخول", needsSignIn: true);
+            throw new NotPdfException(res.StatusCode == HttpStatusCode.NotFound ? "الملف غير موجود على هذا الرابط (أو أنه خاص بك)" : "الملف خاص — يحتاج إلى تسجيل الدخول", needsSignIn: true);
         res.EnsureSuccessStatusCode();
         long total = res.Content.Headers.ContentLength ?? -1;
         string tmp = target + ".part";
@@ -171,7 +171,7 @@ public static class BookSources
             try { File.Delete(tmp); } catch { }
             string? type = res.Content.Headers.ContentType?.MediaType;
             bool html = type?.Contains("html", StringComparison.OrdinalIgnoreCase) == true || Encoding.UTF8.GetString(head, 0, headCount).Contains("<html", StringComparison.OrdinalIgnoreCase);
-            throw new NotPdfException(html ? "الرابط رجّع صفحة مش ملف PDF — غالبًا الملف خاص ومحتاج تسجيل دخول" : "الملف ده مش PDF", needsSignIn: html);
+            throw new NotPdfException(html ? "الرابط أعاد صفحة وليس ملف PDF — غالبًا الملف خاص ويحتاج إلى تسجيل الدخول" : "هذا الملف ليس PDF", needsSignIn: html);
         }
         // EPUB من رابط مالوش امتداد (درايف مثلًا): يتحفظ .epub عشان القارئ يفتحه صح
         string ext = LooksLikeEpub(head, headCount) ? ".epub" : ".pdf";

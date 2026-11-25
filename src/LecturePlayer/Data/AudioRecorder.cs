@@ -223,7 +223,7 @@ public sealed class CameraFeed : IDisposable
         };
         var err = new System.Text.StringBuilder();
         p.ErrorDataReceived += (_, e) => { if (e.Data != null && err.Length < 4000) err.AppendLine(e.Data); };
-        p.Exited += (_, _) => { if (_proc == p) Failed?.Invoke(err.ToString().Split('\n').FirstOrDefault(l => l.Trim().Length > 0) ?? "الكاميرا وقفت"); };
+        p.Exited += (_, _) => { if (_proc == p) Failed?.Invoke(err.ToString().Split('\n').FirstOrDefault(l => l.Trim().Length > 0) ?? "توقفت الكاميرا"); };
         p.Start();
         p.BeginErrorReadLine();
         _proc = p;

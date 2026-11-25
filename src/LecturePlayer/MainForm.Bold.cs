@@ -36,14 +36,14 @@ internal sealed partial class MainForm
         _settings.SkipSilence = !_settings.SkipSilence;
         if (_settings.SkipSilence && Tools.FindFfmpeg() == null)
         {
-            _ = EnsureFfmpegAsync("تخطي السكوت").ContinueWith(t =>
+            _ = EnsureFfmpegAsync("تخطّي الصمت").ContinueWith(t =>
             {
                 if (t.Result) Ui(() => { _silenceFor = null; PrepareSilence(); });
             });
         }
         ShowStatus(_settings.SkipSilence
-            ? $"⏭ تخطي السكوت شغال (وفّر لحد دلوقتي {TimeFormat.Format(_settings.SilenceSavedSeconds * 1000)})"
-            : "تخطي السكوت اتقفل", 4);
+            ? $"⏭ تخطّي الصمت يعمل (وفّر حتى الآن {TimeFormat.Format(_settings.SilenceSavedSeconds * 1000)})"
+            : "أُوقف تخطّي الصمت", 4);
         _silenceFor = null;
         PrepareSilence();
     }
@@ -71,7 +71,7 @@ internal sealed partial class MainForm
 
         var cts = _silenceCts = new CancellationTokenSource();
         long duration = v.DurationMs;
-        ShowStatus("بدوّر على فترات السكوت في الفيديو (في الخلفية)…", 4);
+        ShowStatus("جارٍ البحث عن فترات الصمت في الفيديو (في الخلفية)…", 4);
         _ = Task.Run(async () =>
         {
             try
@@ -84,7 +84,7 @@ internal sealed partial class MainForm
                 {
                     if (_silenceFor != v) return;
                     _silence = ranges;
-                    ShowStatus($"⏭ هيتخطى {TimeFormat.Format(total)} سكوت في الفيديو ده", 5);
+                    ShowStatus($"⏭ سيُتخطّى {TimeFormat.Format(total)} من الصمت في هذا الفيديو", 5);
                 });
             }
             catch (OperationCanceledException) { }
@@ -121,20 +121,20 @@ internal sealed partial class MainForm
     private void ShowDifficultSpots()
     {
         var v = TargetVideo();
-        if (v == null) { ShowStatus("شغّل أو حدد فيديو الأول"); return; }
+        if (v == null) { ShowStatus("شغّل فيديو أو حدّده أولًا"); return; }
         var spots = DifficultSpots.Detect(JournalEntries, v.Path);
         if (spots.Count == 0)
         {
-            Dialogs.Info(this, "مفيش أجزاء صعبة في الفيديو ده لسه.\n\nالبرنامج بيعتبر الجزء «صعب» لما ترجع له لورا مرتين أو أكتر (من 3 ثواني لـ 3 دقايق).");
+            Dialogs.Info(this, "لا توجد أجزاء صعبة في هذا الفيديو بعد.\n\nيعدّ البرنامج الجزء «صعبًا» عندما ترجع إليه مرتين أو أكثر (من 3 ثوانٍ إلى 3 دقائق).");
             return;
         }
         ClearNodeMenu();
         foreach (var s in spots)
         {
             var spot = s;
-            var item = MenuItem($"⚠ {Transcript.Short(s.StartMs)} – {Transcript.Short(s.EndMs)}   (رجعتله {s.Count} مرات)", () => PlayAt(v, spot.StartMs));
+            var item = MenuItem($"⚠ {Transcript.Short(s.StartMs)} – {Transcript.Short(s.EndMs)}   (رجعت إليه {s.Count} مرات)", () => PlayAt(v, spot.StartMs));
             item.DropDownItems.Add(MenuItem("▶ شغّله", () => PlayAt(v, spot.StartMs)));
-            item.DropDownItems.Add(MenuItem("📌 حطله علامة مراجعة", () => AddReviewAt(v, spot.StartMs, "جزء صعب")));
+            item.DropDownItems.Add(MenuItem("📌 ضع له علامة مراجعة", () => AddReviewAt(v, spot.StartMs, "جزء صعب")));
             _nodeMenu.Items.Add(item);
         }
         _nodeMenu.Show(this, PointToClient(Cursor.Position));
@@ -147,7 +147,7 @@ internal sealed partial class MainForm
     private void AddReviewBookmark()
     {
         var v = _currentVideo;
-        if (v == null || !IsActive) { ShowStatus("شغّل فيديو الأول"); return; }
+        if (v == null || !IsActive) { ShowStatus("شغّل فيديو أولًا"); return; }
         AddReviewAt(v, _mp.Time, null);
     }
 
@@ -155,7 +155,7 @@ internal sealed partial class MainForm
     {
         bool wasPlaying = _mp.State == VLCState.Playing && v == _currentVideo;
         if (wasPlaying) _mp.SetPause(true);
-        string? note = Dialogs.Input(this, "علامة مراجعة", $"الفكرة اللي عايز تفتكرها عند {Transcript.Short(timeMs)} (اكتبها كسؤال أحسن):", defaultNote ?? "");
+        string? note = Dialogs.Input(this, "علامة مراجعة", $"الفكرة التي تريد تذكّرها عند {Transcript.Short(timeMs)} (الأفضل أن تكتبها سؤالًا):", defaultNote ?? "");
         if (wasPlaying) _mp.SetPause(false);
         if (note == null) return;
 
@@ -167,7 +167,7 @@ internal sealed partial class MainForm
         SaveLibrary();
         RefreshNotesPane();
         RefreshVideo(v);
-        ShowStatus("📌 هتراجعها بكره، وبعدين بعد 3 أيام، أسبوع، 3 أسابيع، وشهرين ✓", 5);
+        ShowStatus("📌 ستراجعها غدًا، ثم بعد 3 أيام، وأسبوع، و3 أسابيع، وشهرين ✓", 5);
     }
 
     private void ToggleReviewForSelectedBookmark()
@@ -175,8 +175,8 @@ internal sealed partial class MainForm
         var b = SelectedBookmark();
         var v = _notesVideo;
         if (b == null || v == null) return;
-        if (b.ReviewDueUtc != null) { ReviewScheduler.Unschedule(b); ShowStatus("اتشالت من المراجعة"); }
-        else { ReviewScheduler.Schedule(b, DateTime.UtcNow); ShowStatus("📌 اتضافت للمراجعة — أول مراجعة بكره"); }
+        if (b.ReviewDueUtc != null) { ReviewScheduler.Unschedule(b); ShowStatus("أُزيلت من المراجعة"); }
+        else { ReviewScheduler.Schedule(b, DateTime.UtcNow); ShowStatus("📌 أُضيفت إلى المراجعة — أول مراجعة غدًا"); }
         v.Touch();
         MarkDirty();
         SaveLibrary();
@@ -189,8 +189,8 @@ internal sealed partial class MainForm
         if (due.Count == 0)
         {
             var next = ReviewScheduler.All(_library).Where(i => i.Bookmark.ReviewDueUtc != null).Min(i => i.Bookmark.ReviewDueUtc);
-            Dialogs.Info(this, "مفيش مراجعة النهارده ✓" + (next is { } n ? $"\n\nالمراجعة الجاية: {n.ToLocalTime():yyyy/MM/dd}" :
-                "\n\nحط علامة مراجعة بـ R وإنت بتتفرج على فكرة عايز تثبّتها."));
+            Dialogs.Info(this, "لا توجد مراجعة اليوم ✓" + (next is { } n ? $"\n\nالمراجعة القادمة: {n.ToLocalTime():yyyy/MM/dd}" :
+                "\n\nضع علامة مراجعة بـ R أثناء المشاهدة على فكرة تريد تثبيتها."));
             return;
         }
         new ReviewForm(due, it => PlayAt(it.Video, Math.Max(0, it.Bookmark.TimeMs - 5000)), (it, remembered) =>
@@ -220,13 +220,13 @@ internal sealed partial class MainForm
 
     private void StartFocusDialog()
     {
-        if (FocusActive) { ShowStatus("وضع التركيز شغال بالفعل"); return; }
+        if (FocusActive) { ShowStatus("وضع التركيز يعمل بالفعل"); return; }
         using var kit = new FormKit("وضع التركيز الصارم", 520);
-        kit.Note("ملء الشاشة، المكتبة مستخبية، ومينفعش تخرج قبل الوقت غير لما تكتب جملة تأكيد.", 40, Theme.Text);
+        kit.Note("ملء الشاشة، والمكتبة مخفية، ولا يمكنك الخروج قبل الوقت إلا بكتابة جملة تأكيد.", 40, Theme.Text);
         var minutes = kit.Row("المدة (دقيقة)", new NumberBox { Minimum = 10, Maximum = 240, Increment = 5, Value = Math.Clamp(_settings.FocusMinutes, 10, 240) });
-        var block = kit.Row("حجب المواقع", new ToggleSwitch { Text = "احجب المواقع دي طول المدة", Checked = _settings.FocusBlockSites });
+        var block = kit.Row("حجب المواقع", new ToggleSwitch { Text = "احجب هذه المواقع طوال المدة", Checked = _settings.FocusBlockSites });
         var sites = kit.Row("المواقع", new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, RightToLeft = RightToLeft.No, Text = string.Join("\r\n", _settings.FocusSites) }, 110);
-        kit.Note("عشان يقفل المواقع دي، الويندوز هيسألك «تسمح للبرنامج يعمل تغييرات؟» — دوس «نعم». هيسألك مرة في الأول ومرة في الآخر.\nيوتيوب مش في قايمة الحجب عشان الكورسات.", 40);
+        kit.Note("لحجب هذه المواقع سيسألك ويندوز «هل تسمح للبرنامج بإجراء تغييرات؟» — اضغط «نعم». سيسألك مرة في البداية ومرة في النهاية.\nيوتيوب ليس في قائمة الحجب من أجل الدورات.", 40);
         kit.Buttons("ابدأ");
         if (kit.Show(this) != DialogResult.OK) return;
 
@@ -238,14 +238,14 @@ internal sealed partial class MainForm
         if (_settings.FocusBlockSites)
         {
             _focusBlocked = RunElevatedFocus(block: true);
-            if (!_focusBlocked) ShowStatus("مقدرتش أحجب المواقع (الصلاحية اترفضت) — التركيز هيكمل من غير حجب", 6);
+            if (!_focusBlocked) ShowStatus("تعذّر حجب المواقع (رُفضت الصلاحية) — سيستمر التركيز دون حجب", 6);
         }
 
         _focusUntilUtc = DateTime.UtcNow.AddMinutes(_settings.FocusMinutes);
         if (!_split.Panel2Collapsed) ToggleSidePanel();
         if (!_fullscreen && _currentVideo != null) ToggleFullscreen();
         if (!_pomoRunning) TogglePomodoro();
-        Notify("🎯 وضع التركيز بدأ", $"{_settings.FocusMinutes} دقيقة. بالتوفيق!");
+        Notify("🎯 بدأ وضع التركيز", $"{_settings.FocusMinutes} دقيقة. بالتوفيق!");
         if (_currentVideo == null && _library.Courses.FirstOrDefault(c => !c.IsCompleted && c.Status == CourseStatus.Active) is { } next)
             PlayCourse(next);
     }
@@ -283,9 +283,9 @@ internal sealed partial class MainForm
     {
         if (!FocusActive) return true;
         var left = _focusUntilUtc!.Value - DateTime.UtcNow;
-        const string phrase = "هسيب التركيز";
+        const string phrase = "سأترك التركيز";
         string? typed = Dialogs.Input(this, "وضع التركيز",
-            $"لسه فاضل {(int)left.TotalMinutes} دقيقة. لو متأكد إنك عايز تخرج اكتب: {phrase}");
+            $"ما زال متبقيًا {(int)left.TotalMinutes} دقيقة. إن كنت متأكدًا من الخروج فاكتب: {phrase}");
         if (typed?.Trim() != phrase) return false;
         EndFocus(early: true);
         return true;
@@ -293,11 +293,11 @@ internal sealed partial class MainForm
 
     private void EndFocus(bool early)
     {
-        if (_focusUntilUtc == null) { if (early) ShowStatus("وضع التركيز مش شغال"); return; }
+        if (_focusUntilUtc == null) { if (early) ShowStatus("وضع التركيز لا يعمل"); return; }
         _focusUntilUtc = null;
         if (_focusBlocked) { RunElevatedFocus(block: false); _focusBlocked = false; }
-        if (!early) Notify("🎯 خلصت جلسة التركيز", "شغل عظيم! خد بريك محترم.");
-        else ShowStatus("وضع التركيز اتقفل", 4);
+        if (!early) Notify("🎯 انتهت جلسة التركيز", "عمل رائع! خذ استراحة جيدة.");
+        else ShowStatus("أُنهي وضع التركيز", 4);
         UpdateStudyStatus();
     }
 
@@ -308,7 +308,7 @@ internal sealed partial class MainForm
         {
             if (!OperatingSystem.IsWindows() || !File.Exists(FocusBlocker.HostsPath)) return;
             if (!FocusBlocker.IsBlocked(File.ReadAllText(FocusBlocker.HostsPath))) return;
-            if (Dialogs.Confirm(this, "فيه مواقع لسه محجوبة من جلسة تركيز قديمة (البرنامج اتقفل قبل ما يشيل الحجب).\n\nأشيل الحجب دلوقتي؟", "وضع التركيز"))
+            if (Dialogs.Confirm(this, "توجد مواقع ما زالت محجوبة من جلسة تركيز سابقة (أُغلق البرنامج قبل رفع الحجب).\n\nهل تريد رفع الحجب الآن؟", "وضع التركيز"))
                 RunElevatedFocus(block: false);
         }
         catch (Exception ex) { Log.Error("focus leftover", ex); }
@@ -330,7 +330,7 @@ internal sealed partial class MainForm
     {
         if (c.WatchedCount == 0 && !force) return;
         string text = Recap.LocalRecap(c, DateTime.UtcNow);
-        new TextViewerForm("اللي فات: " + c.Name, text, NotesExporter.SafeFileName(c.Name) + " - اللي فات.md",
+        new TextViewerForm("ما سبق: " + c.Name, text, NotesExporter.SafeFileName(c.Name) + " - ما سبق.md",
             Act("ملخص أذكى بـ Claude", text => { _ = RecapWithClaudeAsync(c); })).Show(this);
     }
 
@@ -344,11 +344,11 @@ internal sealed partial class MainForm
                 .Select(v => (v, TranscriptStore.Load(_libraryPath, v))).ToList();
             if (recent.All(x => x.Item2 == null && string.IsNullOrWhiteSpace(x.v.Notes)))
             {
-                Dialogs.Info(this, "آخر فيديوهات كلامها متحوّلش لنص ومفيهاش ملاحظات — حوّل كلامها لنص الأول (منيو ذكاء) عشان Claude يقدر يلخصها.");
+                Dialogs.Info(this, "آخر الفيديوهات لم يُحوَّل كلامها إلى نص ولا توجد عليها ملاحظات — حوّل كلامها إلى نص أولًا (الأدوات ← الذكاء الاصطناعي) ليتمكن Claude من تلخيصها.");
                 return;
             }
-            string? text = await RunClaudeAsync("اللي فات", Recap.Prompt(c, recent), cts.Token);
-            if (text != null) new TextViewerForm("اللي فات (Claude): " + c.Name, text, NotesExporter.SafeFileName(c.Name) + " - اللي فات.md").Show(this);
+            string? text = await RunClaudeAsync("ما سبق", Recap.Prompt(c, recent), cts.Token);
+            if (text != null) new TextViewerForm("ما سبق (Claude): " + c.Name, text, NotesExporter.SafeFileName(c.Name) + " - ما سبق.md").Show(this);
         }
         catch (OperationCanceledException) { }
         catch (ClaudeException ex) { Dialogs.Error(this, ex.Message); }
@@ -376,12 +376,12 @@ internal sealed partial class MainForm
                 new System.Text.UTF8Encoding(false));
             Process.Start(new ProcessStartInfo(dlg.FileName) { UseShellExecute = true })?.Dispose();
         }
-        catch (Exception ex) { Dialogs.Error(this, "مقدرتش أعمل الصفحة:\n" + ex.Message); }
+        catch (Exception ex) { Dialogs.Error(this, "تعذّر إنشاء الصفحة:\n" + ex.Message); }
     }
 
     private void OpenCodeLab(string code)
     {
         string dir = Path.Combine(Storage.AppDataDir, "codelab");
-        new CodeLabForm(code.Length > 0 ? code : "// اكتب أو الصق كود C# وشغّله بـ F5\nConsole.WriteLine(\"أهلًا من معمل الكود!\");\n", dir).Show(this);
+        new CodeLabForm(code.Length > 0 ? code : "// اكتب أو الصق كود C# وشغّله بـ F5\nConsole.WriteLine(\"مرحبًا من معمل الكود!\");\n", dir).Show(this);
     }
 }

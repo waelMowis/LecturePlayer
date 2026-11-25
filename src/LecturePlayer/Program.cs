@@ -23,8 +23,8 @@ internal static class Program
         Application.ThreadException += (_, e) =>
         {
             LecturePlayer.Data.CrashReport.Record("ui", e.Exception, fatal: false);
-            MessageBox.Show("حصل خطأ مش متوقع، بس بياناتك ومكتبتك سليمة وتقدر تكمّل عادي.\n\n" + e.Exception.Message +
-                            "\n\nاتسجل تقرير بالتفاصيل، وهيتعرض عليك المرة الجاية اللي تفتح فيها البرنامج عشان تبعته.",
+            MessageBox.Show("حدث خطأ غير متوقع، لكن بياناتك ومكتبتك سليمة ويمكنك المتابعة بشكل طبيعي.\n\n" + e.Exception.Message +
+                            "\n\nسُجّل تقرير بالتفاصيل، وسيُعرض عليك في المرة القادمة التي تفتح فيها البرنامج لترسله.",
                 "«مسار»", MessageBoxButtons.OK, MessageBoxIcon.Warning,
                 MessageBoxDefaultButton.Button1, MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
         };
@@ -42,7 +42,7 @@ internal static class Program
         if (sso != null)
         {
             if (!instance.IsFirst) LecturePlayer.Data.SingleInstance.Send(new[] { sso });
-            else MessageBox.Show("افتح «مسار» الأول وابدأ الاستيراد من «إنترنت ← Moodle / مهارة تك»، وبعدين كمّل الدخول في المتصفح.",
+            else MessageBox.Show("افتح «مسار» أولًا وابدأ الاستيراد من «إنترنت ← Moodle / مهارة تك»، ثم أكمل الدخول في المتصفح.",
                 "«مسار»", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
             return 0;
         }
@@ -66,8 +66,8 @@ internal static class Program
             // البرنامج مقدرش يفتح خالص: بدل ما يختفي من غير ولا كلمة، نقول للمستخدم ونسيبله تقرير
             LecturePlayer.Data.CrashReport.Record("startup", ex, fatal: true);
             var answer = MessageBox.Show(
-                "«مسار» مقدرش يفتح بسبب عطل:\n\n" + ex.Message +
-                "\n\nبياناتك ومكتباتك سليمة ومحدش لمسها. التحديث الجاي غالبًا هيصلّح ده.\n\nتحب تفتح فولدر السجل عشان تبعت التفاصيل؟",
+                "تعذّر فتح «مسار» بسبب عطل:\n\n" + ex.Message +
+                "\n\nبياناتك ومكتباتك سليمة ولم يمسها شيء. غالبًا سيُصلح التحديث القادم هذا.\n\nهل تريد فتح مجلد السجل لإرسال التفاصيل؟",
                 "«مسار»", MessageBoxButtons.YesNo, MessageBoxIcon.Error,
                 MessageBoxDefaultButton.Button1, MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
             if (answer == DialogResult.Yes)

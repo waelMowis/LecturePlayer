@@ -60,24 +60,24 @@ internal sealed partial class MainForm
         while (true)
         {
             using var kit = new FormKit("ربط مسار بنوشن", 640);
-            kit.Header("خطوتين في نوشن (مرة واحدة)");
-            kit.Note("1) دوس «افتح صفحة الربط» تحت، واعمل ربط جديد (New integration) نوعه Internal.\n" +
-                     "     من Capabilities علّم القراية والتعديل والإضافة (Read / Update / Insert)، وبعدين انسخ المفتاح (Secret).\n" +
-                     "2) في نوشن اعمل صفحة اسمها «مسار»، ومن ⋯ اللي فوق اختار Connections، وضيف الربط بتاعك.\n" +
-                     "     مسار هيعمل مواضيعك جوه الصفحة دي بس، ومش هيشوف باقي نوشن.", 104);
+            kit.Header("خطوتان في نوشن (مرة واحدة)");
+            kit.Note("1) اضغط «افتح صفحة الربط» بالأسفل، وأنشئ ربطًا جديدًا (New integration) من نوع Internal.\n" +
+                     "     من Capabilities فعّل القراءة والتعديل والإضافة (Read / Update / Insert)، ثم انسخ المفتاح (Secret).\n" +
+                     "2) في نوشن أنشئ صفحة اسمها «مسار»، ومن ⋯ في الأعلى اختر Connections، وأضف الربط الخاص بك.\n" +
+                     "     سينشئ مسار موضوعاتك داخل هذه الصفحة فقط، ولن يرى باقي نوشن.", 104);
             kit.Header("البيانات");
             var tokenBox = kit.Row("المفتاح (Secret)", new TextBox { Text = token, UseSystemPasswordChar = true, RightToLeft = RightToLeft.No });
             var pageBox = kit.Row("رابط صفحة «مسار»", new TextBox { Text = parent, RightToLeft = RightToLeft.No });
-            kit.Note("انسخ رابط الصفحة من نوشن (Share ← Copy link، أو ⋯ ← Copy link). المفتاح بيتحفظ متشفّر على الجهاز ده بس.", 40);
+            kit.Note("انسخ رابط الصفحة من نوشن (Share ← Copy link، أو ⋯ ← Copy link). يُحفظ المفتاح مشفّرًا على هذا الجهاز فقط.", 40);
             kit.Buttons("اربط", "إلغاء", ("افتح صفحة الربط", () => OpenInBrowser("https://www.notion.so/my-integrations")));
             if (SmokeShowDialog(kit, "notion-setup")) return false;
             if (kit.Show(this) != DialogResult.OK) return false;
             token = tokenBox.Text.Trim();
             parent = pageBox.Text.Trim();
             string? pid = NotionClient.ParseId(parent);
-            if (token.Length < 10) { Dialogs.Error(this, "الصق مفتاح الـ integration (بيبدأ غالبًا بـ ntn_ أو secret_)."); continue; }
-            if (pid == null) { Dialogs.Error(this, "ده مش رابط صفحة نوشن — انسخه من Share ← Copy link."); continue; }
-            ShowStatus("بتأكد من نوشن…", 10);
+            if (token.Length < 10) { Dialogs.Error(this, "الصق مفتاح الـ integration (يبدأ غالبًا بـ ntn_ أو secret_)."); continue; }
+            if (pid == null) { Dialogs.Error(this, "هذا ليس رابط صفحة نوشن — انسخه من Share ← Copy link."); continue; }
+            ShowStatus("جارٍ التحقق من نوشن…", 10);
             try
             {
                 using var api = new NotionClient(token);
@@ -86,11 +86,11 @@ internal sealed partial class MainForm
                 _settings.NotionToken = token;
                 _settings.NotionParentPage = parent;
                 SaveSettings();
-                ShowBanner($"نوشن متربط ✓ ({who}) — القواعد هتتعمل جوه «{(title.Length > 0 ? title : "الصفحة")}»", BannerKind.Success, seconds: 8);
+                ShowBanner($"نوشن مربوط ✓ ({who}) — ستُنشأ القواعد داخل «{(title.Length > 0 ? title : "الصفحة")}»", BannerKind.Success, seconds: 8);
                 return true;
             }
             catch (NotionException ex) { Dialogs.Error(this, ex.Friendly); }
-            catch (Exception ex) { Dialogs.Error(this, "مقدرتش أوصل لنوشن: " + ex.Message); }
+            catch (Exception ex) { Dialogs.Error(this, "تعذّر الوصول إلى نوشن: " + ex.Message); }
         }
     }
 
@@ -104,7 +104,7 @@ internal sealed partial class MainForm
     /// </summary>
     private async Task<bool> RunNotionAsync(string what, Func<NotionSync, CancellationToken, Task> op, bool quiet)
     {
-        if (_notionBusy) { if (!quiet) ShowStatus("نوشن لسه بيخلّص اللي قبلها…", 3); return false; }
+        if (_notionBusy) { if (!quiet) ShowStatus("نوشن ما زال ينهي الطلب السابق…", 3); return false; }
         if (!NotionReady && (quiet || !await EnsureNotionSetupAsync())) return false;
         _notionBusy = true;
         var journal = JournalEntries;
@@ -193,7 +193,7 @@ internal sealed partial class MainForm
         if (!_notionOldAsked && OldNotionTopics.FirstOrDefault() is { } old && Environment.TickCount64 > _dueNotionSync - 30_000)
         {
             _notionOldAsked = true;
-            ShowBanner($"📓 قاعدة «{old.Name}» في نوشن بالشكل القديم (كل المحاضرات في جدول واحد) — الشكل الجديد زي شجرة مسار",
+            ShowBanner($"📓 قاعدة «{old.Name}» في نوشن بالشكل القديم (كل المحاضرات في جدول واحد) — الشكل الجديد مثل شجرة مسار",
                 BannerKind.Warning, "أعد البناء", () => RebuildNotionTopic(old), seconds: 0, key: "notion-old");
         }
         if (Due(ref _dueNotionSync, 180_000) && NotionTopics.Any())
@@ -213,22 +213,22 @@ internal sealed partial class MainForm
 
     private async void CreateNotionForTopic(Topic t)
     {
-        if (t.Notion != null) { ShowStatus("الموضوع ده مربوط بنوشن بالفعل", 3); return; }
+        if (t.Notion != null) { ShowStatus("هذا الموضوع مربوط بنوشن بالفعل", 3); return; }
         if (!await EnsureNotionSetupAsync()) return;
         int courses = _library.CoursesOf(t).Count(), lectures = _library.CoursesOf(t).Sum(c => c.Groups.Count);
-        if (!Dialogs.Confirm(this, $"هعمل في نوشن صفحة «{t.Name}» بنفس شكل شجرة مسار:\n" +
-                                   $"• «الكورسات» ({courses} كورس) مقسومة بالمصدر وبنفس الترتيب — الحالة، التقدّم، اتشاف، الساعات، وقت المذاكرة…\n" +
-                                   $"• جوه صفحة كل كورس جدول محاضراته ({lectures} محاضرة في الكل) — الحالة، التقدّم، الموعد، الحضور، TASK، SEARCH، SUMMARY\n" +
-                                   "• الفيديوهات مربعات ☐ جوه صفحة كل محاضرة، وبتتعلّم لوحدها لما تتفرج.\n\n" +
-                                   "بعد كده أي كورس أو محاضرة تتضاف للموضوع بتتضاف هناك لوحدها، والتقدّم بيتحدّث كل كام دقيقة.\n" +
-                                   (lectures > 150 ? $"الإنشاء الأول هياخد حوالي {Math.Max(1, lectures / 60)} دقيقة (نوشن بيقبل كام طلب في الثانية) — تقدر تكمّل شغلك عادي.\n" : "") +
-                                   "\nنبدأ؟"))
+        if (!Dialogs.Confirm(this, $"سأنشئ في نوشن صفحة «{t.Name}» بنفس شكل شجرة مسار:\n" +
+                                   $"• «الدورات» ({courses} دورة) مقسّمة حسب المصدر وبالترتيب نفسه — الحالة، التقدّم، المشاهدة، الساعات، وقت المذاكرة…\n" +
+                                   $"• داخل صفحة كل دورة جدول محاضراتها ({lectures} محاضرة إجمالًا) — الحالة، التقدّم، الموعد، الحضور، TASK، SEARCH، SUMMARY\n" +
+                                   "• الفيديوهات مربعات ☐ داخل صفحة كل محاضرة، وتُوسم تلقائيًا عند المشاهدة.\n\n" +
+                                   "بعد ذلك تُضاف أي دورة أو محاضرة تُضاف للموضوع هناك تلقائيًا، ويتحدّث التقدّم كل بضع دقائق.\n" +
+                                   (lectures > 150 ? $"سيستغرق الإنشاء الأول نحو {Math.Max(1, lectures / 60)} دقيقة (نوشن يقبل عددًا محدودًا من الطلبات في الثانية) — يمكنك متابعة عملك كالمعتاد.\n" : "") +
+                                   "\nهل نبدأ؟"))
             return;
         string parent = SmokeNotionParent ?? NotionClient.ParseId(_settings.NotionParentPage)!;
         Checkpoint("ربط الموضوع بنوشن");
         if (await RunNotionAsync($"إنشاء «{t.Name}»", (s, ct) => s.CreateTopicAsync(t, parent, ct), quiet: false))
         {
-            ShowBanner($"📓 «{t.Name}» اتعمل في نوشن ✓ — التحديث بقى تلقائي", BannerKind.Success, "افتحه", () => OpenNotionPage(t.Notion?.PageId), seconds: 12);
+            ShowBanner($"📓 أُنشئ «{t.Name}» في نوشن ✓ — أصبح التحديث تلقائيًا", BannerKind.Success, "افتحه", () => OpenNotionPage(t.Notion?.PageId), seconds: 12);
             RefreshTopicNode(t);
         }
     }
@@ -243,7 +243,7 @@ internal sealed partial class MainForm
     }
 
     private void SyncNotionTopic(Topic t, bool fromScratch = false) =>
-        _ = RunNotionAsync(fromScratch ? $"مزامنة «{t.Name}» من الأول" : $"مزامنة «{t.Name}»", async (s, ct) =>
+        _ = RunNotionAsync(fromScratch ? $"مزامنة «{t.Name}» من البداية" : $"مزامنة «{t.Name}»", async (s, ct) =>
         {
             await s.SyncTopicAsync(t, ct, recreateMissing: fromScratch);
             await s.PullPlanAsync(t, ct);
@@ -254,14 +254,14 @@ internal sealed partial class MainForm
         _ = RunNotionAsync($"سحب خطة «{t.Name}»", async (s, ct) =>
         {
             int n = await s.PullPlanAsync(t, ct);
-            if (!IsDisposed) { ShowStatus(n > 0 ? $"📥 اتسحبت خطة {n} محاضرة من نوشن" : "الخطة زي ما هي — مفيش جديد في نوشن", 5); RefreshHomePlan(); }
+            if (!IsDisposed) { ShowStatus(n > 0 ? $"📥 جُلبت خطة {n} محاضرة من نوشن" : "الخطة كما هي — لا جديد في نوشن", 5); RefreshHomePlan(); }
         }, quiet: false);
 
     private void CreateNotionLog(Topic t) =>
         _ = RunNotionAsync("سجل المذاكرة", async (s, ct) =>
         {
             await s.CreateLogAsync(t, ct);
-            if (!IsDisposed) ShowStatus("🗓️ «سجل المذاكرة» اتعمل — كل يوم بتذاكر فيه بيتضاف لوحده", 6);
+            if (!IsDisposed) ShowStatus("🗓️ أُنشئ «سجل المذاكرة» — يُضاف كل يوم تذاكر فيه تلقائيًا", 6);
         }, quiet: false);
 
     /// <summary>«أعد البناء»: الصفحة اللي مسار عملها تروح سلة نوشن (بترجع منها لحد 30 يوم)، ويتعمل الموضوع بالشكل الجديد بخطته.</summary>
@@ -270,17 +270,17 @@ internal sealed partial class MainForm
         HideBanner("notion-old");
         if (t.Notion == null) return;
         if (!await EnsureNotionSetupAsync()) return;
-        if (!Dialogs.Confirm(this, $"هعيد بناء «{t.Name}» في نوشن بنفس شكل شجرة مسار:\n" +
-                                   "• الكورسات مقسومة بالمصدر وبنفس الترتيب.\n" +
-                                   "• كل كورس جوه صفحته جدول محاضراته هو بس (الموعد، الحضور، TASK، SEARCH، SUMMARY).\n\n" +
-                                   "الخطة اللي كتبتها (المواعيد والحضور والمهام) هتتنقل للصفحة الجديدة.\n" +
-                                   "الصفحة القديمة اللي مسار عملها هتروح سلة نوشن (تقدر ترجّعها لحد 30 يوم).\n\nنبدأ؟"))
+        if (!Dialogs.Confirm(this, $"سأعيد بناء «{t.Name}» في نوشن بنفس شكل شجرة مسار:\n" +
+                                   "• الدورات مقسّمة حسب المصدر وبالترتيب نفسه.\n" +
+                                   "• في صفحة كل دورة جدول محاضراتها فقط (الموعد، الحضور، TASK، SEARCH، SUMMARY).\n\n" +
+                                   "ستُنقل الخطة التي كتبتها (المواعيد والحضور والمهام) إلى الصفحة الجديدة.\n" +
+                                   "ستذهب الصفحة القديمة التي أنشأها مسار إلى سلة نوشن (يمكنك إرجاعها خلال 30 يومًا).\n\nهل نبدأ؟"))
             return;
         string parent = SmokeNotionParent ?? NotionClient.ParseId(_settings.NotionParentPage)!;
         Checkpoint("إعادة بناء نوشن");
         if (await RunNotionAsync($"إعادة بناء «{t.Name}»", (s, ct) => s.RebuildTopicAsync(t, parent, ct), quiet: false))
         {
-            ShowBanner($"📓 «{t.Name}» اتعمل من جديد بشكل الشجرة ✓ — والقديمة في السلة", BannerKind.Success, "افتحه", () => OpenNotionPage(t.Notion?.PageId), seconds: 12);
+            ShowBanner($"📓 أُعيد إنشاء «{t.Name}» بشكل الشجرة ✓ — والقديمة في السلة", BannerKind.Success, "افتحه", () => OpenNotionPage(t.Notion?.PageId), seconds: 12);
             RefreshTopicNode(t);
             RefreshHomePlan();
         }
@@ -288,13 +288,13 @@ internal sealed partial class MainForm
 
     private void UnlinkNotion(Topic t)
     {
-        if (!Dialogs.Confirm(this, $"تفك ربط «{t.Name}» بنوشن؟\nالصفحة والقواعد بتفضل في نوشن زي ما هي (مسار مابيمسحش حاجة)، بس التحديث بيقف.\nتقدر تعمل قاعدة جديدة بعد كده.")) return;
+        if (!Dialogs.Confirm(this, $"هل تريد فك ربط «{t.Name}» بنوشن؟\nتبقى الصفحة والقواعد في نوشن كما هي (مسار لا يحذف شيئًا)، لكن يتوقف التحديث.\nيمكنك إنشاء قاعدة جديدة لاحقًا.")) return;
         Checkpoint("فك ربط نوشن");
         t.Notion = null;
         t.TouchInfo();
         MarkDirty();
         RefreshTopicNode(t);
-        ShowStatus("اتفك الربط — نوشن زي ما هو", 4);
+        ShowStatus("فُك الربط — نوشن كما هو", 4);
     }
 
     private void ShowNotionLog()
@@ -302,37 +302,37 @@ internal sealed partial class MainForm
         var lines = _notionLog.Count > 0 ? _notionLog.AsEnumerable()
             : File.Exists(NotionLogPath) ? File.ReadLines(NotionLogPath).TakeLast(200) : Array.Empty<string>();
         var list = lines.Reverse().Take(200).ToList();
-        Dialogs.Info(this, list.Count == 0 ? "لسه مفيش حاجة اتبعتت لنوشن." : string.Join("\n", list.Take(40)) + (list.Count > 40 ? $"\n… ({list.Count - 40} سطر أقدم في {NotionLogPath})" : ""), "سجل مزامنة نوشن");
+        Dialogs.Info(this, list.Count == 0 ? "لم يُرسل شيء إلى نوشن بعد." : string.Join("\n", list.Take(40)) + (list.Count > 40 ? $"\n… ({list.Count - 40} سطرًا أقدم في {NotionLogPath})" : ""), "سجل مزامنة نوشن");
     }
 
     private ToolStripMenuItem NotionTopicMenu(Topic t)
     {
         if (t.Notion == null)
             return SubMenuOf("📤  نوشن",
-                MenuItem("📓  أنشئ قاعدة نوشن للموضوع ده…", () => CreateNotionForTopic(t)),
+                MenuItem("📓  أنشئ قاعدة نوشن لهذا الموضوع…", () => CreateNotionForTopic(t)),
                 Sep(),
                 MenuItem("⚙  إعدادات نوشن (المفتاح والصفحة)…", () => _ = EnsureNotionSetupAsync(force: true)));
         if (t.Notion.Layout < NotionSync.CurrentLayout)
             return SubMenuOf("📤  نوشن",
-                MenuItem("🧱  أعد البناء بشكل الشجرة (القديمة تروح السلة)…", () => RebuildNotionTopic(t)),
+                MenuItem("🧱  أعد البناء بشكل الشجرة (تذهب القديمة إلى السلة)…", () => RebuildNotionTopic(t)),
                 MenuItem("↗  افتح الموضوع في نوشن", () => OpenNotionPage(t.Notion.PageId)),
                 Sep(),
-                MenuItem("✂  فك الربط (نوشن مابيتمسحش)…", () => UnlinkNotion(t)));
+                MenuItem("✂  فك الربط (لا يُحذف شيء من نوشن)…", () => UnlinkNotion(t)));
         var items = new List<ToolStripItem>
         {
             MenuItem("↗  افتح الموضوع في نوشن", () => OpenNotionPage(t.Notion.PageId)),
             Sep(),
-            MenuItem("🔄  زامن دلوقتي", () => SyncNotionTopic(t)),
-            MenuItem("📥  هات الخطة من نوشن (المواعيد والحضور والمهام)", () => PullNotionPlan(t)),
+            MenuItem("🔄  زامن الآن", () => SyncNotionTopic(t)),
+            MenuItem("📥  اجلب الخطة من نوشن (المواعيد والحضور والمهام)", () => PullNotionPlan(t)),
             MenuItem("📅  وزّع المواعيد على المحاضرات…", () => ScheduleNotion(_library.CoursesOf(t).SelectMany(c => c.Groups).ToList(), $"موضوع «{t.Name}»")),
         };
-        if (t.Notion.LogDsId == null) items.Add(MenuItem("🗓️  اعمل «سجل المذاكرة» اليومي", () => CreateNotionLog(t)));
+        if (t.Notion.LogDsId == null) items.Add(MenuItem("🗓️  أنشئ «سجل المذاكرة» اليومي", () => CreateNotionLog(t)));
         items.Add(Sep());
         items.Add(MenuItem("📜  سجل المزامنة", ShowNotionLog));
-        items.Add(MenuItem("🔁  زامن من الأول (رجّع الصفوف اللي اتشالت من نوشن)", () => SyncNotionTopic(t, fromScratch: true)));
-        items.Add(MenuItem("🧱  أعد البناء من جديد (القديمة تروح السلة)…", () => RebuildNotionTopic(t)));
+        items.Add(MenuItem("🔁  زامن من البداية (أعد الصفوف التي حُذفت من نوشن)", () => SyncNotionTopic(t, fromScratch: true)));
+        items.Add(MenuItem("🧱  أعد البناء من جديد (تذهب القديمة إلى السلة)…", () => RebuildNotionTopic(t)));
         items.Add(MenuItem("⚙  إعدادات نوشن…", () => _ = EnsureNotionSetupAsync(force: true)));
-        items.Add(MenuItem("✂  فك الربط (نوشن مابيتمسحش)…", () => UnlinkNotion(t)));
+        items.Add(MenuItem("✂  فك الربط (لا يُحذف شيء من نوشن)…", () => UnlinkNotion(t)));
         return SubMenuOf("📤  نوشن", items.ToArray());
     }
 
@@ -340,9 +340,9 @@ internal sealed partial class MainForm
     {
         if (NotionTopicOf(c) is not { } t) return null;
         var items = new List<ToolStripItem>();
-        if (c.NotionPageId != null) items.Add(MenuItem("↗  افتح الكورس في نوشن", () => OpenNotionPage(c.NotionPageId)));
-        items.Add(MenuItem("📅  وزّع مواعيد الكورس…", () => ScheduleNotion(c.Groups.ToList(), $"«{c.Name}»")));
-        items.Add(MenuItem("🔄  زامن الموضوع دلوقتي", () => SyncNotionTopic(t)));
+        if (c.NotionPageId != null) items.Add(MenuItem("↗  افتح الدورة في نوشن", () => OpenNotionPage(c.NotionPageId)));
+        items.Add(MenuItem("📅  وزّع مواعيد الدورة…", () => ScheduleNotion(c.Groups.ToList(), $"«{c.Name}»")));
+        items.Add(MenuItem("🔄  زامن الموضوع الآن", () => SyncNotionTopic(t)));
         return SubMenuOf("📤  نوشن", items.ToArray());
     }
 
@@ -350,7 +350,7 @@ internal sealed partial class MainForm
     {
         if (NotionTopicOf(g) is not { } t) return null;
         if (g.NotionPageId == null)
-            return SubMenuOf("📤  نوشن", MenuItem("🔄  زامن الموضوع (المحاضرة لسه مااتعملتش هناك)", () => SyncNotionTopic(t)));
+            return SubMenuOf("📤  نوشن", MenuItem("🔄  زامن الموضوع (المحاضرة لم تُنشأ هناك بعد)", () => SyncNotionTopic(t)));
         var p = g.Plan ?? new LecturePlan();
         ToolStripMenuItem Check(string text, bool value, Action<LecturePlan> set) =>
             new(text, null, (_, _) => EditPlan(g, set)) { Checked = value, ForeColor = Theme.Text };
@@ -363,9 +363,9 @@ internal sealed partial class MainForm
             Sep(),
             Check("الحضور: " + NotionSync.Present, p.Attendance == NotionSync.Present, x => x.Attendance = x.Attendance == NotionSync.Present ? null : NotionSync.Present),
             Check("الحضور: " + NotionSync.Absent, p.Attendance == NotionSync.Absent, x => x.Attendance = x.Attendance == NotionSync.Absent ? null : NotionSync.Absent),
-            MenuItem(p.Date is { } d ? $"📅  الموعد: {d:yyyy/MM/dd} — غيّره…" : "📅  حدد الموعد…", () => EditPlanDate(g)),
+            MenuItem(p.Date is { } d ? $"📅  الموعد: {d:yyyy/MM/dd} — غيّره…" : "📅  حدّد الموعد…", () => EditPlanDate(g)),
             Sep(),
-            MenuItem("📝  ابعت الملاحظات والعلامات والملخص للمحاضرة", () => SendNotesToNotion(g)));
+            MenuItem("📝  أرسل الملاحظات والعلامات والملخص للمحاضرة", () => SendNotesToNotion(g)));
     }
 
     // =====================================================================
@@ -389,10 +389,10 @@ internal sealed partial class MainForm
     {
         using var kit = new FormKit("موعد المحاضرة", 460);
         kit.Note(Modern.Bidi(g.Name), 26, Theme.Text);
-        var has = kit.Row("ليها موعد", new ToggleSwitch { Text = "حدد يوم", Checked = true });
+        var has = kit.Row("لها موعد", new ToggleSwitch { Text = "حدّد يومًا", Checked = true });
         var date = kit.Row("اليوم", new DateBox { Value = (g.Plan?.Date ?? DateTime.Today).Date });
         has.CheckedChanged += (_, _) => date.Enabled = has.Checked;
-        kit.Note("− / + يوم بيوم، وShift معاهم = أسبوع.");
+        kit.Note("− / + يومًا بيوم، ومع Shift = أسبوع.");
         kit.Buttons();
         if (SmokeShowDialog(kit, "notion-date")) return;
         if (kit.Show(this) != DialogResult.OK) return;
@@ -406,7 +406,7 @@ internal sealed partial class MainForm
         if (lectures.Count == 0) return;
         using var kit = new FormKit("وزّع المواعيد — " + scope, 620);
         var start = kit.Row("من يوم", new DateBox { Value = DateTime.Today });
-        var minutes = kit.Row("دقايق في اليوم", new NumberBox { Minimum = 10, Maximum = 600, Increment = 10, Value = Math.Clamp(_settings.DailyGoalMinutes, 10, 600) });
+        var minutes = kit.Row("دقائق في اليوم", new NumberBox { Minimum = 10, Maximum = 600, Increment = 10, Value = Math.Clamp(_settings.DailyGoalMinutes, 10, 600) });
         var days = kit.Row("أيام المذاكرة", new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, WrapContents = true, BackColor = Theme.Panel }, 72);
         var ar = CultureInfo.GetCultureInfo("ar-EG");
         var course = _library.FindCourseOf(lectures[0]);
@@ -417,7 +417,7 @@ internal sealed partial class MainForm
             days.Controls.Add(cb);
             boxes.Add((d, cb));
         }
-        var onlyEmpty = kit.Row("المحاضرات اللي ليها موعد", new ToggleSwitch { Text = "سيبها زي ما هي (وزّع على اللي مالهاش بس)", Checked = lectures.Any(g => g.Plan?.Date != null) });
+        var onlyEmpty = kit.Row("المحاضرات التي لها موعد", new ToggleSwitch { Text = "اتركها كما هي (وزّع على التي ليس لها موعد فقط)", Checked = lectures.Any(g => g.Plan?.Date != null) });
         var preview = kit.Note("", 26, Theme.Text);
         void Preview()
         {
@@ -425,7 +425,7 @@ internal sealed partial class MainForm
             var copy = lectures.Select(g => new LectureGroup { Videos = g.Videos, Plan = g.Plan?.Clone() }).ToList();
             var end = NotionSync.Schedule(copy, start.Value, sel, (int)minutes.Value, onlyEmpty.Checked);
             int n = copy.Zip(lectures).Count(x => x.First.Plan?.Date != x.Second.Plan?.Date);
-            preview.Text = end is { } e ? $"{n} محاضرة هتاخد موعد — آخرها {e:yyyy/MM/dd} ({ar.DateTimeFormat.GetDayName(e.DayOfWeek)})" : "اختار يوم واحد على الأقل";
+            preview.Text = end is { } e ? $"{n} محاضرة ستأخذ موعدًا — آخرها {e:yyyy/MM/dd} ({ar.DateTimeFormat.GetDayName(e.DayOfWeek)})" : "اختر يومًا واحدًا على الأقل";
         }
         start.ValueChanged += (_, _) => Preview();
         minutes.ValueChanged += (_, _) => Preview();
@@ -445,7 +445,7 @@ internal sealed partial class MainForm
         MarkDirty();
         foreach (var g in changed) if (_groupNodes.TryGetValue(g, out var node)) UpdateGroupNode(node, g);
         RefreshHomePlan();
-        ShowStatus($"📅 {changed.Count} محاضرة خدت موعد", 4);
+        ShowStatus($"📅 {changed.Count} محاضرة أخذت موعدًا", 4);
         var withRows = changed.Where(g => g.NotionPageId != null).ToList();
         if (withRows.Count > 0)
             _ = RunNotionAsync("المواعيد", async (s, ct) => { foreach (var g in withRows) await s.PushPlanAsync(g, ct); }, quiet: false);
@@ -486,7 +486,7 @@ internal sealed partial class MainForm
     {
         if (g.Plan is not { } p || p.IsEmpty) return "";
         static string Box(bool b) => b ? "☑" : "☐";
-        return "\n\nنوشن: " + (p.Date is { } d ? $"الموعد {d:yyyy/MM/dd}" : "من غير موعد") +
+        return "\n\nنوشن: " + (p.Date is { } d ? $"الموعد {d:yyyy/MM/dd}" : "بلا موعد") +
                (p.Attendance != null ? " · " + p.Attendance : "") +
                $"\n{Box(p.Task)} TASK   {Box(p.Search)} SEARCH   {Box(p.Summary)} SUMMARY";
     }
@@ -523,12 +523,12 @@ internal sealed partial class MainForm
 
     private void SendNotesToNotion(LectureGroup g)
     {
-        if (g.NotionPageId == null) { ShowStatus("المحاضرة لسه ماتعملتش في نوشن — زامن الموضوع الأول", 4); return; }
+        if (g.NotionPageId == null) { ShowStatus("لم تُنشأ المحاضرة في نوشن بعد — زامن الموضوع أولًا", 4); return; }
         CommitNotes();
         var (blocks, hasSummary, count) = BuildNotionNotes(g);
         if (count == 0)
         {
-            Dialogs.Info(this, "مفيش حاجة تتبعت لسه: مفيش ملاحظات ولا علامات ولا ملخص ولا اختبار على فيديوهات المحاضرة دي.");
+            Dialogs.Info(this, "لا يوجد ما يُرسل بعد: لا ملاحظات ولا علامات ولا ملخص ولا اختبار على فيديوهات هذه المحاضرة.");
             return;
         }
         _ = RunNotionAsync($"ملاحظات «{g.Name}»", async (s, ct) =>
@@ -537,7 +537,7 @@ internal sealed partial class MainForm
             if (!IsDisposed)
             {
                 RefreshGroup(g);
-                ShowBanner($"📝 ملاحظات «{g.Name}» اتبعتت لنوشن" + (hasSummary ? " — وSUMMARY اتعلّم ✓" : ""), BannerKind.Success, "افتحها", () => OpenNotionPage(g.NotionPageId), seconds: 8);
+                ShowBanner($"📝 أُرسلت ملاحظات «{g.Name}» إلى نوشن" + (hasSummary ? " — ووُسم SUMMARY ✓" : ""), BannerKind.Success, "افتحها", () => OpenNotionPage(g.NotionPageId), seconds: 8);
             }
         }, quiet: false);
     }

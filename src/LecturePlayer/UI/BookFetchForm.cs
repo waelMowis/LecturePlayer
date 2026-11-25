@@ -24,7 +24,7 @@ internal sealed class BookFetchForm : Form
     {
         _startUrl = startUrl;
         _target = target;
-        Text = "هات الكتاب بحسابك — " + title;
+        Text = "اجلب الكتاب بحسابك — " + title;
         RightToLeft = RightToLeft.Yes;
         RightToLeftLayout = true;
         BackColor = Theme.Panel;
@@ -38,8 +38,8 @@ internal sealed class BookFetchForm : Form
         _hint.Dock = DockStyle.Fill;
         _hint.ForeColor = Theme.Text;
         _hint.TextAlign = ContentAlignment.MiddleRight;
-        _hint.Text = "سجّل دخول لو الصفحة طلبت، وبعدين دوس «تنزيل» (Download) — «مسار» هيلقط الكتاب لوحده ويفتحه.\n" +
-                     "لو الموقع قال إن المتصفح ده مش آمن (جوجل أحيانًا بيمنع الدخول من جوه البرامج): دوس «افتحه في متصفحي».";
+        _hint.Text = "سجّل الدخول إن طلبت الصفحة ذلك، ثم اضغط «تنزيل» (Download) — سيلتقط «مسار» الكتاب ويفتحه تلقائيًا.\n" +
+                     "إن قال الموقع إن هذا المتصفح غير آمن (تمنع Google أحيانًا الدخول من داخل البرامج): اضغط «افتحه في متصفحي».";
         var browser = new PillButton("افتحه في متصفحي", PillStyle.Ghost) { Dock = DockStyle.Left, Width = 150 };
         browser.Click += (_, _) => { UseBrowser = true; DialogResult = DialogResult.Retry; Close(); };
         top.Controls.Add(_hint);
@@ -61,7 +61,7 @@ internal sealed class BookFetchForm : Form
         }
         catch (Exception ex)
         {
-            _hint.Text = "مقدرتش أفتح الصفحة جوه البرنامج: " + ex.Message + " — دوس «افتحه في متصفحي».";
+            _hint.Text = "تعذّر فتح الصفحة داخل البرنامج: " + ex.Message + " — اضغط «افتحه في متصفحي».";
         }
     }
 
@@ -73,29 +73,29 @@ internal sealed class BookFetchForm : Form
         e.ResultFilePath = tmp;
         e.Handled = true; // من غير شريط التنزيلات بتاع المتصفح
         var op = e.DownloadOperation;
-        _hint.Text = "بينزّل الكتاب…";
+        _hint.Text = "جارٍ تنزيل الكتاب…";
         op.BytesReceivedChanged += (_, _) =>
         {
             long total = (long)(op.TotalBytesToReceive ?? 0);
-            _hint.Text = total > 0 ? $"بينزّل الكتاب… {op.BytesReceived * 100 / total}%" : $"بينزّل الكتاب… {op.BytesReceived / 1024} KB";
+            _hint.Text = total > 0 ? $"جارٍ تنزيل الكتاب… {op.BytesReceived * 100 / total}%" : $"جارٍ تنزيل الكتاب… {op.BytesReceived / 1024} KB";
         };
         op.StateChanged += (_, _) =>
         {
-            if (op.State == CoreWebView2DownloadState.Interrupted) { _hint.Text = "التنزيل وقف — جرّب تاني أو دوس «افتحه في متصفحي»."; return; }
+            if (op.State == CoreWebView2DownloadState.Interrupted) { _hint.Text = "توقف التنزيل — حاول مرة أخرى أو اضغط «افتحه في متصفحي»."; return; }
             if (op.State != CoreWebView2DownloadState.Completed) return;
             try
             {
                 var head = new byte[1024];
                 int n;
                 using (var fs = File.OpenRead(tmp)) n = fs.Read(head, 0, head.Length);
-                if (!Data.BookSources.LooksLikeBook(head, n)) { _hint.Text = "الملف اللي اتنزل مش PDF ولا EPUB — اختار ملف الكتاب نفسه."; return; }
+                if (!Data.BookSources.LooksLikeBook(head, n)) { _hint.Text = "الملف المنزّل ليس PDF ولا EPUB — اختر ملف الكتاب نفسه."; return; }
                 string final = Path.ChangeExtension(_target, Data.BookSources.LooksLikeEpub(head, n) ? ".epub" : ".pdf");
                 File.Move(tmp, final, overwrite: true);
                 Result = final;
                 DialogResult = DialogResult.OK;
                 Close();
             }
-            catch (Exception ex) { _hint.Text = "مقدرتش أحفظ الملف: " + ex.Message; }
+            catch (Exception ex) { _hint.Text = "تعذّر حفظ الملف: " + ex.Message; }
         };
     }
 }

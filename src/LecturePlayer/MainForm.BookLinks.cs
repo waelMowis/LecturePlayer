@@ -31,12 +31,12 @@ internal sealed partial class MainForm
         string initial = "";
         try { if (Clipboard.ContainsText() && BookSources.Parse(Clipboard.GetText().Trim()) != null) initial = Clipboard.GetText().Trim(); } catch { }
         string? text = AskText("كتاب من رابط",
-            "رابط الكتاب: Google Drive، أو Google Docs، أو Dropbox، أو OneDrive، أو رابط PDF مباشر (ممكن كذا رابط بمسافة بينهم):", initial);
+            "رابط الكتاب: Google Drive، أو Google Docs، أو Dropbox، أو OneDrive، أو رابط PDF مباشر (يمكن إدخال عدة روابط بينها مسافة):", initial);
         if (text == null) return;
         var urls = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Where(t => BookSources.Parse(t) != null).ToList();
-        if (urls.Count == 0) { Dialogs.Info(this, "مالقيتش رابط في اللي كتبته."); return; }
+        if (urls.Count == 0) { Dialogs.Info(this, "لم أجد رابطًا فيما كتبت."); return; }
         var added = AddBookLinks(urls, shelf);
-        if (added.Count == 0) { ShowStatus("الروابط دي موجودة على الرف أصلًا", 4); return; }
+        if (added.Count == 0) { ShowStatus("هذه الروابط موجودة على الرف بالفعل", 4); return; }
         _ = FetchBooksAsync(added, openFirst: added.Count == 1);
     }
 
@@ -94,14 +94,14 @@ internal sealed partial class MainForm
         var cts = _bookDlCts = new CancellationTokenSource();
         try
         {
-            ShowBanner($"بينزّل «{b.Title}» من {BookSources.KindName(link.Kind)}…", BannerKind.Info, "إلغاء", () => cts.Cancel(), seconds: 0, key: "book-dl");
+            ShowBanner($"جارٍ تنزيل «{b.Title}» من {BookSources.KindName(link.Kind)}…", BannerKind.Info, "إلغاء", () => cts.Cancel(), seconds: 0, key: "book-dl");
             long lastUi = 0;
             var progress = new Progress<(long Done, long Total)>(p =>
             {
                 if (Environment.TickCount64 - lastUi < 300 && p.Done != p.Total) return;
                 lastUi = Environment.TickCount64;
                 string amount = p.Total > 0 ? $"{p.Done * 100 / p.Total}%" : $"{p.Done / (1024 * 1024.0):0.0} MB";
-                UpdateBannerText("book-dl", $"بينزّل «{b.Title}»… {amount}");
+                UpdateBannerText("book-dl", $"جارٍ تنزيل «{b.Title}»… {amount}");
             });
             var d = await BookSources.DownloadAsync(AuthorizedUrl(b.Path), target, progress, cts.Token);
             BookSources.WriteStamp(target, d.Stamp);
@@ -117,16 +117,16 @@ internal sealed partial class MainForm
             AfterBookFetched(b, open);
             return true;
         }
-        catch (OperationCanceledException) { HideBanner("book-dl"); ShowStatus("اتلغى التنزيل", 3); }
+        catch (OperationCanceledException) { HideBanner("book-dl"); ShowStatus("أُلغي التنزيل", 3); }
         catch (BookSources.NotPdfException ex) when (ex.NeedsSignIn)
         {
             Log.Info("book download needs sign-in: " + ex.Message);
-            ShowBanner(ex.Message, BannerKind.Warning, "هاته بحسابك", () => FetchWithAccount(b, open), seconds: 0, key: "book-dl");
+            ShowBanner(ex.Message, BannerKind.Warning, "بحسابك", () => FetchWithAccount(b, open), seconds: 0, key: "book-dl");
         }
         catch (Exception ex)
         {
             Log.Info("book download failed: " + ex.Message);
-            ShowBanner("مقدرتش أنزّل الكتاب: " + ex.Message, BannerKind.Warning, "حاول تاني", () => _ = FetchBookAsync(b, open), seconds: 0, key: "book-dl");
+            ShowBanner("تعذّر تنزيل الكتاب: " + ex.Message, BannerKind.Warning, "حاول مرة أخرى", () => _ = FetchBookAsync(b, open), seconds: 0, key: "book-dl");
         }
         finally
         {
@@ -189,13 +189,13 @@ internal sealed partial class MainForm
                 FileCache.Forget(target);
                 if (IsDefaultTitle(b)) { b.Title = BookFiles.TitleFromFile(file); b.TouchInfo(); MarkDirty(); }
                 HideBanner("book-dl");
-                ShowStatus($"لقطت «{Path.GetFileName(file)}» ✓", 4);
+                ShowStatus($"التُقط «{Path.GetFileName(file)}» ✓", 4);
                 AfterBookFetched(b, open);
             }
-            catch (Exception ex) { ShowBanner("مقدرتش آخد الملف: " + ex.Message, BannerKind.Warning, seconds: 10, key: "book-dl"); }
+            catch (Exception ex) { ShowBanner("تعذّر أخذ الملف: " + ex.Message, BannerKind.Warning, seconds: 10, key: "book-dl"); }
         };
         if (SmokeDownloadsFolder == null && BookSources.Parse(b.Path) is { } link) OpenInBrowser(link.Original);
-        ShowBanner("نزّل الكتاب من متصفحك (بحسابك) — «مسار» مستني الملف في فولدر التنزيلات وهيفتحه لوحده",
+        ShowBanner("نزّل الكتاب من متصفحك (بحسابك) — «مسار» ينتظر الملف في مجلد التنزيلات وسيفتحه تلقائيًا",
             BannerKind.Info, "إلغاء", StopDownloadsWatch, seconds: 0, key: "book-dl");
         _downloadsWatchTimeout = new System.Windows.Forms.Timer { Interval = 15 * 60 * 1000 };
         _downloadsWatchTimeout.Tick += (_, _) => { StopDownloadsWatch(); HideBanner("book-dl"); };
@@ -221,7 +221,7 @@ internal sealed partial class MainForm
         using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20)))
             changed = await BookSources.ChangedAsync(AuthorizedUrl(b.Path), stamp, cts.Token);
         if (changed != true || IsDisposed || !_library.Books.Contains(b)) return;
-        ShowBanner($"فيه نسخة أحدث من «{b.Title}» على المصدر", BannerKind.Info, "حدّثه", () => _ = RefreshOnlineBookAsync(b), seconds: 0, key: "book-dl");
+        ShowBanner($"توجد نسخة أحدث من «{b.Title}» في المصدر", BannerKind.Info, "حدّثه", () => _ = RefreshOnlineBookAsync(b), seconds: 0, key: "book-dl");
     }
 
     internal async Task RefreshOnlineBookAsync(Book b)

@@ -22,8 +22,8 @@ internal sealed partial class MainForm
 
     private ToolStripMenuItem[] BuildRepeatMenuItems()
     {
-        _repeatOffItem = Item("من غير تكرار", () => SetRepeatMode(0, announce: true));
-        _repeatOneItem = Item("🔂  كرّر الفيديو ده", () => SetRepeatMode(1, announce: true), display: "L");
+        _repeatOffItem = Item("بلا تكرار", () => SetRepeatMode(0, announce: true));
+        _repeatOneItem = Item("🔂  كرّر هذا الفيديو", () => SetRepeatMode(1, announce: true), display: "L");
         _repeatAllItem = Item("🔁  كرّر المحاضرة كلها", () => SetRepeatMode(2, announce: true));
         return new[] { _repeatOffItem, _repeatOneItem, _repeatAllItem };
     }
@@ -36,9 +36,9 @@ internal sealed partial class MainForm
         if (announce)
             ShowStatus(RepeatMode switch
             {
-                1 => "🔂 الفيديو ده هيتعاد لما يخلص",
-                2 => "🔁 المحاضرة كلها هتتعاد من أولها لما تخلص",
-                _ => "التكرار اتقفل"
+                1 => "🔂 سيُعاد هذا الفيديو عند انتهائه",
+                2 => "🔁 ستُعاد المحاضرة كلها من أولها عند انتهائها",
+                _ => "أُوقف التكرار"
             }, 3);
     }
 
@@ -48,9 +48,9 @@ internal sealed partial class MainForm
         _btnRepeat.Active = RepeatMode != 0;
         _toolTip.SetToolTip(_btnRepeat, RepeatMode switch
         {
-            1 => "بيكرّر الفيديو ده — اضغط عشان تكرّر المحاضرة كلها (L)",
-            2 => "بيكرّر المحاضرة كلها — اضغط عشان تقفل التكرار (L)",
-            _ => "تكرار: مقفول — اضغط عشان تكرّر الفيديو ده لما يخلص (L)"
+            1 => "يكرّر هذا الفيديو — اضغط لتكرار المحاضرة كلها (L)",
+            2 => "يكرّر المحاضرة كلها — اضغط لإيقاف التكرار (L)",
+            _ => "التكرار: متوقف — اضغط لتكرار هذا الفيديو عند انتهائه (L)"
         });
         if (_repeatOffItem != null)
         {

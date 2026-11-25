@@ -46,8 +46,8 @@ internal sealed partial class MainForm
         ApplyMode();
         SaveSettings();
         ShowBanner(on
-                ? "الوضع المتقدم: أزرار البحث والمراجعة والإحصائيات في الشريط الجانبي، وشريط الحالة تحت — والقوايم هي هي"
-                : "الوضع البسيط: شاشة أهدى (من غير الأزرار الزيادة وشريط الحالة) — كل الأوامر لسه في القوايم زي ما هي (عرض ← الوضع المتقدم)",
+                ? "الوضع المتقدم: شريط الحالة في الأسفل ومعلومات إضافية — والقوائم كما هي"
+                : "الوضع البسيط: شاشة أهدأ (دون الأزرار الإضافية وشريط الحالة) — كل الأوامر ما زالت في القوائم (عرض ← الوضع المتقدم)",
             BannerKind.Info, seconds: 8);
     }
 
@@ -107,7 +107,7 @@ internal sealed partial class MainForm
             case TourChoice.AddUrl: AddUrlsDialog(null); break;
             case TourChoice.Live: ShowLiveWindow(); break;
             default:
-                ShowBanner("لو احتجت أي حاجة: F1 لدليل الاستخدام، أو مساعدة ← جولة سريعة", BannerKind.Info, seconds: 10);
+                ShowBanner("إن احتجت إلى أي شيء: F1 لدليل الاستخدام، أو مساعدة ← جولة سريعة", BannerKind.Info, seconds: 10);
                 break;
         }
     }
@@ -145,7 +145,7 @@ internal sealed partial class MainForm
                 if (_nowPlayingLabel.Text == "رسالة فحص") throw new Exception("toast did not expire");
             }
         }
-        ShowBanner("فحص", BannerKind.Warning, "زرار", () => { }, seconds: 0, key: "smoke");
+        ShowBanner("فحص", BannerKind.Warning, "زر", () => { }, seconds: 0, key: "smoke");
         HideBanner("smoke");
         foreach (var kind in Enum.GetValues<BannerKind>()) ShowBanner("فحص", kind, seconds: 1);
         HideBanner();
@@ -195,7 +195,7 @@ internal sealed partial class MainForm
         if (SmokeTest.Active) return;
         if (CrashReport.TakeLast() is not { } crash) return;
         Log.Info("previous run ended with an error; offering report");
-        ShowBanner("«مسار» حصل فيه عطل المرة اللي فاتت واتسجل سببه — بياناتك سليمة", BannerKind.Warning,
+        ShowBanner("حدث عطل في «مسار» في المرة السابقة وسُجّل سببه — بياناتك سليمة", BannerKind.Warning,
             "اعرض التقرير", () => ShowCrashReport(crash), seconds: 30, key: "crash");
     }
 
@@ -219,7 +219,7 @@ internal sealed partial class MainForm
         var note = new Label
         {
             Dock = DockStyle.Top, Height = 54, Padding = new Padding(12, 10, 12, 0), RightToLeft = RightToLeft.Yes,
-            Text = "ده تقرير العطل اللي حصل. انسخه وابعته للمطوّر عشان يتصلّح. التقرير فيه أسماء ملفات من جهازك (زي مكان المكتبة)، فراجعه قبل ما تبعته لحد."
+            Text = "هذا تقرير العطل الذي حدث. انسخه وأرسله إلى المطوّر لإصلاحه. يحتوي التقرير على أسماء ملفات من جهازك (مثل مكان المكتبة)، فراجعه قبل إرساله لأي أحد."
         };
         var box = new TextBox
         {
@@ -229,10 +229,10 @@ internal sealed partial class MainForm
         };
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 56, Padding = new Padding(10), FlowDirection = FlowDirection.RightToLeft, BackColor = Theme.Window };
         var copy = new PillButton("📋  انسخ التقرير", PillStyle.Primary);
-        copy.Click += (_, _) => { try { Clipboard.SetText(report); copy.Text = "اتنسخ ✓"; copy.AutoSizeToText(); } catch { } };
-        var folder = new PillButton("فتح فولدر السجل");
+        copy.Click += (_, _) => { try { Clipboard.SetText(report); copy.Text = "نُسخ ✓"; copy.AutoSizeToText(); } catch { } };
+        var folder = new PillButton("فتح مجلد السجل");
         folder.Click += (_, _) => { try { Process.Start(new ProcessStartInfo(Log.LogDir) { UseShellExecute = true })?.Dispose(); } catch { } };
-        var close = new PillButton("قفل", PillStyle.Subtle) { DialogResult = DialogResult.Cancel };
+        var close = new PillButton("إغلاق", PillStyle.Subtle) { DialogResult = DialogResult.Cancel };
         buttons.Controls.AddRange(new Control[] { copy, folder, close });
         f.CancelButton = close;
         f.Controls.Add(box);

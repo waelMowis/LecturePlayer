@@ -442,7 +442,7 @@ internal static class SmokeTest
             var loop = new LecturePlayer.Data.Transcript();
             loop.Cues.Add(new LecturePlayer.Data.Cue(0, 1000, "أهلا"));
             for (int i = 1; i <= 5; i++) loop.Cues.Add(new LecturePlayer.Data.Cue(i * 10000, i * 10000 + 2000, "نحن نتحدث عن \"يوزر دفايند فونكشون\""));
-            loop.Cues.Add(new LecturePlayer.Data.Cue(90000, 91000, "خلاص"));
+            loop.Cues.Add(new LecturePlayer.Data.Cue(90000, 91000, "تم"));
             if (LecturePlayer.Data.Transcriber.RemoveRepeats(loop).Cues.Count != 3) throw new Exception("RemoveRepeats");
             // 6) فحص «أكّد إنك مش روبوت» بيتعرف
             if (!LecturePlayer.Data.YtDlp.IsBotCheck("ERROR: [youtube] Fbl-YpQgnrg: Sign in to confirm you’re not a bot. Use --cookies-from-browser"))

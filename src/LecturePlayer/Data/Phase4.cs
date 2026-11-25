@@ -75,9 +75,9 @@ public static class SilenceDetector
 
     public static async Task<List<Range>> DetectAsync(string file, long durationMs, CancellationToken ct)
     {
-        string ffmpeg = Tools.FindFfmpeg() ?? throw new FileNotFoundException("ffmpeg مش متنزّل");
+        string ffmpeg = Tools.FindFfmpeg() ?? throw new FileNotFoundException("لم يُنزَّل ffmpeg");
         var r = await ProcessRunner.RunAsync(ffmpeg, Args(file), TimeSpan.FromHours(1), ct);
-        if (r.ExitCode != 0) throw new InvalidOperationException(ProcessRunner.LastErrorLine(r.StdErr, "ffmpeg فشل"));
+        if (r.ExitCode != 0) throw new InvalidOperationException(ProcessRunner.LastErrorLine(r.StdErr, "فشل ffmpeg"));
         return Parse(r.StdErr, durationMs);
     }
 }
@@ -206,11 +206,11 @@ public static class UnderstandingIndex
         score -= Math.Min(10, unresolved * 2);
         int final = (int)Math.Round(Math.Clamp(score, 0, 100), MidpointRounding.AwayFromZero);
 
-        string level = final < 40 ? "محتاج مراجعة" : final < 70 ? "كويس" : final < 85 ? "فاهم" : "متمكن";
-        string advice = quiz == null ? "اختبر نفسك (Ctrl+Q) عشان المؤشر يبقى دقيق."
-            : unresolved > 0 ? $"فيه {unresolved} جزء صعب (رجعتله كذا مرة) — حطله علامة مراجعة."
-            : quiz < 70 ? "راجع الفيديوهات اللي غلطت في أسئلتها."
-            : coverage < 100 ? "كمّل باقي الفيديوهات."
+        string level = final < 40 ? "يحتاج إلى مراجعة" : final < 70 ? "جيد" : final < 85 ? "فاهم" : "متمكن";
+        string advice = quiz == null ? "اختبر نفسك (Ctrl+Q) ليصبح المؤشر دقيقًا."
+            : unresolved > 0 ? $"يوجد {unresolved} جزء صعب (عدت إليه عدة مرات) — ضع له علامة مراجعة."
+            : quiz < 70 ? "راجع الفيديوهات التي أخطأت في أسئلتها."
+            : coverage < 100 ? "أكمل باقي الفيديوهات."
             : "ممتاز — استمر في المراجعة المتباعدة.";
         return new Understanding(final, coverage, quiz, review, unresolved, level, advice);
     }
@@ -360,7 +360,7 @@ public static class CodeRunner
         catch (System.ComponentModel.Win32Exception)
         {
             string need = lang switch { CodeLang.Python => "Python", CodeLang.JavaScript => "Node.js", _ => ".NET 10 SDK" };
-            throw new FileNotFoundException($"عشان تشغّل {Label(lang)} لازم يكون {need} متثبت على الجهاز.");
+            throw new FileNotFoundException($"لتشغيل {Label(lang)} يجب أن يكون {need} مثبّتًا على الجهاز.");
         }
     }
 }
@@ -385,14 +385,14 @@ public static class Recap
     {
         var sb = new StringBuilder();
         int days = DaysAway(c, nowUtc);
-        sb.AppendLine($"# «{c.Name}» — اللي فات");
+        sb.AppendLine($"# «{c.Name}» — ما سبق");
         sb.AppendLine();
-        sb.AppendLine($"آخر مرة ذاكرت الكورس ده من {days} يوم. خلصت {c.WatchedCount} من {c.VideoCount} فيديو.");
+        sb.AppendLine($"آخر مرة ذاكرت هذه الدورة منذ {days} يوم. أكملت {c.WatchedCount} من {c.VideoCount} فيديو.");
         if (!string.IsNullOrWhiteSpace(c.Goal)) sb.AppendLine($"هدفك: {c.Goal}");
         sb.AppendLine();
         foreach (var v in RecentlyWatched(c).AsEnumerable().Reverse())
         {
-            sb.AppendLine($"## {v.Title}" + (v.Watched ? " ✓" : $" (وقفت عند {Transcript.Short(v.LastPositionMs)})"));
+            sb.AppendLine($"## {v.Title}" + (v.Watched ? " ✓" : $" (توقفت عند {Transcript.Short(v.LastPositionMs)})"));
             foreach (var b in v.Bookmarks.OrderBy(b => b.TimeMs))
                 sb.AppendLine($"- [{Transcript.Short(b.TimeMs)}] {(string.IsNullOrWhiteSpace(b.Note) ? "علامة" : b.Note)}");
             if (!string.IsNullOrWhiteSpace(v.Notes))
@@ -403,7 +403,7 @@ public static class Recap
             sb.AppendLine();
         }
         var next = StudyPlanner.NextVideo(c);
-        if (next != null) sb.AppendLine($"**الجاي:** {next.Title}");
+        if (next != null) sb.AppendLine($"**التالي:** {next.Title}");
         return sb.ToString();
     }
 
@@ -418,11 +418,11 @@ public static class Recap
             sb.Append("</video>\n");
         }
         return (
-            "إنت مساعد مذاكرة. الطالب راجع لكورس بعد غياب وعايز يفتكر وقف فين بسرعة. " +
-            "اكتب بالعربي المصري البسيط، والمصطلحات التقنية بالإنجليزي. متخترعش حاجة مش في النص.",
-            $"الكورس: «{c.Name}». دي آخر فيديوهات اتفرج عليها (الأقدم الأول):\n\n{sb}\n" +
-            "اكتب «اللي فات» في أقل من 250 كلمة: أهم 5 أفكار اتشرحت، وأي كود أو مصطلح لازم يفتكره، " +
-            "وفي الآخر سؤالين سريعين يختبر بيهم نفسه قبل ما يكمل.",
+            "أنت مساعد مذاكرة. الطالب عاد إلى دورة بعد غياب ويريد أن يتذكر بسرعة أين توقف. " +
+            "اكتب بالعربية الفصحى المبسّطة، والمصطلحات التقنية بالإنجليزية. لا تخترع شيئًا غير موجود في النص.",
+            $"الدورة: «{c.Name}». هذه آخر فيديوهات شاهدها (الأقدم أولًا):\n\n{sb}\n" +
+            "اكتب «ما سبق» في أقل من 250 كلمة: أهم 5 أفكار شُرحت، وأي كود أو مصطلح يجب أن يتذكره، " +
+            "وفي النهاية سؤالان سريعان يختبر بهما نفسه قبل أن يكمل.",
             900);
     }
 }
@@ -459,22 +459,22 @@ public static class AchievementPage
         sb.Append("svg{direction:ltr}@media print{body{background:#fff;color:#000}.kpi,.card{background:#f3f3f3}}</style></head><body>");
 
         sb.Append($"<h1>🎓 إنجازاتي{(ownerName.Length > 0 ? " — " + H(ownerName) : "")}</h1>");
-        sb.Append($"<div class=\"muted\">{H(lib.Name)} · لحد {today:yyyy/MM/dd}</div>");
+        sb.Append($"<div class=\"muted\">{H(lib.Name)} · حتى {today:yyyy/MM/dd}</div>");
         sb.Append("<div class=\"kpis\">");
         Kpi(sb, StudyStats.FormatMinutes(total), "وقت مذاكرة فعلي");
-        Kpi(sb, videosDone.ToString(), "فيديو خلص");
-        Kpi(sb, done.Count.ToString(), "كورس خلص");
+        Kpi(sb, videosDone.ToString(), "فيديو مكتمل");
+        Kpi(sb, done.Count.ToString(), "دورة مكتملة");
         Kpi(sb, $"{streak.Best} يوم", "أطول سلسلة");
         Kpi(sb, $"{streak.Current} يوم", "السلسلة الحالية");
         Kpi(sb, quizzes.ToString(), "اختبار");
-        Kpi(sb, mastered.ToString(), "فكرة اتثبتت بالمراجعة");
+        Kpi(sb, mastered.ToString(), "فكرة ثبتت بالمراجعة");
         sb.Append("</div>");
 
-        sb.Append("<h2>آخر 12 أسبوع</h2>").Append(HeatmapSvg(daily, today, goalMinutes));
+        sb.Append("<h2>آخر 12 أسبوعًا</h2>").Append(HeatmapSvg(daily, today, goalMinutes));
 
         if (done.Count > 0)
         {
-            sb.Append("<h2>شهادات الكورسات اللي خلصت</h2><div class=\"cards\">");
+            sb.Append("<h2>شهادات الدورات المكتملة</h2><div class=\"cards\">");
             foreach (var c in done)
             {
                 var u = UnderstandingIndex.For(c, entries);
@@ -492,7 +492,7 @@ public static class AchievementPage
         var active = lib.Courses.Where(c => !done.Contains(c) && c.VideoCount > 0).ToList();
         if (active.Count > 0)
         {
-            sb.Append("<h2>شغال عليه</h2><div class=\"cards\">");
+            sb.Append("<h2>قيد الدراسة</h2><div class=\"cards\">");
             foreach (var c in active.OrderByDescending(c => c.LastActivityUtc))
             {
                 int pct = c.WatchedCount * 100 / Math.Max(1, c.VideoCount);
@@ -508,7 +508,7 @@ public static class AchievementPage
             sb.Append("</div>");
         }
 
-        sb.Append("<p class=\"muted\" style=\"margin-top:40px\">اتعملت بـ «مسار».</p></body></html>");
+        sb.Append("<p class=\"muted\" style=\"margin-top:40px\">أُنشئت بواسطة «مسار».</p></body></html>");
         return sb.ToString();
     }
 

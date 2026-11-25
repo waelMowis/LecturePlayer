@@ -62,13 +62,13 @@ internal partial class MainForm
         if (!EnsureLibrary()) return;
         using var dlg = new OpenFileDialog
         {
-            Title = "اختار عرض PowerPoint" + (shelf != null ? $" — هيتحط في «{shelf.Name}»" : ""),
+            Title = "اختر عرض PowerPoint" + (shelf != null ? $" — سيوضع في «{shelf.Name}»" : ""),
             Filter = "عروض PowerPoint|*.pptx;*.ppsx;*.pptm;*.ppt;*.pps|كل الملفات|*.*", Multiselect = true, RestoreDirectory = true
         };
         var files = SmokePresentationFiles ?? (dlg.ShowDialog(this) == DialogResult.OK ? dlg.FileNames : null);
         if (files == null) return;
         var picked = files.Where(Pptx.IsPresentation).ToList();
-        if (picked.Count == 0) { ShowStatus("ده مش ملف PowerPoint", 4); return; }
+        if (picked.Count == 0) { ShowStatus("هذا ليس ملف PowerPoint", 4); return; }
         shelf ??= PresentationsShelf();
         var added = AddBooks(picked, shelf);
         if (!_shelfMode || _split.Panel2Collapsed) ToggleShelf();
@@ -93,11 +93,11 @@ internal partial class MainForm
     internal void OpenPresentation(Book b, int? slide = null)
     {
         string file = BookFile(b);
-        if (!File.Exists(file)) { ShowStatus("ملف العرض مش موجود", 5); return; }
+        if (!File.Exists(file)) { ShowStatus("ملف العرض غير موجود", 5); return; }
         if (PowerPointShow.InstalledVersion() == null)
         {
-            ShowBanner("عرض الشرايح بالأنيميشن جوه «مسار» محتاج Microsoft PowerPoint (2016 أو أحدث / 365) — الشرايح والنص ظاهرين في الرف", BannerKind.Warning,
-                "افتحه بالبرنامج العادي", () => OpenExternally(b), seconds: 0, key: "pptx");
+            ShowBanner("عرض الشرائح بالحركات داخل «مسار» يحتاج إلى Microsoft PowerPoint (2016 أو أحدث / 365) — الشرائح والنص ظاهرة في الرف", BannerKind.Warning,
+                "افتحه بالبرنامج المعتاد", () => OpenExternally(b), seconds: 0, key: "pptx");
             return;
         }
         if (PresentationShown && _presBook == b && slide == null) { _presPane!.Resume(); return; }   // مفتوح أصلًا
@@ -123,7 +123,7 @@ internal partial class MainForm
         _videoView.Visible = false;
         ControlChromeVisible = false;
         int from = Math.Max(1, slide ?? b.LastPage);
-        ShowStatus($"بيفتح «{b.Title}»…", 10);
+        ShowStatus($"جارٍ فتح «{b.Title}»…", 10);
         var titles = b.Chapters.OrderBy(c => c.Page).Select(c => c.Title).ToList();
         _presBook = b; // قبل التشغيل: أول شريحة بتتبلّغ وهو بيبدأ
         _presSlideSince = DateTime.UtcNow;
@@ -132,7 +132,7 @@ internal partial class MainForm
         {
             _presBook = null;
             _videoView.Visible = true; ControlChromeVisible = true; _welcome.Visible = true;
-            ShowBanner("مقدرتش أعرض الملف: " + error, BannerKind.Warning, "افتحه بالبرنامج العادي", () => OpenExternally(b), seconds: 0, key: "pptx");
+            ShowBanner("تعذّر عرض الملف: " + error, BannerKind.Warning, "افتحه بالبرنامج المعتاد", () => OpenExternally(b), seconds: 0, key: "pptx");
             return;
         }
         _presStartUtc = DateTime.UtcNow;
@@ -145,8 +145,8 @@ internal partial class MainForm
         if (!pane.ImagesMode) HideBanner("pptx");
         if (_shelfMode) RefreshBookRows(b);
         if (pane.ImagesMode)
-            ShowBanner($"«{b.Title}» معروض جوه «مسار» كشرايح ثابتة (من غير الحركات) — PowerPoint على الجهاز ده مارضيش يتحط جوه النافذة. الأسهم/المسافة للشرايح، Esc للإنهاء.", BannerKind.Info, seconds: 12, key: "pptx");
-        else ShowStatus($"«{b.Title}» — المسافة/الأسهم للشرايح، Esc للإنهاء", 6);
+            ShowBanner($"«{b.Title}» معروض داخل «مسار» كشرائح ثابتة (دون الحركات) — لم يقبل PowerPoint على هذا الجهاز أن يُضمَّن داخل النافذة. الأسهم/المسافة للشرائح، وEsc للإنهاء.", BannerKind.Info, seconds: 12, key: "pptx");
+        else ShowStatus($"«{b.Title}» — المسافة/الأسهم للشرائح، وEsc للإنهاء", 6);
     }
 
     /// <summary>شريحة جديدة: اللي قبلها تتحسب «اتشافت» لو قعدت قدامها وقت القراية.</summary>
@@ -264,10 +264,10 @@ internal partial class MainForm
                 MarkDirty();
                 RebuildShelf();
             }
-            ShowBanner($"🖊 الكتابة اللي على {inkSlides} شريحة اتحفظت في نسخة مشروحة في «{AnnotatedFolderName}» — الأصل زي ما هو", BannerKind.Success,
+            ShowBanner($"🖊 حُفظت الكتابة الموجودة على {inkSlides} شريحة في نسخة مشروحة في «{AnnotatedFolderName}» — الأصل كما هو", BannerKind.Success,
                 "افتحها", () => OpenPresentation(copy), seconds: 12);
         }
-        catch (Exception ex) { Log.Error("annotated pptx", ex); ShowStatus("مقدرتش أحفظ نسخة بالكتابة: " + ex.Message, 6); }
+        catch (Exception ex) { Log.Error("annotated pptx", ex); ShowStatus("تعذّر حفظ نسخة بالكتابة: " + ex.Message, 6); }
     }
 
     // ---------------- تحويل لفيديو ----------------
@@ -278,20 +278,20 @@ internal partial class MainForm
 
     internal async void ConvertPresentationToVideo(Book b)
     {
-        if (_videoBusy) { ShowStatus("في فيديو بيتعمل دلوقتي…", 4); return; }
-        if (PowerPointShow.InstalledVersion() == null) { ShowStatus("تحويل العرض لفيديو محتاج PowerPoint", 5); return; }
+        if (_videoBusy) { ShowStatus("يوجد فيديو قيد الإنشاء الآن…", 4); return; }
+        if (PowerPointShow.InstalledVersion() == null) { ShowStatus("تحويل العرض إلى فيديو يحتاج إلى PowerPoint", 5); return; }
         int height = 1080, seconds = 5; bool timings = true;
         if (SmokeVideoChoice is { } sc) (height, seconds, timings) = sc;
         else
         {
-            using var kit = new FormKit("حوّل العرض لفيديو — " + b.Title, 540);
+            using var kit = new FormKit("حوّل العرض إلى فيديو — " + b.Title, 540);
             var q = kit.Row("الجودة", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
             q.Items.AddRange(new object[] { "1080p (أوضح)", "720p (أصغر)", "480p (أصغر جدًا)" });
             q.SelectedIndex = 0;
-            var sec = kit.Row("ثواني لكل شريحة", new NumberBox { Minimum = 1, Maximum = 120, Value = 5 });
-            var tim = kit.Row("التوقيت", new ToggleSwitch { Text = "استخدم التوقيت والتسجيل الصوتي اللي في العرض (لو موجود)", Checked = true });
-            kit.Note("PowerPoint بيعمل الفيديو بالأنيميشن في الخلفية — وبيتضاف لكورس «العروض التقديمية» بعلامة لكل شريحة.", 40, Theme.Muted);
-            kit.Buttons("اعمل الفيديو");
+            var sec = kit.Row("ثوانٍ لكل شريحة", new NumberBox { Minimum = 1, Maximum = 120, Value = 5 });
+            var tim = kit.Row("التوقيت", new ToggleSwitch { Text = "استخدم التوقيت والتسجيل الصوتي الموجودين في العرض (إن وجدا)", Checked = true });
+            kit.Note("ينشئ PowerPoint الفيديو بالحركات في الخلفية — ويُضاف إلى دورة «العروض التقديمية» بعلامة لكل شريحة.", 40, Theme.Muted);
+            kit.Buttons("أنشئ الفيديو");
             if (kit.Show(this) != DialogResult.OK) return;
             height = q.SelectedIndex switch { 1 => 720, 2 => 480, _ => 1080 };
             seconds = (int)sec.Value; timings = tim.Checked;
@@ -318,16 +318,16 @@ internal partial class MainForm
                 status = show.VideoStatus;
                 if (status is PowerPointShow.VideoDone or PowerPointShow.VideoFailed) break;
                 if (status == PowerPointShow.VideoNone && DateTime.UtcNow - started > TimeSpan.FromSeconds(10)) break; // ماابتداش أصلًا
-                ShowStatus($"🎬 PowerPoint بيعمل الفيديو… {(int)(DateTime.UtcNow - started).TotalSeconds} ث", 5);
+                ShowStatus($"🎬 PowerPoint ينشئ الفيديو… {(int)(DateTime.UtcNow - started).TotalSeconds} ث", 5);
                 if (DateTime.UtcNow - started > TimeSpan.FromHours(2)) { status = PowerPointShow.VideoFailed; break; }
             }
-            if (status != PowerPointShow.VideoDone || !File.Exists(mp4)) throw new Exception("PowerPoint ماقدرش يكمّل الفيديو");
+            if (status != PowerPointShow.VideoDone || !File.Exists(mp4)) throw new Exception("لم يستطع PowerPoint إكمال الفيديو");
             AddPresentationVideo(b, mp4, durations);
         }
         catch (Exception ex)
         {
             Log.Error("pptx video", ex);
-            ShowBanner("مقدرتش أعمل الفيديو: " + ex.Message, BannerKind.Warning, seconds: 10);
+            ShowBanner("تعذّر إنشاء الفيديو: " + ex.Message, BannerKind.Warning, seconds: 10);
         }
         finally
         {
@@ -359,7 +359,7 @@ internal partial class MainForm
         MarkDirty();
         RebuildTree();
         QueueProbe(new[] { v });
-        ShowBanner($"🎬 اتعمل فيديو «{b.Title}» ({v.Bookmarks.Count} علامة) في كورس «{courseName}»", BannerKind.Success, "شغّله", () => PlayVideo(g, v), seconds: 15);
+        ShowBanner($"🎬 أُنشئ فيديو «{b.Title}» ({v.Bookmarks.Count} علامة) في دورة «{courseName}»", BannerKind.Success, "شغّله", () => PlayVideo(g, v), seconds: 15);
         return g;
     }
 }

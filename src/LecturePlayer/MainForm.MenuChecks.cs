@@ -100,7 +100,7 @@ internal sealed partial class MainForm
                 return m.Items.OfType<ToolStripMenuItem>().Select(i => i.Text ?? "").ToList();
             }
             var none = Add(null);
-            Check(none.Count == 5 && none[0].Contains("موضوع جديد") && none[1].Contains("كورس") && none[2].Contains("كتاب") && none[3].Contains("PowerPoint") && none[4].Contains("سبورة"), "add: nothing selected: " + string.Join(" | ", none));
+            Check(none.Count == 5 && none[0].Contains("موضوع جديد") && none[1].Contains("دورة") && none[2].Contains("كتاب") && none[3].Contains("PowerPoint") && none[4].Contains("سبورة"), "add: nothing selected: " + string.Join(" | ", none));
             var deep = Add(v);
             int Idx(string s) => deep.FindIndex(x => x.Contains(s));
             Check(deep[0].Contains("موضوع جديد") && Idx("مصدر جديد في") < Idx("مصدر فرعي في") && Idx("مصدر فرعي في") < Idx("كورس في «Menu Source»")

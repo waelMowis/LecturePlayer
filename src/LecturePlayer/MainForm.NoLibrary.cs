@@ -50,7 +50,7 @@ internal sealed partial class MainForm
     private bool EnsureLibrary()
     {
         if (HasLibrary) return true;
-        ShowLibraryChooser("عشان تضيف كورسات محتاج مكتبة تتحفظ فيها. افتح مكتبة من مكتباتك، أو اعمل مكتبة جديدة:");
+        ShowLibraryChooser("لإضافة دورات تحتاج إلى مكتبة تُحفظ فيها. افتح مكتبة من مكتباتك، أو أنشئ مكتبة جديدة:");
         return HasLibrary;
     }
 
@@ -66,7 +66,7 @@ internal sealed partial class MainForm
         var list = kit.Full(new ListBox { IntegralHeight = false, RightToLeft = RightToLeft.Yes }, 170);
         var items = RecentLibraries(10).Where(x => !x.Current).ToList();
         foreach (var e in items) list.Items.Add(e.Text);
-        if (items.Count == 0) list.Items.Add("(لسه مفيش مكتبات — اعمل مكتبة جديدة أو افتح ملف)");
+        if (items.Count == 0) list.Items.Add("(لا توجد مكتبات بعد — أنشئ مكتبة جديدة أو افتح ملفًا)");
         int firstAvailable = items.FindIndex(x => x.Exists);
         if (firstAvailable >= 0) list.SelectedIndex = firstAvailable;
 
@@ -97,7 +97,7 @@ internal sealed partial class MainForm
     {
         if (HasLibrary || _closing) return;
         if (_library.Courses.Count == 0 && _library.Topics.Count == 0 && _library.Live.Count == 0) return;
-        ShowBanner("اللي ضفته مش متحفظ في أي مكتبة — احفظه في مكتبة عشان ميضيعش لما تقفل",
+        ShowBanner("ما أضفته غير محفوظ في أي مكتبة — احفظه في مكتبة حتى لا يضيع عند الإغلاق",
             BannerKind.Warning, "💾  احفظه في مكتبة جديدة", SaveUnsavedAsNewLibrary, seconds: 0, key: "unsaved-no-library");
     }
 
@@ -118,7 +118,7 @@ internal sealed partial class MainForm
             _library.Name = Path.GetFileNameWithoutExtension(dlg.FileName);
             Storage.SaveLibrary(dlg.FileName, _library);
         }
-        catch (Exception ex) { Dialogs.Error(this, "مقدرتش أحفظ المكتبة:\n" + ex.Message); return; }
+        catch (Exception ex) { Dialogs.Error(this, "تعذّر حفظ المكتبة:\n" + ex.Message); return; }
         HideBanner("unsaved-no-library");
         LoadLibrary(dlg.FileName);
     }

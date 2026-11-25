@@ -86,14 +86,14 @@ internal sealed class PresentationPane : Panel
         }
         B("✕  إغلاق العرض", "إنهاء العرض والرجوع (Esc)", () => Command?.Invoke("end"), PillStyle.Primary);
         B("⏮", "أول شريحة (Home)", () => GoTo(1));
-        B("›", "الشريحة اللي قبلها", Previous);
+        B("›", "الشريحة السابقة", Previous);
         _bar.Controls.Add(_pos);
-        B("‹", "اللي بعدها (المسافة / السهم)", Next);
+        B("‹", "التالية (المسافة / السهم)", Next);
         _slides.Margin = new Padding(6, 1, 6, 0);
         _slides.SelectedIndexChanged += (_, _) => { if (_slides.Focused && _slides.SelectedIndex >= 0) { GoTo(_slides.SelectedIndex + 1); if (_images != null) _view.Focus(); else _show?.Focus(); } };
         _bar.Controls.Add(_slides);
         // أدوات الشرح الكاملة فوق الشريحة: أقلام وتظليل وخطوط وأسهم وأشكال وألوان ومقاسات (كل شريحة ليها رسمها)
-        _inkBtn = B("🖊  أقلام وأشكال", "أدوات الشرح فوق الشريحة: قلم، تظليل، خط، سهم، مستطيل، دايرة، ليزر، ممحاة، ألوان ومقاسات", ToggleInk, PillStyle.Primary);
+        _inkBtn = B("🖊  أقلام وأشكال", "أدوات الشرح فوق الشريحة: قلم، تظليل، خط، سهم، مستطيل، دائرة، ليزر، ممحاة، ألوان ومقاسات", ToggleInk, PillStyle.Primary);
         // قلم PowerPoint نفسه (الكتابة دي بتتحفظ في نسخة مشروحة من العرض)
         void Pen(string text, string tip, int type, Color? c)
         {
@@ -104,14 +104,14 @@ internal sealed class PresentationPane : Panel
             _bar.Controls.Add(b);
             _penButtons.Add((b, type, c));
         }
-        Pen("➤", "الماوس العادي", PowerPointShow.PointerAutoArrow, null);
-        Pen("", "قلم PowerPoint أحمر (بيتحفظ في نسخة مشروحة)", PowerPointShow.PointerPen, Color.FromArgb(224, 49, 49));
+        Pen("➤", "الفأرة العادية", PowerPointShow.PointerAutoArrow, null);
+        Pen("", "قلم PowerPoint أحمر (يُحفظ في نسخة مشروحة)", PowerPointShow.PointerPen, Color.FromArgb(224, 49, 49));
         Pen("", "قلم PowerPoint أزرق", PowerPointShow.PointerPen, Color.FromArgb(25, 113, 194));
         Pen("", "قلم PowerPoint أخضر", PowerPointShow.PointerPen, Color.FromArgb(47, 158, 68));
         Pen("", "قلم PowerPoint أصفر", PowerPointShow.PointerPen, Color.FromArgb(245, 159, 0));
         Pen("ممحاة", "ممحاة PowerPoint", PowerPointShow.PointerEraser, null);
         _erase = B("امسح الكتابة", "امسح كتابة PowerPoint من الشريحة", () => _show?.EraseDrawing());
-        B("🎬", "حوّل العرض لفيديو", () => Command?.Invoke("video"));
+        B("🎬", "حوّل العرض إلى فيديو", () => Command?.Invoke("video"));
         _host.Resize += (_, _) => { Fit(); InkFollow(); };
         _host.LocationChanged += (_, _) => InkFollow();
         _poll.Tick += (_, _) => InkFollow();   // الشباك نفسه اتحرك
@@ -147,7 +147,7 @@ internal sealed class PresentationPane : Panel
             if (Total > 0 && StartImages(show, titles, from)) return null;
             show.Dispose();
             Visible = false;
-            return ex is System.Runtime.InteropServices.COMException ? "PowerPoint رفض يفتح الملف: " + ex.Message : ex.Message;
+            return ex is System.Runtime.InteropServices.COMException ? "رفض PowerPoint فتح الملف: " + ex.Message : ex.Message;
         }
         if (!show.Embedded)
         {
@@ -156,7 +156,7 @@ internal sealed class PresentationPane : Panel
             if (StartImages(show, titles, from)) return null;
             show.Dispose();
             Visible = false;
-            return "PowerPoint مارضيش يتعرض جوه «مسار»";
+            return "رفض PowerPoint العرض داخل «مسار»";
         }
         _show = show;
         _last = 0;

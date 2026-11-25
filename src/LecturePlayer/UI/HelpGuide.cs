@@ -20,7 +20,7 @@ internal static class HelpGuide
 
             string html;
             using (var s = typeof(HelpGuide).Assembly.GetManifestResourceStream("Guide.html")
-                           ?? throw new FileNotFoundException("الدليل مش موجود جوه البرنامج"))
+                           ?? throw new FileNotFoundException("الدليل غير موجود داخل البرنامج"))
             using (var r = new StreamReader(s))
                 html = r.ReadToEnd();
             html = html.Replace("{{VERSION}}", UpdateChecker.CurrentVersion.ToString(3))
@@ -41,7 +41,7 @@ internal static class HelpGuide
         catch (Exception ex)
         {
             Log.Error("help-guide", ex);
-            Dialogs.Error(owner, "مقدرتش أفتح دليل الاستخدام:\n" + ex.Message);
+            Dialogs.Error(owner, "تعذّر فتح دليل الاستخدام:\n" + ex.Message);
         }
     }
 }

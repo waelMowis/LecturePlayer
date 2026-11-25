@@ -30,8 +30,8 @@ internal sealed partial class MainForm
         if (isNew && topicName == null && target is not ({ Topic: not null } or { Place: not null }))
         {
             var pick = PickPlatformCourses(this, ItLegendPlatform, ItLegendPlatform,
-                new List<(long, string, string?, bool)> { (1, src.Title, src.Instructor, false) }, "كورسات IT Legend",
-                "والأقسام محاضرات، والدروس فيديوهات بمددها، والامتحانات ❓ في مكانها.");
+                new List<(long, string, string?, bool)> { (1, src.Title, src.Instructor, false) }, "دورات IT Legend",
+                "والأقسام محاضرات، والدروس فيديوهات بمددها، والامتحانات ❓ في مواضعها.");
             if (pick == null) return;
             topicName = pick.Value.Topic;
         }
@@ -39,7 +39,7 @@ internal sealed partial class MainForm
         if (course == null)
         {
             course = new Course { Name = src.Title };
-            PlaceImportedCourse(course, target, null, topicName ?? "كورسات IT Legend", ItLegendPlatform, src.Instructor);
+            PlaceImportedCourse(course, target, null, topicName ?? "دورات IT Legend", ItLegendPlatform, src.Instructor);
             _library.Courses.Add(course);
         }
         var sync = ItLegend.Apply(course, src, modules, firstImport: isNew);
@@ -47,8 +47,8 @@ internal sealed partial class MainForm
         RebuildTree();
         SelectItem(course);
         ShowBanner(isNew
-                ? $"🎓 اتضاف «{course.Name}» من IT Legend ({course.VideoCount} درس، {course.AllVideos.Count(v => v.Watched)} منهم خلّصته) — دوس على أي درس يشتغل هنا"
-                : $"🎓 اتحدّث من IT Legend: {sync.AddedItems} درس جديد، و{sync.MarkedWatched} اتعلّم «اتشاف» من تقدّمك هناك",
+                ? $"🎓 أُضيف «{course.Name}» من IT Legend ({course.VideoCount} درس، أكملت منها {course.AllVideos.Count(v => v.Watched)}) — اضغط على أي درس ليعمل هنا"
+                : $"🎓 حُدِّث من IT Legend: {sync.AddedItems} درس جديد، و{sync.MarkedWatched} وُسم «شوهد» حسب تقدّمك هناك",
             BannerKind.Success, seconds: 12);
     }
 
@@ -114,7 +114,7 @@ internal sealed partial class MainForm
         if (Environment.TickCount64 - _itlSelectStarted > 20_000)
         {
             Log.Info($"itlegend: could not select «{v.Title}» ({_itlSelectTries} tries, last: {_itlLastSelect})");
-            ShowStatus("مقدرتش أختار الدرس من المنهج لوحدي — اختاره من قايمة الصفحة", 8);
+            ShowStatus("تعذّر اختيار الدرس من المنهج تلقائيًا — اختره من قائمة الصفحة", 8);
             _itlPendingNode = null;
             _udemyPane.HoldPending = false;
             return;

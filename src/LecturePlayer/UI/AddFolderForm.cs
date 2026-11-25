@@ -31,42 +31,42 @@ internal static class AddFolderForm
 
     public static Result? Show(IWin32Window owner, CourseLibrary lib, string path, Topic? topic, Place? source)
     {
-        using var kit = new FormKit("إضافة كورس من فولدر", 600);
+        using var kit = new FormKit("إضافة دورة من مجلد", 600);
 
-        kit.Header("📁  الفولدر");
-        var pathBox = kit.Row("الفولدر:", new TextBox { ReadOnly = true, RightToLeft = RightToLeft.No }, 32);
-        var kind = kit.Row("ده:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 30);
+        kit.Header("📁  المجلد");
+        var pathBox = kit.Row("المجلد:", new TextBox { ReadOnly = true, RightToLeft = RightToLeft.No }, 32);
+        var kind = kit.Row("هذا:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 30);
         kind.Items.AddRange(new object[]
         {
-            "فولدر فيه كذا كورس (كل فولدر جواه كورس لوحده)",
-            "كورس واحد (كل فولدر جواه محاضرة)"
+            "مجلد فيه عدة دورات (كل مجلد بداخله دورة مستقلة)",
+            "دورة واحدة (كل مجلد بداخله محاضرة)"
         });
         var preview = kit.Full(new TextBox
         {
             ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.Vertical, WordWrap = true,
-            Text = "بقرا الفولدر…"
+            Text = "جارٍ قراءة المجلد…"
         }, 120);
 
-        kit.Header("📚  هيتحط فين؟");
+        kit.Header("📚  أين سيوضع؟");
         var topicBox = kit.Row("الموضوع:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 30);
         var sourceBox = kit.Row("المصدر:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 30);
         var asSub = kit.Full(new ToggleSwitch { Text = "", Checked = false }, 32);
-        kit.Note("الموضوع: التفريعة الكبيرة (مثلًا «البرمجة» أو «اللغات»).\n" +
-                 "المصدر: المنصة أو الأكاديمية أو القناة أو المدرّس اللي الكورسات جاية منه. الاتنين اختياريين.", 36);
+        kit.Note("الموضوع: التصنيف الكبير (مثلًا «البرمجة» أو «اللغات»).\n" +
+                 "المصدر: المنصة أو الأكاديمية أو القناة أو المدرّس الذي جاءت منه الدورات. كلاهما اختياري.", 36);
 
         kit.Header("🔄  المتابعة");
-        var follow = kit.Full(new ToggleSwitch { Text = "تابع الفولدر: أي محاضرة أو فيديو جديد ينزل فيه يتضاف لوحده", Checked = true }, 32);
+        var follow = kit.Full(new ToggleSwitch { Text = "تابِع المجلد: أي محاضرة أو فيديو جديد يُضاف إليه يُضاف تلقائيًا", Checked = true }, 32);
 
         string currentPath = path;
         FolderLink.Snapshot? many = null, single = null;
-        kit.Buttons("إضافة", "إلغاء", ("فولدر تاني…", () => _ = PickAnother()));
+        kit.Buttons("إضافة", "إلغاء", ("مجلد آخر…", () => _ = PickAnother()));
         kit.Ok!.Enabled = false;
 
         // ---------- الموضوع والمصدر ----------
         void FillTopics(object? select)
         {
             topicBox.Items.Clear();
-            topicBox.Items.Add(new Item("(من غير موضوع)", null));
+            topicBox.Items.Add(new Item("(بدون موضوع)", null));
             foreach (var t in lib.Topics) topicBox.Items.Add(new Item("📚  " + t.Name, t));
             topicBox.Items.Add(new Item("＋  موضوع جديد…", NewTag));
             int i = Enumerable.Range(0, topicBox.Items.Count).FirstOrDefault(k => Equals((topicBox.Items[k] as Item)?.Tag, select));
@@ -75,7 +75,7 @@ internal static class AddFolderForm
         void FillSources(object? select)
         {
             sourceBox.Items.Clear();
-            sourceBox.Items.Add(new Item("(من غير مصدر)", null));
+            sourceBox.Items.Add(new Item("(بدون مصدر)", null));
             var tag = (topicBox.SelectedItem as Item)?.Tag;
             var places = tag is Topic t ? lib.OrderedPlacesOf(t) : tag is string ? Enumerable.Empty<(Place, int)>() : lib.OrderedPlacesOf(null);
             foreach (var (p, depth) in places) sourceBox.Items.Add(new Item((depth > 0 ? "        ↳ " : "🏫  ") + p.Name, p));
@@ -119,17 +119,17 @@ internal static class AddFolderForm
         void ShowPreview()
         {
             var snap = kind.SelectedIndex == 1 ? single : many;
-            if (snap == null) { preview.Text = "بقرا الفولدر…"; kit.Ok!.Enabled = false; return; }
+            if (snap == null) { preview.Text = "جارٍ قراءة المجلد…"; kit.Ok!.Enabled = false; return; }
             if (snap.Courses.Count == 0)
             {
-                preview.Text = "ملقتش فيديوهات في الفولدر ده.\r\nلو على Google Drive اتأكد إن الفولدر ظاهر على الجهاز.";
+                preview.Text = "لم أجد فيديوهات في هذا المجلد.\r\nإن كان على Google Drive فتأكد أن المجلد ظاهر على الجهاز.";
                 kit.Ok!.Enabled = false;
                 return;
             }
             var lines = snap.Courses.Select(c =>
                 $"📘  {c.Name}  —  {c.Sessions.Count} محاضرة · {c.Sessions.Sum(s => s.Videos.Count)} فيديو" +
                 (c.Sessions.Sum(s => s.Files.Count) is > 0 and var f ? $" · {f} ملف مرفق" : ""));
-            preview.Text = $"هيتضاف {snap.Courses.Count} كورس:\r\n" + string.Join("\r\n", lines);
+            preview.Text = $"سيُضاف {snap.Courses.Count} دورة:\r\n" + string.Join("\r\n", lines);
             kit.Ok!.Enabled = true;
         }
         // «اعمل للفولدر ده مستوى باسمه»: لما الفولدر فيه كذا كورس (فولدر مدرّس مثلًا)
@@ -144,10 +144,10 @@ internal static class AddFolderForm
             subAvailable = can;   // مش asSub.Visible: بعد ما الشاشة تتقفل Visible بيرجع false دايمًا
             asSub.Visible = can;
             asSub.Text = srcName == null
-                ? $"اعمل للفولدر ده مصدر باسمه «{folderName}» وحط الكورسات جواه"
+                ? $"أنشئ لهذا المجلد مصدرًا باسمه «{folderName}» وضع الدورات بداخله"
                 : srcPlace != null && lib.ParentOf(srcPlace) is { } parent
-                    ? $"اعمل للفولدر ده مصدر فرعي باسمه «{folderName}» جوه «{parent.Name}»"
-                    : $"اعمل للفولدر ده مصدر فرعي باسمه «{folderName}» جوه «{srcName}»";
+                    ? $"أنشئ لهذا المجلد مصدرًا فرعيًا باسمه «{folderName}» داخل «{parent.Name}»"
+                    : $"أنشئ لهذا المجلد مصدرًا فرعيًا باسمه «{folderName}» داخل «{srcName}»";
             // بيتعلّم لوحده لما الفولدر غير المصدر المختار (فولدر المدرّس جوه المنصة)، إلا لو المستخدم غيّره بإيده
             if (!subTouched) asSub.Checked = can && srcName != null && !string.Equals(folderName, srcName, StringComparison.CurrentCultureIgnoreCase)
                                              && !(srcPlace != null && lib.ParentOf(srcPlace) != null);
@@ -173,7 +173,7 @@ internal static class AddFolderForm
         }
         async Task PickAnother()
         {
-            using var dlg = new FolderBrowserDialog { Description = "اختار فولدر الكورس", UseDescriptionForTitle = true, ShowNewFolderButton = false, SelectedPath = currentPath };
+            using var dlg = new FolderBrowserDialog { Description = "اختر مجلد الدورة", UseDescriptionForTitle = true, ShowNewFolderButton = false, SelectedPath = currentPath };
             if (dlg.ShowDialog(kit.Form) == DialogResult.OK) await Load(dlg.SelectedPath);
         }
         kit.Form.Shown += async (_, _) =>

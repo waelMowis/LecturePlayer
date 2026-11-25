@@ -103,7 +103,7 @@ internal sealed class CameraWindow : LayeredWindow
                     g.Clear(Color.FromArgb(255, 40, 42, 46));
                     g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
                     using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.DirectionRightToLeft };
-                    g.DrawString("الكاميرا بتفتح…", Font, Brushes.Gainsboro, rect, sf);
+                    g.DrawString("جارٍ فتح الكاميرا…", Font, Brushes.Gainsboro, rect, sf);
                 }
             }
             g.ResetClip();
@@ -130,8 +130,8 @@ internal sealed class CameraWindow : LayeredWindow
     {
         var m = new ContextMenuStrip { RightToLeft = RightToLeft.Yes };
         void Item(string text, bool check, Action a) { var i = new ToolStripMenuItem(text) { Checked = check }; i.Click += (_, _) => { a(); Resize2(); Render(); SettingsChanged?.Invoke(); }; m.Items.Add(i); }
-        Item("⭕ دايرة", CamShape == Shape.Circle, () => CamShape = Shape.Circle);
-        Item("▢ مستطيل مدوّر", CamShape == Shape.Rounded, () => CamShape = Shape.Rounded);
+        Item("⭕ دائرة", CamShape == Shape.Circle, () => CamShape = Shape.Circle);
+        Item("▢ مستطيل مستدير الزوايا", CamShape == Shape.Rounded, () => CamShape = Shape.Rounded);
         Item("▭ مستطيل", CamShape == Shape.Rect, () => CamShape = Shape.Rect);
         m.Items.Add(new ToolStripSeparator());
         string[] names = { "صغير", "متوسط", "كبير", "كبير جدًا" };
@@ -139,7 +139,7 @@ internal sealed class CameraWindow : LayeredWindow
         m.Items.Add(new ToolStripSeparator());
         Item("إطار", BorderWidth > 0, () => BorderWidth = BorderWidth > 0 ? 0 : 4);
         Item("ظل", Shadow, () => Shadow = !Shadow);
-        Item("مرآة (زي ما بتشوف نفسك)", Mirror, () => Mirror = !Mirror);
+        Item("مرآة (كما ترى نفسك)", Mirror, () => Mirror = !Mirror);
         m.Items.Add(new ToolStripSeparator());
         var hide = new ToolStripMenuItem("إخفاء الكاميرا (Ctrl+Shift+F7)"); hide.Click += (_, _) => HideRequested?.Invoke(); m.Items.Add(hide);
         m.Show(this, at);

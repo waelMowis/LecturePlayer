@@ -17,7 +17,7 @@ internal sealed class ItLegendForm : Form
         Dock = DockStyle.Fill, Padding = new Padding(12, 0, 12, 0), TextAlign = ContentAlignment.MiddleRight,
         ForeColor = Theme.Text, Font = new Font("Segoe UI", 10f)
     };
-    private readonly Button _import = new() { Text = "⬇  استورد الكورس ده", Dock = DockStyle.Left, Width = 190, Enabled = false, FlatStyle = FlatStyle.Flat };
+    private readonly Button _import = new() { Text = "⬇  استورد هذه الدورة", Dock = DockStyle.Left, Width = 190, Enabled = false, FlatStyle = FlatStyle.Flat };
     private readonly string? _refreshCourseId;
     private readonly string _start;
     private string? _bearer;
@@ -33,7 +33,7 @@ internal sealed class ItLegendForm : Form
     {
         _refreshCourseId = refreshCourseId;
         _start = startUrl ?? (refreshCourseId != null ? ItLegend.CourseUrl(refreshCourseId) : ItLegend.LearnPath);
-        Text = refreshCourseId != null ? "IT Legend — تحديث الكورس" : "IT Legend — كورساتي";
+        Text = refreshCourseId != null ? "IT Legend — تحديث الدورة" : "IT Legend — دوراتي";
         Icon = Theme.AppIcon;
         StartPosition = FormStartPosition.CenterParent;
         Size = new Size(1200, 820);
@@ -50,7 +50,7 @@ internal sealed class ItLegendForm : Form
         bar.Controls.Add(_import);
         Controls.Add(Web);
         Controls.Add(bar);
-        Status(refreshCourseId != null ? "بفتح الكورس…" : "ادخل بالإيميل والباسورد، وافتح الكورس اللي عايزه، ودوس «استورد الكورس ده».");
+        Status(refreshCourseId != null ? "جارٍ فتح الدورة…" : "ادخل بالبريد الإلكتروني وكلمة المرور، وافتح الدورة التي تريدها، واضغط «استورد هذه الدورة».");
         Shown += async (_, _) => await StartAsync();
     }
 
@@ -86,7 +86,7 @@ internal sealed class ItLegendForm : Form
         catch (Exception ex)
         {
             Log.Error("itlegend window", ex);
-            Status("WebView2 مش شغال: " + ex.Message);
+            Status("WebView2 لا يعمل: " + ex.Message);
         }
     }
 
@@ -104,9 +104,9 @@ internal sealed class ItLegendForm : Form
         string? id = ItLegend.CourseIdOf(Web.CoreWebView2?.Source);
         _import.Enabled = !_busy && _bearer != null && id != null;
         if (_busy) return;
-        if (_bearer == null) Status("ادخل بالإيميل والباسورد (لو حسابك بجوجل: اعمل «نسيت كلمة المرور؟» مرة واحدة يبقى ليه باسورد).");
-        else if (id == null) Status("✓ داخل — افتح الكورس اللي عايزه (من «مساراتي»)، وبعدين دوس «استورد الكورس ده».");
-        else Status("✓ الكورس مفتوح — دوس «استورد الكورس ده».");
+        if (_bearer == null) Status("ادخل بالبريد الإلكتروني وكلمة المرور (إن كان حسابك عبر Google: استخدم «نسيت كلمة المرور؟» مرة واحدة لتصبح له كلمة مرور).");
+        else if (id == null) Status("✓ تم الدخول — افتح الدورة التي تريدها (من «مساراتي»)، ثم اضغط «استورد هذه الدورة».");
+        else Status("✓ الدورة مفتوحة — اضغط «استورد هذه الدورة».");
     }
 
     private async Task ImportAsync()
@@ -117,12 +117,12 @@ internal sealed class ItLegendForm : Form
         _import.Enabled = false;
         try
         {
-            Status("بقرا الكورس والمنهج…");
+            Status("جارٍ قراءة الدورة والمنهج…");
             using var client = new ItLegendClient(_bearer);
             var course = ItLegend.ParseCourse(await client.GetAsync($"/MemberCoursePlayer/{id}", CancellationToken.None))
-                         ?? throw new InvalidOperationException("مش لاقي بيانات الكورس — اتأكد إنك مشترك فيه");
+                         ?? throw new InvalidOperationException("لم أجد بيانات الدورة — تأكد أنك مشترك فيها");
             var modules = ItLegend.ParseNodes(await client.GetAsync($"/CourseNode/{id}/nodes", CancellationToken.None));
-            if (modules.Count == 0) throw new InvalidOperationException("المنهج فاضي أو مقفول عليك");
+            if (modules.Count == 0) throw new InvalidOperationException("المنهج فارغ أو مغلق عليك");
             Log.Info($"itlegend: «{course.Title}» {modules.Count} modules, {modules.Sum(m => m.Nodes.Count)} nodes");
             Result = (course, modules);
             DialogResult = DialogResult.OK;

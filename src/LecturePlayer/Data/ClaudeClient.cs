@@ -35,7 +35,7 @@ public sealed class ClaudeClient
 
     public ClaudeClient(string apiKey, HttpClient? http = null)
     {
-        if (string.IsNullOrWhiteSpace(apiKey)) throw new ClaudeException("مفيش مفتاح Claude. حطه من الإعدادات ← الذكاء الاصطناعي (فعّل الوضع المتقدم لو مش ظاهر).");
+        if (string.IsNullOrWhiteSpace(apiKey)) throw new ClaudeException("لا يوجد مفتاح Claude. أضفه من الإعدادات ← الذكاء الاصطناعي (فعّل الوضع المتقدم إن لم يظهر).");
         _apiKey = apiKey.Trim();
         _http = http ?? SharedHttp;
     }
@@ -84,11 +84,11 @@ public sealed class ClaudeClient
         catch { }
         string hint = status switch
         {
-            401 => "المفتاح غلط أو اتلغى.",
-            403 => "المفتاح مالوش صلاحية للموديل ده.",
-            404 => "اسم الموديل غلط.",
-            429 => "طلبات كتير ورا بعض — استنى شوية وجرب تاني.",
-            >= 500 => "مشكلة عند Anthropic — جرب تاني بعد شوية.",
+            401 => "المفتاح غير صحيح أو أُلغي.",
+            403 => "المفتاح لا يملك صلاحية لهذا النموذج.",
+            404 => "اسم النموذج غير صحيح.",
+            429 => "طلبات كثيرة متتالية — انتظر قليلًا ثم حاول مرة أخرى.",
+            >= 500 => "مشكلة لدى Anthropic — حاول مرة أخرى بعد قليل.",
             _ => ""
         };
         return $"خطأ من Claude ({status}). {hint}" + (msg != null ? "\n" + msg : "");
@@ -107,7 +107,7 @@ public sealed class ClaudeClient
 
         HttpResponseMessage resp;
         try { resp = await _http.SendAsync(req, ct); }
-        catch (HttpRequestException ex) { throw new ClaudeException("مفيش اتصال بـ Claude: " + ex.Message); }
+        catch (HttpRequestException ex) { throw new ClaudeException("لا يوجد اتصال بـ Claude: " + ex.Message); }
         using (resp)
         {
             string body = await resp.Content.ReadAsStringAsync(ct);
@@ -133,7 +133,7 @@ public static class AiBudget
         if (s.AiMonthlyTokenCap <= 0) return null;
         long used = UsedThisMonth(s, nowUtc);
         if (used + estimate <= s.AiMonthlyTokenCap) return null;
-        return $"وصلت للحد الشهري للذكاء الاصطناعي ({used:N0} من {s.AiMonthlyTokenCap:N0} وحدة).\nزوّد الحد من الإعدادات لو عايز تكمل.";
+        return $"وصلت إلى الحد الشهري للذكاء الاصطناعي ({used:N0} من {s.AiMonthlyTokenCap:N0} وحدة).\nارفع الحد من الإعدادات إن أردت المتابعة.";
     }
 
     public static void Record(AppSettings s, DateTime nowUtc, ClaudeReply r)

@@ -51,7 +51,7 @@ internal sealed partial class MainForm
         pane.Navigated += (ok, url) =>
         {
             if (!ok && UdemyActive && url != "about:blank")
-                ShowBanner("صفحة يوديمي مافتحتش — اتأكد من النت", BannerKind.Warning, "↻  حاول تاني", () => pane.Web.CoreWebView2?.Reload(), seconds: 0, key: "udemy");
+                ShowBanner("لم تُفتح صفحة يوديمي — تأكد من الإنترنت", BannerKind.Warning, "↻  حاول مرة أخرى", () => pane.Web.CoreWebView2?.Reload(), seconds: 0, key: "udemy");
         };
         _udemyPane = pane;
         return pane;
@@ -81,7 +81,7 @@ internal sealed partial class MainForm
             if (request != _playRequest) return;
             if (v.IsItLegend) BeginItLegendSelect(v);
             if (_muted) pane.SetMuted(true);
-            ShowStatus(startMs > 3000 ? $"{platform} — استكمال من {TimeFormat.Format(startMs)}" : $"{platform} — بيفتح الدرس…", 4);
+            ShowStatus(startMs > 3000 ? $"{platform} — المتابعة من {TimeFormat.Format(startMs)}" : $"{platform} — جارٍ فتح الدرس…", 4);
         }
         catch (Exception ex)
         {
@@ -93,7 +93,7 @@ internal sealed partial class MainForm
     private void ShowWebView2Missing(string? detail = null)
     {
         HideUdemyPane();
-        ShowBanner("دروس يوديمي محتاجة «Microsoft Edge WebView2» (موجود في ويندوز 10/11 عادةً)" + (detail != null ? " — " + detail : ""),
+        ShowBanner("دروس يوديمي تحتاج إلى «Microsoft Edge WebView2» (موجود عادةً في ويندوز 10/11)" + (detail != null ? " — " + detail : ""),
             BannerKind.Warning, "تنزيله", () => OpenInBrowser(WebView2Download), seconds: 0, key: "udemy");
     }
 
@@ -116,7 +116,7 @@ internal sealed partial class MainForm
         var pane = _udemyPane!;
         if (pane.State is not { HasVideo: true })
         {
-            ShowStatus(pane.State == null ? "لسه بيفتح الدرس…" : "الدرس ده مش فيديو (مقال/اختبار) — كمّله في الصفحة", 2);
+            ShowStatus(pane.State == null ? "ما زال الدرس يُفتح…" : "هذا الدرس ليس فيديو (مقال/اختبار) — أكمله في الصفحة", 2);
             return;
         }
         if (pane.State.Playing) pane.Pause(); else pane.Play();
@@ -232,7 +232,7 @@ internal sealed partial class MainForm
 
         var results = new List<(Course Course, Udemy.SyncResult Sync, bool New)>();
         string? error = null;
-        using var form = new UdemyAccountForm(refresh != null ? $"يوديمي — تحديث «{refresh.Name}»" : "يوديمي — كورساتي");
+        using var form = new UdemyAccountForm(refresh != null ? $"يوديمي — تحديث «{refresh.Name}»" : "يوديمي — دوراتي");
         using var cts = new CancellationTokenSource();
         form.FormClosing += (_, _) => cts.Cancel();
         form.Shown += async (_, _) =>
@@ -241,7 +241,7 @@ internal sealed partial class MainForm
             {
                 string? name = await form.SignInAsync(cts.Token);
                 if (name == null) return;
-                form.Status($"أهلًا {name} — بجيب كورساتك…", Theme.Success);
+                form.Status($"مرحبًا {name} — جارٍ جلب دوراتك…", Theme.Success);
                 var all = await FetchUdemyCoursesAsync(form, cts.Token);
 
                 List<UdemyCourse> chosen;
@@ -250,11 +250,11 @@ internal sealed partial class MainForm
                 if (refresh != null)
                 {
                     chosen = all.Where(c => c.Id == refresh.UdemyId).ToList();
-                    if (chosen.Count == 0) { error = $"«{refresh.Name}» مش لاقيه في كورسات الحساب ده على يوديمي."; form.Close(); return; }
+                    if (chosen.Count == 0) { error = $"لم يُعثر على «{refresh.Name}» في دورات هذا الحساب على يوديمي."; form.Close(); return; }
                 }
                 else
                 {
-                    if (all.Count == 0) { error = "الحساب ده مافيهوش كورسات مشتراة على يوديمي."; form.Close(); return; }
+                    if (all.Count == 0) { error = "هذا الحساب لا يحتوي على دورات مشتراة على يوديمي."; form.Close(); return; }
                     var pick = PickUdemyCourses(form, all, target);
                     if (pick == null) { form.Close(); return; }
                     (chosen, topicName) = pick.Value;
@@ -265,7 +265,7 @@ internal sealed partial class MainForm
                 for (int i = 0; i < chosen.Count; i++)
                 {
                     var uc = chosen[i];
-                    form.Status($"({i + 1}/{chosen.Count}) بجيب منهج «{uc.Title}»…");
+                    form.Status($"({i + 1}/{chosen.Count}) جارٍ جلب منهج «{uc.Title}»…");
                     var chapters = await FetchUdemyCurriculumAsync(form, uc.Id, cts.Token);
                     var done = await FetchUdemyProgressAsync(form, uc.Id, cts.Token);
                     var course = refresh ?? _library.Courses.FirstOrDefault(c => c.UdemyId == uc.Id);
@@ -273,7 +273,7 @@ internal sealed partial class MainForm
                     if (course == null)
                     {
                         course = new Course { Name = uc.Title };
-                        topic = PlaceImportedCourse(course, target, topic, topicName ?? "كورسات يوديمي", "Udemy", uc.Instructor);
+                        topic = PlaceImportedCourse(course, target, topic, topicName ?? "دورات يوديمي", "Udemy", uc.Instructor);
                         _library.Courses.Add(course);
                     }
                     var sync = Udemy.Apply(course, uc, chapters, done, firstImport: isNew);
@@ -286,7 +286,7 @@ internal sealed partial class MainForm
             catch (Exception ex)
             {
                 Log.Error("udemy import", ex);
-                if (!form.IsDisposed) form.Status("حصلت مشكلة: " + ex.Message + " — اقفل الشباك وجرّب تاني.", Theme.Danger);
+                if (!form.IsDisposed) form.Status("حدثت مشكلة: " + ex.Message + " — أغلق النافذة وحاول مرة أخرى.", Theme.Danger);
             }
         };
         form.ShowDialog(this);
@@ -299,8 +299,8 @@ internal sealed partial class MainForm
         int added = results.Count(r => r.New);
         int lessons = results.Sum(r => r.Sync.AddedLectures), watched = results.Sum(r => r.Sync.MarkedWatched);
         ShowBanner(added > 0
-                ? $"🎓 اتضاف {added} كورس من يوديمي ({results.Where(r => r.New).Sum(r => r.Course.VideoCount)} درس) — دوس على أي درس يشتغل هنا"
-                : $"🎓 اتحدّث من يوديمي: {lessons} درس جديد، و{watched} درس اتعلّم «اتشاف» من تقدّمك هناك",
+                ? $"🎓 أُضيف {added} دورة من يوديمي ({results.Where(r => r.New).Sum(r => r.Course.VideoCount)} درس) — اضغط على أي درس ليعمل هنا"
+                : $"🎓 حُدِّث من يوديمي: {lessons} درس جديد، و{watched} درس وُسم «شوهد» حسب تقدّمك هناك",
             BannerKind.Success, seconds: 10);
     }
 
@@ -310,7 +310,7 @@ internal sealed partial class MainForm
         {
             var (code, body) = await UdemyWeb.FetchAsync(form.Web, path, ct, 40);
             if (code == 200) return body;
-            if (code is 401 or 403) throw new InvalidOperationException("يوديمي رفض الطلب (" + code + ") — جرّب تخرج وتدخل تاني");
+            if (code is 401 or 403) throw new InvalidOperationException("رفض يوديمي الطلب (" + code + ") — جرّب تسجيل الخروج والدخول مرة أخرى");
             if (attempt >= 3) throw new InvalidOperationException("يوديمي رد بـ " + code);
             await Task.Delay(1500 * attempt, ct); // 429/5xx: نستنى ونعيد
         }
@@ -323,7 +323,7 @@ internal sealed partial class MainForm
         {
             var (list, next) = Udemy.ParseSubscribed(await GetUdemyJsonAsync(form, Udemy.SubscribedApi(page), ct));
             foreach (var c in list) if (all.All(x => x.Id != c.Id)) all.Add(c);
-            form.Status($"بجيب كورساتك… ({all.Count})");
+            form.Status($"جارٍ جلب دوراتك… ({all.Count})");
             if (!next) break;
         }
         return all;
@@ -350,8 +350,8 @@ internal sealed partial class MainForm
     private (List<UdemyCourse> Courses, string Topic)? PickUdemyCourses(IWin32Window owner, List<UdemyCourse> all, ImportTarget? target = null)
     {
         var pick = PickPlatformCourses(owner, "يوديمي", "Udemy",
-            all.Select(c => (c.Id, c.Title, c.Instructor, _library.Courses.Any(x => x.UdemyId == c.Id))).ToList(), "كورسات يوديمي",
-            "والكورس جواه أقسام يوديمي كمحاضرات، والدروس كفيديوهات.", target);
+            all.Select(c => (c.Id, c.Title, c.Instructor, _library.Courses.Any(x => x.UdemyId == c.Id))).ToList(), "دورات يوديمي",
+            "وفي الدورة أقسام يوديمي كمحاضرات، والدروس كفيديوهات.", target);
         if (pick == null) return null;
         return (all.Where(c => pick.Value.Ids.Contains(c.Id)).ToList(), pick.Value.Topic);
     }
@@ -360,19 +360,19 @@ internal sealed partial class MainForm
 
     private void UdemySignOut()
     {
-        if (UdemyWeb.RuntimeVersion == null) { ShowStatus("مفيش جلسة يوديمي على الجهاز ده"); return; }
-        if (!Dialogs.Confirm(this, "تخرج من حساب يوديمي على الجهاز ده؟\nالكورسات اللي استوردتها بتفضل في مكتبتك، ولما تشغّل درس هيطلب منك تدخل تاني.")) return;
+        if (UdemyWeb.RuntimeVersion == null) { ShowStatus("لا توجد جلسة يوديمي على هذا الجهاز"); return; }
+        if (!Dialogs.Confirm(this, "هل تريد تسجيل الخروج من حساب يوديمي على هذا الجهاز؟\nتبقى الدورات التي استوردتها في مكتبتك، وعند تشغيل درس سيُطلب منك الدخول مرة أخرى.")) return;
         if (UdemyActive) StopPlayback();
-        using var form = new UdemyAccountForm("يوديمي — خروج") { Size = new Size(520, 200) };
+        using var form = new UdemyAccountForm("يوديمي — تسجيل الخروج") { Size = new Size(520, 200) };
         form.Shown += async (_, _) =>
         {
             try
             {
-                form.Status("بخرج…");
+                form.Status("جارٍ تسجيل الخروج…");
                 await UdemyWeb.SignOutAsync(form.Web);
-                ShowStatus("خرجت من حساب يوديمي على الجهاز ده ✓", 4);
+                ShowStatus("سجّلت الخروج من حساب يوديمي على هذا الجهاز ✓", 4);
             }
-            catch (Exception ex) { Log.Error("udemy sign out", ex); ShowStatus("الخروج مانجحش: " + ex.Message, 6); }
+            catch (Exception ex) { Log.Error("udemy sign out", ex); ShowStatus("لم ينجح تسجيل الخروج: " + ex.Message, 6); }
             form.Close();
         };
         form.ShowDialog(this);

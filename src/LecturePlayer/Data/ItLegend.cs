@@ -71,10 +71,10 @@ public static class ItLegend
             using var doc = JsonDocument.Parse(json);
             var r = doc.RootElement;
             if (r.ValueKind == JsonValueKind.Object && r.TryGetProperty("success", out var ok) && ok.ValueKind == JsonValueKind.False)
-                return Str(r, "message") ?? Str(r, "errorCode") ?? "الموقع رفض الطلب";
+                return Str(r, "message") ?? Str(r, "errorCode") ?? "رفض الموقع الطلب";
             return null;
         }
-        catch (JsonException) { return "رد مش مفهوم من الموقع"; }
+        catch (JsonException) { return "رد غير مفهوم من الموقع"; }
     }
 
     /// <summary>/MemberCoursePlayer/{id} → اسم الكورس والمحاضر ونسبة الإنجاز.</summary>
@@ -268,7 +268,7 @@ public sealed class ItLegendClient : IDisposable
     {
         using var resp = await _http.GetAsync(ApiBase + path, ct);
         string body = await resp.Content.ReadAsStringAsync(ct);
-        if ((int)resp.StatusCode is 401 or 403) throw new UnauthorizedAccessException("الدخول على IT Legend انتهى — افتح الشباك وادخل تاني");
+        if ((int)resp.StatusCode is 401 or 403) throw new UnauthorizedAccessException("انتهت جلسة الدخول إلى IT Legend — افتح النافذة وسجّل الدخول مرة أخرى");
         if (!resp.IsSuccessStatusCode) throw new InvalidOperationException($"IT Legend رد بـ {(int)resp.StatusCode}");
         if (ItLegend.ErrorOf(body) is { } err) throw new InvalidOperationException(err);
         return body;

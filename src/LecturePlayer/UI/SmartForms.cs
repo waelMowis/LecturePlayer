@@ -87,11 +87,11 @@ internal sealed class TextViewerForm : ToolWindow
         bar.Controls.Add(Btn("نسخ", () => { Clipboard.SetText(box.Text.Length > 0 ? box.Text : " "); ShowCopied(); }, accent: true));
         bar.Controls.Add(Btn("حفظ…", () => Save(box.Text, saveName)));
         foreach (var (t, click) in extra) bar.Controls.Add(Btn(t, () => click(box.Text)));
-        bar.Controls.Add(Btn("قفل", Close));
+        bar.Controls.Add(Btn("إغلاق", Close));
         Controls.Add(box);
         Controls.Add(bar);
 
-        void ShowCopied() => Text = title + "  — اتنسخ ✓";
+        void ShowCopied() => Text = title + "  — نُسخ ✓";
     }
 
     private void Save(string text, string name)
@@ -117,7 +117,7 @@ internal sealed class QuizForm : ToolWindow
     private int _index, _score;
     private bool _answered;
 
-    public QuizForm(string title, List<QuizQuestion> questions, Action<long> jump, Action<int, int> finished, string goToText = "روح للجزء ده في الفيديو")
+    public QuizForm(string title, List<QuizQuestion> questions, Action<long> jump, Action<int, int> finished, string goToText = "اذهب إلى هذا الجزء في الفيديو")
         : base("اختبار: " + title, 640, 520)
     {
         _questions = questions;
@@ -164,7 +164,7 @@ internal sealed class QuizForm : ToolWindow
     {
         if (_answered) return;
         var chosen = _options.Controls.OfType<OptionCard>().FirstOrDefault(r => r.Checked);
-        if (chosen == null) { _explain.ForeColor = Theme.Muted; _explain.Text = "اختار إجابة الأول."; return; }
+        if (chosen == null) { _explain.ForeColor = Theme.Muted; _explain.Text = "اختر إجابة أولًا."; return; }
         _answered = true;
         var q = _questions[_index];
         bool right = (int)chosen.Tag! == q.Answer;
@@ -177,7 +177,7 @@ internal sealed class QuizForm : ToolWindow
             rb.Enabled = i == q.Answer || rb == chosen;
         }
         _explain.ForeColor = right ? Theme.Success : Theme.Danger;
-        _explain.Text = (right ? "✓ صح! " : "✗ مش دي. ") + q.Explanation;
+        _explain.Text = (right ? "✓ صحيح! " : "✗ ليست هذه. ") + q.Explanation;
         _header.Text = $"سؤال {_index + 1} من {_questions.Count}     الدرجة: {_score}";
         _check.Enabled = false;
         _next.Enabled = true;
@@ -193,9 +193,9 @@ internal sealed class QuizForm : ToolWindow
         _options.Controls.Clear();
         _question.Text = $"النتيجة: {_score} من {_questions.Count}  ({pct}%)";
         _explain.ForeColor = Theme.Text;
-        _explain.Text = pct >= 80 ? "ممتاز — فاهم الفيديو كويس 👏"
-            : pct >= 50 ? "كويس، بس راجع الأجزاء اللي غلطت فيها."
-            : "محتاج تعيد الأجزاء دي — استخدم «روح للجزء ده» في الأسئلة اللي غلطت فيها المرة الجاية.";
+        _explain.Text = pct >= 80 ? "ممتاز — فهمت الفيديو جيدًا 👏"
+            : pct >= 50 ? "جيد، لكن راجع الأجزاء التي أخطأت فيها."
+            : "تحتاج إلى إعادة هذه الأجزاء — استخدم «اذهب إلى هذا الجزء» في الأسئلة التي أخطأت فيها في المرة القادمة.";
         _check.Enabled = _next.Enabled = false;
         _goTo.Visible = false;
     }
@@ -213,7 +213,7 @@ internal sealed class AskForm : ToolWindow
     private CancellationTokenSource? _cts;
 
     public AskForm(string courseName, Func<string, CancellationToken, Task<(string, List<AskSource>)>> ask, Action<VideoItem, long> play)
-        : base("اسأل الكورس: " + courseName, 760, 640)
+        : base("اسأل الدورة: " + courseName, 760, 640)
     {
         _ask = ask;
         _play = play;
@@ -222,7 +222,7 @@ internal sealed class AskForm : ToolWindow
         _go.Dock = DockStyle.Left;
         top.Controls.Add(_question);
         top.Controls.Add(_go);
-        _question.PlaceholderText = "اكتب سؤالك… (مثلًا: الفرق بين interface و abstract class؟)";
+        _question.PlaceholderText = "اكتب سؤالك… (مثلًا: ما الفرق بين interface و abstract class؟)";
         _question.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = AskAsync(); } };
 
         _sources.Columns.Add("#", 40);
@@ -234,7 +234,7 @@ internal sealed class AskForm : ToolWindow
         {
             if (_sources.SelectedItems.Count > 0 && _sources.SelectedItems[0].Tag is AskSource s) _play(s.Video, s.TimeMs);
         };
-        var hint = new Label { Dock = DockStyle.Bottom, Height = 24, ForeColor = Theme.Muted, Text = "المصادر (دبل كليك يشغّل اللحظة دي):", TextAlign = ContentAlignment.BottomRight };
+        var hint = new Label { Dock = DockStyle.Bottom, Height = 24, ForeColor = Theme.Muted, Text = "المصادر (النقر المزدوج يشغّل هذه اللحظة):", TextAlign = ContentAlignment.BottomRight };
 
         Controls.Add(_answer);
         Controls.Add(hint);
@@ -251,7 +251,7 @@ internal sealed class AskForm : ToolWindow
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         _go.Enabled = false;
-        _answer.Text = "بدوّر في نصوص الفيديوهات وبسأل Claude…";
+        _answer.Text = "جارٍ البحث في نصوص الفيديوهات وسؤال Claude…";
         _sources.Items.Clear();
         try
         {
@@ -291,7 +291,7 @@ internal sealed class TranscriptSearchForm : ToolWindow
         _search = search;
         _play = play;
         _status = status;
-        _query.PlaceholderText = "اكتب كلمة أو أكتر… (كل الكلمات لازم تكون في نفس المقطع)";
+        _query.PlaceholderText = "اكتب كلمة أو أكثر… (يجب أن تكون كل الكلمات في المقطع نفسه)";
         _list.Columns.Add("الفيديو", 230);
         _list.Columns.Add("الوقت", 70);
         _list.Columns.Add("الكلام", 440);
@@ -322,7 +322,7 @@ internal sealed class TranscriptSearchForm : ToolWindow
             var hits = _search(q);
             foreach (var h in hits)
                 _list.Items.Add(new ListViewItem(new[] { h.Video.Title, Transcript.Short(h.TimeMs), h.Snippet }) { Tag = h });
-            _info.Text = hits.Count == 0 ? "مفيش نتايج. " + _status : $"{hits.Count} نتيجة — دبل كليك أو Enter يشغّل اللحظة دي";
+            _info.Text = hits.Count == 0 ? "لا توجد نتائج. " + _status : $"{hits.Count} نتيجة — النقر المزدوج أو Enter يشغّل هذه اللحظة";
         }
         else _info.Text = _status;
         _list.EndUpdate();
@@ -348,11 +348,11 @@ internal sealed class BookSearchForm : ToolWindow
     public int ResultCount => _list.Items.Count;
 
     public BookSearchForm(Func<string, List<Data.BookText.Hit>> search, Action<Data.BookText.Hit, string> open)
-        : base("بحث جوه كل الكتب", 820, 560)
+        : base("بحث داخل كل الكتب", 820, 560)
     {
         _search = search;
         _open = open;
-        _query.PlaceholderText = "اكتب كلمة أو أكتر… (كل الكلمات لازم تكون في نفس الصفحة، والتشكيل مش فارق)";
+        _query.PlaceholderText = "اكتب كلمة أو أكثر… (يجب أن تكون كل الكلمات في الصفحة نفسها، والتشكيل لا يؤثر)";
         _list.Columns.Add("الكتاب", 220);
         _list.Columns.Add("الصفحة", 60);
         _list.Columns.Add("الكلام", 500);
@@ -391,7 +391,7 @@ internal sealed class BookSearchForm : ToolWindow
             var hits = _search(q);
             foreach (var h in hits)
                 _list.Items.Add(new ListViewItem(new[] { h.Book.Title, h.Page.ToString(), h.Snippet }) { Tag = h });
-            _info.Text = hits.Count == 0 ? "مفيش نتايج. " + _status : $"{hits.Count} نتيجة — دبل كليك أو Enter يفتح الكتاب على الصفحة";
+            _info.Text = hits.Count == 0 ? "لا توجد نتائج. " + _status : $"{hits.Count} نتيجة — النقر المزدوج أو Enter يفتح الكتاب على الصفحة";
         }
         else _info.Text = _status;
         _list.EndUpdate();

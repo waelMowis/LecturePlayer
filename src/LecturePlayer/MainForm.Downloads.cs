@@ -53,7 +53,7 @@ internal sealed partial class MainForm
     /// <summary>«تنزيل من يوتيوب…» (Ctrl+D): الرابط من الحافظة لو فيها رابط.</summary>
     internal async void OpenDownloadDialog(string? url)
     {
-        if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("تنزيل يوتيوب (دمج الصورة والصوت والتحويل لـ MP3)")) return;
+        if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("تنزيل يوتيوب (دمج الصورة والصوت والتحويل إلى MP3)")) return;
         if (url == null)
         {
             try
@@ -71,8 +71,8 @@ internal sealed partial class MainForm
     private async void DownloadFromLibrary(IReadOnlyList<VideoItem> videos, string name)
     {
         var online = videos.Where(v => v.IsDownloadable).ToList();
-        if (online.Count == 0) { ShowStatus("مفيش فيديوهات يوتيوب هنا"); return; }
-        if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("تنزيل يوتيوب (دمج الصورة والصوت والتحويل لـ MP3)")) return;
+        if (online.Count == 0) { ShowStatus("لا توجد فيديوهات يوتيوب هنا"); return; }
+        if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("تنزيل يوتيوب (دمج الصورة والصوت والتحويل إلى MP3)")) return;
         var items = online.Select(v => new DownloadForm.Item(v.Path, v.Title, v.DurationMs, v.Path)).ToList();
         var plan = DownloadForm.Show(this, _settings, null, items, name);
         if (plan != null) EnqueuePlan(plan);
@@ -87,11 +87,11 @@ internal sealed partial class MainForm
         var items = CourseDownloadItems(c, out int already, out int local);
         if (items.Count == 0)
         {
-            ShowStatus(already > 0 ? $"كل فيديوهات «{c.Name}» متنزلة قبل كده ✓" : "مفيش فيديوهات يوتيوب في الكورس ده");
+            ShowStatus(already > 0 ? $"كل فيديوهات «{c.Name}» منزّلة من قبل ✓" : "لا توجد فيديوهات يوتيوب في هذه الدورة");
             return;
         }
-        if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("تنزيل يوتيوب (دمج الصورة والصوت والتحويل لـ MP3)")) return;
-        string label = c.Name + (already > 0 ? $" — {already} متنزلين قبل كده اتخطّوا" : "") + (local > 0 ? $" — {local} ملف على جهازك مش محتاجين تنزيل" : "");
+        if (!await EnsureYtDlpAsync() || !await EnsureFfmpegAsync("تنزيل يوتيوب (دمج الصورة والصوت والتحويل إلى MP3)")) return;
+        string label = c.Name + (already > 0 ? $" — تُخطّي {already} نُزّلت من قبل" : "") + (local > 0 ? $" — {local} ملف على جهازك لا تحتاج إلى تنزيل" : "");
         var plan = DownloadForm.Show(this, _settings, null, items, label);
         if (plan != null) EnqueuePlan(plan with { GroupName = c.Name });
     }
@@ -183,7 +183,7 @@ internal sealed partial class MainForm
             // نفس الفيديو بنفس الاختيارات بيتنزل أصلًا ← مانكررهوش
             if (_downloadJobs.Any(j => (j.Active || j.Status == DownloadStatus.Paused) && j.Spec.Url == spec.Url && j.Spec.Kind == spec.Kind && j.Spec.OutDir == spec.OutDir))
                 continue;
-            var job = new DownloadJob(spec) { Status = paused ? DownloadStatus.Paused : DownloadStatus.Queued, Stage = paused ? "متوقف — دوس «كمّل»" : "في الانتظار" };
+            var job = new DownloadJob(spec) { Status = paused ? DownloadStatus.Paused : DownloadStatus.Queued, Stage = paused ? "متوقف — اضغط «تابع»" : "في الانتظار" };
             _downloadJobs.Add(job);
             added.Add(job);
         }
@@ -211,7 +211,7 @@ internal sealed partial class MainForm
     {
         job.Status = DownloadStatus.Running;
         job.Error = null;
-        job.Stage = "بيبدأ…";
+        job.Stage = "يبدأ…";
         job.StoppedForClose = false;
         var cts = job.Cts = new CancellationTokenSource();
         job.Notify();
@@ -222,7 +222,7 @@ internal sealed partial class MainForm
         {
             long free = DownloadForm.FreeSpace(spec.OutDir);
             if (free >= 0 && spec.EstimatedBytes > 0 && free < spec.EstimatedBytes + 200L * 1024 * 1024)
-                throw new InvalidOperationException($"المساحة مش كفاية: محتاج حوالي {YtDlp.FormatSize(spec.EstimatedBytes)} والفاضي {YtDlp.FormatSize(free)}.");
+                throw new InvalidOperationException($"المساحة غير كافية: تحتاج إلى نحو {YtDlp.FormatSize(spec.EstimatedBytes)} والمتاح {YtDlp.FormatSize(free)}.");
 
             var progress = new Progress<DownloadProgress>(p =>
             {
@@ -241,7 +241,7 @@ internal sealed partial class MainForm
                 });
             job.File = file;
             job.Status = DownloadStatus.Done;
-            job.Stage = "خلص ✓";
+            job.Stage = "اكتمل ✓";
             ok = true;
             Log.Info($"download done: {spec.Url} -> {file}");
             if (spec.LibraryUrl != null)
@@ -259,7 +259,7 @@ internal sealed partial class MainForm
             else
             {
                 job.Status = DownloadStatus.Canceled;
-                job.Stage = "اتلغى";
+                job.Stage = "أُلغي";
                 DeletePartials(job);
             }
         }
@@ -294,8 +294,8 @@ internal sealed partial class MainForm
         if (done.Count + failed.Count == 0) return;
         foreach (var j in done.Concat(failed)) _announced.Add(j);
         string? folder = done.Select(j => Path.GetDirectoryName(j.File)).FirstOrDefault(d => d != null && !d.StartsWith(Storage.AppDataDir, StringComparison.OrdinalIgnoreCase));
-        string text = failed.Count == 0 ? $"اتنزّل {done.Count} ✓" : $"اتنزّل {done.Count}، وفشل {failed.Count} — التفاصيل في «التنزيلات»";
-        if (folder != null) ShowBanner(text, failed.Count == 0 ? BannerKind.Success : BannerKind.Warning, "افتح الفولدر", () => OpenFolder(folder), 12, "downloads");
+        string text = failed.Count == 0 ? $"نُزّل {done.Count} ✓" : $"نُزّل {done.Count}، وفشل {failed.Count} — التفاصيل في «التنزيلات»";
+        if (folder != null) ShowBanner(text, failed.Count == 0 ? BannerKind.Success : BannerKind.Warning, "افتح المجلد", () => OpenFolder(folder), 12, "downloads");
         else ShowBanner(text, failed.Count == 0 ? BannerKind.Success : BannerKind.Warning, "التنزيلات", ShowDownloadsPanel, 12, "downloads");
     }
     private readonly HashSet<DownloadJob> _announced = new();
@@ -306,7 +306,7 @@ internal sealed partial class MainForm
         else if (job.Status is DownloadStatus.Queued or DownloadStatus.Paused)
         {
             job.Status = DownloadStatus.Canceled;
-            job.Stage = "اتلغى";
+            job.Stage = "أُلغي";
             DeletePartials(job);
             SavePendingDownloads();
             job.Notify();
@@ -382,8 +382,8 @@ internal sealed partial class MainForm
         var pending = _settings.PendingDownloads.ToList();
         if (pending.Count == 0) return;
         Enqueue(pending, paused: true);
-        ShowBanner($"فيه {pending.Count} تنزيل ماخلصش المرة اللي فاتت — هيكمّل من مكان ماوقف.", BannerKind.Info,
-            "كمّل التنزيل", () => _ = ResumeWithToolsAsync(), 30, "downloads-resume");
+        ShowBanner($"يوجد {pending.Count} تنزيل لم يكتمل في المرة السابقة — سيكمل من حيث توقف.", BannerKind.Info,
+            "تابع التنزيل", () => _ = ResumeWithToolsAsync(), 30, "downloads-resume");
     }
 
     private async Task ResumeWithToolsAsync()
@@ -401,7 +401,7 @@ internal sealed partial class MainForm
     {
         int active = _downloadJobs.Count(j => j.Active);
         if (active > 0 && !SmokeTest.Active &&
-            !Dialogs.Confirm(this, $"فيه {active} تنزيل شغال.\nلو قفلت البرنامج هيقف، والمرة الجاية يكمّل من مكان ماوقف.\n\nأقفل؟", "التنزيلات"))
+            !Dialogs.Confirm(this, $"يوجد {active} تنزيل قيد العمل.\nإن أغلقت البرنامج سيتوقف، وفي المرة القادمة يكمل من حيث توقف.\n\nهل تريد الإغلاق؟", "التنزيلات"))
             return false;
         SavePendingDownloads();
         foreach (var j in _downloadJobs.Where(j => j.Status == DownloadStatus.Running))
@@ -461,7 +461,7 @@ internal sealed partial class MainForm
     /// <summary>«شغّل» من التنزيلات: لو الفيديو من المكتبة يشتغل في مكانه، وإلا يتفتح كملف.</summary>
     internal void PlayDownloaded(DownloadJob job)
     {
-        if (job.File == null || !File.Exists(job.File)) { ShowStatus("الملف مش موجود"); return; }
+        if (job.File == null || !File.Exists(job.File)) { ShowStatus("الملف غير موجود"); return; }
         if (job.Spec.LibraryUrl != null && _library.AllVideos.FirstOrDefault(v => v.Path == job.Spec.LibraryUrl) is { } v && _library.FindGroupOf(v) is { } g)
         {
             PlayVideo(g, v);

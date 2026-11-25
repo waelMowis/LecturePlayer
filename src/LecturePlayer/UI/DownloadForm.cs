@@ -50,8 +50,8 @@ internal static class DownloadForm
         if (!fromLibrary)
         {
             kit.Header("🔗  الرابط");
-            urlBox = kit.Row("الرابط:", new TextBox { Text = url ?? "", PlaceholderText = "رابط فيديو أو قايمة تشغيل من يوتيوب" });
-            infoLabel = kit.Note("الصق الرابط وهيتقري لوحده.", 34);
+            urlBox = kit.Row("الرابط:", new TextBox { Text = url ?? "", PlaceholderText = "رابط فيديو أو قائمة تشغيل من يوتيوب" });
+            infoLabel = kit.Note("الصق الرابط وستتم قراءته تلقائيًا.", 34);
             list = kit.Full(DarkList.Setup(new ListView { CheckBoxes = false, MultiSelect = false }), 118);
             list.Columns.Add("الفيديو", 300);
             list.Columns.Add("المدة", 70);
@@ -95,16 +95,16 @@ internal static class DownloadForm
         // ---------- الحفظ ----------
         kit.Header("📁  الحفظ");
         var savePanel = kit.Full(new Panel { BackColor = Theme.Panel }, fromLibrary ? 96 : 46);
-        var toFolder = new OptionCard { Text = "في فولدر", Dock = DockStyle.Top, Height = 42 };
-        var toLibrary = new OptionCard { Text = "جوه المكتبة — الفيديو يفضل في مكانه في الكورس ويشتغل من غير نت", Dock = DockStyle.Top, Height = 42, Margin = new Padding(0, 0, 0, 6) };
+        var toFolder = new OptionCard { Text = "في مجلد", Dock = DockStyle.Top, Height = 42 };
+        var toLibrary = new OptionCard { Text = "داخل المكتبة — يبقى الفيديو في مكانه في الدورة ويعمل دون إنترنت", Dock = DockStyle.Top, Height = 42, Margin = new Padding(0, 0, 0, 6) };
         savePanel.Controls.Add(toFolder);
         if (fromLibrary) savePanel.Controls.Add(toLibrary);   // Dock=Top: اللي بيتضاف آخر بيبقى فوق
         toLibrary.Checked = fromLibrary;
         toFolder.Checked = !fromLibrary;
         string folder = string.IsNullOrWhiteSpace(settings.DownloadFolder) ? DefaultFolder : settings.DownloadFolder;
         // الفولدر والزرار في سطر واحد
-        var folderRow = kit.Row("الفولدر:", new Panel { BackColor = Theme.Panel });
-        var pick = new PillButton("اختار…", PillStyle.Ghost) { Dock = DockStyle.Left, Width = 90 };
+        var folderRow = kit.Row("المجلد:", new Panel { BackColor = Theme.Panel });
+        var pick = new PillButton("اختر…", PillStyle.Ghost) { Dock = DockStyle.Left, Width = 90 };
         var folderBox = new TextBox { Text = folder, ReadOnly = true, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Theme.Input, ForeColor = Theme.Text };
         folderRow.Controls.Add(folderBox);
         folderRow.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 8, BackColor = Theme.Panel });
@@ -112,13 +112,13 @@ internal static class DownloadForm
 
         // ---------- إضافات ----------
         kit.Header("✨  إضافات");
-        var cover = kit.Full(new ToggleSwitch { Text = "صورة الفيديو كغلاف، والاسم والقناة جوه بيانات الملف", Checked = settings.DownloadEmbedCover }, 30);
-        var chapters = kit.Full(new ToggleSwitch { Text = "فصول الفيديو (لو موجودة) — بتظهر في المشغّلات وتنقّل بيها", Checked = settings.DownloadChapters }, 30);
-        var subs = kit.Full(new ToggleSwitch { Text = "الترجمة العربي والإنجليزي جوه الفيديو (لو موجودة)", Checked = settings.DownloadSubtitles }, 30);
+        var cover = kit.Full(new ToggleSwitch { Text = "صورة الفيديو كغلاف، والاسم والقناة داخل بيانات الملف", Checked = settings.DownloadEmbedCover }, 30);
+        var chapters = kit.Full(new ToggleSwitch { Text = "فصول الفيديو (إن وُجدت) — تظهر في المشغّلات ويمكن التنقل بها", Checked = settings.DownloadChapters }, 30);
+        var subs = kit.Full(new ToggleSwitch { Text = "الترجمة العربية والإنجليزية داخل الفيديو (إن وُجدت)", Checked = settings.DownloadSubtitles }, 30);
 
         var summary = kit.Note("", 24);
         if (!settings.DownloadNoticeShown)
-            kit.Note("⚖  نزّل بس اللي ليك حق فيه: فيديوهاتك، أو Creative Commons، أو كورس صاحبه سامح بالتنزيل — للمذاكرة الشخصية من غير نشر.", 40, Theme.Muted);
+            kit.Note("⚖  نزّل فقط ما لك حق فيه: فيديوهاتك، أو Creative Commons، أو دورة سمح صاحبها بالتنزيل — للمذاكرة الشخصية دون نشر.", 40, Theme.Muted);
 
         kit.Buttons("⬇  نزّل", "إلغاء");
         Control? ok = kit.Ok;
@@ -147,7 +147,7 @@ internal static class DownloadForm
             qualityValues.Clear();
             quality.Items.Clear();
             bool known = items.Sum(i => i.DurationMs) > 0 || info?.DurationMs > 0;
-            string Size(int q) => known ? " — حوالي " + YtDlp.FormatSize(Estimate(q)) : "";
+            string Size(int q) => known ? " — نحو " + YtDlp.FormatSize(Estimate(q)) : "";
             if (k == DownloadKind.Mp4)
             {
                 var heights = info?.Heights is { Count: > 0 } hs
@@ -166,7 +166,7 @@ internal static class DownloadForm
                 foreach (int r in Mp3Rates)
                 {
                     qualityValues.Add(r);
-                    quality.Items.Add($"{r} kbps{(r == 192 ? " (مقترح)" : r == 320 ? " (ملف أكبر، مش صوت أحسن من يوتيوب)" : "")}{Size(r)}");
+                    quality.Items.Add($"{r} kbps{(r == 192 ? " (مقترح)" : r == 320 ? " (ملف أكبر، وليس صوتًا أفضل من يوتيوب)" : "")}{Size(r)}");
                 }
                 int idx = qualityValues.IndexOf(keep > 0 && Mp3Rates.Contains(keep) ? keep : settings.DownloadMp3Kbps);
                 quality.SelectedIndex = Math.Max(0, idx < 0 ? 1 : idx);
@@ -174,7 +174,7 @@ internal static class DownloadForm
             else
             {
                 qualityValues.Add(0);
-                quality.Items.Add("زي صوت يوتيوب بالظبط (من غير تحويل)" + Size(0));
+                quality.Items.Add("مطابق لصوت يوتيوب تمامًا (دون تحويل)" + Size(0));
                 quality.SelectedIndex = 0;
             }
             subs.Enabled = k == DownloadKind.Mp4;
@@ -189,8 +189,8 @@ internal static class DownloadForm
             string target = toLibrary.Checked && fromLibrary ? Path.Combine(Storage.AppDataDir, "offline") : folder;
             long free = FreeSpace(target);
             bool enough = free < 0 || est <= 0 || free > est + 200L * 1024 * 1024;
-            summary.Text = sel.Count == 0 ? "اختار فيديو واحد على الأقل."
-                : $"{sel.Count} فيديو — حوالي {YtDlp.FormatSize(est)}" + (free >= 0 ? $" • الفاضي على الديسك: {YtDlp.FormatSize(free)}" : "") + (enough ? "" : "  ⚠ المساحة مش كفاية");
+            summary.Text = sel.Count == 0 ? "اختر فيديو واحدًا على الأقل."
+                : $"{sel.Count} فيديو — نحو {YtDlp.FormatSize(est)}" + (free >= 0 ? $" • المساحة الفارغة على القرص: {YtDlp.FormatSize(free)}" : "") + (enough ? "" : "  ⚠ المساحة غير كافية");
             summary.ForeColor = enough ? Theme.Muted : Theme.Danger;
             if (ok != null) ok.Enabled = !busy && sel.Count > 0 && enough;
         }
@@ -202,7 +202,7 @@ internal static class DownloadForm
         subs.CheckedChanged += (_, _) => Refresh();
         pick.Click += (_, _) =>
         {
-            using var dlg = new FolderBrowserDialog { SelectedPath = Directory.Exists(folder) ? folder : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), UseDescriptionForTitle = true, Description = "التنزيلات تتحفظ فين؟" };
+            using var dlg = new FolderBrowserDialog { SelectedPath = Directory.Exists(folder) ? folder : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), UseDescriptionForTitle = true, Description = "أين تُحفظ التنزيلات؟" };
             if (dlg.ShowDialog(kit.Form) != DialogResult.OK) return;
             folder = dlg.SelectedPath;
             folderBox.Text = folder;
@@ -223,10 +223,10 @@ internal static class DownloadForm
         // قراية الرابط: قايمة تشغيل ← الفيديوهات؛ فيديو واحد ← الجودات والأحجام الحقيقية
         async Task ReadUrlAsync(string u)
         {
-            if (!MediaFiles.IsUrl(YtDlp.NormalizeUrl(u))) { infoLabel.Text = "ده مش رابط."; return; }
+            if (!MediaFiles.IsUrl(YtDlp.NormalizeUrl(u))) { infoLabel.Text = "هذا ليس رابطًا."; return; }
             busy = true; Refresh();
             infoLabel.ForeColor = Theme.Muted;
-            infoLabel.Text = "بيقرا الرابط…";
+            infoLabel.Text = "جارٍ قراءة الرابط…";
             try
             {
                 var listing = await YtDlp.ListAsync(u, settings.WholePlaylist, cts.Token);
@@ -243,10 +243,10 @@ internal static class DownloadForm
                     if (list.ClientSize.Width > 120) list.Columns[0].Width = list.ClientSize.Width - list.Columns[1].Width;
                 }
                 if (listing.IsPlaylist)
-                    infoLabel.Text = $"قايمة تشغيل «{listing.Title}» — {items.Count} فيديو. دوس على فيديو عشان تشيله أو ترجّعه.";
+                    infoLabel.Text = $"قائمة تشغيل «{listing.Title}» — {items.Count} فيديو. اضغط على فيديو لإزالته أو إعادته.";
                 else if (items.Count == 1)
                 {
-                    infoLabel.Text = $"«{items[0].Title}» — بيجيب الجودات المتاحة…";
+                    infoLabel.Text = $"«{items[0].Title}» — جارٍ جلب الجودات المتاحة…";
                     try
                     {
                         info = await YtDlp.InfoAsync(items[0].Url, cts.Token);

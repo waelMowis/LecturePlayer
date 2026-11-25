@@ -49,7 +49,7 @@ internal sealed class UdemyAccountForm : Form
     public async Task<string?> SignInAsync(CancellationToken ct)
     {
         await UdemyWeb.InitAsync(Web);
-        Status("بفتح يوديمي…");
+        Status("جارٍ فتح يوديمي…");
         try { await UdemyWeb.NavigateAsync(Web, Udemy.CurrentOrigin + "/home/my-courses/learning/", ct); }
         catch (TimeoutException) { }
 
@@ -72,7 +72,7 @@ internal sealed class UdemyAccountForm : Form
                     Web.CoreWebView2.Navigate(Udemy.CurrentOrigin + "/join/login-popup/?next=/home/my-courses/learning/");
                 }
             }
-            Status("🔐 سجّل دخولك في يوديمي هنا بنفس الإيميل اللي اشتريت بيه — البيانات بتروح ليوديمي مباشرة و«مسار» مابيشوفهاش.", Theme.Folder);
+            Status("🔐 سجّل دخولك في يوديمي هنا بالبريد نفسه الذي اشتريت به — تذهب البيانات إلى يوديمي مباشرة ولا يراها «مسار».", Theme.Folder);
             await Task.Delay(2500, ct);
         }
         return null;

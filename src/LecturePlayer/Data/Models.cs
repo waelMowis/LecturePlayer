@@ -557,7 +557,7 @@ public sealed class CourseLibrary
     /// <summary>يحط المصدر جوه مصدر تاني (أو يطلّعه منه لو null). بياخد موضوع الأكبر، وكورساته معاه.</summary>
     public void NestPlace(Place child, Place? parent)
     {
-        if (parent != null && !CanNest(child, parent)) throw new InvalidOperationException("مستويين بس من المصادر");
+        if (parent != null && !CanNest(child, parent)) throw new InvalidOperationException("مستويان فقط من المصادر");
         if (parent != null && parent.TopicId != child.TopicId) MovePlace(child, TopicOf(parent));
         child.ParentId = parent?.Id;
         child.TouchInfo();

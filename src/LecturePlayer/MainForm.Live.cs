@@ -172,7 +172,7 @@ internal sealed partial class MainForm
 
     internal void PlayLive(LiveChannel ch)
     {
-        if (FocusActive) { ShowStatus("وضع التركيز شغال 🎯"); return; }
+        if (FocusActive) { ShowStatus("وضع التركيز يعمل 🎯"); return; }
 
         // نقفل الفيديو الحالي (بعد ما نحفظ مكانه) ونشغّل البث مكانه
         StopPlaybackCore(clearCurrent: true);
@@ -207,7 +207,7 @@ internal sealed partial class MainForm
                 // يوتيوب لايف وصفحات البث: yt-dlp بيجيب رابط البث نفسه
                 _liveTriedResolver = true;
                 if (!await EnsureYtDlpAsync()) return;
-                ShowStatus("بجهّز البث…", 60);
+                ShowStatus("جارٍ تجهيز البث…", 60);
                 YtDlp.CookiesBrowser = _settings.OnlineCookiesBrowser;
                 var stream = await YtDlp.ResolveLiveAsync(url, LiveMaxHeight, CancellationToken.None);
                 if (stream == null || request != _playRequest || _closing || _currentLive != ch) return;
@@ -276,8 +276,8 @@ internal sealed partial class MainForm
             if (request != _playRequest || _closing) return;
             Log.Error($"live {ch.Url}", ex);
             HideBanner("live");
-            ShowStatus("البث ده مش راضي يشتغل", 6);
-            Dialogs.Error(this, $"مقدرتش أشغّل «{ch.Name}»:\n\n{YtDlp.Explain(ex.Message).Message}");
+            ShowStatus("هذا البث لا يعمل", 6);
+            Dialogs.Error(this, $"تعذّر تشغيل «{ch.Name}»:\n\n{YtDlp.Explain(ex.Message).Message}");
         }
     }
 
@@ -308,7 +308,7 @@ internal sealed partial class MainForm
             _liveRetries++;
             _liveReconnecting = true;
             int attempt = _liveRetries;
-            ShowBanner($"البث وقف… بحاول أرجّعه ({attempt} من {MaxLiveRetries})", BannerKind.Warning, seconds: 0, key: "live");
+            ShowBanner($"توقف البث… جارٍ إعادته ({attempt} من {MaxLiveRetries})", BannerKind.Warning, seconds: 0, key: "live");
             int request = ++_playRequest;
             _ = Task.Delay(TimeSpan.FromSeconds(2 * attempt)).ContinueWith(_ => Ui(() =>
             {
@@ -325,8 +325,8 @@ internal sealed partial class MainForm
             return true;
         }
         HideBanner("live");
-        ShowStatus("البث ده مش متاح دلوقتي", 8);
-        Dialogs.Error(this, $"«{ch.Name}» مش متاح دلوقتي.\n\nممكن المحطة/القناة قافلة البث، أو الرابط اتغيّر، أو النت مش ثابت.");
+        ShowStatus("هذا البث غير متاح الآن", 8);
+        Dialogs.Error(this, $"«{ch.Name}» غير متاح الآن.\n\nقد تكون المحطة/القناة أوقفت البث، أو تغيّر الرابط، أو الإنترنت غير مستقر.");
         return true;
     }
 
@@ -361,7 +361,7 @@ internal sealed partial class MainForm
     private void SetSleepTimer(int minutes)
     {
         _sleepAtUtc = minutes > 0 ? DateTime.UtcNow.AddMinutes(minutes) : null;
-        ShowStatus(minutes > 0 ? $"😴 هيقفل بعد {minutes} دقيقة" : "اتلغى مؤقت النوم", 5);
+        ShowStatus(minutes > 0 ? $"😴 سيُغلق بعد {minutes} دقيقة" : "أُلغي مؤقت النوم", 5);
     }
 
     private void SleepTick()
@@ -370,7 +370,7 @@ internal sealed partial class MainForm
         _sleepAtUtc = null;
         PausePlayback();
         UpdatePlayButton();
-        ShowBanner("😴 مؤقت النوم وقّف التشغيل", BannerKind.Info, seconds: 0);
+        ShowBanner("😴 أوقف مؤقت النوم التشغيل", BannerKind.Info, seconds: 0);
     }
 
     /// <summary>«📻 بث مباشر ▸» جوه «إنترنت»: الراديو والتليفزيون، ومفضّلاتك، وإيقاف البث.</summary>
@@ -380,7 +380,7 @@ internal sealed partial class MainForm
         menu.DropDownOpening += (_, _) =>
         {
             menu.DropDownItems.Clear();
-            menu.DropDownItems.Add(Item("📻 راديو وتليفزيون…", ShowLiveWindow, display: "Ctrl+Shift+L"));
+            menu.DropDownItems.Add(Item("📻 راديو وتلفزيون…", ShowLiveWindow, display: "Ctrl+Shift+L"));
             var favs = _library.Live.Where(l => l.Favorite).Take(20).ToList();
             if (favs.Count > 0)
             {

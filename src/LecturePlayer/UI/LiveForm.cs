@@ -31,7 +31,7 @@ internal sealed class LiveForm : ToolWindow
     private List<RadioStation> _radioResults = new();
     private CancellationTokenSource? _searchCts;
 
-    public LiveForm(Host host) : base("بث مباشر — راديو وتليفزيون", 820, 600)
+    public LiveForm(Host host) : base("بث مباشر — راديو وتلفزيون", 820, 600)
     {
         _host = host;
         MinimizeBox = true;
@@ -44,7 +44,7 @@ internal sealed class LiveForm : ToolWindow
         };
         _tabFav = TabButton("⭐ المفضلة", Tab.Favorites);
         _tabRadio = TabButton("📻 راديو", Tab.Radio);
-        _tabTv = TabButton("📺 تليفزيون", Tab.Tv);
+        _tabTv = TabButton("📺 تلفزيون", Tab.Tv);
         tabs.Controls.AddRange(new Control[] { _tabFav, _tabRadio, _tabTv });
 
         // فلاتر الراديو
@@ -86,7 +86,7 @@ internal sealed class LiveForm : ToolWindow
         // الأزرار
         var bar = ButtonBar();
         bar.Controls.Add(Btn("▶ تشغيل", PlaySelected, accent: true));
-        _favButton = Btn("⭐ للمفضلة", ToggleFavorite);
+        _favButton = Btn("⭐ إلى المفضلة", ToggleFavorite);
         bar.Controls.Add(_favButton);
         bar.Controls.Add(Btn("＋ قناة برابط…", AddByLink));
         bar.Controls.Add(Btn("إضافة قنوات من ملف…", ImportM3u));
@@ -122,9 +122,9 @@ internal sealed class LiveForm : ToolWindow
         _filters.Visible = tab == Tab.Radio;
         _note.Text = tab switch
         {
-            Tab.Radio => "محطات راديو الإنترنت من دليل Radio Browser المفتوح. دبل كليك للتشغيل، و⭐ عشان تحفظها.",
-            Tab.Tv => "أول قناتين بث رسمي جاهز من الحرمين. وضيف قنواتك من مصادرها الرسمية: رابط البث، أو بثها على يوتيوب، أو ملف قنوات (M3U) من اشتراكك.",
-            _ => "محطاتك وقنواتك المفضلة (بتتزامن مع أجهزتك التانية مع المكتبة)."
+            Tab.Radio => "محطات راديو الإنترنت من دليل Radio Browser المفتوح. انقر نقرًا مزدوجًا للتشغيل، و⭐ لحفظها.",
+            Tab.Tv => "أول قناتين بث رسمي جاهز من الحرمين. وأضف قنواتك من مصادرها الرسمية: رابط البث، أو بثها على يوتيوب، أو ملف قنوات (M3U) من اشتراكك.",
+            _ => "محطاتك وقنواتك المفضلة (تتزامن مع أجهزتك الأخرى مع المكتبة)."
         };
         if (tab == Tab.Radio && _radioResults.Count == 0) _ = SearchRadioAsync();
         else Fill();
@@ -167,8 +167,8 @@ internal sealed class LiveForm : ToolWindow
         if (_list.Items.Count > 0) _list.Items[0].Selected = true;
         _status.Text = _tab switch
         {
-            Tab.Favorites when _list.Items.Count == 0 => "مفيش مفضلة لسه: من تبويب «راديو» اختار محطة ودوس ⭐ للمفضلة.",
-            Tab.Tv when _list.Items.Count <= LivePresets.Tv.Count => "ضيف قنواتك: «＋ قناة برابط» أو «استيراد ملف قنوات».",
+            Tab.Favorites when _list.Items.Count == 0 => "لا توجد مفضلة بعد: من تبويب «راديو» اختر محطة واضغط ⭐ للمفضلة.",
+            Tab.Tv when _list.Items.Count <= LivePresets.Tv.Count => "أضف قنواتك: «＋ قناة برابط» أو «استيراد ملف قنوات».",
             _ => $"{_list.Items.Count} عنصر"
         };
         UpdateButtons();
@@ -182,7 +182,7 @@ internal sealed class LiveForm : ToolWindow
     {
         var r = Selected;
         _favButton.Enabled = r != null;
-        _favButton.Text = r?.Channel.Favorite == true ? "شيل من المفضلة" : "⭐ للمفضلة";
+        _favButton.Text = r?.Channel.Favorite == true ? "أزل من المفضلة" : "⭐ إلى المفضلة";
         _favButton.AutoSizeToText();
         _favButton.Width = Math.Max(110, _favButton.Width);
         // الحذف للحاجات المحفوظة في المكتبة بس (مش نتايج الدليل)
@@ -193,7 +193,7 @@ internal sealed class LiveForm : ToolWindow
     {
         _searchCts?.Cancel();
         var cts = _searchCts = new CancellationTokenSource();
-        _status.Text = "بدوّر في دليل الراديو…";
+        _status.Text = "جارٍ البحث في دليل الراديو…";
         UseWaitCursor = true;
         try
         {
@@ -203,7 +203,7 @@ internal sealed class LiveForm : ToolWindow
             if (cts.IsCancellationRequested || IsDisposed) return;
             _radioResults = result;
             if (_tab == Tab.Radio) Fill();
-            if (result.Count == 0) _status.Text = "مفيش محطات بالبحث ده. جرّب دولة أو نوع تاني.";
+            if (result.Count == 0) _status.Text = "لا توجد محطات بهذا البحث. جرّب دولة أو نوعًا آخر.";
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -220,7 +220,7 @@ internal sealed class LiveForm : ToolWindow
     {
         if (Selected is not { } r) return;
         _host.Play(r.Channel);
-        _status.Text = "بيشتغل: " + r.Channel.Name;
+        _status.Text = "يعمل الآن: " + r.Channel.Name;
     }
 
     private void ToggleFavorite()
@@ -228,7 +228,7 @@ internal sealed class LiveForm : ToolWindow
         if (Selected is not { } r) return;
         var lib = _host.Library();
         var c = r.Channel;
-        _host.Checkpoint(c.Favorite ? "شيل من المفضلة" : "إضافة للمفضلة");
+        _host.Checkpoint(c.Favorite ? "أزل من المفضلة" : "إضافة إلى المفضلة");
         if (!c.Favorite)
         {
             c.Favorite = true;
@@ -253,17 +253,17 @@ internal sealed class LiveForm : ToolWindow
         var name = kit.Row("الاسم", new TextBox { RightToLeft = RightToLeft.Yes });
         var url = kit.Row("الرابط", new TextBox { RightToLeft = RightToLeft.No });
         var kind = kit.Row("النوع", new SelectBox());
-        kind.Items.AddRange(new[] { "📺 تليفزيون", "📻 راديو" });
+        kind.Items.AddRange(new[] { "📺 تلفزيون", "📻 راديو" });
         kind.SelectedIndex = _tab == Tab.Radio ? 1 : 0;
         var group = kit.Row("المجموعة (اختياري)", new TextBox { RightToLeft = RightToLeft.Yes });
-        kit.Note("الرابط ممكن يكون: رابط بث (m3u8 أو mp3…)، أو صفحة بث مباشر على يوتيوب، أو رابط البث من موقع القناة الرسمي.");
+        kit.Note("يمكن أن يكون الرابط: رابط بث (m3u8 أو mp3…)، أو صفحة بث مباشر على يوتيوب، أو رابط البث من موقع القناة الرسمي.");
         kit.Buttons("إضافة");
         if (kit.Show(this) != DialogResult.OK) return;
 
         string link = url.Text.Trim();
         if (!MediaFiles.IsUrl(link) && !link.Contains("://", StringComparison.Ordinal))
         {
-            Dialogs.Error(this, "الرابط مش صحيح.");
+            Dialogs.Error(this, "الرابط غير صحيح.");
             return;
         }
         var c = new LiveChannel
@@ -295,17 +295,17 @@ internal sealed class LiveForm : ToolWindow
             var lib = _host.Library();
             var existing = new HashSet<string>(lib.Live.Select(l => l.Url), StringComparer.OrdinalIgnoreCase);
             var fresh = channels.Where(c => existing.Add(c.Url)).ToList();
-            if (fresh.Count == 0) { Dialogs.Info(this, channels.Count == 0 ? "الملف مفيهوش قنوات." : "القنوات دي موجودة أصلًا."); return; }
+            if (fresh.Count == 0) { Dialogs.Info(this, channels.Count == 0 ? "الملف لا يحتوي على قنوات." : "هذه القنوات موجودة بالفعل."); return; }
             _host.Checkpoint("استيراد قنوات");
             lib.Live.AddRange(fresh);
             _host.Changed();
             SelectTab(Tab.Tv);
-            _status.Text = $"اتضاف {fresh.Count} قناة ✓";
+            _status.Text = $"أُضيفت {fresh.Count} قناة ✓";
         }
         catch (Exception ex)
         {
             Log.Error("m3u-import", ex);
-            Dialogs.Error(this, "مقدرتش أقرا الملف:\n" + ex.Message);
+            Dialogs.Error(this, "تعذّرت قراءة الملف:\n" + ex.Message);
         }
     }
 
@@ -314,7 +314,7 @@ internal sealed class LiveForm : ToolWindow
         if (Selected is not { } r) return;
         var lib = _host.Library();
         if (!lib.Live.Contains(r.Channel)) return;
-        if (!Dialogs.Confirm(this, $"حذف «{r.Channel.Name}»؟")) return;
+        if (!Dialogs.Confirm(this, $"هل تريد حذف «{r.Channel.Name}»؟")) return;
         _host.Checkpoint("حذف قناة");
         lib.Live.Remove(r.Channel);
         _host.Forget(r.Channel);

@@ -21,9 +21,9 @@ public static class Tools
     /// <summary>موديلات whisper المتاحة: الاسم ← الحجم التقريبي.</summary>
     public static readonly (string Name, string Label)[] WhisperModels =
     {
-        ("base", "base — سريع (حوالي 150 ميجا)"),
-        ("small", "small — أدق، أبطأ (حوالي 480 ميجا)"),
-        ("medium", "medium — الأدق للعربي، بطيء (حوالي 1.5 جيجا)")
+        ("base", "base — سريع (نحو 150 ميجابايت)"),
+        ("small", "small — أدق، أبطأ (نحو 480 ميجابايت)"),
+        ("medium", "medium — الأدق للعربية، بطيء (نحو 1.5 جيجابايت)")
     };
 
     public static string ToolsDir => Path.Combine(Storage.AppDataDir, "tools");
@@ -61,10 +61,10 @@ public static class Tools
     {
         string zip = Path.Combine(ToolsDir, "ffmpeg.zip");
         await DownloadAsync(FfmpegUrl, zip, "أداة الفيديو", progress, ct);
-        progress.Report("بجهّز أداة الفيديو…");
+        progress.Report("جارٍ تجهيز أداة الفيديو…");
         ExtractFlat(zip, FfmpegDir, e => e.FullName.Contains("/bin/", StringComparison.OrdinalIgnoreCase));
         File.Delete(zip);
-        if (FindFfmpeg() == null) throw new InvalidOperationException("ملف ffmpeg المضغوط مفيهوش ffmpeg.exe");
+        if (FindFfmpeg() == null) throw new InvalidOperationException("ملف ffmpeg المضغوط لا يحتوي على ffmpeg.exe");
     }
 
     public static async Task DownloadWhisperAsync(string model, IProgress<string> progress, CancellationToken ct)
@@ -72,8 +72,8 @@ public static class Tools
         if (FindWhisper() == null)
         {
             string zip = Path.Combine(ToolsDir, "whisper.zip");
-            await DownloadAsync(await ResolveWhisperUrlAsync(ct), zip, "أداة تحويل الكلام لنص", progress, ct);
-            progress.Report("بجهّز أداة تحويل الكلام لنص…");
+            await DownloadAsync(await ResolveWhisperUrlAsync(ct), zip, "أداة تحويل الكلام إلى نص", progress, ct);
+            progress.Report("جارٍ تجهيز أداة تحويل الكلام إلى نص…");
             ExtractFlat(zip, WhisperDir, e => e.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
                                               e.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
             File.Delete(zip);
@@ -84,7 +84,7 @@ public static class Tools
             await DownloadAsync(string.Format(CultureInfo.InvariantCulture, WhisperModelUrlFormat, model), ModelPath(model),
                 $"ملف اللغة ({model})", progress, ct);
         }
-        if (FindWhisper() == null) throw new InvalidOperationException("ملف whisper المضغوط مفيهوش whisper-cli.exe");
+        if (FindWhisper() == null) throw new InvalidOperationException("ملف whisper المضغوط لا يحتوي على whisper-cli.exe");
     }
 
     /// <summary>أحدث إصدار من whisper.cpp فيه ملف ويندوز 64 جاهز.</summary>
@@ -153,12 +153,12 @@ public static class Tools
     /// <summary>صوت الفيديو كـ WAV أحادي 16 كيلوهرتز (الصيغة اللي whisper محتاجها).</summary>
     public static async Task ExtractAudioWavAsync(string video, string outWav, CancellationToken ct)
     {
-        string ffmpeg = FindFfmpeg() ?? throw new FileNotFoundException("ffmpeg مش موجود");
+        string ffmpeg = FindFfmpeg() ?? throw new FileNotFoundException("ffmpeg غير موجود");
         var r = await ProcessRunner.RunAsync(ffmpeg, new[]
         {
             "-v", "error", "-y", "-i", video, "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", outWav
         }, TimeSpan.FromHours(2), ct);
         if (r.ExitCode != 0 || !File.Exists(outWav))
-            throw new InvalidOperationException(ProcessRunner.LastErrorLine(r.StdErr, "ffmpeg مقدرش يقرا صوت الفيديو"));
+            throw new InvalidOperationException(ProcessRunner.LastErrorLine(r.StdErr, "لم يستطع ffmpeg قراءة صوت الفيديو"));
     }
 }

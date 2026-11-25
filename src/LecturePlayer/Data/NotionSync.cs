@@ -160,22 +160,22 @@ public sealed class NotionSync
     public async Task CreateTopicAsync(Topic t, string parentPageId, CancellationToken ct)
     {
         if (t.Notion != null) throw new InvalidOperationException("الموضوع مربوط بنوشن بالفعل");
-        Progress?.Invoke("بعمل صفحة الموضوع…");
+        Progress?.Invoke("جارٍ إنشاء صفحة الموضوع…");
         string page = await _api.CreatePageAsync(
             new JsonObject { ["type"] = "page_id", ["page_id"] = parentPageId },
             new JsonObject { ["title"] = NotionClient.TitleProp(t.Name) }, "📚",
-            new JsonArray(NotionClient.Callout("اتعملت من «مسار» — بنفس ترتيب المكتبة، والتقدّم والجديد بيتحدّثوا لوحدهم.", "🎓",
+            new JsonArray(NotionClient.Callout("أُنشئت من «مسار» — بنفس ترتيب المكتبة، ويتحدّث التقدّم والجديد تلقائيًا.", "🎓",
                 new JsonArray(
-                    NotionClient.Bullet("الكورسات مقسومة بالمصدر. دوس على أي كورس تلاقي جدول محاضراته جوه صفحته."),
-                    NotionClient.Bullet("الموعد والحضور وTASK وSEARCH وSUMMARY بتوعك: عدّلهم هنا أو من مسار."),
-                    NotionClient.Bullet("ماتغيّرش أسماء الأعمدة (المزامنة بتدوّر عليها بالاسم). مسار مابيمسحش حاجة هنا.")))), ct);
-        Progress?.Invoke("بعمل قاعدة الكورسات…");
+                    NotionClient.Bullet("الدورات مقسّمة حسب المصدر. اضغط على أي دورة لتجد جدول محاضراتها داخل صفحتها."),
+                    NotionClient.Bullet("الموعد والحضور وTASK وSEARCH وSUMMARY الخاصة بك: عدّلها هنا أو من مسار."),
+                    NotionClient.Bullet("لا تغيّر أسماء الأعمدة (المزامنة تبحث عنها بالاسم). مسار لا يحذف شيئًا هنا.")))), ct);
+        Progress?.Invoke("جارٍ إنشاء قاعدة الدورات…");
         var (cdb, cds) = await _api.CreateDatabaseAsync(page, "الكورسات", "🎓", CoursesSchema(), ct);
         await ConfigureViewAsync(cdb, cds, COrder, CSource, ct);
         t.Notion = new NotionTopicLink { Layout = CurrentLayout, PageId = page, CoursesDbId = cdb, CoursesDsId = cds, CreatedUtc = DateTime.UtcNow };
         _state.Hash["topic:" + page] = Hash(t.Name);
         LibraryChanged = true;
-        Changes.Add($"اتعملت صفحة «{t.Name}» وقاعدة الكورسات");
+        Changes.Add($"أُنشئت صفحة «{t.Name}» وقاعدة الدورات");
         // أرقام قديمة لكورسات الموضوع من ربط قديم اتفك ماتنفعش (اللي في موضوع تاني مربوط بنسيبها عشان صفها القديم يتعلّم)
         var linked = _lib.Topics.Where(x => x.Notion != null && x != t).Select(x => x.Notion!.CoursesDsId).ToHashSet();
         foreach (var c in _lib.CoursesOf(t))
@@ -192,11 +192,11 @@ public sealed class NotionSync
         if (t.Notion is { } old)
         {
             try { await PullPlanAsync(t, ct); } catch (NotionException ex) when (IsGone(ex)) { }
-            Progress?.Invoke("بحط الصفحة القديمة في السلة…");
+            Progress?.Invoke("جارٍ نقل الصفحة القديمة إلى السلة…");
             try
             {
                 await _api.PatchAsync("pages/" + old.PageId, new JsonObject { ["in_trash"] = true }, ct);
-                Changes.Add($"صفحة «{t.Name}» القديمة راحت سلة نوشن");
+                Changes.Add($"نُقلت صفحة «{t.Name}» القديمة إلى سلة نوشن");
             }
             catch (NotionException ex) when (IsGone(ex)) { }
             foreach (var k in _state.Known.Where(kv => kv.Value.StartsWith(t.Id + "|", StringComparison.Ordinal)).Select(kv => kv.Key).ToList())
@@ -242,20 +242,20 @@ public sealed class NotionSync
         catch (NotionException ex)
         {
             Log.Info($"notion view: {ex.Status} {ex.Message}");
-            Changes.Add("ترتيب العرض في نوشن مااتظبطش لوحده (رتّب الجدول بعمود «" + sortBy + "» من نوشن)");
+            Changes.Add("لم يُضبط ترتيب العرض في نوشن تلقائيًا (رتّب الجدول بعمود «" + sortBy + "» من نوشن)");
         }
     }
 
     /// <summary>سجل المذاكرة اليومي للموضوع (قاعدة تالتة).</summary>
     public async Task CreateLogAsync(Topic t, CancellationToken ct)
     {
-        var link = t.Notion ?? throw new InvalidOperationException("الموضوع مش مربوط بنوشن");
+        var link = t.Notion ?? throw new InvalidOperationException("الموضوع غير مربوط بنوشن");
         if (link.LogDsId != null) return;
         var (db, ds) = await _api.CreateDatabaseAsync(link.PageId, "سجل المذاكرة", "🗓️", LogSchema(link.CoursesDsId), ct);
         link.LogDbId = db;
         link.LogDsId = ds;
         LibraryChanged = true;
-        Changes.Add($"اتعمل «سجل المذاكرة» لموضوع «{t.Name}»");
+        Changes.Add($"أُنشئ «سجل المذاكرة» لموضوع «{t.Name}»");
         await SyncLogAsync(t, ct);
     }
 
@@ -266,7 +266,7 @@ public sealed class NotionSync
     /// <summary>كل كورسات الموضوع ومحاضراته وفيديوهاته: الجديد يتعمل، واللي اتغيّر يتحدّث، واللي اتشال يتعلّم.</summary>
     public async Task SyncTopicAsync(Topic t, CancellationToken ct, bool recreateMissing = false)
     {
-        var link = t.Notion ?? throw new InvalidOperationException("الموضوع مش مربوط بنوشن");
+        var link = t.Notion ?? throw new InvalidOperationException("الموضوع غير مربوط بنوشن");
         if (recreateMissing) _state.Detached.Clear();
 
         // اسم الموضوع
@@ -275,7 +275,7 @@ public sealed class NotionSync
         {
             await _api.UpdatePageAsync(link.PageId, new JsonObject { ["title"] = NotionClient.TitleProp(t.Name) }, ct);
             _state.Hash["topic:" + link.PageId] = th;
-            Changes.Add($"اسم الموضوع بقى «{t.Name}»");
+            Changes.Add($"أصبح اسم الموضوع «{t.Name}»");
         }
 
         if (link.Layout < CurrentLayout) throw new InvalidOperationException(OldLayoutMessage(t));
@@ -315,7 +315,7 @@ public sealed class NotionSync
         try
         {
             await _api.UpdatePageAsync(pageId, new JsonObject { [CStatus] = NotionClient.SelectProp(Removed) }, ct);
-            Changes.Add("صف اتعلّم «اتشال من مسار»");
+            Changes.Add("وُسم صف بـ «اتشال من مسار»");
         }
         catch (NotionException ex) when (IsGone(ex)) { }
         _state.Detached.Add(pageId);
@@ -362,7 +362,7 @@ public sealed class NotionSync
             LibraryChanged = true;
             _state.Hash[id] = h;
             _state.Known[id] = $"{t.Id}|c|{c.Id}";
-            Changes.Add($"كورس جديد في نوشن: «{c.Name}»");
+            Changes.Add($"دورة جديدة في نوشن: «{c.Name}»");
         }
         else
         {
@@ -374,12 +374,12 @@ public sealed class NotionSync
                 {
                     await _api.UpdatePageAsync(c.NotionPageId, props, ct);
                     _state.Hash[c.NotionPageId] = h;
-                    Changes.Add($"اتحدّث «{c.Name}»");
+                    Changes.Add($"حُدِّثت «{c.Name}»");
                 }
                 catch (NotionException ex) when (IsGone(ex))
                 {
                     _state.Detached.Add(c.NotionPageId);
-                    Changes.Add($"صف «{c.Name}» اتشال من نوشن — مش هيترجع لوحده (🔄 زامن من الأول لو عايزه)");
+                    Changes.Add($"حُذف صف «{c.Name}» من نوشن — لن يعود تلقائيًا (🔄 أعد المزامنة من البداية إن أردته)");
                     return;
                 }
             }
@@ -435,7 +435,7 @@ public sealed class NotionSync
                 await _api.UpdatePageAsync(g.NotionPageId, props, ct);
                 _state.Hash[g.NotionPageId] = h;
                 if (props.ContainsKey(LStatus)) _state.Rank[g.NotionPageId] = Math.Max(rank, _state.Rank.GetValueOrDefault(g.NotionPageId));
-                Changes.Add($"اتحدّثت «{g.Name}»");
+                Changes.Add($"حُدِّثت «{g.Name}»");
             }
             if (_state.PendingPlan.Contains(g.Id) && g.Plan != null)
             {
@@ -447,7 +447,7 @@ public sealed class NotionSync
         catch (NotionException ex) when (IsGone(ex))
         {
             _state.Detached.Add(g.NotionPageId);
-            Changes.Add($"صف «{g.Name}» اتشال من نوشن — مش هيترجع لوحده");
+            Changes.Add($"حُذف صف «{g.Name}» من نوشن — لن يعود تلقائيًا");
         }
     }
 
@@ -628,7 +628,7 @@ public sealed class NotionSync
     /// <summary>بيسحب الموعد والحضور والمهام لكل محاضرات الموضوع ← عدد المحاضرات اللي خطتها اتغيرت.</summary>
     public async Task<int> PullPlanAsync(Topic t, CancellationToken ct)
     {
-        var link = t.Notion ?? throw new InvalidOperationException("الموضوع مش مربوط بنوشن");
+        var link = t.Notion ?? throw new InvalidOperationException("الموضوع غير مربوط بنوشن");
         var byPage = _lib.CoursesOf(t).SelectMany(c => c.Groups).Where(g => g.NotionPageId != null)
             .GroupBy(g => g.NotionPageId!).ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
         var rows = new List<JsonObject>();
@@ -664,7 +664,7 @@ public sealed class NotionSync
                 _state.Rank[id] = Math.Max(_state.Rank.GetValueOrDefault(id), st == Done ? 2 : st == Started ? 1 : 0);
         }
         link.PlanPulledUtc = DateTime.UtcNow;
-        if (changed > 0) Changes.Add($"اتسحبت خطة {changed} محاضرة من نوشن ({t.Name})");
+        if (changed > 0) Changes.Add($"جُلبت خطة {changed} محاضرة من نوشن ({t.Name})");
         return changed;
     }
 
@@ -675,7 +675,7 @@ public sealed class NotionSync
         _state.PendingPlan.Add(g.Id);
         await _api.UpdatePageAsync(g.NotionPageId, PlanProps(g.Plan), ct);
         _state.PendingPlan.Remove(g.Id);
-        Changes.Add($"خطة «{g.Name}» اتبعتت لنوشن");
+        Changes.Add($"أُرسلت خطة «{g.Name}» إلى نوشن");
     }
 
     /// <summary>
@@ -723,7 +723,7 @@ public sealed class NotionSync
     /// </summary>
     public async Task SendNotesAsync(LectureGroup g, IReadOnlyList<JsonObject> content, bool hasSummary, CancellationToken ct)
     {
-        if (g.NotionPageId == null) throw new InvalidOperationException("المحاضرة لسه ماتعملهاش صف في نوشن — زامن الموضوع الأول");
+        if (g.NotionPageId == null) throw new InvalidOperationException("لم يُنشأ صف لهذه المحاضرة في نوشن بعد — زامن الموضوع أولًا");
         if (g.NotionNotesBlockId != null) await _api.TrashBlockAsync(g.NotionNotesBlockId, ct);
         var first = new JsonArray();
         foreach (var b in content.Take(100)) first.Add(b.DeepClone());
@@ -743,7 +743,7 @@ public sealed class NotionSync
                 await PushPlanAsync(g, ct);
             }
         }
-        Changes.Add($"ملاحظات «{g.Name}» اتبعتت لنوشن");
+        Changes.Add($"أُرسلت ملاحظات «{g.Name}» إلى نوشن");
     }
 
     // =====================================================================

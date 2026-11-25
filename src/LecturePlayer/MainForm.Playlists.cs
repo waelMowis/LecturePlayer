@@ -14,12 +14,12 @@ internal sealed partial class MainForm
     /// <summary>groups = null ← كل المحاضرات المربوطة. quiet = تحديث تلقائي (من غير رسايل لو مفيش جديد).</summary>
     private async Task SyncPlaylistsAsync(IReadOnlyList<LectureGroup>? groups, bool quiet)
     {
-        if (_syncingPlaylists) { if (!quiet) ShowStatus("التحديث شغال بالفعل…"); return; }
+        if (_syncingPlaylists) { if (!quiet) ShowStatus("التحديث يعمل بالفعل…"); return; }
         groups ??= _library.AllGroups.Where(g => g.IsPlaylist).ToList();
         if (groups.Count == 0)
         {
-            if (!quiet) Dialogs.Info(this, "مفيش محاضرات مربوطة بقوائم يوتيوب لسه.\n\n" +
-                                         "القوائم الجديدة بتتربط لوحدها لما تضيفها. والقديمة: كليك يمين على المحاضرة ← «ربط بقائمة تشغيل يوتيوب».");
+            if (!quiet) Dialogs.Info(this, "لا توجد محاضرات مربوطة بقوائم يوتيوب بعد.\n\n" +
+                                         "تُربط القوائم الجديدة تلقائيًا عند إضافتها. أما القديمة: انقر بالزر الأيمن على المحاضرة ← «ربط بقائمة تشغيل يوتيوب».");
             return;
         }
         if (quiet ? YtDlp.FindYtDlp() == null : !await EnsureYtDlpAsync()) return;
@@ -34,7 +34,7 @@ internal sealed partial class MainForm
             {
                 var g = groups[i];
                 if (_closing) return;
-                ShowStatus($"🔄 بحدّث قوائم يوتيوب… ({i + 1} من {groups.Count}) {g.Name}", 60);
+                ShowStatus($"🔄 جارٍ تحديث قوائم يوتيوب… ({i + 1} من {groups.Count}) {g.Name}", 60);
                 OnlineListing listing;
                 try { listing = await YtDlp.ListAsync(g.SourceUrl!, wholePlaylist: true, CancellationToken.None); }
                 catch (Exception ex) { errors.Add($"{g.Name}: {ex.Message}"); continue; }
@@ -60,16 +60,16 @@ internal sealed partial class MainForm
             Notify($"🆕 {total} فيديو جديد", where);
             if (!quiet && first.Videos.FirstOrDefault(v => v.IsNew) is { } v) SelectItem(v);
         }
-        else ShowStatus(errors.Count == 0 ? "🔄 قوائم يوتيوب متحدثة — مفيش فيديوهات جديدة ✓" : "", 5);
+        else ShowStatus(errors.Count == 0 ? "🔄 قوائم يوتيوب محدّثة — لا توجد فيديوهات جديدة ✓" : "", 5);
 
         if (!quiet)
         {
             var lines = new List<string>();
-            if (total > 0) lines.Add($"اتضاف {total} فيديو جديد (عليهم علامة «جديد» في المكتبة):\n" +
+            if (total > 0) lines.Add($"أُضيف {total} فيديو جديد (عليها علامة «جديد» في المكتبة):\n" +
                                      string.Join("\n", report.Where(x => x.Added > 0).Select(x => $"• {x.Group.Name}: {x.Added}")));
             int missing = report.Sum(x => x.Missing);
-            if (missing > 0) lines.Add($"\nفيه {missing} فيديو اتشالوا من قوائم يوتيوب (أو بقوا خاصين). سبتهم عندك بتقدمك وملاحظاتك.");
-            if (errors.Count > 0) lines.Add("\nمقدرتش أحدّث:\n" + string.Join("\n", errors.Take(5)));
+            if (missing > 0) lines.Add($"\nيوجد {missing} فيديو حُذفت من قوائم يوتيوب (أو أصبحت خاصة). تركتها عندك بتقدّمك وملاحظاتك.");
+            if (errors.Count > 0) lines.Add("\nتعذّر التحديث:\n" + string.Join("\n", errors.Take(5)));
             if (lines.Count > 0) Dialogs.Info(this, string.Join("\n", lines), "تحديث قوائم يوتيوب");
         }
     }
@@ -79,11 +79,11 @@ internal sealed partial class MainForm
     {
         string initial = "";
         try { if (Clipboard.ContainsText() && PlaylistSync.IsPlaylistUrl(Clipboard.GetText())) initial = Clipboard.GetText().Trim(); } catch { }
-        string? url = Dialogs.Input(this, "ربط بقائمة يوتيوب", $"رابط قائمة التشغيل اللي «{g.Name}» جاية منها (فيه list=):", initial);
+        string? url = Dialogs.Input(this, "ربط بقائمة يوتيوب", $"رابط قائمة التشغيل التي جاءت منها «{g.Name}» (فيه list=):", initial);
         if (url == null) return;
         if (!MediaFiles.IsUrl(url) || !PlaylistSync.IsPlaylistUrl(url))
         {
-            Dialogs.Error(this, "ده مش رابط قائمة تشغيل. الرابط لازم يكون فيه list= أو /playlist");
+            Dialogs.Error(this, "هذا ليس رابط قائمة تشغيل. يجب أن يحتوي الرابط على list= أو /playlist");
             return;
         }
         Checkpoint("ربط بقائمة يوتيوب");

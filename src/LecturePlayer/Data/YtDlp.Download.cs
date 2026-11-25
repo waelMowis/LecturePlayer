@@ -92,7 +92,7 @@ public static partial class YtDlp
         private int _parts = 1, _part = -1;
         private double _lastPct;
         private long _total;
-        public string Stage { get; private set; } = "بيبدأ…";
+        public string Stage { get; private set; } = "يبدأ…";
 
         /// <summary>بيرجّع التقدم الجديد لو السطر فيه حاجة، أو null.</summary>
         public DownloadProgress? Read(string line)
@@ -112,7 +112,7 @@ public static partial class YtDlp
             {
                 _part = Math.Min(_part + 1, _parts - 1);
                 _lastPct = 0;
-                Stage = _parts > 1 ? (_part == 0 ? "بينزّل الصورة…" : "بينزّل الصوت…") : "بينزّل…";
+                Stage = _parts > 1 ? (_part == 0 ? "جارٍ تنزيل الصورة…" : "جارٍ تنزيل الصوت…") : "جارٍ التنزيل…";
                 return Now(0, 0, -1);
             }
             if (line.StartsWith(ProgressTag, StringComparison.Ordinal))
@@ -123,18 +123,18 @@ public static partial class YtDlp
                 if (total <= 0) total = Long(f[2]);
                 double speed = Dbl(f[3]);
                 int eta = (int)Math.Round(Dbl(f[4], -1));
-                if (_part < 0) { _part = 0; Stage = "بينزّل…"; }
+                if (_part < 0) { _part = 0; Stage = "جارٍ التنزيل…"; }
                 if (total > 0) _total = Math.Max(_total, total);
                 double pct = total > 0 ? Math.Clamp(done * 100.0 / total, 0, 100) : _lastPct;
                 _lastPct = pct;
                 return Now(speed, eta, pct);
             }
-            string? stage = line.StartsWith("[Merger]", StringComparison.Ordinal) ? "بيدمج الصورة والصوت…"
-                : line.StartsWith("[ExtractAudio]", StringComparison.Ordinal) ? "بيجهّز ملف الصوت…"
-                : line.StartsWith("[VideoRemuxer]", StringComparison.Ordinal) || line.StartsWith("[VideoConvertor]", StringComparison.Ordinal) ? "بيجهّز ملف الفيديو…"
-                : line.StartsWith("[EmbedSubtitle]", StringComparison.Ordinal) ? "بيضيف الترجمة…"
-                : line.StartsWith("[ThumbnailsConvertor]", StringComparison.Ordinal) || line.StartsWith("[EmbedThumbnail]", StringComparison.Ordinal) ? "بيضيف الغلاف…"
-                : line.StartsWith("[Metadata]", StringComparison.Ordinal) ? "بيضيف البيانات…"
+            string? stage = line.StartsWith("[Merger]", StringComparison.Ordinal) ? "جارٍ دمج الصورة والصوت…"
+                : line.StartsWith("[ExtractAudio]", StringComparison.Ordinal) ? "جارٍ تجهيز ملف الصوت…"
+                : line.StartsWith("[VideoRemuxer]", StringComparison.Ordinal) || line.StartsWith("[VideoConvertor]", StringComparison.Ordinal) ? "جارٍ تجهيز ملف الفيديو…"
+                : line.StartsWith("[EmbedSubtitle]", StringComparison.Ordinal) ? "جارٍ إضافة الترجمة…"
+                : line.StartsWith("[ThumbnailsConvertor]", StringComparison.Ordinal) || line.StartsWith("[EmbedThumbnail]", StringComparison.Ordinal) ? "جارٍ إضافة الغلاف…"
+                : line.StartsWith("[Metadata]", StringComparison.Ordinal) ? "جارٍ إضافة البيانات…"
                 : null;
             if (stage == null) return null;
             // الأداة بتطبع سطور الغلاف قبل التنزيل كمان: قبل ما يبدأ ماينفعش نقول «بيضيف الغلاف» ولا 100%
@@ -172,7 +172,7 @@ public static partial class YtDlp
         args.Add(NormalizeUrl(url));
         var (code, stdout, stderr) = await RunAsync(args, ct, TimeSpan.FromMinutes(2));
         if (code != 0 || string.IsNullOrWhiteSpace(stdout))
-            throw new InvalidOperationException(ErrorFrom(stderr, "مقدرتش أقرا بيانات الفيديو"));
+            throw new InvalidOperationException(ErrorFrom(stderr, "تعذّرت قراءة بيانات الفيديو"));
         return ParseInfo(stdout, url);
     }
 
@@ -247,7 +247,7 @@ public static partial class YtDlp
     public static async Task<string> DownloadAsync(string url, string outDir, string template, DownloadOptions o,
         IProgress<DownloadProgress> progress, CancellationToken ct, Action<string>? onUpdate = null, Action<string>? onLine = null)
     {
-        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
+        string exe = FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب غير موجودة");
         Directory.CreateDirectory(outDir);
         var baseArgs = BuildDownloadArgs(o, outDir, template, Directory.Exists(Tools.FfmpegDir) ? Tools.FfmpegDir : null);
         baseArgs.AddRange(CommonArgs());
@@ -286,7 +286,7 @@ public static partial class YtDlp
             {
                 lockRetries++;
                 Interlocked.Increment(ref FileLockRetries);
-                onUpdate?.Invoke("الويندوز ماسك الملف لحظة… بيحاول تاني");
+                onUpdate?.Invoke("ويندوز يحجز الملف لحظة… تُعاد المحاولة");
                 await Task.Delay(TimeSpan.FromSeconds(2 * lockRetries), ct);
                 attempts.Add(($"file-lock-{lockRetries}", attempts[i].Extra));
                 continue;
@@ -299,13 +299,13 @@ public static partial class YtDlp
             if (!updated && MightBeFixedByUpdate(r.StdErr))
             {
                 updated = true;
-                onUpdate?.Invoke("بيحدّث أداة يوتيوب ويحاول تاني…");
+                onUpdate?.Invoke("جارٍ تحديث أداة يوتيوب وإعادة المحاولة…");
                 try { Log.Info("download: updating yt-dlp → " + await UpdateAsync(ct)); }
                 catch (Exception ex) when (ex is not OperationCanceledException) { Log.Info("yt-dlp update failed: " + ex.Message); }
                 attempts.Add(("after-update", attempts[i].Extra));
             }
         }
-        throw new InvalidOperationException(Explain(ErrorFrom(lastErr, "مقدرتش أنزّل الفيديو")).Message);
+        throw new InvalidOperationException(Explain(ErrorFrom(lastErr, "تعذّر تنزيل الفيديو")).Message);
     }
 
     /// <summary>عدد مرات الاستنى بسبب ملف ممسوك (للفحص والسجل).</summary>
@@ -333,5 +333,5 @@ public static partial class YtDlp
 
     /// <summary>«12.3 ميجا» / «1.4 جيجا».</summary>
     public static string FormatSize(long bytes) =>
-        bytes <= 0 ? "؟" : bytes >= 1L << 30 ? $"{bytes / (double)(1L << 30):0.0} جيجا" : bytes >= 1L << 20 ? $"{bytes / (double)(1L << 20):0} ميجا" : $"{Math.Max(1, bytes / 1024)} كيلو";
+        bytes <= 0 ? "؟" : bytes >= 1L << 30 ? $"{bytes / (double)(1L << 30):0.0} جيجابايت" : bytes >= 1L << 20 ? $"{bytes / (double)(1L << 20):0} ميجابايت" : $"{Math.Max(1, bytes / 1024)} كيلوبايت";
 }

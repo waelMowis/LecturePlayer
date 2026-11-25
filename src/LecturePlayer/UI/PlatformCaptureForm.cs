@@ -49,7 +49,7 @@ internal sealed class PlatformCaptureForm : Form
         RightToLeftLayout = true;
         Controls.Add(Web);
         Controls.Add(_status);
-        Status("ادخل بالإيميل والباسورد، وافتح الكورس، ودوس على درسين من المنهج — وبعدين اقفل الشباك.");
+        Status("ادخل بالبريد الإلكتروني وكلمة المرور، وافتح الدورة، واضغط على درسين من المنهج — ثم أغلق النافذة.");
         Shown += async (_, _) => await StartAsync();
         FormClosed += (_, _) => Save();
     }
@@ -73,7 +73,7 @@ internal sealed class PlatformCaptureForm : Form
         catch (Exception ex)
         {
             Log.Error("platform capture", ex);
-            Status("WebView2 مش شغال: " + ex.Message);
+            Status("WebView2 لا يعمل: " + ex.Message);
         }
     }
 
@@ -152,7 +152,7 @@ internal sealed class PlatformCaptureForm : Form
                 _shapes[key] = $"status {e.Response.StatusCode}, {body.Length} bytes\n{shape}";
                 _captured = _shapes.Count;
             }
-            BeginInvoke(() => Status($"✓ اتسجّل شكل {_captured} نوع بيانات — كمّل: افتح الكورس ودوس على درسين، وبعدين اقفل الشباك."));
+            BeginInvoke(() => Status($"✓ سُجّل شكل {_captured} نوع بيانات — أكمل: افتح الدورة واضغط على درسين، ثم أغلق النافذة."));
         }
         catch (Exception ex) { Log.Info("platform capture: " + ex.Message); }
     }
@@ -187,7 +187,7 @@ internal sealed class PlatformCaptureForm : Form
             Walk(doc.RootElement, "$", sb, 0);
             return sb.Length > 12000 ? sb.ToString(0, 12000) + "\n…" : sb.ToString();
         }
-        catch (JsonException) { return "(مش JSON صالح) " + Redact(json.Length > 300 ? json[..300] : json); }
+        catch (JsonException) { return "(ليس JSON صالحًا) " + Redact(json.Length > 300 ? json[..300] : json); }
     }
 
     private static void Walk(JsonElement e, string path, StringBuilder sb, int depth)

@@ -12,7 +12,7 @@ public static class NotesExporter
         sb.AppendLine($"# {course.Name}");
         sb.AppendLine();
         int percent = course.VideoCount == 0 ? 0 : (int)Math.Round(course.WatchedCount * 100.0 / course.VideoCount);
-        sb.AppendLine($"> {course.WatchedCount} من {course.VideoCount} فيديو اتشافوا ({percent}%) · اتصدّر من «مسار» يوم {DateTime.Now:yyyy-MM-dd}");
+        sb.AppendLine($"> شوهد {course.WatchedCount} من {course.VideoCount} فيديو ({percent}%) · صُدِّر من «مسار» يوم {DateTime.Now:yyyy-MM-dd}");
         sb.AppendLine();
 
         int written = 0;
@@ -47,7 +47,7 @@ public static class NotesExporter
 
         if (written == 0)
         {
-            sb.AppendLine("_لسه مفيش ملاحظات أو علامات في الكورس ده._");
+            sb.AppendLine("_لا توجد ملاحظات أو علامات في هذه الدورة بعد._");
             sb.AppendLine();
         }
         return sb.ToString();

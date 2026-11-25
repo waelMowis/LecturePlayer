@@ -17,18 +17,18 @@ internal partial class MainForm
         if (opt == null)
         {
             using var kit = new FormKit($"شارك الرف «{s.Name}»", 600);
-            kit.Note("بيتعمل ملف ZIP فيه الرف (والرفوف اللي جواه) ونسخة من الكتب — ابعته لأي حد عنده «مسار» يفتحه من «إضافة ← رف متشارك».", 44, Theme.Muted);
+            kit.Note("يُنشأ ملف ZIP فيه الرف (والرفوف التي بداخله) ونسخة من الكتب — أرسله لأي شخص لديه «مسار» ليفتحه من «إضافة ← رف مشترك».", 44, Theme.Muted);
             var ann = kit.Row("الشرح", new ToggleSwitch { Text = "الأقلام والتظليل والعلامات والملاحظات", Checked = true });
-            var copies = kit.Row("النسخ المشروحة", new ToggleSwitch { Text = "ضيف «اسم الكتاب — مشروح.pdf» جنب كل كتاب", Checked = false });
-            var prog = kit.Row("تقدّمي", new ToggleSwitch { Text = "الصفحات اللي قريتها ومكاني في كل كتاب", Checked = false });
+            var copies = kit.Row("النسخ المشروحة", new ToggleSwitch { Text = "أضف «اسم الكتاب — مشروح.pdf» بجانب كل كتاب", Checked = false });
+            var prog = kit.Row("تقدّمي", new ToggleSwitch { Text = "الصفحات التي قرأتها ومكاني في كل كتاب", Checked = false });
             var info = kit.Note("", 64, Theme.Text);
             void Update()
             {
                 var o = new ShelfShare.Options(prog.Checked, ann.Checked, copies.Checked);
                 var p = ShelfShare.MakePlan(_library, new[] { s }, BookFile, o);
                 var lines = new List<string> { $"{p.Books.Count} كتاب في {p.Shelves.Count} رف — حوالي {YtDlp.FormatSize(p.Bytes)}" };
-                if (p.PrivateLinks.Count > 0) lines.Add($"⚠ {p.PrivateLinks.Count} كتاب برابط خاص (مش متنزل): اللي هيستلم ممكن مايقدرش يفتحه — نزّلهم الأول لو تقدر");
-                if (p.Missing.Count > 0) lines.Add($"⚠ {p.Missing.Count} كتاب ملفه مش موجود على الجهاز ده (هيتسجّل اسمه بس)");
+                if (p.PrivateLinks.Count > 0) lines.Add($"⚠ {p.PrivateLinks.Count} كتاب برابط خاص (غير منزّل): قد لا يستطيع المستلم فتحه — نزّلها أولًا إن أمكن");
+                if (p.Missing.Count > 0) lines.Add($"⚠ {p.Missing.Count} كتاب ملفه غير موجود على هذا الجهاز (سيُسجَّل اسمه فقط)");
                 info.Text = string.Join("\n", lines);
                 info.ForeColor = p.PrivateLinks.Count + p.Missing.Count > 0 ? Color.FromArgb(240, 180, 90) : Theme.Text;
             }
@@ -36,35 +36,35 @@ internal partial class MainForm
             copies.CheckedChanged += (_, _) => Update();
             prog.CheckedChanged += (_, _) => Update();
             Update();
-            kit.Buttons("اعمل الملف");
+            kit.Buttons("أنشئ الملف");
             if (SmokeShowDialog(kit, "share-shelf")) return;
             if (kit.Show(this) != DialogResult.OK) return;
             opt = new ShelfShare.Options(prog.Checked, ann.Checked, copies.Checked);
         }
         var plan = ShelfShare.MakePlan(_library, new[] { s }, BookFile, opt);
-        if (plan.Books.Count == 0) { ShowStatus("الرف فاضي", 4); return; }
+        if (plan.Books.Count == 0) { ShowStatus("الرف فارغ", 4); return; }
         string? path = SmokeSavePath;
         if (path == null)
         {
             string safe = new string(s.Name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c).ToArray());
-            using var dlg = new SaveFileDialog { Title = "حفظ الرف المتشارك", Filter = "رف متشارك (ZIP)|*.zip", FileName = $"رف {safe} — مسار.zip", RestoreDirectory = true };
+            using var dlg = new SaveFileDialog { Title = "حفظ الرف المشترك", Filter = "رف مشترك (ZIP)|*.zip", FileName = $"رف {safe} — مسار.zip", RestoreDirectory = true };
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
             path = dlg.FileName;
         }
         string lib = _libraryPath;
-        var progress = new Progress<double>(p => ShowStatus($"📤 بجهّز الرف… {(int)(p * 100)}%", 10));
+        var progress = new Progress<double>(p => ShowStatus($"📤 جارٍ تجهيز الرف… {(int)(p * 100)}%", 10));
         try
         {
-            ShowStatus("📤 بجهّز الرف…", 10);
+            ShowStatus("📤 جارٍ تجهيز الرف…", 10);
             var r = await Task.Run(() => ShelfShare.Export(plan, lib, BookFile, path, opt, progress, CancellationToken.None));
             _lastShareZip = path;
-            ShowBanner($"📤 اتعمل ملف الرف «{s.Name}»: {r.Books} كتاب ({YtDlp.FormatSize(r.Bytes)})", BannerKind.Success,
+            ShowBanner($"📤 أُنشئ ملف الرف «{s.Name}»: {r.Books} كتاب ({YtDlp.FormatSize(r.Bytes)})", BannerKind.Success,
                 "افتح مكانه", () => OpenInExplorer(path), seconds: 15);
         }
         catch (Exception ex)
         {
             Log.Error("share shelf", ex);
-            ShowBanner("مقدرتش أعمل ملف الرف: " + ex.Message, BannerKind.Warning, seconds: 10);
+            ShowBanner("تعذّر إنشاء ملف الرف: " + ex.Message, BannerKind.Warning, seconds: 10);
         }
     }
 
@@ -76,7 +76,7 @@ internal partial class MainForm
         string? zip = SmokeOpenPath;
         if (zip == null)
         {
-            using var dlg = new OpenFileDialog { Title = "اختار ملف الرف المتشارك", Filter = "رف متشارك (ZIP)|*.zip", RestoreDirectory = true };
+            using var dlg = new OpenFileDialog { Title = "اختر ملف الرف المشترك", Filter = "رف مشترك (ZIP)|*.zip", RestoreDirectory = true };
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
             zip = dlg.FileName;
         }
@@ -94,7 +94,7 @@ internal partial class MainForm
         string lib = _libraryPath;
         try
         {
-            ShowStatus("📥 بفك الرف…", 30);
+            ShowStatus("📥 جارٍ فك الرف…", 30);
             var r = await Task.Run(() => ShelfShare.Import(zip, dest, _library, parent, lib));
             Checkpoint("استقبال رف");
             _library.Shelves.AddRange(r.Shelves);
@@ -105,14 +105,14 @@ internal partial class MainForm
             if (r.Shelves.FirstOrDefault(x => x.ParentId == parent?.Id) is { } top) SelectShelfItem(top);
             var local = r.Books.Where(b => !b.IsOnline && File.Exists(b.LocalPath)).ToList();
             if (local.Count > 0) QueueProbe(local);
-            ShowBanner($"📥 اتضاف رف «{r.Name}»: {r.Books.Count} كتاب" + (r.Annotations > 0 ? $"، و{r.Annotations} عليهم شرح 🖊" : ""), BannerKind.Success,
-                "افتح فولدر الكتب", () => OpenFolder(r.Folder), seconds: 15);
+            ShowBanner($"📥 أُضيف رف «{r.Name}»: {r.Books.Count} كتاب" + (r.Annotations > 0 ? $"، و{r.Annotations} عليها شرح 🖊" : ""), BannerKind.Success,
+                "افتح مجلد الكتب", () => OpenFolder(r.Folder), seconds: 15);
             return r;
         }
         catch (Exception ex)
         {
             Log.Error("receive shelf", ex);
-            ShowBanner("مقدرتش أفتح الرف المتشارك: " + ex.Message, BannerKind.Warning, seconds: 12);
+            ShowBanner("تعذّر فتح الرف المشترك: " + ex.Message, BannerKind.Warning, seconds: 12);
             return null;
         }
     }

@@ -27,7 +27,7 @@ internal sealed partial class MainForm
     private void UndoLast()
     {
         var item = _undo.Undo(Storage.Serialize(_library));
-        if (item == null) { ShowStatus("مفيش حاجة ترجع فيها"); return; }
+        if (item == null) { ShowStatus("لا يوجد ما يُتراجع عنه"); return; }
         ApplySnapshot(item.Value.Snapshot);
         ShowStatus($"تراجعت عن: {item.Value.Label}  (Ctrl+Y للإعادة)", 4);
     }
@@ -35,9 +35,9 @@ internal sealed partial class MainForm
     private void RedoLast()
     {
         var item = _undo.Redo(Storage.Serialize(_library));
-        if (item == null) { ShowStatus("مفيش حاجة تتعاد"); return; }
+        if (item == null) { ShowStatus("لا يوجد ما يُعاد"); return; }
         ApplySnapshot(item.Value.Snapshot);
-        ShowStatus($"اتعادت: {item.Value.Label}", 4);
+        ShowStatus($"أُعيدت: {item.Value.Label}", 4);
     }
 
     private void ApplySnapshot(string json)
@@ -109,7 +109,7 @@ internal sealed partial class MainForm
             var logLater = new System.Windows.Forms.Timer { Interval = 1200 };
             logLater.Tick += (_, _) => { logLater.Stop(); logLater.Dispose(); if (_miniMode) Log.Info($"mini player (dpi {DeviceDpi}): {VideoAreaOutsideWindow() ?? "video inside window"}"); };
             logLater.Start();
-            ShowStatus("المشغل الصغير — P أو Esc أو دبل كليك للرجوع");
+            ShowStatus("المشغل الصغير — P أو Esc أو نقر مزدوج للرجوع");
         }
         else
         {
@@ -174,7 +174,7 @@ internal sealed partial class MainForm
         UpdateBookmarkButton();
         _btnMini.Active = mini;
         _btnMini.Text = mini ? Glyphs.FullScreen : Glyphs.MiniPlayer;
-        _toolTip.SetToolTip(_btnMini, mini ? "رجوع للمشغل الكامل (P أو Esc أو دبل كليك)" : "المشغل الصغير (P)");
+        _toolTip.SetToolTip(_btnMini, mini ? "رجوع للمشغل الكامل (P أو Esc أو نقر مزدوج)" : "المشغل الصغير (P)");
     }
 
     /// <summary>كليك يمين على الفيديو: أدوات المذاكرة الأساسية + التنقل بين الأوضاع.</summary>
@@ -186,7 +186,7 @@ internal sealed partial class MainForm
             menu.Items.Add(new ToolStripMenuItem(text, null, (_, _) => act()) { ShortcutKeyDisplayString = keys, ForeColor = Theme.Text });
         Add(_miniMode ? "رجوع للمشغل الكامل" : "المشغل الصغير", "P", ToggleMiniMode);
         Add(_fullscreen ? "خروج من ملء الشاشة" : "ملء الشاشة", _fullscreen ? "Esc" : "F11", ToggleFullscreen);
-        Add(TopMost ? "إلغاء «فوق كل الشبابيك»" : "خلّيه فوق كل الشبابيك", "T", ToggleAlwaysOnTop);
+        Add(TopMost ? "إلغاء «فوق كل النوافذ»" : "اجعله فوق كل النوافذ", "T", ToggleAlwaysOnTop);
         menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
         menu.Show(_videoView, at);
     }
@@ -213,13 +213,13 @@ internal sealed partial class MainForm
                 { ShortcutKeyDisplayString = keys, Enabled = enabled, ForeColor = Theme.Text });
 
         if (!video)
-            menu.Items.Add(new ToolStripLabel("شغّل فيديو عشان تستخدم أدوات المذاكرة") { ForeColor = Theme.Muted });
+            menu.Items.Add(new ToolStripLabel("شغّل فيديو لاستخدام أدوات المذاكرة") { ForeColor = Theme.Muted });
         Add("🔖  علامة هنا", "B", () => AddBookmark(false), video);
         Add("📝  علامة بملاحظة…", "Shift+B", () => AddBookmark(true), video);
         Add("📷  صورة من الشاشة (لقطة)", "S", TakeScreenshot, video);
-        Add(_loopA < 0 ? "🔁  كرّر جزء: ابدأ من هنا" : _loopB < 0 ? "🔁  كرّر جزء: لحد هنا" : "🔁  وقّف تكرار الجزء", "A", CycleAbLoop, video);
+        Add(_loopA < 0 ? "🔁  كرّر جزءًا: ابدأ من هنا" : _loopB < 0 ? "🔁  كرّر جزءًا: حتى هنا" : "🔁  أوقف تكرار الجزء", "A", CycleAbLoop, video);
         menu.Items.Add(new ToolStripSeparator());
-        Add("📌  علامة مراجعة (تفكّرني أراجعها)…", "R", AddReviewBookmark, video);
+        Add("📌  علامة مراجعة (تذكّرني بمراجعتها)…", "R", AddReviewBookmark, video);
         Add("📋  انسخ الكلام المكتوب على الشاشة", "O", () => _ = OcrFrameAsync(), video);
         return menu;
     }
@@ -327,8 +327,8 @@ internal sealed partial class MainForm
     {
         if (Tools.FindFfmpeg() != null) return true;
         if (!Dialogs.Confirm(this,
-                $"{why} محتاج «أداة الفيديو» المجانية (حوالي 65 ميجا، بتتنزل مرة واحدة).\n\n" +
-                "هتتنزل من مصدرها الرسمي. أنزّلها دلوقتي؟", "أداة الفيديو"))
+                $"{why} يحتاج إلى «أداة الفيديو» المجانية (نحو 65 ميجابايت، تُنزَّل مرة واحدة).\n\n" +
+                "ستُنزَّل من مصدرها الرسمي. هل أنزّلها الآن؟", "أداة الفيديو"))
             return false;
 
         UseWaitCursor = true;
@@ -341,8 +341,8 @@ internal sealed partial class MainForm
         catch (Exception ex)
         {
             Log.Error("ffmpeg-download", ex);
-            Dialogs.Error(this, "مقدرتش أنزّل أداة الفيديو (ffmpeg):\n" + ex.Message + "\n\nتقدر تنزّله بإيدك من:\n" + Tools.FfmpegUrl +
-                                "\nوتفك ffmpeg.exe والـ dll في:\n" + Tools.FfmpegDir);
+            Dialogs.Error(this, "تعذّر تنزيل أداة الفيديو (ffmpeg):\n" + ex.Message + "\n\nيمكنك تنزيله يدويًا من:\n" + Tools.FfmpegUrl +
+                                "\nوفك ffmpeg.exe وملفات dll في:\n" + Tools.FfmpegDir);
             return false;
         }
         finally { UseWaitCursor = false; }
@@ -351,7 +351,7 @@ internal sealed partial class MainForm
     private void RemoveOffline(VideoItem v)
     {
         if (!_settings.OfflineFiles.TryGetValue(v.Path, out var file)) return;
-        if (!Dialogs.Confirm(this, $"مسح النسخة المتنزلة من «{v.Title}»؟\n(الفيديو هيفضل في المكتبة ويتشغّل من النت)")) return;
+        if (!Dialogs.Confirm(this, $"هل تريد حذف النسخة المنزّلة من «{v.Title}»؟\n(يبقى الفيديو في المكتبة ويعمل من الإنترنت)")) return;
         try { if (File.Exists(file) && v != _currentVideo) File.Delete(file); } catch (Exception ex) { Log.Error("offline-delete", ex); }
         _settings.OfflineFiles.Remove(v.Path);
         RefreshVideo(v);

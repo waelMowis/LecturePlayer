@@ -33,7 +33,7 @@ internal sealed partial class MainForm
             DumpVlcLog("error");
             // فيديو من النت: نجرّب رابط جديد بطريقة تانية قبل ما نقول إنه فشل
             if (TryRecoverLive()) return;
-            if (!TryRecoverOnlineError()) ShowBanner("الفيديو ده مش راضي يشتغل — الملف ممكن يكون بايظ أو ناقص", BannerKind.Error, "الفيديو اللي بعده", () => PlayNext(false), seconds: 12);
+            if (!TryRecoverOnlineError()) ShowBanner("هذا الفيديو لا يعمل — قد يكون الملف تالفًا أو ناقصًا", BannerKind.Error, "الفيديو التالي", () => PlayNext(false), seconds: 12);
         });
         _mp.LengthChanged += (_, e) =>
         {
@@ -110,12 +110,12 @@ internal sealed partial class MainForm
         {
             // نشاط Moodle مش فيديو (اختبار/استبيان/ملف…): بيتفتح في متصفحك اللي إنت داخل بيه على الموقع
             OpenInBrowser(v.Path);
-            ShowStatus("اتفتح «" + v.Title + "» في المتصفح — لما تخلّصه علّمه «اتشاف» (W) أو حدّث الكورس من المنصة", 6);
+            ShowStatus("فُتح «" + v.Title + "» في المتصفح — عند إكماله اوسمه «شوهد» (W) أو حدّث الدورة من المنصة", 6);
             return;
         }
         if (!IsAvailable(v))
         {
-            if (Dialogs.Confirm(this, $"الملف مش موجود:\n{v.Path}\n\nتحب تحدد مكانه الجديد؟"))
+            if (Dialogs.Confirm(this, $"الملف غير موجود:\n{v.Path}\n\nهل تريد تحديد مكانه الجديد؟"))
             {
                 RelocateMissing(v);
                 if (IsAvailable(v)) PlayVideo(g, v, startAtMs);
@@ -186,7 +186,7 @@ internal sealed partial class MainForm
             _mp.Play(media);
             oldMedia?.Dispose();
 
-            if (start > 0) ShowStatus($"استكمال من {TimeFormat.Format(start)}");
+            if (start > 0) ShowStatus($"المتابعة من {TimeFormat.Format(start)}");
         }
 
         _library.LastGroupId = g.Id;
@@ -228,7 +228,7 @@ internal sealed partial class MainForm
                 ?? g.Videos.FirstOrDefault(IsAvailable);
         if (v == null)
         {
-            ShowStatus(g.Videos.Count == 0 ? "المحاضرة دي فاضية — ضيف لها فيديوهات" : "ملفات المحاضرة دي مش موجودة");
+            ShowStatus(g.Videos.Count == 0 ? "هذه المحاضرة فارغة — أضف إليها فيديوهات" : "ملفات هذه المحاضرة غير موجودة");
             return;
         }
         PlayVideo(g, v, g.IsCompleted ? 0 : null);
@@ -250,7 +250,7 @@ internal sealed partial class MainForm
 
         var g = c.Groups.FirstOrDefault(x => !x.IsCompleted && x.Videos.Any(IsAvailable))
                 ?? c.Groups.FirstOrDefault(x => x.Videos.Count > 0);
-        if (g == null) { ShowStatus("الكورس ده فاضي — ضيف له محاضرات"); return; }
+        if (g == null) { ShowStatus("هذه الدورة فارغة — أضف إليها محاضرات"); return; }
         PlayGroup(g);
     }
 
@@ -279,13 +279,13 @@ internal sealed partial class MainForm
 
         var first = _library.AllGroups.FirstOrDefault(x => x.Videos.Count > 0);
         if (first != null) PlayGroup(first);
-        else ShowBanner("المكتبة فاضية — ضيف فولدر فيديوهات، أو اسحبه وارميه هنا", BannerKind.Info, "📁  ضيف فولدر", ImportCourseDialog, seconds: 10);
+        else ShowBanner("المكتبة فارغة — أضف مجلد فيديوهات، أو اسحبه وأفلته هنا", BannerKind.Info, "📁  أضف مجلدًا", ImportCourseDialog, seconds: 10);
     }
 
     private void TogglePlay()
     {
         if (_currentLive != null) { ToggleLive(); return; }
-        if (_resolvingVideo != null) { ShowStatus("لسه بجهّز الفيديو من النت…"); return; }
+        if (_resolvingVideo != null) { ShowStatus("ما زال الفيديو يُجهَّز من الإنترنت…"); return; }
         if (UdemyActive) { UdemyToggle(); return; }
         if (_currentVideo == null || _currentMedia == null) { PlaySelected(); return; }
 
@@ -400,13 +400,13 @@ internal sealed partial class MainForm
         if (auto)
         {
             ShowStatus(nextGroup != null
-                ? $"خلصت «{g.Name}» ✓  —  PageDown عشان تبدأ «{nextGroup.Name}»"
-                : $"خلصت «{g.Name}» ✓  —  دي آخر محاضرة في كورس «{course?.Name}» 🎉", 15);
+                ? $"أكملت «{g.Name}» ✓  —  PageDown لبدء «{nextGroup.Name}»"
+                : $"أكملت «{g.Name}» ✓  —  هذه آخر محاضرة في دورة «{course?.Name}» 🎉", 15);
             UpdatePlayButton();
         }
         else
         {
-            ShowStatus($"ده آخر فيديو في كورس «{course?.Name}»");
+            ShowStatus($"هذا آخر فيديو في دورة «{course?.Name}»");
         }
     }
 
@@ -433,7 +433,7 @@ internal sealed partial class MainForm
         int gi = courseGroups.IndexOf(g);
         var previousGroup = courseGroups.Take(Math.Max(gi, 0)).LastOrDefault(x => x.Videos.Count > 0);
         if (previousGroup != null) PlayVideo(previousGroup, previousGroup.Videos[^1], 0);
-        else ShowStatus("ده أول فيديو في الكورس");
+        else ShowStatus("هذا أول فيديو في الدورة");
     }
 
     // =====================================================================
@@ -540,7 +540,7 @@ internal sealed partial class MainForm
         else _settings.Rate = rate;
 
         SelectRateInCombo(rate);
-        ShowStatus(course != null ? $"السرعة {RateText(rate)} (لكورس «{course.Name}»)" : $"السرعة {RateText(rate)}", 2);
+        ShowStatus(course != null ? $"السرعة {RateText(rate)} (لدورة «{course.Name}»)" : $"السرعة {RateText(rate)}", 2);
     }
 
     /// <summary>تحديد السرعة من غير ما تتسجل كاختيار جديد (وقت فتح فيديو).</summary>

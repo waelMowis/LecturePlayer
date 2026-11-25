@@ -18,9 +18,9 @@ internal partial class MainForm
     private string? _lastPickSave;
 
     private static readonly (string Key, int W, int H, string Name)[] BoardSizes =
-        { ("wide", 960, 540, "شاشة عرضية 16:9"), ("a4l", 842, 595, "A4 عرضي"), ("a4p", 595, 842, "A4 طولي"), ("long", 595, 2520, "صفحة طويلة") };
+        { ("wide", 960, 540, "شاشة عريضة 16:9"), ("a4l", 842, 595, "A4 عرضي"), ("a4p", 595, 842, "A4 طولي"), ("long", 595, 2520, "صفحة طويلة") };
     private static readonly (string Key, string Name)[] BoardBgs = { ("white", "أبيض"), ("cream", "ورق"), ("black", "أسود"), ("green", "أخضر (طباشير)") };
-    private static readonly (string Key, string Name)[] BoardPats = { ("grid", "مربعات"), ("none", "فاضي"), ("lines", "سطور"), ("dots", "نقط") };
+    private static readonly (string Key, string Name)[] BoardPats = { ("grid", "مربعات"), ("none", "فارغة"), ("lines", "سطور"), ("dots", "نقاط") };
 
     private Shelf BoardsShelf()
     {
@@ -56,7 +56,7 @@ internal partial class MainForm
             var patBox = kit.Row("النقشة", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
             foreach (var x in BoardPats) patBox.Items.Add(x.Name);
             patBox.SelectedIndex = 0;
-            kit.Note("تقدر تغيّر المقاس والخلفية لكل صفحة بعدين، وتضيف صفحات وقوالب وصفحات PDF ولقطات شاشة.", 40, Theme.Muted);
+            kit.Note("يمكنك تغيير المقاس والخلفية لكل صفحة لاحقًا، وإضافة صفحات وقوالب وصفحات PDF ولقطات شاشة.", 40, Theme.Muted);
             kit.Buttons("افتح السبورة");
             if (SmokeShowDialog(kit, "board-new")) return null;
             if (kit.Show(this) != DialogResult.OK) return null;
@@ -114,7 +114,7 @@ internal partial class MainForm
             if (File.Exists(file)) File.Replace(tmp, file, null, ignoreMetadataErrors: true); else File.Move(tmp, file);
             if (b.PageCount != pages.Count) { b.PageCount = pages.Count; b.TouchInfo(); MarkPositionDirty(); if (_shelfMode) RefreshBookRows(b); }
         }
-        catch (Exception ex) { Log.Error("board save", ex); ShowBanner("مقدرتش أحفظ صفحات السبورة: " + ex.Message, BannerKind.Warning, seconds: 8); }
+        catch (Exception ex) { Log.Error("board save", ex); ShowBanner("تعذّر حفظ صفحات السبورة: " + ex.Message, BannerKind.Warning, seconds: 8); }
     }
 
     /// <summary>لقطة شاشة ← صفحة جديدة في السبورة («مسار» بيستخبى ثانية عشان مايطلعش في الصورة).</summary>
@@ -136,7 +136,7 @@ internal partial class MainForm
             scaled.Save(ms, enc, ps);
             await _reader.BoardImageAsync("data:image/jpeg;base64," + Convert.ToBase64String(ms.ToArray()), "لقطة " + DateTime.Now.ToString("HH:mm"));
         }
-        catch (Exception ex) { Log.Error("board shot", ex); ShowStatus("مقدرتش آخد لقطة الشاشة", 4); }
+        catch (Exception ex) { Log.Error("board shot", ex); ShowStatus("تعذّر التقاط الشاشة", 4); }
         finally { Opacity = prev; Activate(); }
     }
 
@@ -146,18 +146,18 @@ internal partial class MainForm
         switch (name)
         {
             case "board-shot": BoardScreenshot(); break;
-            case "board-busy": ShowStatus("📤 بصدّر السبورة…", 20); break;
+            case "board-busy": ShowStatus("📤 جارٍ تصدير السبورة…", 20); break;
             case "board-exported":
-                if (_lastPickSave is { } p) ShowBanner("📤 اتصدّرت: " + Path.GetFileName(p), BannerKind.Success, "افتح مكانه", () => OpenInExplorer(p), seconds: 10);
+                if (_lastPickSave is { } p) ShowBanner("📤 صُدِّرت: " + Path.GetFileName(p), BannerKind.Success, "افتح مكانه", () => OpenInExplorer(p), seconds: 10);
                 break;
             case "board-send":
                 if (_lastPickSave is { } f && File.Exists(f))
                 {
                     try { var list = new System.Collections.Specialized.StringCollection { f }; Clipboard.SetFileDropList(list); } catch (Exception ex) { Log.Info("clipboard: " + ex.Message); }
-                    ShowBanner("📨 ملف السبورة جاهز واتنسخ — الصقه (Ctrl+V) في واتساب أو تيمز أو الإيميل للطلبة", BannerKind.Success, "افتح مكانه", () => OpenInExplorer(f), seconds: 15);
+                    ShowBanner("📨 ملف السبورة جاهز ونُسخ — الصقه (Ctrl+V) في واتساب أو تيمز أو البريد للطلاب", BannerKind.Success, "افتح مكانه", () => OpenInExplorer(f), seconds: 15);
                 }
                 break;
-            case "board-failed": ShowStatus("التصدير فشل", 4); break;
+            case "board-failed": ShowStatus("فشل التصدير", 4); break;
         }
     }
 
@@ -175,13 +175,13 @@ internal partial class MainForm
         items.Add(AppearanceMenuItem(b));
         items.Add(Sep());
         items.Add(ShelfMoveMenu(b));
-        if (b.InkCount > 0) items.Add(SubMenuOf("↺  نسخ الشرح (احفظ/ارجع)", InkVersionItems(b)));
+        if (b.InkCount > 0) items.Add(SubMenuOf("↺  نسخ الشرح (حفظ/رجوع)", InkVersionItems(b)));
         items.Add(SubMenuOf("📤  صدّر",
             MenuItem("📤  كل الصفحات PDF…", () => BoardExportFromMenu(b, "all", false)),
-            MenuItem("📨  ابعت للطلبة (PDF جاهز تلصقه في الشات)…", () => BoardExportFromMenu(b, "all", true))));
-        items.Add(MenuItem("📂  افتح فولدر السبورات", () => OpenInExplorer(b.LocalPath)));
+            MenuItem("📨  أرسل إلى الطلاب (PDF جاهز للصق في المحادثة)…", () => BoardExportFromMenu(b, "all", true))));
+        items.Add(MenuItem("📂  افتح مجلد السبورات", () => OpenInExplorer(b.LocalPath)));
         items.Add(Sep());
-        items.Add(MenuItem("🗑  شيل السبورة من الرف (الملف مش بيتمسح)", () => DeleteShelfItem(b), "Delete"));
+        items.Add(MenuItem("🗑  أزل السبورة من الرف (لا يُحذف الملف)", () => DeleteShelfItem(b), "Delete"));
     }
 
     private Book? _boardExportOnOpen;

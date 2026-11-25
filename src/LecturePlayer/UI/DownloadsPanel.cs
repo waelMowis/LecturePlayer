@@ -15,7 +15,7 @@ internal sealed class DownloadsPanel : Form
     private readonly Panel _list = new() { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.Window, Padding = new Padding(10, 6, 10, 6) };
     private readonly Label _empty = new()
     {
-        Text = "مفيش تنزيلات.\nدوس «＋ تنزيل جديد» أو Ctrl+D، أو كليك يمين على فيديو يوتيوب في المكتبة.",
+        Text = "لا توجد تنزيلات.\nاضغط «＋ تنزيل جديد» أو Ctrl+D، أو انقر بالزر الأيمن على فيديو يوتيوب في المكتبة.",
         Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Muted, Font = new Font("Segoe UI", 10f)
     };
 
@@ -43,9 +43,9 @@ internal sealed class DownloadsPanel : Form
         var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 50, BackColor = Theme.Panel, Padding = new Padding(10, 9, 10, 0), WrapContents = false, RightToLeft = RightToLeft.Yes };
         var add = new PillButton("＋  تنزيل جديد", PillStyle.Primary) { Height = 32 };
         add.Click += (_, _) => _main.OpenDownloadDialog(null);
-        var clear = new PillButton("امسح اللي خلص", PillStyle.Ghost) { Height = 32 };
+        var clear = new PillButton("امسح المكتمل", PillStyle.Ghost) { Height = 32 };
         clear.Click += (_, _) => _main.ClearFinishedDownloads();
-        var folder = new PillButton("📂  فولدر التنزيلات", PillStyle.Ghost) { Height = 32 };
+        var folder = new PillButton("📂  مجلد التنزيلات", PillStyle.Ghost) { Height = 32 };
         folder.Click += (_, _) =>
         {
             string f = string.IsNullOrWhiteSpace(_settings.DownloadFolder) ? DownloadForm.DefaultFolder : _settings.DownloadFolder;
@@ -53,7 +53,7 @@ internal sealed class DownloadsPanel : Form
             _main.OpenFolder(f);
         };
         var parallel = new SelectBox { Width = 150, Height = 32 };
-        parallel.Items.AddRange(new[] { "واحد ورا التاني", "اتنين مع بعض" });
+        parallel.Items.AddRange(new[] { "واحدًا تلو الآخر", "اثنان معًا" });
         parallel.SelectedIndex = Math.Clamp(_settings.DownloadParallel, 1, 2) - 1;
         parallel.SelectedIndexChanged += (_, _) => { _settings.DownloadParallel = parallel.SelectedIndex + 1; Storage.SaveSettings(_settings); };
         foreach (var c in new Control[] { add, clear, folder, parallel }) { c.Margin = new Padding(0, 0, 8, 0); top.Controls.Add(c); }
@@ -133,18 +133,18 @@ internal sealed class DownloadsPanel : Form
                     Btn("إلغاء", () => _main.CancelDownload(_job));
                     break;
                 case DownloadStatus.Paused:
-                    Btn("▶ كمّل", () => _main.RetryDownload(_job), PillStyle.Primary);
-                    Btn("امسح", () => _main.RemoveDownload(_job));
+                    Btn("▶ أكمل", () => _main.RetryDownload(_job), PillStyle.Primary);
+                    Btn("مسح", () => _main.RemoveDownload(_job));
                     break;
                 case DownloadStatus.Failed:
                 case DownloadStatus.Canceled:
-                    Btn("↻ حاول تاني", () => _main.RetryDownload(_job), PillStyle.Primary);
-                    Btn("امسح", () => _main.RemoveDownload(_job));
+                    Btn("↻ حاول مرة أخرى", () => _main.RetryDownload(_job), PillStyle.Primary);
+                    Btn("مسح", () => _main.RemoveDownload(_job));
                     break;
                 case DownloadStatus.Done:
                     Btn("▶ شغّل", () => _main.PlayDownloaded(_job), PillStyle.Primary);
                     if (_job.File != null) Btn("📂", () => _main.RevealFile(_job.File));
-                    Btn("امسح", () => _main.RemoveDownload(_job));
+                    Btn("مسح", () => _main.RemoveDownload(_job));
                     break;
             }
             _buttons.ResumeLayout(true);
@@ -173,25 +173,25 @@ internal sealed class DownloadsPanel : Form
             switch (_job.Status)
             {
                 case DownloadStatus.Running:
-                    var parts = new List<string> { _job.Stage ?? "بينزّل…" };
+                    var parts = new List<string> { _job.Stage ?? "جارٍ التنزيل…" };
                     if (p != null && p.Percent > 0 && p.Percent < 100) parts.Add($"{p.Percent:0}%");
                     if (p?.TotalBytes > 0) parts.Add(YtDlp.FormatSize(p.TotalBytes));
                     if (p?.BytesPerSecond > 0) parts.Add(YtDlp.FormatSize((long)p.BytesPerSecond) + "/ث");
-                    if (p?.EtaSeconds > 0) parts.Add("فاضل " + (p.EtaSeconds >= 3600 ? TimeSpan.FromSeconds(p.EtaSeconds).ToString(@"h\:mm\:ss") : TimeSpan.FromSeconds(p.EtaSeconds).ToString(@"m\:ss")));
+                    if (p?.EtaSeconds > 0) parts.Add("متبقٍ " + (p.EtaSeconds >= 3600 ? TimeSpan.FromSeconds(p.EtaSeconds).ToString(@"h\:mm\:ss") : TimeSpan.FromSeconds(p.EtaSeconds).ToString(@"m\:ss")));
                     line = string.Join("  •  ", parts);
                     color = Theme.Accent;
                     break;
                 case DownloadStatus.Done:
-                    line = "✓ خلص — " + (_job.Spec.LibraryUrl != null ? "جوه المكتبة (بيشتغل من غير نت)" : Path.GetFileName(_job.File ?? ""));
+                    line = "✓ اكتمل — " + (_job.Spec.LibraryUrl != null ? "داخل المكتبة (يعمل دون إنترنت)" : Path.GetFileName(_job.File ?? ""));
                     color = Theme.Success;
                     break;
                 case DownloadStatus.Failed:
                     line = "✗ " + (_job.Error ?? "فشل").Split('\n')[0];
                     color = Theme.Danger;
                     break;
-                case DownloadStatus.Canceled: line = "اتلغى"; break;
-                case DownloadStatus.Paused: line = "متوقف — هيكمّل من مكان ماوقف"; break;
-                default: line = "في الانتظار — حوالي " + YtDlp.FormatSize(_job.Spec.EstimatedBytes); break;
+                case DownloadStatus.Canceled: line = "أُلغي"; break;
+                case DownloadStatus.Paused: line = "متوقف — سيكمل من حيث توقف"; break;
+                default: line = "في الانتظار — نحو " + YtDlp.FormatSize(_job.Spec.EstimatedBytes); break;
             }
             TextRenderer.DrawText(g, line, small, new Rectangle(left, 32, w, 18), color, flags);
 

@@ -14,7 +14,7 @@ internal sealed partial class MainForm
 {
     private static readonly (int Height, string Label)[] OnlineQualities =
     {
-        (480, "480p (نت ضعيف)"), (720, "720p"), (1080, "1080p"), (0, "أعلى جودة متاحة")
+        (480, "480p (إنترنت ضعيف)"), (720, "720p"), (1080, "1080p"), (0, "أعلى جودة متاحة")
     };
 
     private bool _importingUrls;
@@ -31,7 +31,7 @@ internal sealed partial class MainForm
 
     private ToolStripMenuItem BuildOnlineMenu()
     {
-        var quality = SubMenu("جودة فيديوهات النت");
+        var quality = SubMenu("جودة فيديوهات الإنترنت");
         foreach (var (height, label) in OnlineQualities)
         {
             int h = height;
@@ -44,17 +44,17 @@ internal sealed partial class MainForm
                 ((ToolStripMenuItem)quality.DropDownItems[i]).Checked = OnlineQualities[i].Height == _settings.OnlineMaxHeight;
         };
 
-        var whole = Item("لو الرابط فيه فيديو وقائمة تشغيل: هات القائمة كلها", () => { });
+        var whole = Item("إن كان الرابط فيه فيديو وقائمة تشغيل: اجلب القائمة كلها", () => { });
         whole.Click += (_, _) => { _settings.WholePlaylist = !_settings.WholePlaylist; whole.Checked = _settings.WholePlaylist; };
         whole.Checked = _settings.WholePlaylist;
 
-        var platforms = SubMenu("🎓  كورساتي على المنصات",
+        var platforms = SubMenu("🎓  دوراتي على المنصات",
             Item("يوديمي — استيراد بحسابك…", () => UdemyImport()),
             Item("مهارة تك أو أي موقع Moodle…", () => MoodleImport()),
             Item("IT Legend…", () => ItLegendImport()),
             new ToolStripSeparator(),
-            Item("خروج من حساب يوديمي", UdemySignOut),
-            Item("شيل دخول Moodle المحفوظ", MoodleSignOut));
+            Item("الخروج من حساب يوديمي", UdemySignOut),
+            Item("إزالة دخول Moodle المحفوظ", MoodleSignOut));
         return SubMenu("إنترنت",
             Item("إضافة رابط فيديو أو قائمة تشغيل…", () => AddUrlsDialog(null), Keys.Control | Keys.U),
             Item("لصق رابط من الحافظة", PasteUrls, display: "Ctrl+V"),
@@ -69,11 +69,11 @@ internal sealed partial class MainForm
             quality,
             whole,
             SubMenu("أدوات يوتيوب والفيديو",
-                Item("تحديث أداة يوتيوب (لو اليوتيوب وقف يشتغل)", () => _ = UpdateYtDlpAsync()),
+                Item("تحديث أداة يوتيوب (إن توقف يوتيوب عن العمل)", () => _ = UpdateYtDlpAsync()),
                 Item("تنزيل أدوات يوتيوب…", () => _ = DownloadToolsAsync(askFirst: true, includeDeno: true)),
-                Item("تنزيل أداة الفيديو (للمعاينة والتنزيل وتحويل الكلام لنص)…", () => _ = EnsureFfmpegAsync("معاينة الشريط وتنزيل يوتيوب وتحويل الكلام لنص")),
+                Item("تنزيل أداة الفيديو (للمعاينة والتنزيل وتحويل الكلام إلى نص)…", () => _ = EnsureFfmpegAsync("معاينة الشريط وتنزيل يوتيوب وتحويل الكلام إلى نص")),
                 new ToolStripSeparator(),
-                Item("فتح فولدر الأدوات", () =>
+                Item("فتح مجلد الأدوات", () =>
                 {
                     Directory.CreateDirectory(YtDlp.ToolsDir);
                     try { Process.Start("explorer.exe", $"\"{YtDlp.ToolsDir}\"")?.Dispose(); } catch { }
@@ -84,7 +84,7 @@ internal sealed partial class MainForm
     {
         _settings.OnlineMaxHeight = height;
         string label = OnlineQualities.First(q => q.Height == height).Label;
-        ShowStatus($"جودة فيديوهات النت: {label} (هتطبّق من الفيديو الجاي)", 4);
+        ShowStatus($"جودة فيديوهات الإنترنت: {label} (تُطبَّق من الفيديو القادم)", 4);
     }
 
     // =====================================================================
@@ -100,13 +100,13 @@ internal sealed partial class MainForm
 
     private async Task<bool> DownloadToolsAsync(bool askFirst, bool includeDeno)
     {
-        if (_downloadingTools) { ShowStatus("التنزيل شغال بالفعل…"); return false; }
+        if (_downloadingTools) { ShowStatus("التنزيل يعمل بالفعل…"); return false; }
 
         if (askFirst && !Dialogs.Confirm(this,
-                "تشغيل فيديوهات اليوتيوب محتاج أدوات مجانية بتتنزل مرة واحدة:\n\n" +
-                "• أداة يوتيوب  (حوالي 18 ميجا) ← بتجيب الفيديو من اليوتيوب\n" +
-                (includeDeno ? "• أداة مساعدة  (حوالي 40 ميجا) ← يوتيوب بقى محتاجها عشان التشغيل يشتغل صح\n" : "") +
-                "\nهيتنزلوا من مصدرهم الرسمي. أنزّلهم دلوقتي؟",
+                "تشغيل فيديوهات يوتيوب يحتاج إلى أدوات مجانية تُنزَّل مرة واحدة:\n\n" +
+                "• أداة يوتيوب  (نحو 18 ميجابايت) ← تجلب الفيديو من يوتيوب\n" +
+                (includeDeno ? "• أداة مساعدة  (نحو 40 ميجابايت) ← أصبح يوتيوب يحتاج إليها ليعمل التشغيل بشكل صحيح\n" : "") +
+                "\nستُنزَّل من مصدرها الرسمي. هل أنزّلها الآن؟",
                 "أدوات اليوتيوب"))
             return false;
 
@@ -122,8 +122,8 @@ internal sealed partial class MainForm
         }
         catch (Exception ex)
         {
-            Dialogs.Error(this, "مقدرتش أنزّل الأدوات:\n" + ex.Message +
-                                "\n\nتقدر تنزّلهم بإيدك وتحطهم في:\n" + YtDlp.ToolsDir +
+            Dialogs.Error(this, "تعذّر تنزيل الأدوات:\n" + ex.Message +
+                                "\n\nيمكنك تنزيلها يدويًا ووضعها في:\n" + YtDlp.ToolsDir +
                                 "\n\n" + YtDlp.YtDlpDownloadUrl + "\n" + YtDlp.DenoDownloadUrl);
             return YtDlp.FindYtDlp() != null;
         }
@@ -137,13 +137,13 @@ internal sealed partial class MainForm
     private async Task UpdateYtDlpAsync()
     {
         if (YtDlp.FindYtDlp() == null) { await EnsureYtDlpAsync(); return; }
-        ShowStatus("بحدّث أداة يوتيوب…", 60);
+        ShowStatus("جارٍ تحديث أداة يوتيوب…", 60);
         UseWaitCursor = true;
         try
         {
             string result = await YtDlp.UpdateAsync(CancellationToken.None);
             if (YtDlp.FindDeno() == null &&
-                Dialogs.Confirm(this, result + "\n\nالأداة المساعدة مش موجودة، ومن غيرها اليوتيوب ممكن ميشتغلش كويس. أنزّلها؟"))
+                Dialogs.Confirm(this, result + "\n\nالأداة المساعدة غير موجودة، وبدونها قد لا يعمل يوتيوب جيدًا. هل أنزّلها؟"))
             {
                 await DownloadToolsAsync(askFirst: false, includeDeno: true);
                 return;
@@ -197,10 +197,10 @@ internal sealed partial class MainForm
     {
         LectureGroup g => $"محاضرة «{g.Name}»",
         VideoItem v when _library.FindGroupOf(v) is { } g => $"محاضرة «{g.Name}»",
-        Course c => $"كورس «{c.Name}»",
-        Place p => $"كورس جديد جوه «{p.Name}»",
-        Topic t => $"كورس جديد جوه «{t.Name}»",
-        _ => "كورس جديد"
+        Course c => $"دورة «{c.Name}»",
+        Place p => $"دورة جديدة داخل «{p.Name}»",
+        Topic t => $"دورة جديدة داخل «{t.Name}»",
+        _ => "دورة جديدة"
     };
 
     private void PasteUrls()
@@ -223,7 +223,7 @@ internal sealed partial class MainForm
     {
         if (!EnsureLibrary()) return;
         if (urls.Count == 0) return;
-        if (_importingUrls) { ShowStatus("استنى، لسه بجيب الروابط اللي قبل كده…"); return; }
+        if (_importingUrls) { ShowStatus("انتظر، ما زلت أجلب الروابط السابقة…"); return; }
         if (!await EnsureYtDlpAsync()) return;
 
         _importingUrls = true;
@@ -241,7 +241,7 @@ internal sealed partial class MainForm
         {
             for (int i = 0; i < urls.Count; i++)
             {
-                ShowStatus(urls.Count > 1 ? $"بجيب بيانات الروابط… ({i + 1} من {urls.Count})" : "بجيب بيانات الرابط…", 120);
+                ShowStatus(urls.Count > 1 ? $"جارٍ جلب بيانات الروابط… ({i + 1} من {urls.Count})" : "جارٍ جلب بيانات الرابط…", 120);
 
                 OnlineListing listing;
                 YtDlp.CookiesBrowser = _settings.OnlineCookiesBrowser;
@@ -251,7 +251,7 @@ internal sealed partial class MainForm
                     // يوتيوب غيّر حاجة: نحدّث yt-dlp مرة ونجرّب تاني
                     _ytdlpAutoUpdated = true;
                     Log.Error("list (هيتحدّث yt-dlp ويتجرّب تاني)", ex);
-                    ShowStatus("بحدّث أداة يوتيوب وأجرّب تاني…", 120);
+                    ShowStatus("جارٍ تحديث أداة يوتيوب وإعادة المحاولة…", 120);
                     try { Log.Info("yt-dlp auto-update: " + await YtDlp.UpdateAsync(CancellationToken.None)); } catch (Exception uex) { Log.Error("yt-dlp auto-update", uex); }
                     try { listing = await YtDlp.ListAsync(urls[i], _settings.WholePlaylist, CancellationToken.None); }
                     catch (Exception ex2)
@@ -268,7 +268,7 @@ internal sealed partial class MainForm
                     continue;
                 }
                 if (_closing) return;
-                if (listing.Entries.Count == 0) { errors.Add(urls[i] + "\n   مفيش فيديوهات متاحة"); continue; }
+                if (listing.Entries.Count == 0) { errors.Add(urls[i] + "\n   لا توجد فيديوهات متاحة"); continue; }
 
                 var (course_, destination) = st.Place(listing, urls[i]);
                 if (listing.IsPlaylist) addedPlaylists++;
@@ -298,18 +298,18 @@ internal sealed partial class MainForm
             RebuildTree();
             if (firstVideo != null) SelectItem(firstVideo);
             ShowStatus(addedPlaylists > 0
-                ? $"اتضاف {addedVideos} فيديو ({addedPlaylists} قائمة تشغيل) ✓"
-                : $"اتضاف {addedVideos} فيديو ✓", 5);
+                ? $"أُضيف {addedVideos} فيديو ({addedPlaylists} قائمة تشغيل) ✓"
+                : $"أُضيف {addedVideos} فيديو ✓", 5);
         }
         else if (errors.Count == 0)
         {
-            ShowStatus("الفيديوهات دي موجودة في المكتبة أصلًا");
+            ShowStatus("هذه الفيديوهات موجودة في المكتبة بالفعل");
         }
         else ShowStatus("");
 
         if (errors.Count > 0)
-            Dialogs.Error(this, "الروابط دي مقدرتش أضيفها:\n\n" + string.Join("\n\n", errors.Take(8)) +
-                                "\n\nلو اليوتيوب كله وقف فجأة: منيو إنترنت ← تحديث أداة يوتيوب");
+            Dialogs.Error(this, "تعذّرت إضافة هذه الروابط:\n\n" + string.Join("\n\n", errors.Take(8)) +
+                                "\n\nإن توقف يوتيوب كله فجأة: الأدوات ← الإنترنت والمنصات ← تحديث أداة يوتيوب");
 
         if (playFirst && firstGroup != null && firstVideo != null) PlayVideo(firstGroup, firstVideo);
     }
@@ -448,13 +448,13 @@ internal sealed partial class MainForm
 
         if (!await EnsureYtDlpAsync())
         {
-            if (request == _playRequest) ShowBanner("فيديوهات النت محتاجة «أدوات يوتيوب» (بتتنزل مرة واحدة)", BannerKind.Warning, "نزّلها",
+            if (request == _playRequest) ShowBanner("فيديوهات الإنترنت تحتاج إلى «أدوات يوتيوب» (تُنزَّل مرة واحدة)", BannerKind.Warning, "نزّلها",
                 () => _ = DownloadToolsAsync(askFirst: false, includeDeno: true), seconds: 0, key: "tools");
             return;
         }
 
         _resolvingVideo = v;
-        ShowStatus(mode == YtDlp.StreamMode.Muxed ? "بجرّب أشغّل الفيديو بطريقة تانية…" : "بجهّز الفيديو من النت…", 90);
+        ShowStatus(mode == YtDlp.StreamMode.Muxed ? "جارٍ تجربة تشغيل الفيديو بطريقة أخرى…" : "جارٍ تجهيز الفيديو من الإنترنت…", 90);
         try
         {
             var stream = await ResolveWithAutoUpdateAsync(v.Path, mode, cts.Token, () => request == _playRequest && !_closing);
@@ -488,7 +488,7 @@ internal sealed partial class MainForm
             if (YtDlp.IsUnsupportedUrl(ex.Message) && _directTriedFor != v)
             {
                 _directTriedFor = v;
-                ShowStatus("بجرّب أشغّل الرابط مباشرة…", 15);
+                ShowStatus("جارٍ تجربة تشغيل الرابط مباشرة…", 15);
                 PlayStream(YtDlp.NormalizeUrl(v.Path), null, null, null, startMs);
                 return;
             }
@@ -518,7 +518,7 @@ internal sealed partial class MainForm
             {
                 if (!stillWanted()) return false;
                 int left = (int)Math.Ceiling((end - DateTime.UtcNow).TotalSeconds);
-                ShowBanner($"بجهّز الاتصال بيوتيوب… الفيديو هيبدأ لوحده خلال {left} ثانية",
+                ShowBanner($"جارٍ تجهيز الاتصال بيوتيوب… سيبدأ الفيديو تلقائيًا خلال {left} ثانية",
                     BannerKind.Info, seconds: 0, key: "yt-wait");
                 await Task.Delay(1000, ct);
             }
@@ -589,7 +589,7 @@ internal sealed partial class MainForm
         {
             _ytdlpAutoUpdated = true;
             Log.Error("online-resolve (هيتحدّث yt-dlp ويتجرّب تاني)", ex);
-            ShowStatus("يوتيوب غيّر حاجة… بحدّث أداة يوتيوب وأجرّب تاني", 120);
+            ShowStatus("غيّر يوتيوب شيئًا… جارٍ تحديث أداة يوتيوب وإعادة المحاولة", 120);
             try { Log.Info("yt-dlp auto-update: " + await YtDlp.UpdateAsync(ct)); }
             catch (Exception uex) when (uex is not OperationCanceledException) { Log.Error("yt-dlp auto-update", uex); }
             if (!stillWanted()) return null;
@@ -610,7 +610,7 @@ internal sealed partial class MainForm
         _currentMedia = media;
         _mp.Play(media);
         oldMedia?.Dispose();
-        ShowStatus(startMs > 0 ? $"استكمال من {TimeFormat.Format(startMs)}" : "", 3);
+        ShowStatus(startMs > 0 ? $"المتابعة من {TimeFormat.Format(startMs)}" : "", 3);
     }
 
     /// <summary>
@@ -652,7 +652,7 @@ internal sealed partial class MainForm
         }
         _seekAfterPlayingMs = -1;
         Log.Info($"online video failed after {_onlineRetryStage - 1} retries: {v.Path}");
-        ShowOnlineFailure(v, "مشغل الفيديو مقدرش يفتح الرابط اللي الموقع رجّعه.");
+        ShowOnlineFailure(v, "لم يستطع مشغل الفيديو فتح الرابط الذي أعاده الموقع.");
         return true;
     }
 
@@ -668,7 +668,7 @@ internal sealed partial class MainForm
             Log.Info("online stream (yt-dlp pipe): " + format);
             PlayStream(local, null, null, null, 0);
             if (wantedMs > 5000)
-                ShowBanner($"الفيديو اشتغل بالطريقة المضمونة (من غير تقديم) فبدأ من الأول — كنت واقف عند {TimeFormat.Format(wantedMs)}",
+                ShowBanner($"عمل الفيديو بالطريقة المضمونة (دون تقديم) فبدأ من البداية — كنت متوقفًا عند {TimeFormat.Format(wantedMs)}",
                     BannerKind.Warning, seconds: 15, key: "pipe");
         }
         catch (Exception ex)
@@ -689,26 +689,26 @@ internal sealed partial class MainForm
         if (_seekAfterPlayingMs <= 0) return;
         long t = _seekAfterPlayingMs;
         _seekAfterPlayingMs = -1;
-        try { _mp.Time = t; ShowStatus($"استكمال من {TimeFormat.Format(t)}", 3); } catch { }
+        try { _mp.Time = t; ShowStatus($"المتابعة من {TimeFormat.Format(t)}", 3); } catch { }
     }
 
     private void ShowOnlineFailure(VideoItem v, string raw)
     {
         var (message, recoverable) = YtDlp.Explain(raw);
-        ShowStatus("الفيديو ده مش راضي يشتغل", 6);
+        ShowStatus("هذا الفيديو لا يعمل", 6);
         if (recoverable)
         {
             string size = EstimateDownloadSize(v);
             if (Dialogs.Confirm(this,
-                    $"مقدرتش أشغّل «{v.Title}» من النت بعد كذا محاولة:\n\n{message}\n\n" +
-                    "• «أيوه»: أنزّله على الجهاز وأشغّله منه (أضمن طريقة، ومن غير نت بعد كده)." + size + "\n" +
-                    "   تقدر تمسحه بعدين: كليك يمين على الفيديو ← مسح النسخة المتنزلة.\n" +
-                    "• «لأ»: أفتحه في المتصفح بدل كده.", "فيديو من النت"))
+                    $"تعذّر تشغيل «{v.Title}» من الإنترنت بعد عدة محاولات:\n\n{message}\n\n" +
+                    "• «نعم»: أنزّله على الجهاز وأشغّله منه (أضمن طريقة، ودون إنترنت بعد ذلك)." + size + "\n" +
+                    "   يمكنك حذفه لاحقًا: انقر بالزر الأيمن على الفيديو ← حذف النسخة المنزّلة.\n" +
+                    "• «لا»: أفتحه في المتصفح بدلًا من ذلك.", "فيديو من النت"))
                 _ = DownloadThenPlayAsync(v);
             else
                 OpenInBrowser(YtDlp.NormalizeUrl(v.Path));
         }
-        else if (Dialogs.Confirm(this, $"مقدرتش أشغّل «{v.Title}»:\n\n{message}\n\nتحب تفتحه في المتصفح؟", "فيديو من النت"))
+        else if (Dialogs.Confirm(this, $"تعذّر تشغيل «{v.Title}»:\n\n{message}\n\nهل تريد فتحه في المتصفح؟", "فيديو من النت"))
             OpenInBrowser(YtDlp.NormalizeUrl(v.Path));
     }
 
@@ -720,8 +720,8 @@ internal sealed partial class MainForm
         // ميجا في الساعة تقريبًا (فيديو + صوت) لفيديوهات المحاضرات/التلاوات
         double mbPerHour = h is > 0 and <= 360 ? 300 : h is > 0 and <= 480 ? 450 : h is > 0 and <= 720 ? 800 : 1500;
         double mb = mbPerHour * v.DurationMs / 3_600_000.0;
-        string text = mb >= 1024 ? $"{mb / 1024:0.#} جيجا" : $"{Math.Max(1, mb):0} ميجا";
-        return $"\n   الحجم التقريبي: {text} (تقدر تقلله من منيو إنترنت ← الجودة).";
+        string text = mb >= 1024 ? $"{mb / 1024:0.#} جيجابايت" : $"{Math.Max(1, mb):0} ميجابايت";
+        return $"\n   الحجم التقريبي: {text} (يمكنك تقليله من الأدوات ← الإنترنت والمنصات ← الجودة).";
     }
 
 }

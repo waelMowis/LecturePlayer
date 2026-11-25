@@ -154,8 +154,8 @@ internal sealed class RadioVisual : Control
         // «مباشر» + الحالة
         string state = _status switch
         {
-            Status.Connecting => "بيتصل…",
-            Status.Reconnecting => "بيعيد الاتصال…",
+            Status.Connecting => "جارٍ الاتصال…",
+            Status.Reconnecting => "جارٍ إعادة الاتصال…",
             Status.Paused => "متوقف مؤقتًا",
             _ => "مباشر"
         };
@@ -221,7 +221,7 @@ internal sealed class RadioVisual : Control
         if (!small && _status != Status.Connecting)
         {
             var t = DateTime.UtcNow - _startedUtc;
-            string text = (_isTv ? "بتتفرج من " : "بتسمع من ") + (t.TotalHours >= 1 ? $"{(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}" : $"{t.Minutes:00}:{t.Seconds:00}");
+            string text = (_isTv ? "تشاهد من " : "تستمع من ") + (t.TotalHours >= 1 ? $"{(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}" : $"{t.Minutes:00}:{t.Seconds:00}");
             using var f3 = new Font("Segoe UI", 9.5f);
             int h = TextRenderer.MeasureText(g, "Ag", f3).Height;
             if (y + h < rc.Height)

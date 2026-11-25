@@ -27,7 +27,7 @@ internal sealed partial class MainForm
         if (name.Length == 0) return;
         var all = ExportCourses(_library, item).SelectMany(c => c.AllVideos).ToList();
         int online = all.Count(v => v.IsOnline), local = all.Count - online;
-        if (all.Count == 0 && ExportCourses(_library, item).Count == 0) { ShowStatus("مفيش كورسات هنا تتحفظ"); return; }
+        if (all.Count == 0 && ExportCourses(_library, item).Count == 0) { ShowStatus("لا توجد دورات هنا للحفظ"); return; }
 
         ExportOptions options;
         string? path;
@@ -35,17 +35,17 @@ internal sealed partial class MainForm
         else
         {
             using var kit = new FormKit($"حفظ «{name}» في مكتبة جديدة", 540);
-            kit.Header("📤  نسخة لوحدها تبعتها لحد");
-            kit.Note($"{ExportCourses(_library, item).Count} كورس • {all.Count} فيديو" +
+            kit.Header("📤  نسخة مستقلة ترسلها لشخص آخر");
+            kit.Note($"{ExportCourses(_library, item).Count} دورة • {all.Count} فيديو" +
                      (online > 0 ? $" — يوتيوب/إنترنت {online}" : "") + (local > 0 ? $" — ملفات على جهازك {local}" : "") +
-                     "\nالأصل بيفضل عندك زي ما هو.", 44);
+                     "\nيبقى الأصل عندك كما هو.", 44);
             var onlyOnline = local > 0 && online > 0
-                ? kit.Full(new ToggleSwitch { Text = $"روابط الإنترنت بس (الـ {local} ملف اللي على جهازك مش هيشتغلوا عند حد تاني)", Checked = true }, 32)
+                ? kit.Full(new ToggleSwitch { Text = $"روابط الإنترنت فقط (الـ {local} ملف الموجودة على جهازك لن تعمل عند غيرك)", Checked = true }, 32)
                 : null;
             if (local > 0 && online == 0)
-                kit.Note("⚠ كل الفيديوهات ملفات على جهازك — اللي هتبعتله محتاج نفس الملفات عنده.", 24, Theme.Folder);
-            var progress = kit.Full(new ToggleSwitch { Text = "معاها تقدّمي وملاحظاتي وعلاماتي (نسخة ليا، مش للمشاركة)", Checked = false }, 32);
-            kit.Note("الملف صغير: ابعته واتساب أو إيميل، واللي يستلمه يفتحه دبل كليك أو من «ملف ← فتح مكتبة».", 34, Theme.Muted);
+                kit.Note("⚠ كل الفيديوهات ملفات على جهازك — من سترسلها إليه يحتاج إلى الملفات نفسها عنده.", 24, Theme.Folder);
+            var progress = kit.Full(new ToggleSwitch { Text = "مع تقدّمي وملاحظاتي وعلاماتي (نسخة لي، ليست للمشاركة)", Checked = false }, 32);
+            kit.Note("الملف صغير: أرسله عبر واتساب أو البريد، ويفتحه من يستلمه بنقر مزدوج أو من «ملف ← فتح مكتبة».", 34, Theme.Muted);
             kit.Buttons("حفظ…", "إلغاء");
             if (kit.Show(this) != DialogResult.OK) return;
             options = new ExportOptions(progress.Checked, onlyOnline?.Checked == true);
@@ -66,7 +66,7 @@ internal sealed partial class MainForm
 
         if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(_libraryPath), StringComparison.OrdinalIgnoreCase))
         {
-            Dialogs.Error(this, "ده ملف المكتبة المفتوحة نفسها — اختار اسم تاني.");
+            Dialogs.Error(this, "هذا ملف المكتبة المفتوحة نفسها — اختر اسمًا آخر.");
             return;
         }
         try
@@ -76,16 +76,16 @@ internal sealed partial class MainForm
             // نتأكد إن اللي اتحفظ بيتقري وكامل
             var check = Storage.LoadLibrary(path);
             if (check.Courses.Count != export.Courses.Count || check.VideoCount != export.VideoCount)
-                throw new InvalidOperationException("الملف اتحفظ ناقص.");
+                throw new InvalidOperationException("حُفظ الملف ناقصًا.");
             Log.Info($"exported «{name}» → {path}: {export.Courses.Count} courses, {export.VideoCount} videos, progress {options.WithProgress}, online-only {options.OnlineOnly}");
             LastExport = path;
-            ShowBanner($"اتحفظت «{Path.GetFileName(path)}» ✓ — {export.Courses.Count} كورس، {export.VideoCount} فيديو", BannerKind.Success,
-                "افتح الفولدر", () => RevealFile(path), seconds: 15, key: "export");
+            ShowBanner($"حُفظت «{Path.GetFileName(path)}» ✓ — {export.Courses.Count} دورة، {export.VideoCount} فيديو", BannerKind.Success,
+                "افتح المجلد", () => RevealFile(path), seconds: 15, key: "export");
         }
         catch (Exception ex)
         {
             Log.Error("export", ex);
-            Dialogs.Error(this, "مقدرتش أحفظ المكتبة الجديدة:\n" + ex.Message);
+            Dialogs.Error(this, "تعذّر حفظ المكتبة الجديدة:\n" + ex.Message);
         }
     }
 

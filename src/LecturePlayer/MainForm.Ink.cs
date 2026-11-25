@@ -98,7 +98,7 @@ internal partial class MainForm
         catch (Exception ex)
         {
             Log.Error("ink save", ex);
-            ShowBanner("مقدرتش أحفظ الشرح: " + ex.Message + " — هحاول تاني", BannerKind.Warning, seconds: 8, key: "ink");
+            ShowBanner("تعذّر حفظ الشرح: " + ex.Message + " — ستُعاد المحاولة", BannerKind.Warning, seconds: 8, key: "ink");
             ScheduleInkSave();
         }
     }
@@ -115,7 +115,7 @@ internal partial class MainForm
         if (changed.Count == 0) return;
         UpdateInkCount(s);
         _ = _reader?.MergeInkAsync(s.Doc);
-        ShowStatus("وصل شرح جديد على الكتاب ده من جهاز تاني", 4);
+        ShowStatus("وصل شرح جديد على هذا الكتاب من جهاز آخر", 4);
     }
 
     private void UpdateInkCount(InkSession s)
@@ -156,7 +156,7 @@ internal partial class MainForm
         if (!ReaderShown || _currentBook == null || _reader == null) return;
         if (BookFiles.FormatOf(BookFile(_currentBook)) == "epub")
         {
-            ShowStatus("الأقلام للـ PDF بس — في الـ EPUB استخدم التظليل (حدد الكلام)", 5);
+            ShowStatus("الأقلام لملفات PDF فقط — في EPUB استخدم التظليل (حدّد الكلام)", 5);
             return;
         }
         _ = _reader.EvalAsync("masar.ink()");

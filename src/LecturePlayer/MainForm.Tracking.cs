@@ -105,9 +105,9 @@ internal sealed partial class MainForm
         string pomo = _pomoRunning ? $"   {(_pomoBreak ? "☕" : "🍅")} {Clock(PomoRemaining())}" : "";
         string focus = _focusUntilUtc is { } fu ? $"   🎯 {Clock(fu - DateTime.UtcNow)}" : "";
         string pages = ReadingGoalText();
-        _statusStudy.Text = $"النهارده {today:0}/{_settings.DailyGoalMinutes} د" + (pages.Length > 0 ? "  " + pages : "") + (streak.Current > 0 ? $"  🔥{streak.Current}" : "") + pomo + focus;
+        _statusStudy.Text = $"اليوم {today:0}/{_settings.DailyGoalMinutes} د" + (pages.Length > 0 ? "  " + pages : "") + (streak.Current > 0 ? $"  🔥{streak.Current}" : "") + pomo + focus;
         _statusStudy.ForeColor = today >= _settings.DailyGoalMinutes ? Theme.Success : Theme.Muted;
-        _statusStudy.ToolTipText = "وقت المذاكرة الفعلي النهارده (الفيديو شغال) — اضغط للإحصائيات";
+        _statusStudy.ToolTipText = "وقت المذاكرة الفعلي اليوم (أثناء تشغيل الفيديو) — اضغط للإحصائيات";
     }
 
     // =====================================================================
@@ -164,7 +164,7 @@ internal sealed partial class MainForm
         if (today >= _settings.DailyGoalMinutes) return;
         var plan = StudyPlanner.Today(_library, JournalEntries, TodayLocal, _settings.Rate).FirstOrDefault(p => p.Status is PlanStatus.Pending or PlanStatus.Overdue);
         string what = plan != null ? $"\nالأولى: {plan.Course.Name}" + (plan.NextVideo != null ? $" — {plan.NextVideo.Title}" : "") : "";
-        Notify("لسه فاضل على هدف النهارده",
+        Notify("ما زال متبقيًا على هدف اليوم",
             $"ذاكرت {today:0} من {_settings.DailyGoalMinutes} دقيقة.{what}");
     }
 
@@ -183,7 +183,7 @@ internal sealed partial class MainForm
         _pomoRunning = !_pomoRunning;
         _pomoBreak = false;
         _pomoEndsUtc = DateTime.UtcNow.AddMinutes(Math.Max(1, _settings.PomodoroWorkMinutes));
-        ShowStatus(_pomoRunning ? $"🍅 بومودورو: {_settings.PomodoroWorkMinutes} دقيقة تركيز" : "بومودورو اتقفل");
+        ShowStatus(_pomoRunning ? $"🍅 بومودورو: {_settings.PomodoroWorkMinutes} دقيقة تركيز" : "أُوقف بومودورو");
         UpdateStudyStatus();
     }
 
@@ -201,12 +201,12 @@ internal sealed partial class MainForm
         {
             _pomoEndsUtc = DateTime.UtcNow.AddMinutes(Math.Max(1, _settings.PomodoroBreakMinutes));
             if (_settings.PomodoroPausesVideo && PlayingNow) PausePlayback();
-            Notify("☕ وقت البريك", $"{_settings.PomodoroBreakMinutes} دقايق راحة. قوم اتحرك واشرب مية.");
+            Notify("☕ وقت الاستراحة", $"{_settings.PomodoroBreakMinutes} دقائق راحة. قم وتحرّك واشرب ماءً.");
         }
         else
         {
             _pomoEndsUtc = DateTime.UtcNow.AddMinutes(Math.Max(1, _settings.PomodoroWorkMinutes));
-            Notify("🍅 يلا نكمل", $"{_settings.PomodoroWorkMinutes} دقيقة تركيز.");
+            Notify("🍅 هيا نكمل", $"{_settings.PomodoroWorkMinutes} دقيقة تركيز.");
         }
         UpdateStudyStatus();
     }
@@ -231,7 +231,7 @@ internal sealed partial class MainForm
             SaveSettings();
             UpdateStudyStatus();
             if (ReaderShown) _ = _reader!.SetReadSecondsAsync(_settings.ReadSeconds);
-            ShowStatus("الإعدادات اتحفظت ✓");
+            ShowStatus("حُفظت الإعدادات ✓");
         }
     }
 
@@ -244,11 +244,11 @@ internal sealed partial class MainForm
 
     private void EditCourseInfo(Course? c)
     {
-        if (c == null) { Dialogs.Info(this, "حدد كورس الأول."); return; }
+        if (c == null) { Dialogs.Info(this, "حدّد دورة أولًا."); return; }
         string before = Storage.Serialize(_library);
         FlushSession();
         if (!CourseInfoDialog.Show(this, c, JournalEntries, AllTags(), _settings.Rate)) return;
-        _undo.Push("تعديل بيانات الكورس", before);
+        _undo.Push("تعديل بيانات الدورة", before);
         MarkDirty();
         SaveLibrary();
         RefreshFilterCombo();
@@ -260,7 +260,7 @@ internal sealed partial class MainForm
     {
         _filterMenu.Renderer = new DarkRenderer();
         _filterButton = new GlyphButton(Glyphs.Filter, 11f) { Dock = DockStyle.Left, Width = LogicalToDeviceUnits(30) };
-        _toolTip.SetToolTip(_filterButton, "فلترة الكورسات بالحالة أو الوسم");
+        _toolTip.SetToolTip(_filterButton, "تصفية الدورات حسب الحالة أو الوسم");
         _filterButton.Click += (_, _) => _filterMenu.Show(_filterButton, new Point(0, _filterButton.Height + 2));
         row.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 4, BackColor = Theme.Panel });
         row.Controls.Add(_filterButton);
@@ -275,8 +275,8 @@ internal sealed partial class MainForm
     {
         var opts = new List<FilterOption>
         {
-            new("all", "كل الكورسات"), new("active", "الشغالة"), new("deadline", "ليها موعد"),
-            new("planned", "المخططة"), new("paused", "المتوقفة"), new("done", "اللي خلصت")
+            new("all", "كل الدورات"), new("active", "الجارية"), new("deadline", "لها موعد"),
+            new("planned", "المخططة"), new("paused", "المتوقفة"), new("done", "المكتملة")
         };
         var tags = AllTags().Select(t => new FilterOption("tag:" + t, "#" + t)).ToList();
         var sel = opts.Concat(tags).FirstOrDefault(o => o.Key == _settings.CourseFilter) ?? opts[0];
@@ -301,7 +301,7 @@ internal sealed partial class MainForm
             foreach (var o in tags) Add(o);
         }
         _filterButton.Active = sel.Key != "all";
-        _toolTip.SetToolTip(_filterButton, sel.Key == "all" ? "فلترة الكورسات بالحالة أو الوسم" : "الفلتر: " + sel.Text + " (اضغط للتغيير)");
+        _toolTip.SetToolTip(_filterButton, sel.Key == "all" ? "تصفية الدورات حسب الحالة أو الوسم" : "التصفية: " + sel.Text + " (اضغط للتغيير)");
         _activeFilterText = sel.Key == "all" ? "" : sel.Text;
         UpdateLibraryHeader();
     }
@@ -329,7 +329,7 @@ internal sealed partial class MainForm
         if (!string.IsNullOrWhiteSpace(c.Goal)) lines.Add("الهدف: " + c.Goal);
         if (c.Deadline != null)
             lines.Add($"الموعد: {c.Deadline:yyyy/MM/dd} — " + StudyPlanner.Describe(StudyPlanner.PlanFor(c, JournalEntries, TodayLocal, _settings.Rate)));
-        if (_library.LinkOf(c) != null) lines.Add("🔄 من فولدر متابَع (الجديد بيتضاف لوحده):\n" + c.SourceFolder);
+        if (_library.LinkOf(c) != null) lines.Add("🔄 من مجلد متابَع (يُضاف الجديد تلقائيًا):\n" + c.SourceFolder);
         return string.Join("\n", lines);
     }
 
@@ -354,7 +354,7 @@ internal sealed partial class MainForm
                 Checkpoint("إعادة تسمية مرفق");
                 att.Name = n; TouchGroupInfo(g);
             }));
-            item.DropDownItems.Add(MenuItem("شيله من المحاضرة", () =>
+            item.DropDownItems.Add(MenuItem("أزله من المحاضرة", () =>
             {
                 Checkpoint("حذف مرفق");
                 IgnoreInFollowed(att.Target);
@@ -363,7 +363,7 @@ internal sealed partial class MainForm
             menu.DropDownItems.Add(item);
         }
         if (g.Attachments.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
-        menu.DropDownItems.Add(MenuItem("إضافة ملفات (PDF، سلايدات، كود)…", () => AddAttachmentFiles(g)));
+        menu.DropDownItems.Add(MenuItem("إضافة ملفات (PDF، شرائح، كود)…", () => AddAttachmentFiles(g)));
         menu.DropDownItems.Add(MenuItem("إضافة رابط…", () => AddAttachmentLink(g)));
         return menu;
     }
@@ -387,7 +387,7 @@ internal sealed partial class MainForm
             if (!g.Attachments.Any(a => string.Equals(a.Target, f, StringComparison.OrdinalIgnoreCase)))
                 g.Attachments.Add(new Attachment { Name = Path.GetFileName(f), Target = f });
         TouchGroupInfo(g);
-        ShowStatus($"اتضاف {dlg.FileNames.Length} مرفق ✓");
+        ShowStatus($"أُضيف {dlg.FileNames.Length} مرفق ✓");
     }
 
     private void AddAttachmentLink(LectureGroup g)
@@ -396,7 +396,7 @@ internal sealed partial class MainForm
         try { if (Clipboard.ContainsText() && MediaFiles.IsUrl(Clipboard.GetText().Trim())) initial = Clipboard.GetText().Trim(); } catch { }
         string? url = Dialogs.Input(this, "إضافة رابط", "الرابط (https://…):", initial);
         if (url == null) return;
-        if (!MediaFiles.IsUrl(url)) { Dialogs.Error(this, "الرابط لازم يبدأ بـ https://"); return; }
+        if (!MediaFiles.IsUrl(url)) { Dialogs.Error(this, "يجب أن يبدأ الرابط بـ https://"); return; }
         string name = Dialogs.Input(this, "إضافة رابط", "اسم يظهر في المكتبة:", Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host : url) ?? url;
         Checkpoint("إضافة رابط مرفق");
         g.Attachments.Add(new Attachment { Name = name, Target = url });
@@ -410,11 +410,11 @@ internal sealed partial class MainForm
         if (IsReadableAttachment(a, target)) { OpenCoursePdf(target, a.Name); return; }
         if (!a.IsLink && !File.Exists(target) && !Directory.Exists(target))
         {
-            Dialogs.Error(this, "الملف مش موجود على الجهاز ده:\n" + a.Target);
+            Dialogs.Error(this, "الملف غير موجود على هذا الجهاز:\n" + a.Target);
             return;
         }
         try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true })?.Dispose(); }
-        catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتحه:\n" + ex.Message); }
+        catch (Exception ex) { Dialogs.Error(this, "تعذّر فتحه:\n" + ex.Message); }
     }
 
     // =====================================================================
@@ -449,9 +449,9 @@ internal sealed partial class MainForm
         {
             Dock = DockStyle.Top, Height = LogicalToDeviceUnits(30), ForeColor = Theme.Text, Cursor = Cursors.Hand,
             Font = new Font("Segoe UI", 11f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleRight,
-            Text = $"النهارده: {today:0} من {_settings.DailyGoalMinutes} دقيقة" + (today >= _settings.DailyGoalMinutes ? " ✓" : "") +
+            Text = $"اليوم: {today:0} من {_settings.DailyGoalMinutes} دقيقة" + (today >= _settings.DailyGoalMinutes ? " ✓" : "") +
                    (ReadingGoalText() is { Length: > 0 } rg ? "     " + rg : "") +
-                   (streak.Current > 0 ? $"     🔥 {streak.Current} يوم ورا بعض" : "") + "     (الإحصائيات ←)"
+                   (streak.Current > 0 ? $"     🔥 {streak.Current} يوم متتالٍ" : "") + "     (الإحصائيات ←)"
         };
         head.Click += (_, _) => ShowStats();
         rows.Add(head);
@@ -478,7 +478,7 @@ internal sealed partial class MainForm
             var review = new Label
             {
                 Dock = DockStyle.Top, Height = rowH, Cursor = Cursors.Hand, TextAlign = ContentAlignment.MiddleRight,
-                ForeColor = Theme.Folder, Text = $"📌  عندك {dueReviews} مراجعة النهارده (F7) — دقيقتين بيثبتوا اللي ذاكرته"
+                ForeColor = Theme.Folder, Text = $"📌  لديك {dueReviews} مراجعة اليوم (F7) — دقيقتان تثبّتان ما ذاكرته"
             };
             review.Click += (_, _) => ShowReview();
             rows.Add(review);
@@ -491,7 +491,7 @@ internal sealed partial class MainForm
                 Dock = DockStyle.Top, Height = rowH, Cursor = Cursors.Hand, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleRight,
                 ForeColor = overdue ? Theme.Danger : Theme.Text,
                 Text = $"📓  {Modern.Bidi(ng.Name)}  ({Modern.Bidi(nc.Name)})  —  " +
-                       (overdue ? $"⚠ موعدها كان {ng.Plan!.Date:d/M}" : "موعدها النهارده") + $"  ·  فاضل: {left}"
+                       (overdue ? $"⚠ موعدها كان {ng.Plan!.Date:d/M}" : "موعدها اليوم") + $"  ·  متبقٍ: {left}"
             };
             var target = ng;
             row.Click += (_, _) => { if (!target.IsCompleted) PlayGroup(target); else SelectItem(target); };
@@ -502,11 +502,11 @@ internal sealed partial class MainForm
         {
             string state = p.Status switch
             {
-                PlanStatus.Overdue => "⚠ الموعد عدّى",
-                PlanStatus.Unrealistic => "⚠ الموعد مش واقعي",
-                PlanStatus.Pending => $"فاضل {StudyStats.FormatMinutes(p.MinutesLeftToday)} النهارده",
-                PlanStatus.DoneToday => "✓ نصيب النهارده خلص",
-                PlanStatus.RestDay => "النهارده مش يوم مذاكرة ليه",
+                PlanStatus.Overdue => "⚠ فات الموعد",
+                PlanStatus.Unrealistic => "⚠ الموعد غير واقعي",
+                PlanStatus.Pending => $"متبقٍ {StudyStats.FormatMinutes(p.MinutesLeftToday)} اليوم",
+                PlanStatus.DoneToday => "✓ اكتمل نصيب اليوم",
+                PlanStatus.RestDay => "اليوم ليس يوم مذاكرة لها",
                 _ => "أولوية"
             };
             var row = new Label
@@ -515,7 +515,7 @@ internal sealed partial class MainForm
                 TextAlign = ContentAlignment.MiddleRight,
                 ForeColor = p.Status is PlanStatus.Overdue or PlanStatus.Unrealistic ? Theme.Danger
                     : p.Status == PlanStatus.DoneToday ? Theme.Success : Theme.Text,
-                Text = $"•  {p.Course.Name}  —  {state}" + (p.NextVideo != null && p.Status != PlanStatus.DoneToday ? $"  ·  الجاي: {p.NextVideo.Title}" : "")
+                Text = $"•  {p.Course.Name}  —  {state}" + (p.NextVideo != null && p.Status != PlanStatus.DoneToday ? $"  ·  التالي: {p.NextVideo.Title}" : "")
             };
             var course = p.Course;
             row.Click += (_, _) =>

@@ -12,7 +12,7 @@ internal static class Dialogs
         using var kit = new FormKit(title, 480);
         var (glyph, color, heading) = kind switch
         {
-            Kind.Error => ("\uE783", Theme.Danger, "حصلت مشكلة"),
+            Kind.Error => ("\uE783", Theme.Danger, "حدثت مشكلة"),
             Kind.Question => ("\uE9CE", Theme.Accent, title),
             _ => ("\uE946", Theme.Accent, title)
         };
@@ -27,8 +27,8 @@ internal static class Dialogs
         head.Parent!.Controls.Add(icon);
         icon.BringToFront();
         kit.Note(text, 24, Theme.Text);
-        if (kind == Kind.Question) kit.Buttons("أيوه", "لأ");
-        else kit.Buttons("تمام", null);
+        if (kind == Kind.Question) kit.Buttons("نعم", "لا");
+        else kit.Buttons("حسنًا", null);
         return kit.Show(owner) == DialogResult.OK;
     }
 

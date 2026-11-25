@@ -22,7 +22,7 @@ public static class VlcAudio
         mp.EncounteredError += (_, _) => done.TrySetResult(false);
         mp.Stopped += (_, _) => done.TrySetResult(true);
         using var reg = ct.Register(() => done.TrySetCanceled(ct));
-        if (!mp.Play()) throw new InvalidOperationException("المشغل مقدرش يفتح الفيديو عشان يطلّع صوته");
+        if (!mp.Play()) throw new InvalidOperationException("لم يستطع المشغل فتح الفيديو لاستخراج صوته");
         bool ok;
         try { ok = await done.Task; }
         finally
@@ -30,8 +30,8 @@ public static class VlcAudio
             // Stop لازم يتنده بره ثريد أحداث VLC
             await Task.Run(() => { try { mp.Stop(); } catch { } });
         }
-        if (!ok) throw new InvalidOperationException("المشغل مقدرش يقرا صوت الفيديو");
+        if (!ok) throw new InvalidOperationException("لم يستطع المشغل قراءة صوت الفيديو");
         var info = new FileInfo(outWav);
-        if (!info.Exists || info.Length < 1024) throw new InvalidOperationException("صوت الفيديو طلع فاضي");
+        if (!info.Exists || info.Length < 1024) throw new InvalidOperationException("صوت الفيديو فارغ");
     }
 }

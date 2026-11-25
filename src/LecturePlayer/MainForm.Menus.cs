@@ -69,10 +69,10 @@ internal sealed partial class MainForm
         var target = new ImportTarget(place != null ? _library.TopicOf(place) : topic, place);
         object? where = (object?)place ?? topic;
         return SubMenuOf(text,
-            MenuItem("📁  من فولدر على الجهاز أو الدرايف…", () =>
+            MenuItem("📁  من مجلد على الجهاز أو Drive…", () =>
             {
                 if (!EnsureLibrary()) return;
-                string? path = PickFolder(this, "اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس)" + (where != null ? " — هيتحط في " + target.Label : ""));
+                string? path = PickFolder(this, "اختر مجلد الدورة (أو المجلد الذي يحتوي على عدة دورات)" + (where != null ? " — سيوضع في " + target.Label : ""));
                 if (path != null) ShowAddFolderDialog(path, place == null ? topic : null, place, useSelection: false);
             }, where == null ? "Ctrl+I" : null),
             MenuItem("🔗  من يوتيوب (فيديو أو قائمة تشغيل)…", () => AddUrlsDialog(null, where), where == null ? "Ctrl+U" : null),
@@ -81,7 +81,7 @@ internal sealed partial class MainForm
             MenuItem("🎓  من مهارة تك أو أي موقع Moodle…", () => MoodleImport(target: target)),
             MenuItem("🎓  من IT Legend…", () => ItLegendImport(null, target)),
             Sep(),
-            MenuItem("📄  كورس فاضي (تملاه بإيدك)…", () =>
+            MenuItem("📄  دورة فارغة (تملؤها يدويًا)…", () =>
             {
                 if (place != null) AddCourse(placeFor: place);
                 else if (topic != null) AddCourse(topicFor: topic);
@@ -95,8 +95,8 @@ internal sealed partial class MainForm
         int links = LinksFor(item).Count;
         var lists = CoursesUnder(item).SelectMany(c => c.Groups).Where(g => g.IsPlaylist).ToList();
         if (links == 0 && lists.Count == 0) return null;
-        string what = links > 0 && lists.Count > 0 ? $"الفولدرات وقوايم يوتيوب" : links > 0 ? (links == 1 ? "الفولدر" : $"الفولدرات ({links})") : $"قوايم يوتيوب ({lists.Count})";
-        return MenuItem("🔄  هات الجديد من " + what, () =>
+        string what = links > 0 && lists.Count > 0 ? $"المجلدات وقوائم يوتيوب" : links > 0 ? (links == 1 ? "المجلد" : $"المجلدات ({links})") : $"قوائم يوتيوب ({lists.Count})";
+        return MenuItem("🔄  اجلب الجديد من " + what, () =>
         {
             if (links > 0) _ = SyncLinkedFoldersAsync(item, manual: true);
             if (lists.Count > 0) _ = SyncPlaylistsAsync(lists, quiet: false);
@@ -106,12 +106,12 @@ internal sealed partial class MainForm
     /// <summary>🔄 للكورس: بيعرف مصدره لوحده (يوديمي، IT Legend، مهارة تك/Moodle، فولدر، يوتيوب).</summary>
     private ToolStripMenuItem? CourseRefreshItem(Course c)
     {
-        if (c.UdemyId != null) return MenuItem("🔄  هات الجديد من يوديمي (والدروس اللي خلّصتها)", () => UdemyImport(c));
-        if (ItLegend.CourseIdOf(c.SourceUrl) != null) return MenuItem("🔄  هات الجديد من IT Legend (والدروس اللي خلّصتها)", () => ItLegendImport(c));
+        if (c.UdemyId != null) return MenuItem("🔄  اجلب الجديد من يوديمي (والدروس التي أكملتها)", () => UdemyImport(c));
+        if (ItLegend.CourseIdOf(c.SourceUrl) != null) return MenuItem("🔄  اجلب الجديد من IT Legend (والدروس التي أكملتها)", () => ItLegendImport(c));
         if (Moodle.ParseCourseUrl(c.SourceUrl) is { } m)
         {
             string site = SiteLabel(MoodleAccountFor(m.Site), m.Site);
-            return MenuItem($"🔄  هات الجديد من {site} (والأنشطة اللي خلّصتها)", () => MoodleImport(c));
+            return MenuItem($"🔄  اجلب الجديد من {site} (والأنشطة التي أكملتها)", () => MoodleImport(c));
         }
         return RefreshUnderItem(c);
     }
@@ -137,8 +137,8 @@ internal sealed partial class MainForm
     private static ToolStripMenuItem WithText(ToolStripMenuItem item, string text) { item.Text = text; return item; }
 
     private ToolStripMenuItem MoveUpDown(string? extraTitle = null) => SubMenuOf("↕  ترتيب",
-        MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"),
-        MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"));
+        MenuItem("تحريك لأعلى", () => MoveSelected(-1), "Alt+↑"),
+        MenuItem("تحريك لأسفل", () => MoveSelected(+1), "Alt+↓"));
 
     private void SelectThen(object item, Action action)
     {
@@ -152,11 +152,11 @@ internal sealed partial class MainForm
 
     private void BuildTopicMenu(Topic t, ToolStripItemCollection items)
     {
-        items.Add(MenuItem("▶  كمّل الموضوع (آخر كورس كنت فيه)", () => PlayTopic(t)));
+        items.Add(MenuItem("▶  تابع الموضوع (آخر دورة كنت فيها)", () => PlayTopic(t)));
         items.Add(Sep());
         // ➕ اللي تحت الموضوع على طول: مصدر، وبعده كورس
         items.Add(MenuItem("➕  مصدر جديد هنا (منصة، أكاديمية، قناة…)…", () => AddPlace(t)));
-        items.Add(CourseSourcesMenu("➕  كورس هنا", t, null));
+        items.Add(CourseSourcesMenu("➕  دورة هنا", t, null));
         items.Add(MenuItem("➕  موضوع جديد بعده…", () => SelectThen(t, () => AddTopic())));
         if (RefreshUnderItem(t) is { } r) items.Add(r);
         items.Add(Sep());
@@ -165,32 +165,32 @@ internal sealed partial class MainForm
         if (!t.SeparatorBefore)
             items.Add(MenuItem("➖  فاصل فوقه (بعنوان أو خط)…", () => EditTopicSeparator(t)));
         else
-            items.Add(SubMenuOf("➖  الفاصل اللي فوقه",
+            items.Add(SubMenuOf("➖  الفاصل الذي فوقه",
                 MenuItem("✏  تعديل…", () => EditTopicSeparator(t)),
-                MenuItem("✕  شيل الفاصل", () => RemoveTopicSeparator(t))));
+                MenuItem("✕  أزل الفاصل", () => RemoveTopicSeparator(t))));
         items.Add(Sep());
         items.Add(SubMenuOf("↕  ترتيب وعرض",
-            MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"),
-            MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"),
+            MenuItem("تحريك لأعلى", () => MoveSelected(-1), "Alt+↑"),
+            MenuItem("تحريك لأسفل", () => MoveSelected(+1), "Alt+↓"),
             Sep(),
-            MenuItem("ترتيب الكورسات بالاسم", () => SortCoursesByName(_library.DirectCoursesOf(t), "ترتيب الكورسات")),
+            MenuItem("ترتيب الدورات بالاسم", () => SortCoursesByName(_library.DirectCoursesOf(t), "ترتيب الدورات")),
             Sep(),
             FoldMenu(t)));
         items.Add(SubMenuOf("✔  التقدّم",
-            MenuItem("تعليم كل فيديوهات الموضوع كمُشاهَدة", ToggleWatchedSelected, "W"),
+            MenuItem("وسم كل فيديوهات الموضوع كمُشاهَدة", ToggleWatchedSelected, "W"),
             MenuItem("↺  تصفير التقدّم في الموضوع كله…", () => ResetWatched(_library.CoursesOf(t).SelectMany(c => c.AllVideos), $"موضوع «{t.Name}»"))));
         items.Add(ExportMenuItem(t));
         items.Add(NotionTopicMenu(t));
         items.Add(Sep());
-        items.Add(MenuItem("🗑  حذف الموضوع (الكورسات بتفضل)", DeleteSelected, "Delete"));
+        items.Add(MenuItem("🗑  حذف الموضوع (تبقى الدورات)", DeleteSelected, "Delete"));
     }
 
     private void BuildDividerMenu(Topic t, ToolStripItemCollection items)
     {
         items.Add(MenuItem("✏  تعديل عنوان الفاصل…", () => EditTopicSeparator(t), "F2"));
-        items.Add(MenuItem("➖  خليه خط من غير عنوان", () => SetTopicSeparator(t, "")));
+        items.Add(MenuItem("➖  اجعله خطًا بلا عنوان", () => SetTopicSeparator(t, "")));
         items.Add(Sep());
-        items.Add(MenuItem("🗑  شيل الفاصل", () => RemoveTopicSeparator(t), "Delete"));
+        items.Add(MenuItem("🗑  أزل الفاصل", () => RemoveTopicSeparator(t), "Delete"));
     }
 
     // =====================================================================
@@ -200,30 +200,30 @@ internal sealed partial class MainForm
     private void BuildPlaceMenu(Place p, ToolStripItemCollection items)
     {
         bool top = _library.ParentOf(p) == null;
-        items.Add(MenuItem("▶  كمّل آخر كورس في المصدر ده", () => PlayPlace(p)));
+        items.Add(MenuItem("▶  تابع آخر دورة في هذا المصدر", () => PlayPlace(p)));
         items.Add(Sep());
         if (top) items.Add(MenuItem("➕  مصدر فرعي هنا (مدرّس، قناة…)…", () => AddPlace(null, parent: p)));
-        items.Add(CourseSourcesMenu("➕  كورس هنا", null, p));
+        items.Add(CourseSourcesMenu("➕  دورة هنا", null, p));
         items.Add(MenuItem("➕  مصدر جديد بعده…", () => AddPlace(_library.TopicOf(p), parent: _library.ParentOf(p))));
         if (RefreshUnderItem(p) is { } r) items.Add(r);
         items.Add(Sep());
         items.Add(MenuItem("✏  إعادة تسمية…", RenameSelected, "F2"));
         items.Add(AppearanceMenuItem(p));
         items.Add(Sep());
-        items.Add(WithText(MovePlaceToTopicMenu(p), "↔  انقل لـ…"));
+        items.Add(WithText(MovePlaceToTopicMenu(p), "↔  انقل إلى…"));
         items.Add(SubMenuOf("↕  ترتيب وعرض",
-            MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"),
-            MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"),
+            MenuItem("تحريك لأعلى", () => MoveSelected(-1), "Alt+↑"),
+            MenuItem("تحريك لأسفل", () => MoveSelected(+1), "Alt+↓"),
             Sep(),
-            MenuItem("ترتيب الكورسات بالاسم", () => SortCoursesByName(_library.CoursesInPlace(p), "ترتيب الكورسات")),
+            MenuItem("ترتيب الدورات بالاسم", () => SortCoursesByName(_library.CoursesInPlace(p), "ترتيب الدورات")),
             Sep(),
             FoldMenu(p)));
         items.Add(SubMenuOf("✔  التقدّم",
-            MenuItem("تعليم كل فيديوهات المصدر كمُشاهَدة", ToggleWatchedSelected, "W"),
+            MenuItem("وسم كل فيديوهات المصدر كمُشاهَدة", ToggleWatchedSelected, "W"),
             MenuItem("↺  تصفير التقدّم في المصدر كله…", () => ResetWatched(_library.AllCoursesUnder(p).SelectMany(c => c.AllVideos), $"«{p.Name}»"))));
         items.Add(ExportMenuItem(p));
         items.Add(Sep());
-        items.Add(MenuItem("🗑  حذف المصدر (الكورسات بتفضل)", DeleteSelected, "Delete"));
+        items.Add(MenuItem("🗑  حذف المصدر (تبقى الدورات)", DeleteSelected, "Delete"));
     }
 
     // =====================================================================
@@ -233,51 +233,51 @@ internal sealed partial class MainForm
     private void BuildCourseMenu(Course c, ToolStripItemCollection items)
     {
         var link = _library.LinkOf(c);
-        items.Add(MenuItem("▶  تشغيل / استكمال الكورس", () => PlayCourse(c)));
+        items.Add(MenuItem("▶  تشغيل / متابعة الدورة", () => PlayCourse(c)));
         items.Add(Sep());
-        items.Add(MenuItem("➕  محاضرة جديدة فاضية…", () => AddGroup(course: c)));
-        items.Add(SubMenuOf("➕  إضافة للكورس",
-            MenuItem("📁  فولدر محاضرات من الجهاز…", () => ImportIntoCourseDialog(c)),
+        items.Add(MenuItem("➕  محاضرة جديدة فارغة…", () => AddGroup(course: c)));
+        items.Add(SubMenuOf("➕  إضافة إلى الدورة",
+            MenuItem("📁  مجلد محاضرات من الجهاز…", () => ImportIntoCourseDialog(c)),
             MenuItem("🔗  فيديوهات أو قائمة من يوتيوب…", () => AddUrlsDialog(null, c))));
-        items.Add(MenuItem("➕  كورس جديد بعده…", () => AddCourse(after: c)));
+        items.Add(MenuItem("➕  دورة جديدة بعدها…", () => AddCourse(after: c)));
         if (CourseRefreshItem(c) is { } r) items.Add(r);
         items.Add(Sep());
         items.Add(MenuItem("✏  إعادة تسمية…", RenameSelected, "F2"));
         items.Add(AppearanceMenuItem(c));
-        items.Add(MenuItem("📋  بيانات الكورس (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
+        items.Add(MenuItem("📋  بيانات الدورة (الحالة، الموعد، الوسوم)…", () => EditCourseInfo(c), "F4"));
         items.Add(Sep());
-        items.Add(WithText(MoveCourseMenu(c), "↔  انقل لـ…"));
+        items.Add(WithText(MoveCourseMenu(c), "↔  انقل إلى…"));
         items.Add(SubMenuOf("↕  ترتيب وعرض",
-            MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"),
-            MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"),
+            MenuItem("تحريك لأعلى", () => MoveSelected(-1), "Alt+↑"),
+            MenuItem("تحريك لأسفل", () => MoveSelected(+1), "Alt+↓"),
             Sep(),
             MenuItem("ترتيب المحاضرات بالاسم", () => SortGroups(c)),
             Sep(),
             FoldMenu(c)));
         items.Add(SubMenuOf("✔  التقدّم",
-            MenuItem(c.IsCompleted ? "إلغاء علامة المشاهدة للكورس كله" : "تعليم الكورس كله كمُشاهَد", ToggleWatchedSelected, "W"),
-            MenuItem("↺  تصفير التقدّم في الكورس…", () => ResetWatched(c.AllVideos, $"كورس «{c.Name}»"))));
+            MenuItem(c.IsCompleted ? "إلغاء علامة المشاهدة للدورة كلها" : "وسم الدورة كلها كمُشاهَدة", ToggleWatchedSelected, "W"),
+            MenuItem("↺  تصفير التقدّم في الدورة…", () => ResetWatched(c.AllVideos, $"دورة «{c.Name}»"))));
         var share = new List<ToolStripItem>
         {
             ExportMenuItem(c),
-            MenuItem("📝  حفظ ملاحظات الكورس في ملف…", () => ExportNotesDialog(c), "Ctrl+E")
+            MenuItem("📝  حفظ ملاحظات الدورة في ملف…", () => ExportNotesDialog(c), "Ctrl+E")
         };
         if (c.AllVideos.Any(v => v.IsDownloadable))
-            share.Add(MenuItem("⬇  تنزيل الكورس كله (فيديو أو MP3)…", () => DownloadCourse(c)));
+            share.Add(MenuItem("⬇  تنزيل الدورة كلها (فيديو أو MP3)…", () => DownloadCourse(c)));
         items.Add(SubMenuOf("📤  حفظ ومشاركة", share.ToArray()));
         // المصدر: الفولدر على الجهاز أو صفحة الكورس على المنصة
         var source = new List<ToolStripItem>();
         if (link != null)
         {
-            source.Add(MenuItem("📂  فتح الفولدر", () => OpenFolder(c.SourceFolder ?? link.Path)));
-            source.Add(MenuItem("بطّل متابعة الفولدر (الكورس بيفضل)", () => StopFollowing(link)));
+            source.Add(MenuItem("📂  فتح المجلد", () => OpenFolder(c.SourceFolder ?? link.Path)));
+            source.Add(MenuItem("أوقف متابعة المجلد (تبقى الدورة)", () => StopFollowing(link)));
         }
         if (c.SourceUrl != null && MediaFiles.IsUrl(c.SourceUrl))
-            source.Add(MenuItem("🌐  فتح صفحة الكورس في المتصفح", () => OpenInBrowser(c.SourceUrl)));
+            source.Add(MenuItem("🌐  فتح صفحة الدورة في المتصفح", () => OpenInBrowser(c.SourceUrl)));
         if (source.Count > 0) items.Add(SubMenuOf("📂  المصدر", source.ToArray()));
         if (NotionCourseMenu(c) is { } notion) items.Add(notion);
         items.Add(Sep());
-        items.Add(MenuItem("🗑  حذف الكورس من المكتبة", DeleteSelected, "Delete"));
+        items.Add(MenuItem("🗑  حذف الدورة من المكتبة", DeleteSelected, "Delete"));
     }
 
     // =====================================================================
@@ -291,49 +291,49 @@ internal sealed partial class MainForm
         items.Add(MenuItem("▶  تشغيل المحاضرة", () => PlayGroup(g)));
         items.Add(MenuItem("⏮  تشغيل من أول فيديو", () => { if (g.Videos.Count > 0) PlayVideo(g, g.Videos[0], 0); }));
         if (g.Attachments.Count > 0) items.Add(AttachmentsMenu(g));
-        if (BoardOf(g) != null) items.Add(MenuItem("▶  سبورة المحاضرة (اللي رسمته وانت بتذاكر)", () => OpenLectureBoard(g)));
+        if (BoardOf(g) != null) items.Add(MenuItem("▶  سبورة المحاضرة (ما رسمته أثناء المذاكرة)", () => OpenLectureBoard(g)));
         items.Add(Sep());
         items.Add(MenuItem("➕  فيديوهات من الجهاز…", () => AddVideosDialog(g)));
         items.Add(MenuItem("➕  فيديوهات من يوتيوب…", () => AddUrlsDialog(null, g)));
-        items.Add(MenuItem("➕  مرفقات (PDF، سلايدات، كود)…", () => AddAttachmentFiles(g)));
+        items.Add(MenuItem("➕  مرفقات (PDF، شرائح، كود)…", () => AddAttachmentFiles(g)));
         items.Add(MenuItem("➕  محاضرة جديدة بعدها…", () => AddGroup(after: g)));
-        if (BoardOf(g) == null) items.Add(MenuItem("➕  سبورة للمحاضرة دي (اشرح/لخّص بالرسم)…", () => OpenLectureBoard(g)));
-        if (g.IsPlaylist) items.Add(MenuItem("🔄  هات الجديد من يوتيوب", () => _ = SyncPlaylistsAsync(new[] { g }, quiet: false)));
+        if (BoardOf(g) == null) items.Add(MenuItem("➕  سبورة لهذه المحاضرة (اشرح/لخّص بالرسم)…", () => OpenLectureBoard(g)));
+        if (g.IsPlaylist) items.Add(MenuItem("🔄  اجلب الجديد من يوتيوب", () => _ = SyncPlaylistsAsync(new[] { g }, quiet: false)));
         items.Add(Sep());
         items.Add(MenuItem("✏  إعادة تسمية…", RenameSelected, "F2"));
         if (!platform)
         {
             if (g.SourceUrl != null)
                 items.Add(MenuItem("🔗  فك الربط بقائمة يوتيوب", () => { Checkpoint("فك الربط"); g.SourceUrl = null; g.InfoUpdatedUtc = DateTime.UtcNow; MarkDirty(); RefreshGroup(g); }));
-            else items.Add(MenuItem("🔗  ربط بقائمة تشغيل يوتيوب (عشان الجديد يتضاف)…", () => LinkPlaylist(g)));
+            else items.Add(MenuItem("🔗  ربط بقائمة تشغيل يوتيوب (ليُضاف الجديد)…", () => LinkPlaylist(g)));
         }
         items.Add(Sep());
 
-        var moveTo = SubMenuOf("↔  نقل لكورس تاني");
+        var moveTo = SubMenuOf("↔  نقل إلى دورة أخرى");
         foreach (var target in _library.Courses.Where(x => x != course))
         {
             var t = target;
             moveTo.DropDownItems.Add(MenuItem(t.Name, () => MoveGroupToCourse(g, t)));
         }
         if (moveTo.DropDownItems.Count > 0) moveTo.DropDownItems.Add(Sep());
-        moveTo.DropDownItems.Add(MenuItem("كورس جديد…", () =>
+        moveTo.DropDownItems.Add(MenuItem("دورة جديدة…", () =>
         {
             var nc = AddCourse(after: course);
             if (nc != null) MoveGroupToCourse(g, nc);
         }));
         items.Add(moveTo);
         items.Add(SubMenuOf("↕  ترتيب",
-            MenuItem("تحريك لفوق", () => MoveSelected(-1), "Alt+↑"),
-            MenuItem("تحريك لتحت", () => MoveSelected(+1), "Alt+↓"),
+            MenuItem("تحريك لأعلى", () => MoveSelected(-1), "Alt+↑"),
+            MenuItem("تحريك لأسفل", () => MoveSelected(+1), "Alt+↓"),
             Sep(),
             MenuItem("ترتيب الفيديوهات بالاسم", () => SortGroupVideos(g)),
             MenuItem("تقسيم تلقائي (عند Part 01)…", () => AutoSplitDialog(g))));
         var progress = new List<ToolStripItem>
         {
-            MenuItem(g.IsCompleted ? "إلغاء علامة المشاهدة للكل" : "تعليم الكل كمُشاهَد", ToggleWatchedSelected, "W"),
+            MenuItem(g.IsCompleted ? "إلغاء علامة المشاهدة للكل" : "وسم الكل كمُشاهَد", ToggleWatchedSelected, "W"),
             MenuItem("↺  تصفير التقدّم في المحاضرة…", () => ResetWatched(g.Videos, $"محاضرة «{g.Name}»"))
         };
-        if (g.NewCount > 0) progress.Insert(0, MenuItem($"شيل علامة «جديد» ({g.NewCount})", () => ClearNew(g)));
+        if (g.NewCount > 0) progress.Insert(0, MenuItem($"أزل علامة «جديد» ({g.NewCount})", () => ClearNew(g)));
         items.Add(SubMenuOf("✔  التقدّم", progress.ToArray()));
         if (g.Videos.Any(x => x.IsDownloadable))
             items.Add(MenuItem("⬇  تنزيل فيديوهات يوتيوب (فيديو أو MP3)…", () => DownloadFromLibrary(g.Videos, g.Name)));
@@ -355,10 +355,10 @@ internal sealed partial class MainForm
             items.Add(MenuItem("▶  تشغيل", () => { if (node != null) PlayNode(node, fromStart: false); }, "Enter"));
             if (v.LastPositionMs > 0) items.Add(MenuItem("⏮  تشغيل من البداية", () => { if (node != null) PlayNode(node, fromStart: true); }));
         }
-        else items.Add(MenuItem("⚠  الملف مش موجود — حدد مكانه الجديد…", () => RelocateMissing(v)));
-        items.Add(MenuItem(v.Watched ? "✔  تعليم كغير مُشاهَد" : "✔  تعليم كمُشاهَد", () => SetWatched(v, !v.Watched), "W"));
+        else items.Add(MenuItem("⚠  الملف غير موجود — حدّد مكانه الجديد…", () => RelocateMissing(v)));
+        items.Add(MenuItem(v.Watched ? "✔  وسم كغير مُشاهَد" : "✔  وسم كمُشاهَد", () => SetWatched(v, !v.Watched), "W"));
         if (v.Watched || v.LastPositionMs > 0)
-            items.Add(MenuItem("↺  تصفير التقدّم (يبدأ من الأول)", () => ResetWatched(new[] { v }, $"«{v.Title}»")));
+            items.Add(MenuItem("↺  تصفير التقدّم (يبدأ من البداية)", () => ResetWatched(new[] { v }, $"«{v.Title}»")));
         items.Add(Sep());
         items.Add(MenuItem("✏  إعادة تسمية…", RenameSelected, "F2"));
         items.Add(MenuItem("✂  ابدأ محاضرة جديدة من هنا…", () => SplitFromHere(v)));
@@ -368,7 +368,7 @@ internal sealed partial class MainForm
         var file = new List<ToolStripItem>();
         if (v.IsOnline)
         {
-            if (IsDownloaded(v)) file.Add(MenuItem("مسح النسخة المتنزلة", () => RemoveOffline(v)));
+            if (IsDownloaded(v)) file.Add(MenuItem("حذف النسخة المنزّلة", () => RemoveOffline(v)));
             else if (v.IsDownloadable) file.Add(MenuItem("⬇  تنزيل (فيديو أو MP3)…", () => DownloadFromLibrary(new[] { v }, v.Title)));
             file.Add(MenuItem("🌐  فتح في المتصفح", () => OpenInBrowser(v.Path)));
             file.Add(MenuItem("📋  نسخ الرابط", () => { try { Clipboard.SetText(v.Path); } catch { } }));
@@ -376,7 +376,7 @@ internal sealed partial class MainForm
         else if (IsAvailable(v)) file.Add(MenuItem("📂  فتح مكان الملف", () => OpenInExplorer(v.LocalPath)));
         if (file.Count > 0) items.Add(SubMenuOf(v.IsOnline ? "🌐  الرابط والتنزيل" : "📂  الملف", file.ToArray()));
         if (owner?.NotionPageId != null && NotionTopicOf(owner) != null)
-            items.Add(MenuItem("📤  ابعت ملاحظات المحاضرة لنوشن", () => SendNotesToNotion(owner)));
+            items.Add(MenuItem("📤  أرسل ملاحظات المحاضرة إلى نوشن", () => SendNotesToNotion(owner)));
         items.Add(Sep());
         items.Add(MenuItem("🗑  إزالة من المكتبة", DeleteSelected, "Delete"));
     }
@@ -388,13 +388,13 @@ internal sealed partial class MainForm
     private void BuildEmptyAreaMenu(ToolStripItemCollection items)
     {
         items.Add(MenuItem("➕  موضوع جديد…", () => { _tree.SelectedNode = null; AddTopic(); }, "Ctrl+Shift+N"));
-        items.Add(CourseSourcesMenu("➕  كورس (من غير موضوع)", null, null));
+        items.Add(CourseSourcesMenu("➕  دورة (بلا موضوع)", null, null));
         items.Add(Sep());
         var sepAll = MenuItem("➖  فواصل بين كل الموضوعات", ToggleAllTopicSeparators);
         sepAll.Checked = _settings.TopicSeparators;
         items.Add(sepAll);
         items.Add(MenuItem("⊞  فتح الكل", () => SetAllExpanded(true), "Ctrl+Shift+]"));
-        items.Add(MenuItem("⊟  قفل الكل", () => SetAllExpanded(false), "Ctrl+Shift+["));
+        items.Add(MenuItem("⊟  إغلاق الكل", () => SetAllExpanded(false), "Ctrl+Shift+["));
     }
 
     /// <summary>
@@ -419,7 +419,7 @@ internal sealed partial class MainForm
         items.Add(MenuItem("➕  موضوع جديد…", () => { if (topic != null) SelectThen(topic, () => AddTopic()); else AddTopic(); }, "Ctrl+Shift+N"));
         if (topic == null)
         {
-            items.Add(CourseSourcesMenu("➕  كورس (من غير موضوع)", null, null));
+            items.Add(CourseSourcesMenu("➕  دورة (بلا موضوع)", null, null));
             AddShelfItems(items);
             return;
         }
@@ -428,13 +428,13 @@ internal sealed partial class MainForm
         if (place != null && _library.ParentOf(place) == null)
             items.Add(MenuItem($"➕  مصدر فرعي في «{place.Name}»…", () => AddPlace(null, parent: place)));
         items.Add(place != null
-            ? CourseSourcesMenu($"➕  كورس في «{place.Name}»", null, place)
-            : CourseSourcesMenu($"➕  كورس في «{topic.Name}»", topic, null));
+            ? CourseSourcesMenu($"➕  دورة في «{place.Name}»", null, place)
+            : CourseSourcesMenu($"➕  دورة في «{topic.Name}»", topic, null));
         if (course != null)
         {
             items.Add(Sep());
             items.Add(MenuItem($"➕  محاضرة في «{course.Name}»…", () => AddGroup(after: group, course: course)));
-            items.Add(MenuItem($"➕  فولدر محاضرات في «{course.Name}»…", () => ImportIntoCourseDialog(course)));
+            items.Add(MenuItem($"➕  مجلد محاضرات في «{course.Name}»…", () => ImportIntoCourseDialog(course)));
         }
         if (group != null)
         {
@@ -450,7 +450,7 @@ internal sealed partial class MainForm
     private void AddShelfItems(ToolStripItemCollection items)
     {
         items.Add(Sep());
-        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(SelectedShelfContext())));
+        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكثر…", () => AddBooksDialog(SelectedShelfContext())));
         items.Add(MenuItem("➕  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), "Ctrl+Shift+P"));
         items.Add(MenuItem("➕  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())));
     }

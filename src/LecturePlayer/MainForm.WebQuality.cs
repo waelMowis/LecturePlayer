@@ -72,7 +72,7 @@ internal sealed partial class MainForm
             {
                 _qDone = true;
                 Log.Info($"web quality: no quality menu ({q.Status}{(q.Error != null ? ": " + q.Error : "")}) on {s.Href}");
-                if (_qForced) ShowStatus("مالقيتش قايمة جودة في المشغّل ده — غيّرها من ⚙ في المشغّل نفسه", 5);
+                if (_qForced) ShowStatus("لم أجد قائمة جودة في هذا المشغّل — غيّرها من ⚙ في المشغّل نفسه", 5);
                 return;
             }
         }
@@ -93,7 +93,7 @@ internal sealed partial class MainForm
         Log.Info($"web quality: {(q.Changed ? "picked" : q.Already ? "already" : "kept")} '{picked}' (max {q.Max}, list {string.Join(",", q.Available)}, cap {cap})");
         if (q.Changed || _qForced)
         {
-            string top = q.Max > 0 && q.Max <= cap && q.Max < 1080 ? $" — أعلى جودة اترفع بيها الدرس ده {q.Max}p" : cap < WebQuality.Max && q.Max > cap ? $" (حدّك {cap}p)" : " (أعلى المتاح)";
+            string top = q.Max > 0 && q.Max <= cap && q.Max < 1080 ? $" — أعلى جودة رُفع بها هذا الدرس {q.Max}p" : cap < WebQuality.Max && q.Max > cap ? $" (حدّك {cap}p)" : " (أعلى المتاح)";
             ShowStatus($"🎚️ الجودة: {picked}{top}", 5);
         }
     }
@@ -107,9 +107,9 @@ internal sealed partial class MainForm
         var color = p >= 1080 ? Theme.Success : p >= 720 ? Theme.Text : Theme.Folder;
         if (_qualityChip.Text != text) _qualityChip.Text = text;
         if (_qualityChip.ForeColor != color) _qualityChip.ForeColor = color;
-        string tip = $"دقة الفيديو دلوقتي: {s.VideoWidth}×{s.VideoHeight}" +
+        string tip = $"دقة الفيديو الآن: {s.VideoWidth}×{s.VideoHeight}" +
                      (s.Quality is { Max: > 0 } q ? $"\nأعلى اختيار في المشغّل: {q.Max}p" : "") +
-                     $"\nالجودة: {WebQuality.Caps[WebQuality.CapIndex(_settings.WebQualityCap)].Label} — دوس للتغيير";
+                     $"\nالجودة: {WebQuality.Caps[WebQuality.CapIndex(_settings.WebQualityCap)].Label} — اضغط للتغيير";
         if (_toolTip.GetToolTip(_qualityChip) != tip) _toolTip.SetToolTip(_qualityChip, tip);
         if (!_qualityChip.Visible) _qualityChip.Visible = true;
     }
@@ -120,11 +120,11 @@ internal sealed partial class MainForm
         var s = _udemyPane?.State;
         if (s is { VideoHeight: > 0 })
         {
-            string info = $"الفيديو دلوقتي: {s.VideoWidth}×{s.VideoHeight}" + (s.Quality is { Max: > 0 } q ? $"  •  أعلى اختيار: {q.Max}p" : "");
+            string info = $"الفيديو الآن: {s.VideoWidth}×{s.VideoHeight}" + (s.Quality is { Max: > 0 } q ? $"  •  أعلى اختيار: {q.Max}p" : "");
             m.Items.Add(new ToolStripMenuItem(info) { Enabled = false });
             m.Items.Add(new ToolStripSeparator());
         }
-        m.Items.Add(new ToolStripMenuItem("🎚️  اختار أعلى جودة دلوقتي", null, (_, _) => ForceBestQuality()) { Enabled = UdemyActive });
+        m.Items.Add(new ToolStripMenuItem("🎚️  اختر أعلى جودة الآن", null, (_, _) => ForceBestQuality()) { Enabled = UdemyActive });
         m.Items.Add(new ToolStripSeparator());
         foreach (var (cap, label) in WebQuality.Caps)
         {
@@ -140,18 +140,18 @@ internal sealed partial class MainForm
         if (_settings.WebQualityCap == cap) return;
         _settings.WebQualityCap = cap;
         SaveSettings();
-        ShowStatus(cap <= 0 ? "الجودة بقت على اختيار الموقع (Auto)" : $"الجودة: {WebQuality.Caps[WebQuality.CapIndex(cap)].Label} — بتتطبّق على الدرس ده والجاي", 4);
+        ShowStatus(cap <= 0 ? "أصبحت الجودة على اختيار الموقع (Auto)" : $"الجودة: {WebQuality.Caps[WebQuality.CapIndex(cap)].Label} — تُطبَّق على هذا الدرس والتالي", 4);
         if (cap > 0) ForceBestQuality(quiet: true);
     }
 
     /// <summary>«اختار أعلى جودة دلوقتي»: من غير استنى ومن غير ما نبص على الدقة الحالية.</summary>
     private void ForceBestQuality(bool quiet = false)
     {
-        if (!UdemyActive || _udemyPane?.State is not { HasVideo: true }) { if (!quiet) ShowStatus("شغّل درس من المنصة الأول", 3); return; }
+        if (!UdemyActive || _udemyPane?.State is not { HasVideo: true }) { if (!quiet) ShowStatus("شغّل درسًا من المنصة أولًا", 3); return; }
         _qDone = false;
         _qForced = true;
         _qAttempts = 0;
         _qNextTry = 0;
-        if (!quiet) ShowStatus("بختار أعلى جودة من قايمة المشغّل…", 3);
+        if (!quiet) ShowStatus("جارٍ اختيار أعلى جودة من قائمة المشغّل…", 3);
     }
 }

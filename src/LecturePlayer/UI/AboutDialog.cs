@@ -76,7 +76,7 @@ internal static class AboutDialog
 
         Line(AppName, 20f, Color.White, FontStyle.Bold);
         Line(AppNameEn + "  ·  الإصدار " + version, 9.5f, Theme.Muted);
-        Line("فيديوهاتك مترتّبة في مسار واضح، وتكمّل من حيث وقفت", 9.5f, Theme.Text, top: 8);
+        Line("فيديوهاتك مرتّبة في مسار واضح، وتكمل من حيث توقفت", 9.5f, Theme.Text, top: 8);
 
         var sep = new Panel { Height = 1, Dock = DockStyle.Top, BackColor = Theme.Border, Margin = new Padding(30, 14, 30, 10) };
         body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -98,7 +98,7 @@ internal static class AboutDialog
             Padding = new Padding(0, 12, 0, 0),
             RightToLeft = RightToLeft.No
         };
-        var ok = new PillButton("تمام", PillStyle.Primary) { Size = new Size(96, 34), DialogResult = DialogResult.OK };
+        var ok = new PillButton("حسنًا", PillStyle.Primary) { Size = new Size(96, 34), DialogResult = DialogResult.OK };
         var details = new PillButton("تفاصيل تقنية", PillStyle.Ghost) { Size = new Size(120, 34), Margin = new Padding(3, 3, 8, 3) };
         details.Click += (_, _) => Dialogs.Info(form, technicalDetails, "تفاصيل تقنية");
         var guide = new PillButton("دليل الاستخدام", PillStyle.Ghost) { Size = new Size(124, 34), Margin = new Padding(3, 3, 8, 3) };

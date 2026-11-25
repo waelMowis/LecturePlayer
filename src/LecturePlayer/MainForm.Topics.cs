@@ -32,11 +32,11 @@ internal sealed partial class MainForm
         node.ImageKey = node.SelectedImageKey = NodeImageKey("topic", t.IconKey, t.ColorHex, done);
         bool current = _currentGroup != null && courses.Any(c => c.Groups.Contains(_currentGroup));
         node.ForeColor = current ? Theme.Accent : done ? Theme.Success : CustomNameColor(t.ColorHex) ?? Theme.Text;
-        node.ToolTipText = $"{t.Name}\n{courses.Count} كورس · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
+        node.ToolTipText = $"{t.Name}\n{courses.Count} دورة · {videos} فيديو" + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
             + (_library.PlacesOf(t).Any() ? "\n🏫 " + string.Join(" · ", _library.PlacesOf(t).Select(p => p.Name)) : "");
-        if (t.Notion != null) node.ToolTipText += "\n📓 مربوط بنوشن — التقدّم والجديد بيتحدّثوا لوحدهم";
+        if (t.Notion != null) node.ToolTipText += "\n📓 مربوط بنوشن — يتحدّث التقدّم والجديد تلقائيًا";
         _tree.SetRow(node, new LectureTreeView.RowInfo(t.Notion != null ? "📓" : "",
-            courses.Count == 1 ? "كورس" : $"{courses.Count} كورس", done, LineAbove: HasLineAbove(t)));
+            courses.Count == 1 ? "دورة" : $"{courses.Count} دورة", done, LineAbove: HasLineAbove(t)));
     }
 
     /// <summary>فاصل فوق الموضوع: لو إنت حاطه، أو «فواصل بين كل الموضوعات» شغالة (ماعدا أول موضوع).</summary>
@@ -66,7 +66,7 @@ internal sealed partial class MainForm
     {
         if (SmokeSeparatorTitle != null) return SmokeSeparatorTitle(current);
         using var kit = new FormKit("فاصل فوق الموضوع", 460);
-        kit.Note("عنوان الفاصل (زي «الشغل» أو «الدراسة») — سيبه فاضي لو عايز خط بس:", 22, Theme.Text);
+        kit.Note("عنوان الفاصل (مثل «العمل» أو «الدراسة») — اتركه فارغًا إن أردت خطًا فقط:", 22, Theme.Text);
         var box = kit.Full(new TextBox { Text = current }, 34);
         kit.Buttons("موافق", "إلغاء");
         kit.Form.Shown += (_, _) => { box.Focus(); box.SelectAll(); };
@@ -86,7 +86,7 @@ internal sealed partial class MainForm
 
     private void RemoveTopicSeparator(Topic t)
     {
-        Checkpoint("شيل الفاصل");
+        Checkpoint("أزل الفاصل");
         t.SeparatorBefore = false;
         t.SeparatorTitle = null;
         t.TouchInfo();
@@ -114,7 +114,7 @@ internal sealed partial class MainForm
         MarkDirty();
         RebuildTree();
         SelectItem(t);
-        ShowStatus("اسحب الكورسات وارميها على الموضوع، أو كليك يمين على الكورس ← انقل لـ…", 6);
+        ShowStatus("اسحب الدورات وأفلتها على الموضوع، أو انقر بالزر الأيمن على الدورة ← انقل إلى…", 6);
         return t;
     }
 
@@ -124,9 +124,9 @@ internal sealed partial class MainForm
         var courses = _library.CoursesOf(t).ToList();
         int places = _library.PlacesOf(t).Count();
         string msg = courses.Count == 0 && places == 0
-            ? $"حذف الموضوع «{t.Name}»؟"
-            : $"حذف الموضوع «{t.Name}»؟\n\n" + (places > 0 ? $"الـ {places} مصدر و" : "الـ ") +
-              $"{courses.Count} كورس اللي تحته مش هيتمسحوا — هيطلعوا برا أي موضوع.";
+            ? $"هل تريد حذف الموضوع «{t.Name}»؟"
+            : $"هل تريد حذف الموضوع «{t.Name}»؟\n\n" + (places > 0 ? $"الـ {places} مصدر و" : "الـ ") +
+              $"الـ {courses.Count} دورة التي تحته لن تُحذف — ستخرج خارج أي موضوع.";
         if (!Dialogs.Confirm(this, msg)) return;
         Checkpoint("حذف موضوع");
         foreach (var c in courses) { c.TopicId = null; c.TouchInfo(); }
@@ -142,7 +142,7 @@ internal sealed partial class MainForm
     private void MoveCourseToTopic(Course c, Topic? t)
     {
         if (c.TopicId == t?.Id && _library.PlaceOf(c) == null) return;
-        Checkpoint("نقل كورس لموضوع");
+        Checkpoint("نقل دورة إلى موضوع");
         // يتحط في آخر كورسات الموضوع الجديد
         _library.Courses.Remove(c);
         var last = _library.CoursesOf(t).LastOrDefault();
@@ -196,7 +196,7 @@ internal sealed partial class MainForm
     {
         var courses = _library.CoursesOf(t).Where(c => c.VideoCount > 0).ToList();
         var c = courses.Where(x => !x.IsCompleted).OrderByDescending(x => x.LastActivityUtc).FirstOrDefault() ?? courses.FirstOrDefault();
-        if (c == null) { ShowStatus("الموضوع ده لسه مفيهوش كورسات بفيديوهات"); return; }
+        if (c == null) { ShowStatus("هذا الموضوع لا يحتوي على دورات بفيديوهات بعد"); return; }
         PlayCourse(c);
     }
 

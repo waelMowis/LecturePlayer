@@ -89,7 +89,7 @@ public static class UpdateChecker
 
     /// <summary>مقدرناش نوصل لـ GitHub (الرسالة للمستخدم بالعربي، والتفاصيل في السجل).</summary>
     public sealed class UpdateCheckException(Exception? inner)
-        : Exception("مقدرتش أوصل لـ GitHub دلوقتي — النت بطيء أو مشغول (مكالمة؟). هحاول تاني لوحدي المرة الجاية.", inner);
+        : Exception("تعذّر الوصول إلى GitHub الآن — الإنترنت بطيء أو مشغول (مكالمة؟). ستُعاد المحاولة تلقائيًا في المرة القادمة.", inner);
 
     /// <summary>تحليل رد GitHub (public عشان يتجرّب لوحده).</summary>
     public static Release? ParseRelease(string json)
@@ -133,10 +133,10 @@ public static class UpdateChecker
     /// </summary>
     public static async Task<string> DownloadSetupAsync(Release r, string repo, IProgress<int> percent, CancellationToken ct)
     {
-        if (r.SetupUrl == null || r.SetupName == null) throw new InvalidOperationException("الإصدار ده مالوش مثبّت على GitHub");
+        if (r.SetupUrl == null || r.SetupName == null) throw new InvalidOperationException("هذا الإصدار ليس له مثبّت على GitHub");
         string expectedPrefix = $"https://github.com/{repo.Trim().Trim('/')}/releases/download/";
         if (!r.SetupUrl.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("رابط التحديث مش من مستودع البرنامج، فمش هنزّله.");
+            throw new InvalidOperationException("رابط التحديث ليس من مستودع البرنامج، لذلك لن يُنزَّل.");
 
         string dir = Path.Combine(Path.GetTempPath(), "Masar-Update");
         Directory.CreateDirectory(dir);
@@ -169,7 +169,7 @@ public static class UpdateChecker
         if (r.SetupSize > 0 && info.Length != r.SetupSize)
         {
             File.Delete(file);
-            throw new InvalidOperationException("ملف التحديث اتنزّل ناقص. جرّب تاني.");
+            throw new InvalidOperationException("نُزِّل ملف التحديث ناقصًا. حاول مرة أخرى.");
         }
         if (r.SetupSha256 != null)
         {
@@ -179,7 +179,7 @@ public static class UpdateChecker
             {
                 fs.Close();
                 File.Delete(file);
-                throw new InvalidOperationException("بصمة ملف التحديث مش مطابقة لـ GitHub، فمش هثبّته.");
+                throw new InvalidOperationException("بصمة ملف التحديث لا تطابق GitHub، لذلك لن يُثبَّت.");
             }
         }
         return file;

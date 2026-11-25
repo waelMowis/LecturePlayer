@@ -63,7 +63,7 @@ internal sealed partial class MainForm
                 var res = form.Result;
                 Check(res is { } rr && rr.Course.Title == "C# oop" && rr.Modules.Count == 2, "window result");
                 Check(server.AuthSeen, "api calls carried the page's bearer");
-                ApplyItLegend(res!.Value.Course, res.Value.Modules, null, topicForTest: "كورسات IT Legend");
+                ApplyItLegend(res!.Value.Course, res.Value.Modules, null, topicForTest: "دورات IT Legend");
             }
             course = _library.Courses.FirstOrDefault(c => ItLegend.CourseIdOf(c.SourceUrl) == ItlCourse);
             Check(course is { VideoCount: 5 } && _library.Places.FirstOrDefault(p => p.Id == course.PlaceId) is { Name: "Ali Shahin" }, "course placed");
@@ -102,7 +102,7 @@ internal sealed partial class MainForm
         {
             StopPlaybackCore(clearCurrent: true);
             if (course != null) _library.Courses.Remove(course);
-            foreach (var t in _library.Topics.Where(t => t.Name == "كورسات IT Legend").ToList())
+            foreach (var t in _library.Topics.Where(t => t.Name == "دورات IT Legend").ToList())
             {
                 _library.Places.RemoveAll(p => p.TopicId == t.Id);
                 _library.Topics.Remove(t);

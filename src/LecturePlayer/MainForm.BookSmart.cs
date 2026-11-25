@@ -26,7 +26,7 @@ internal sealed partial class MainForm
         string? note = null;
         if (wantNote)
         {
-            note = AskText("ملاحظة على التظليل", "ملاحظتك على الجزء ده:", "");
+            note = AskText("ملاحظة على التظليل", "ملاحظتك على هذا الجزء:", "");
             if (note == null) return;
         }
         var h = new Highlight { Page = page, Rects = cfi != null ? "cfi:" + cfi : Highlight.FormatRects(rects), Text = text.Trim(), Color = color, Note = note };
@@ -36,7 +36,7 @@ internal sealed partial class MainForm
         MarkDirty();
         _ = _reader?.SetHighlightsAsync(b);
         if (_shelfMode) RebuildShelf();
-        ShowStatus(note != null ? "اتظلل واتحفظت الملاحظة ✓" : "اتظلل ✓ — بتلاقيه تحت الكتاب في «الكتب»", 3);
+        ShowStatus(note != null ? "ظُلِّل وحُفظت الملاحظة ✓" : "ظُلِّل ✓ — تجده تحت الكتاب في «الكتب»", 3);
     }
 
     private void OnHighlightEdited(int gen, string id, string? color, bool delete)
@@ -50,7 +50,7 @@ internal sealed partial class MainForm
 
     private void RemoveHighlight(Book b, Highlight h)
     {
-        Checkpoint("شيل تظليل");
+        Checkpoint("إزالة التظليل");
         b.Highlights.Remove(h);
         b.TouchProgress();
         MarkDirty();
@@ -78,17 +78,17 @@ internal sealed partial class MainForm
         n.ImageKey = n.SelectedImageKey = ShelfImageKey("highlight", "highlight", null, IconGlyphs.ToHex(color), color, false);
         n.ForeColor = Theme.Text;
         n.NodeFont = _regularNodeFont;
-        n.ToolTipText = $"صفحة {h.Page}\n«{h.Text}»" + (string.IsNullOrWhiteSpace(h.Note) ? "" : "\n\n📝 " + h.Note);
+        n.ToolTipText = $"الصفحة {h.Page}\n«{h.Text}»" + (string.IsNullOrWhiteSpace(h.Note) ? "" : "\n\n📝 " + h.Note);
     }
 
     private void BuildHighlightMenu(BookHighlightRef r, ToolStripItemCollection items)
     {
-        items.Add(MenuItem($"▶  روح لصفحة {r.Highlight.Page}", () => OpenBook(r.Book, r.Highlight.Page), "Enter"));
+        items.Add(MenuItem($"▶  اذهب إلى الصفحة {r.Highlight.Page}", () => OpenBook(r.Book, r.Highlight.Page), "Enter"));
         items.Add(Sep());
         items.Add(MenuItem(string.IsNullOrWhiteSpace(r.Highlight.Note) ? "✏  اكتب ملاحظة…" : "✏  تعديل الملاحظة…", () => EditHighlightNote(r), "F2"));
-        items.Add(MenuItem("📋  انسخ النص", () => { try { Clipboard.SetText(r.Highlight.Text); ShowStatus("اتنسخ ✓", 2); } catch { } }));
+        items.Add(MenuItem("📋  انسخ النص", () => { try { Clipboard.SetText(r.Highlight.Text); ShowStatus("نُسخ ✓", 2); } catch { } }));
         items.Add(Sep());
-        items.Add(MenuItem("🗑  شيل التظليل", () => RemoveHighlight(r.Book, r.Highlight), "Delete"));
+        items.Add(MenuItem("🗑  أزل التظليل", () => RemoveHighlight(r.Book, r.Highlight), "Delete"));
     }
 
     /// <summary>التظليلات والملاحظات والعلامات كملف Markdown (مترتبة بالفصول).</summary>
@@ -97,13 +97,13 @@ internal sealed partial class MainForm
         var sb = new StringBuilder();
         sb.AppendLine($"# {b.Title}");
         if (!string.IsNullOrWhiteSpace(b.Author)) sb.AppendLine($"**المؤلف:** {b.Author}");
-        if (b.PageCount > 0) sb.AppendLine($"**التقدّم:** قريت {b.ReadCount} من {b.PageCount} صفحة ({(int)Math.Round(b.Fraction * 100)}%)");
+        if (b.PageCount > 0) sb.AppendLine($"**التقدّم:** قرأت {b.ReadCount} من {b.PageCount} صفحة ({(int)Math.Round(b.Fraction * 100)}%)");
         sb.AppendLine();
         if (!string.IsNullOrWhiteSpace(b.Notes)) { sb.AppendLine("## ملاحظاتي"); sb.AppendLine(); sb.AppendLine(b.Notes.Trim()); sb.AppendLine(); }
         var items = b.Highlights.Select(h => (h.Page, Kind: 0, Text: $"> {h.Text.Replace("\n", " ")}" + (string.IsNullOrWhiteSpace(h.Note) ? "" : $"\n\n📝 {h.Note}")))
             .Concat(b.Marks.Select(m => (m.Page, Kind: 1, Text: "🔖 علامة" + (string.IsNullOrWhiteSpace(m.Note) ? "" : $": {m.Note}"))))
             .OrderBy(x => x.Page).ThenBy(x => x.Kind).ToList();
-        if (items.Count == 0) { sb.AppendLine("_مفيش تظليلات ولا علامات لسه._"); return sb.ToString(); }
+        if (items.Count == 0) { sb.AppendLine("_لا توجد تظليلات أو علامات بعد._"); return sb.ToString(); }
         var sections = b.Sections();
         string? current = null;
         foreach (var it in items)
@@ -127,7 +127,7 @@ internal sealed partial class MainForm
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         File.WriteAllText(dlg.FileName, BookNotesMarkdown(b), new UTF8Encoding(false));
-        ShowStatus("اتحفظ ✓ " + Path.GetFileName(dlg.FileName), 4);
+        ShowStatus("حُفظ ✓ " + Path.GetFileName(dlg.FileName), 4);
     }
 
     // =====================================================================
@@ -154,7 +154,7 @@ internal sealed partial class MainForm
             try
             {
                 var got = await pane.ExtractTextAsync(file, from, to,
-                    new Progress<(int Done, int Total)>(p => progress?.Report($"بيقرا نص «{b.Title}»… {p.Done}/{Math.Max(p.Total, to - from + 1)}")), ct);
+                    new Progress<(int Done, int Total)>(p => progress?.Report($"جارٍ قراءة نص «{b.Title}»… {p.Done}/{Math.Max(p.Total, to - from + 1)}")), ct);
                 foreach (var (p, t) in got) text.Pages[p] = t;
                 if (got.Count > 0 && text.PageCount == 0) text.PageCount = b.PageCount;
                 if (epub || from == 1 && b.PageCount > 0 && to >= b.PageCount && text.HasAll(1, b.PageCount)) text.Complete = got.Count > 0;
@@ -181,7 +181,7 @@ internal sealed partial class MainForm
             foreach (int p in pages)
             {
                 ct.ThrowIfCancellationRequested();
-                progress?.Report($"بيقرا الصفحات المتصوّرة (OCR)… {++i}/{pages.Count}");
+                progress?.Report($"جارٍ قراءة الصفحات المصوّرة (OCR)… {++i}/{pages.Count}");
                 var png = await pane.RenderPageAsync(BookFile(b), p, 2, ct);
                 if (png == null) continue;
                 await File.WriteAllBytesAsync(tmp, png, ct);
@@ -211,21 +211,21 @@ internal sealed partial class MainForm
     /// <summary>«حوّل الكتاب لنص» (OCR للصفحات المتصوّرة) — عشان البحث والذكاء يشتغلوا عليه.</summary>
     internal async Task OcrBookAsync(Book b)
     {
-        if (!Ocr.IsSupported) { Dialogs.Info(this, "قراءة الكلام من الصور (OCR) محتاجة ويندوز 10 أو أحدث."); return; }
+        if (!Ocr.IsSupported) { Dialogs.Info(this, "قراءة الكلام من الصور (OCR) تحتاج إلى ويندوز 10 أو أحدث."); return; }
         if (b.IsOnline && !File.Exists(BookFile(b)) && !await FetchBookAsync(b, open: false)) return;
         using var cts = new CancellationTokenSource();
-        ShowBanner($"بيجهّز نص «{b.Title}»…", BannerKind.Info, "إلغاء", () => cts.Cancel(), seconds: 0, key: "book-ocr");
+        ShowBanner($"جارٍ تجهيز نص «{b.Title}»…", BannerKind.Info, "إلغاء", () => cts.Cancel(), seconds: 0, key: "book-ocr");
         try
         {
             int to = b.PageCount > 0 ? b.PageCount : 100_000;
             var text = await EnsureBookTextAsync(b, 1, to, ocr: true, cts.Token, new Progress<string>(s => UpdateBannerText("book-ocr", s)));
             if (text == null) { HideBanner("book-ocr"); return; }
             int empty = text.EmptyPages(1, to).Count;
-            ShowBanner($"نص «{b.Title}» جاهز ✓ — {text.Pages.Count} صفحة" + (text.OcrPages.Count > 0 ? $"، منهم {text.OcrPages.Count} بالـ OCR" : "") +
-                       (empty > 0 ? $" ({empty} صفحة مفيهاش كلام)" : ""), BannerKind.Success, seconds: 8, key: "book-ocr");
+            ShowBanner($"نص «{b.Title}» جاهز ✓ — {text.Pages.Count} صفحة" + (text.OcrPages.Count > 0 ? $"، منها {text.OcrPages.Count} بالـ OCR" : "") +
+                       (empty > 0 ? $" ({empty} صفحة بلا كلام)" : ""), BannerKind.Success, seconds: 8, key: "book-ocr");
         }
         catch (OperationCanceledException) { HideBanner("book-ocr"); }
-        catch (Exception ex) { ShowBanner("مقدرتش أقرا الكتاب: " + ex.Message, BannerKind.Warning, seconds: 12, key: "book-ocr"); }
+        catch (Exception ex) { ShowBanner("تعذّرت قراءة الكتاب: " + ex.Message, BannerKind.Warning, seconds: 12, key: "book-ocr"); }
     }
 
     // =====================================================================
@@ -263,18 +263,18 @@ internal sealed partial class MainForm
     {
         var todo = _library.Books.Where(b => !b.IsBoard && File.Exists(BookFile(b)) && BookText.Load(b) is var t && !t.Complete && (b.PageCount <= 0 || !t.HasAll(1, b.PageCount))).ToList();
         int total = _library.Books.Count, done = total - todo.Count;
-        form.SetStatus(todo.Count == 0 ? $"بيدوّر في {total} كتاب" : $"بيجهّز نص الكتب… {done}/{total}");
+        form.SetStatus(todo.Count == 0 ? $"جارٍ البحث في {total} كتاب" : $"جارٍ تجهيز نص الكتب… {done}/{total}");
         foreach (var b in todo)
         {
             if (form.IsDisposed) return;
             try { await EnsureBookTextAsync(b, 1, b.PageCount > 0 ? b.PageCount : 100_000, ocr: false, CancellationToken.None); }
             catch (Exception ex) { Log.Info("book index: " + ex.Message); }
             done++;
-            if (!form.IsDisposed) { form.SetStatus(done < total ? $"بيجهّز نص الكتب… {done}/{total}" : $"بيدوّر في {total} كتاب"); form.Rerun(); }
+            if (!form.IsDisposed) { form.SetStatus(done < total ? $"جارٍ تجهيز نص الكتب… {done}/{total}" : $"جارٍ البحث في {total} كتاب"); form.Rerun(); }
         }
         int scanned = _library.Books.Count(b => BookText.Load(b) is { Pages.Count: > 0 } t && t.EmptyPages(1, t.Pages.Keys.Max()).Count > t.Pages.Count / 2);
         if (!form.IsDisposed && scanned > 0)
-            form.SetStatus($"بيدوّر في {total} كتاب — فيه {scanned} كتاب متصوّر (من غير نص): كليك يمين عليه ← «حوّل الصفحات المتصوّرة لنص» عشان يدخل البحث");
+            form.SetStatus($"جارٍ البحث في {total} كتاب — يوجد {scanned} كتاب مصوّر (بلا نص): انقر عليه بالزر الأيمن ← «حوّل الصفحات المصوّرة إلى نص» ليدخل البحث");
     }
 
     // =====================================================================
@@ -295,22 +295,22 @@ internal sealed partial class MainForm
         if (cts == null) return;
         try
         {
-            ShowStatus($"بيجهّز نص الصفحات {from}–{to}…", 30);
+            ShowStatus($"جارٍ تجهيز نص الصفحات {from}–{to}…", 30);
             var text = await EnsureBookTextAsync(b, from, to, ocr: false, cts.Token);
-            if (text == null) { Dialogs.Info(this, "ملف الكتاب مش موجود."); return; }
+            if (text == null) { Dialogs.Info(this, "ملف الكتاب غير موجود."); return; }
             if (text.EmptyPages(from, to).Count > (to - from + 1) / 2)
             {
-                if (!Ocr.IsSupported || !Confirm("الصفحات دي متصوّرة (من غير نص). أقراها بالـ OCR الأول؟ (ممكن تاخد شوية)")) return;
+                if (!Ocr.IsSupported || !Confirm("هذه الصفحات مصوّرة (بلا نص). هل أقرؤها بالـ OCR أولًا؟ (قد يستغرق بعض الوقت)")) return;
                 text = await EnsureBookTextAsync(b, from, to, ocr: true, cts.Token, new Progress<string>(s => ShowStatus(s, 30)));
                 if (text == null) return;
             }
-            if (text.Joined(from, to).Trim().Length < 40) { Dialogs.Info(this, "مالقيتش كلام كفاية في الصفحات دي."); return; }
+            if (text.Joined(from, to).Trim().Length < 40) { Dialogs.Info(this, "لم أجد كلامًا كافيًا في هذه الصفحات."); return; }
             await work(text, cts.Token);
         }
-        catch (OperationCanceledException) { ShowStatus("اتلغى"); }
+        catch (OperationCanceledException) { ShowStatus("أُلغي"); }
         catch (ClaudeException ex) { Dialogs.Error(this, ex.Message); }
-        catch (FormatException ex) { Dialogs.Error(this, $"Claude رد بشكل مش مفهوم ({what}). جرب تاني.\n\n{ex.Message}"); }
-        catch (Exception ex) { Log.Error(what, ex); Dialogs.Error(this, $"{what} فشل:\n{ex.Message}"); }
+        catch (FormatException ex) { Dialogs.Error(this, $"ردّ Claude بشكل غير مفهوم ({what}). حاول مرة أخرى.\n\n{ex.Message}"); }
+        catch (Exception ex) { Log.Error(what, ex); Dialogs.Error(this, $"فشل {what}:\n{ex.Message}"); }
         finally { EndSmart(cts); }
     }
 
@@ -321,7 +321,7 @@ internal sealed partial class MainForm
         _lastBookAiText = reply;
         if (SmokeClaudeReply != null) return;
         new TextViewerForm($"ملخص: {part} — {b.Title}", reply, NotesExporter.SafeFileName(b.Title + " - " + part) + " - ملخص.md",
-            Act("حطه في ملاحظات الكتاب", edited => AppendBookNotes(b, $"## ملخص: {part}\n\n{edited}"))).Show(this);
+            Act("ضعه في ملاحظات الكتاب", edited => AppendBookNotes(b, $"## ملخص: {part}\n\n{edited}"))).Show(this);
     });
 
     internal Task ExplainPageAsync(Book b, int page, string? question) => WithBookTextAsync(b, Math.Max(1, page - 1), page + 1, "الشرح", async (text, ct) =>
@@ -330,9 +330,9 @@ internal sealed partial class MainForm
         if (reply == null) return;
         _lastBookAiText = reply;
         if (SmokeClaudeReply != null) return;
-        new TextViewerForm($"صفحة {page} — {b.Title}", (string.IsNullOrWhiteSpace(question) ? "" : $"**سؤالك:** {question}\n\n") + reply,
+        new TextViewerForm($"الصفحة {page} — {b.Title}", (string.IsNullOrWhiteSpace(question) ? "" : $"**سؤالك:** {question}\n\n") + reply,
             NotesExporter.SafeFileName(b.Title) + $" - ص {page}.md",
-            Act("حطه في ملاحظات الكتاب", edited => AppendBookNotes(b, $"## صفحة {page}\n\n{edited}"))).Show(this);
+            Act("ضعه في ملاحظات الكتاب", edited => AppendBookNotes(b, $"## صفحة {page}\n\n{edited}"))).Show(this);
     });
 
     internal Task QuizBookPartAsync(Book b, string part, int from, int to) => WithBookTextAsync(b, from, to, "الاختبار", async (text, ct) =>
@@ -341,11 +341,11 @@ internal sealed partial class MainForm
         if (reply == null) return;
         var questions = AiTasks.ParseBookQuiz(reply, b.PageCount);
         _lastBookQuiz = questions;
-        if (questions.Count == 0) { Dialogs.Info(this, "Claude مرجعش أسئلة صالحة. جرب تاني."); return; }
+        if (questions.Count == 0) { Dialogs.Info(this, "لم يُرجع Claude أسئلة صالحة. حاول مرة أخرى."); return; }
         if (SmokeClaudeReply != null) return;
         new QuizForm($"{part} — {b.Title}", questions, page => OpenBook(b, (int)page), (score, total) =>
             LogJournal(new JournalEntry { Kind = JournalEntry.Quiz, StartUtc = DateTime.UtcNow, Score = score, Total = total, CourseId = "book:" + b.Id, VideoPath = b.Path }),
-            "روح للصفحة دي في الكتاب").Show(this);
+            "اذهب إلى هذه الصفحة في الكتاب").Show(this);
     });
 
     private string? _lastBookAiText;
@@ -357,7 +357,7 @@ internal sealed partial class MainForm
         b.TouchProgress();
         MarkDirty();
         SaveLibrary();
-        ShowStatus("اتحط في ملاحظات الكتاب ✓ (بتطلع في «حفظ التظليلات والملاحظات»)", 5);
+        ShowStatus("وُضع في ملاحظات الكتاب ✓ (تظهر في «حفظ التظليلات والملاحظات»)", 5);
     }
 
     /// <summary>الفصل/الجزء اللي فيه الصفحة.</summary>
@@ -384,8 +384,8 @@ internal sealed partial class MainForm
 
     private IEnumerable<ToolStripItem> BookAiItems(Book b, int page, (string Title, int From, int To) part) => new ToolStripItem[]
     {
-        MenuItem($"✨  اشرحلي صفحة {page}", () => _ = ExplainPageAsync(b, page, null)),
-        MenuItem($"✨  اسأل عن صفحة {page}…", () => { string? q = AskText("اسأل عن الصفحة", $"سؤالك عن صفحة {page}:", ""); if (q != null) _ = ExplainPageAsync(b, page, q); }),
+        MenuItem($"✨  اشرح لي الصفحة {page}", () => _ = ExplainPageAsync(b, page, null)),
+        MenuItem($"✨  اسأل عن الصفحة {page}…", () => { string? q = AskText("اسأل عن الصفحة", $"سؤالك عن الصفحة {page}:", ""); if (q != null) _ = ExplainPageAsync(b, page, q); }),
         MenuItem($"✨  لخّص «{part.Title}»", () => _ = SummarizeBookPartAsync(b, part.Title, part.From, part.To)),
         MenuItem($"✨  اختبرني في «{part.Title}»", () => _ = QuizBookPartAsync(b, part.Title, part.From, part.To))
     };

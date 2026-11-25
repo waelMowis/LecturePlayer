@@ -67,7 +67,7 @@ internal static class UdemyWeb
             using var doc = JsonDocument.Parse(json);
             return (doc.RootElement.GetProperty("s").GetInt32(), doc.RootElement.GetProperty("b").GetString() ?? "");
         }
-        throw new TimeoutException("يوديمي مارضيش يرد");
+        throw new TimeoutException("لم يستجب يوديمي");
     }
 
     /// <summary>ExecuteScriptAsync بيرجّع JSON للقيمة: نص ← بنفكه، null ← null.</summary>
@@ -89,7 +89,7 @@ internal static class UdemyWeb
             web.CoreWebView2.Navigate(url);
             var t = await Task.WhenAny(done.Task, Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), ct));
             ct.ThrowIfCancellationRequested();
-            if (t != done.Task) throw new TimeoutException("الصفحة اتأخرت");
+            if (t != done.Task) throw new TimeoutException("تأخرت الصفحة");
         }
         finally { web.CoreWebView2.NavigationCompleted -= Handler; }
     }

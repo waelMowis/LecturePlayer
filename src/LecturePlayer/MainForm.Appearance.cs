@@ -38,12 +38,12 @@ internal sealed partial class MainForm
         (string kind, string name, string? icon, string? color, string? children) = item switch
         {
             Topic t => ("topic", t.Name, t.IconKey, t.ColorHex,
-                _library.PlacesOf(t).Any() || _library.CoursesOf(t).Any() ? "نفس اللون للمصادر والكورسات اللي جوه الموضوع" : null),
+                _library.PlacesOf(t).Any() || _library.CoursesOf(t).Any() ? "اللون نفسه للمصادر والدورات داخل الموضوع" : null),
             Place p => ("place", p.Name, p.IconKey, p.ColorHex,
-                _library.ChildrenOf(p).Any() || _library.AllCoursesUnder(p).Any() ? "نفس اللون للكورسات (والمصادر الفرعية) اللي جوه المصدر" : null),
+                _library.ChildrenOf(p).Any() || _library.AllCoursesUnder(p).Any() ? "اللون نفسه للدورات (والمصادر الفرعية) داخل المصدر" : null),
             Course c => ("course", c.Name, c.IconKey, c.ColorHex, (string?)null),
             Shelf s => ("place", s.Name, s.IconKey, s.ColorHex,
-                _library.AllBooksUnder(s).Any() ? "نفس اللون للكتب (والرفوف) اللي جوه الرف" : null),
+                _library.AllBooksUnder(s).Any() ? "اللون نفسه للكتب (والرفوف) داخل الرف" : null),
             Book b => ("course", b.Title, b.IconKey, b.ColorHex, (string?)null),
             _ => ("", "", null, null, null)
         };
@@ -104,8 +104,8 @@ internal sealed partial class MainForm
         int under = places.Count + courses.Count + extra;
         int n = (selfChanged ? 1 : 0) + under;
         ShowStatus(icon == null && colorHex == null
-            ? "رجعت الأيقونة واللون العاديين" + (n > 1 ? $" ({n - 1} تحته كمان)" : "")
-            : "اتغيرت الأيقونة واللون" + (under > 0 ? $" — واللون اتطبق على {under} تحته" : ""), 5);
+            ? "عادت الأيقونة واللون الافتراضيان" + (n > 1 ? $" ({n - 1} تحته أيضًا)" : "")
+            : "تغيّرت الأيقونة واللون" + (under > 0 ? $" — وطُبّق اللون على {under} تحته" : ""), 5);
         return n;
     }
 
@@ -169,7 +169,7 @@ internal sealed partial class MainForm
         }
         Console.WriteLine($"SMOKE appearance: thinnest icon {thinnest.Key} = {thinnest.Fill}px of 576");
         // الفئات الجديدة والشعارات الأساسية موجودة، ولون العلامة للشعارات بس
-        foreach (var cat in new[] { "لغات برمجة", "فريموركات ومكتبات", "قواعد بيانات وسحابة وأنظمة", "أدوات ومحررات", "منصات ومواقع" })
+        foreach (var cat in new[] { "لغات برمجة", "أطر عمل ومكتبات", "قواعد بيانات وسحابة وأنظمة", "أدوات ومحررات", "منصات ومواقع" })
             Check(IconGlyphs.Categories.Contains(cat), "category " + cat);
         foreach (var k in new[] { "csharp", "dotnet", "python", "javascript", "java", "sqlserver", "visualstudio", "vscode", "github", "youtube", "udemy", "backpack", "stethoscope" })
             Check(IconGlyphs.Exists(k), "icon " + k);

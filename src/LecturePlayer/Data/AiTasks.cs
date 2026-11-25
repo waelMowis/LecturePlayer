@@ -16,29 +16,29 @@ public sealed record AskSource(int Number, VideoItem Video, long TimeMs, string 
 public static class AiTasks
 {
     private const string Style =
-        "اكتب بالعربي المصري البسيط الواضح، وسيب المصطلحات التقنية وأسماء الأكواد بالإنجليزي زي ما هي. " +
-        "متخترعش معلومات مش موجودة في النص.";
+        "اكتب بالعربية الفصحى المبسّطة الواضحة، واترك المصطلحات التقنية وأسماء الأكواد بالإنجليزية كما هي. " +
+        "لا تخترع معلومات غير موجودة في النص.";
 
     // ---------------- ملخص ----------------
 
     public static (string System, string User, int MaxTokens) SummaryPrompt(string videoTitle, Transcript t) => (
-        "إنت مساعد مذاكرة بيلخص محاضرات فيديو لطالب. " + Style,
-        $"ده نص فيديو بعنوان «{videoTitle}» (كل سطر في أوله الوقت):\n\n<transcript>\n{t.ToTimedText()}\n</transcript>\n\n" +
-        "اعمل ملخص Markdown فيه:\n" +
+        "أنت مساعد مذاكرة يلخّص محاضرات الفيديو لطالب. " + Style,
+        $"هذا نص فيديو بعنوان «{videoTitle}» (في أول كل سطر الوقت):\n\n<transcript>\n{t.ToTimedText()}\n</transcript>\n\n" +
+        "اكتب ملخص Markdown يحتوي على:\n" +
         "1. **الفكرة الأساسية** في سطرين.\n" +
-        "2. **النقط المهمة** (bullets) وجنب كل نقطة وقتها بالشكل [م:ث].\n" +
-        "3. **مصطلحات** مع شرح سطر لكل واحد (لو فيه).\n" +
-        "4. **أكواد أو أوامر مهمة** في code blocks (لو اتذكرت).\n" +
-        "5. **أسئلة تراجع بيها نفسك** (3 أسئلة).",
+        "2. **النقاط المهمة** (bullets) وبجانب كل نقطة وقتها بالشكل [د:ث].\n" +
+        "3. **مصطلحات** مع شرح سطر لكل منها (إن وجدت).\n" +
+        "4. **أكواد أو أوامر مهمة** في code blocks (إن ذُكرت).\n" +
+        "5. **أسئلة لمراجعة نفسك** (3 أسئلة).",
         1800);
 
     // ---------------- فصول ----------------
 
     public static (string System, string User, int MaxTokens) ChaptersPrompt(string videoTitle, Transcript t) => (
-        "إنت بتقسم فيديوهات تعليمية لفصول. " + Style + " رد بـ JSON بس من غير أي كلام تاني.",
-        $"نص فيديو «{videoTitle}» (مدته حوالي {Transcript.Short(t.DurationMs)}):\n\n<transcript>\n{t.ToTimedText()}\n</transcript>\n\n" +
-        "قسّمه لفصول (من 4 لـ 15 حسب الطول)، كل فصل بيبدأ عند تغيير حقيقي في الموضوع. أول فصل يبدأ 0:00.\n" +
-        "رد بالشكل ده بالظبط:\n[{\"time\":\"0:00\",\"title\":\"عنوان قصير\"}, …]",
+        "أنت تقسّم فيديوهات تعليمية إلى فصول. " + Style + " أجب بـ JSON فقط دون أي كلام آخر.",
+        $"نص فيديو «{videoTitle}» (مدته نحو {Transcript.Short(t.DurationMs)}):\n\n<transcript>\n{t.ToTimedText()}\n</transcript>\n\n" +
+        "قسّمه إلى فصول (من 4 إلى 15 حسب الطول)، يبدأ كل فصل عند تغيّر حقيقي في الموضوع. يبدأ أول فصل عند 0:00.\n" +
+        "أجب بهذا الشكل بالضبط:\n[{\"time\":\"0:00\",\"title\":\"عنوان قصير\"}, …]",
         1200);
 
     public static List<Chapter> ParseChapters(string reply, long durationMs = 0)
@@ -47,7 +47,7 @@ public static class AiTasks
         using var doc = ParseJsonFromReply(reply);
         var arr = doc.RootElement.ValueKind == JsonValueKind.Array ? doc.RootElement
             : doc.RootElement.TryGetProperty("chapters", out var c) ? c : default;
-        if (arr.ValueKind != JsonValueKind.Array) throw new FormatException("الرد مش قايمة فصول");
+        if (arr.ValueKind != JsonValueKind.Array) throw new FormatException("الرد ليس قائمة فصول");
         foreach (var e in arr.EnumerateArray())
         {
             string? title = Str(e, "title");
@@ -62,11 +62,11 @@ public static class AiTasks
     // ---------------- اختبار ----------------
 
     public static (string System, string User, int MaxTokens) QuizPrompt(string videoTitle, Transcript t, int count = 6) => (
-        "إنت مدرس بيعمل أسئلة اختيار من متعدد تقيس الفهم مش الحفظ. " + Style + " رد بـ JSON بس.",
+        "أنت معلم تكتب أسئلة اختيار من متعدد تقيس الفهم لا الحفظ. " + Style + " أجب بـ JSON فقط.",
         $"نص فيديو «{videoTitle}»:\n\n<transcript>\n{t.ToTimedText()}\n</transcript>\n\n" +
-        $"اعمل {count} أسئلة اختيار من متعدد على أهم الأفكار. كل سؤال 4 اختيارات، واحد بس صح، والغلط يكون مقنع. " +
-        "نوّع مكان الإجابة الصح. ولكل سؤال الوقت اللي الإجابة اتشرحت فيه.\n" +
-        "الشكل بالظبط:\n[{\"question\":\"…\",\"options\":[\"…\",\"…\",\"…\",\"…\"],\"answer\":0,\"explanation\":\"ليه دي الصح\",\"time\":\"4:05\"}]",
+        $"اكتب {count} أسئلة اختيار من متعدد على أهم الأفكار. لكل سؤال 4 اختيارات، واحد فقط صحيح، والخاطئة مقنعة. " +
+        "نوّع موضع الإجابة الصحيحة. ولكل سؤال الوقت الذي شُرحت فيه الإجابة.\n" +
+        "الشكل بالضبط:\n[{\"question\":\"…\",\"options\":[\"…\",\"…\",\"…\",\"…\"],\"answer\":0,\"explanation\":\"لماذا هذه هي الصحيحة\",\"time\":\"4:05\"}]",
         2500);
 
     public static List<QuizQuestion> ParseQuiz(string reply)
@@ -75,7 +75,7 @@ public static class AiTasks
         using var doc = ParseJsonFromReply(reply);
         var arr = doc.RootElement.ValueKind == JsonValueKind.Array ? doc.RootElement
             : doc.RootElement.TryGetProperty("questions", out var q) ? q : default;
-        if (arr.ValueKind != JsonValueKind.Array) throw new FormatException("الرد مش قايمة أسئلة");
+        if (arr.ValueKind != JsonValueKind.Array) throw new FormatException("الرد ليس قائمة أسئلة");
         foreach (var e in arr.EnumerateArray())
         {
             string? question = Str(e, "question");
@@ -91,30 +91,30 @@ public static class AiTasks
     // ---------------- الكتب ----------------
 
     public static (string System, string User, int MaxTokens) BookSummaryPrompt(string book, string part, string pagesText) => (
-        "إنت مساعد مذاكرة بيلخص فصول كتب لطالب. " + Style,
-        $"ده نص «{part}» من كتاب «{book}» (قبل كل صفحة رقمها بالشكل [ص 12]):\n\n<book>\n{pagesText}\n</book>\n\n" +
-        "اعمل ملخص Markdown فيه:\n" +
+        "أنت مساعد مذاكرة يلخّص فصول الكتب لطالب. " + Style,
+        $"هذا نص «{part}» من كتاب «{book}» (قبل كل صفحة رقمها بالشكل [ص 12]):\n\n<book>\n{pagesText}\n</book>\n\n" +
+        "اكتب ملخص Markdown يحتوي على:\n" +
         "1. **الفكرة الأساسية** في سطرين.\n" +
-        "2. **النقط المهمة** (bullets) وجنب كل نقطة رقم الصفحة بالشكل (ص 12).\n" +
-        "3. **مصطلحات وتعريفات** مع شرح سطر لكل واحد (لو فيه).\n" +
-        "4. **أمثلة أو أكواد مهمة** (لو فيه).\n" +
-        "5. **أسئلة تراجع بيها نفسك** (3 أسئلة).",
+        "2. **النقاط المهمة** (bullets) وبجانب كل نقطة رقم الصفحة بالشكل (ص 12).\n" +
+        "3. **مصطلحات وتعريفات** مع شرح سطر لكل منها (إن وجدت).\n" +
+        "4. **أمثلة أو أكواد مهمة** (إن وجدت).\n" +
+        "5. **أسئلة لمراجعة نفسك** (3 أسئلة).",
         2000);
 
     public static (string System, string User, int MaxTokens) BookExplainPrompt(string book, int page, string pagesText, string? question) => (
-        "إنت مدرس صبور بيشرح لطالب صفحة من كتاب بيذاكره. " + Style,
-        $"ده نص من كتاب «{book}» حوالين صفحة {page}:\n\n<book>\n{pagesText}\n</book>\n\n" +
+        "أنت معلم صبور تشرح لطالب صفحة من كتاب يذاكره. " + Style,
+        $"هذا نص من كتاب «{book}» حول الصفحة {page}:\n\n<book>\n{pagesText}\n</book>\n\n" +
         (string.IsNullOrWhiteSpace(question)
-            ? $"اشرح صفحة {page} بأسلوب بسيط: الفكرة، وليه مهمة، ومثال من عندك يوضّحها، وأي مصطلح صعب فيها. ولو فيها كود اشرحه سطر سطر."
-            : $"سؤال الطالب: {question}\nجاوب من النص ده بس، ولو الإجابة مش فيه قول كده واشرح اللي تقدر عليه منه."),
+            ? $"اشرح الصفحة {page} بأسلوب بسيط: الفكرة، ولماذا هي مهمة، ومثال يوضّحها، وأي مصطلح صعب فيها. وإن كان فيها كود فاشرحه سطرًا سطرًا."
+            : $"سؤال الطالب: {question}\nأجب من هذا النص فقط، وإن لم تكن الإجابة فيه فقل ذلك واشرح ما تستطيع منه."),
         1500);
 
     public static (string System, string User, int MaxTokens) BookQuizPrompt(string book, string part, string pagesText, int count = 6) => (
-        "إنت مدرس بيعمل أسئلة اختيار من متعدد تقيس الفهم مش الحفظ. " + Style + " رد بـ JSON بس.",
-        $"ده نص «{part}» من كتاب «{book}» (قبل كل صفحة رقمها [ص 12]):\n\n<book>\n{pagesText}\n</book>\n\n" +
-        $"اعمل {count} أسئلة اختيار من متعدد على أهم الأفكار. كل سؤال 4 اختيارات، واحد بس صح، والغلط يكون مقنع. " +
-        "نوّع مكان الإجابة الصح. ولكل سؤال رقم الصفحة اللي فيها الإجابة.\n" +
-        "الشكل بالظبط:\n[{\"question\":\"…\",\"options\":[\"…\",\"…\",\"…\",\"…\"],\"answer\":0,\"explanation\":\"ليه دي الصح\",\"page\":12}]",
+        "أنت معلم تكتب أسئلة اختيار من متعدد تقيس الفهم لا الحفظ. " + Style + " أجب بـ JSON فقط.",
+        $"هذا نص «{part}» من كتاب «{book}» (قبل كل صفحة رقمها [ص 12]):\n\n<book>\n{pagesText}\n</book>\n\n" +
+        $"اكتب {count} أسئلة اختيار من متعدد على أهم الأفكار. لكل سؤال 4 اختيارات، واحد فقط صحيح، والخاطئة مقنعة. " +
+        "نوّع موضع الإجابة الصحيحة. ولكل سؤال رقم الصفحة التي فيها الإجابة.\n" +
+        "الشكل بالضبط:\n[{\"question\":\"…\",\"options\":[\"…\",\"…\",\"…\",\"…\"],\"answer\":0,\"explanation\":\"لماذا هذه هي الصحيحة\",\"page\":12}]",
         2500);
 
     /// <summary>أسئلة الكتاب: الصفحة بتتحط مكان الوقت (QuizForm بيرجّعها لـ «روح للصفحة»).</summary>
@@ -124,7 +124,7 @@ public static class AiTasks
         using var doc = ParseJsonFromReply(reply);
         var arr = doc.RootElement.ValueKind == JsonValueKind.Array ? doc.RootElement
             : doc.RootElement.TryGetProperty("questions", out var q) ? q : default;
-        if (arr.ValueKind != JsonValueKind.Array) throw new FormatException("الرد مش قايمة أسئلة");
+        if (arr.ValueKind != JsonValueKind.Array) throw new FormatException("الرد ليس قائمة أسئلة");
         foreach (var e in arr.EnumerateArray())
         {
             string? question = Str(e, "question");
@@ -146,9 +146,9 @@ public static class AiTasks
         foreach (var s in sources)
             sb.Append($"<source n=\"{s.Number}\" video=\"{s.Video.Title}\" time=\"{Transcript.Short(s.TimeMs)}\">\n{s.Text}\n</source>\n");
         return (
-            $"إنت مساعد مذاكرة لكورس «{courseName}». بتجاوب من مقاطع من نصوص فيديوهات الكورس بس. " + Style +
-            " بعد كل معلومة حط رقم المصدر بالشكل [1] أو [2][3]. " +
-            "لو المقاطع مفيهاش الإجابة قول كده بصراحة واقترح الطالب يدور فين، ومتجاوبش من دماغك.",
+            $"أنت مساعد مذاكرة لدورة «{courseName}». تجيب من مقاطع نصوص فيديوهات الدورة فقط. " + Style +
+            " بعد كل معلومة ضع رقم المصدر بالشكل [1] أو [2][3]. " +
+            "إن لم تكن الإجابة في المقاطع فقل ذلك بصراحة واقترح على الطالب أين يبحث، ولا تُجب من عندك.",
             $"<sources>\n{sb}</sources>\n\nالسؤال: {question}",
             1500);
     }
@@ -176,10 +176,10 @@ public static class AiTasks
             if (nl >= 0 && close > nl) s = s[(nl + 1)..close].Trim();
         }
         int start = s.IndexOfAny(new[] { '[', '{' });
-        if (start < 0) throw new FormatException("مفيش JSON في الرد");
+        if (start < 0) throw new FormatException("لا يوجد JSON في الرد");
         char open = s[start], closeCh = open == '[' ? ']' : '}';
         int end = s.LastIndexOf(closeCh);
-        if (end <= start) throw new FormatException("JSON ناقص في الرد");
+        if (end <= start) throw new FormatException("الرد ينقصه JSON");
         return JsonDocument.Parse(s[start..(end + 1)], new JsonDocumentOptions { AllowTrailingCommas = true });
     }
 

@@ -140,7 +140,7 @@ public static class StudyStats
 
         sb.AppendLine($"# تقرير المذاكرة: {ws:yyyy-MM-dd} → {we:yyyy-MM-dd}");
         sb.AppendLine();
-        sb.AppendLine("| اليوم | الدقايق | الهدف |");
+        sb.AppendLine("| اليوم | الدقائق | الهدف |");
         sb.AppendLine("|---|---:|:---:|");
         for (int i = 0; i < 7; i++)
         {
@@ -153,25 +153,25 @@ public static class StudyStats
             sb.AppendLine($"| {ar.DateTimeFormat.GetDayName(d.DayOfWeek)} {d:MM-dd} | {m:0} | {mark} |");
         }
         sb.AppendLine();
-        sb.AppendLine($"- **الإجمالي:** {FormatMinutes(total)}" + (prevTotal > 0 ? $" ({(total >= prevTotal ? "+" : "")}{(total - prevTotal) / prevTotal * 100:0}% عن الأسبوع اللي فات)" : ""));
-        sb.AppendLine($"- **أيام مذاكرة:** {daysStudied} من 7 — حققت الهدف ({goalMinutes} دقيقة) في {goalDays} يوم");
+        sb.AppendLine($"- **الإجمالي:** {FormatMinutes(total)}" + (prevTotal > 0 ? $" ({(total >= prevTotal ? "+" : "")}{(total - prevTotal) / prevTotal * 100:0}% عن الأسبوع الماضي)" : ""));
+        sb.AppendLine($"- **أيام المذاكرة:** {daysStudied} من 7 — حققت الهدف ({goalMinutes} دقيقة) في {goalDays} يوم");
 
         var inWeek = list.Where(e => { var d = LocalDate(e.StartUtc); return d >= ws && d <= we; }).ToList();
         int finished = inWeek.Count(e => e.Kind == JournalEntry.Watched);
-        sb.AppendLine($"- **فيديوهات خلصت:** {finished}");
+        sb.AppendLine($"- **فيديوهات مكتملة:** {finished}");
         var streak = Streak(daily, we < now ? we : now);
-        sb.AppendLine($"- **السلسلة:** {streak.Current} يوم (أحسن سلسلة {streak.Best})");
+        sb.AppendLine($"- **السلسلة:** {streak.Current} يوم (أفضل سلسلة {streak.Best})");
         sb.AppendLine();
 
         if (lib.Topics.Count > 0)
         {
-            sb.AppendLine("## المواضيع");
+            sb.AppendLine("## الموضوعات");
             sb.AppendLine();
             sb.AppendLine("| الموضوع | وقت الأسبوع | التقدم | التوقع |");
             sb.AppendLine("|---|---:|---:|---|");
             foreach (var t in TopicStats.AllWithPlaces(lib, list, we < now ? we : now))
             {
-                string fc = t.Videos > 0 && t.Watched == t.Videos ? "خلص" : t.FinishDate is { } fd ? $"{fd:yyyy-MM-dd}" : "مفيش معدل كفاية";
+                string fc = t.Videos > 0 && t.Watched == t.Videos ? "خلص" : t.FinishDate is { } fd ? $"{fd:yyyy-MM-dd}" : "لا يوجد معدل كافٍ";
                 sb.AppendLine($"| {Escape(t.Name)} | {FormatMinutes(t.WeekMinutes)} | {t.Percent}% | {fc} |");
             }
             sb.AppendLine();
@@ -182,9 +182,9 @@ public static class StudyStats
             .OrderByDescending(x => x.Min).ToList();
         if (perCourse.Count > 0)
         {
-            sb.AppendLine("## الكورسات");
+            sb.AppendLine("## الدورات");
             sb.AppendLine();
-            sb.AppendLine("| الكورس | الوقت | التقدم | التوقع |");
+            sb.AppendLine("| الدورة | الوقت | التقدم | التوقع |");
             sb.AppendLine("|---|---:|---:|---|");
             foreach (var (id, min) in perCourse)
             {
@@ -192,7 +192,7 @@ public static class StudyStats
                 if (c == null) continue;
                 var f = Forecast(c, list, now);
                 string pct = c.VideoCount == 0 ? "-" : $"{c.WatchedCount * 100 / c.VideoCount}%";
-                string fc = f.DaysLeft == 0 ? "خلص" : f.FinishDate is { } fd ? $"{fd:yyyy-MM-dd}" : "مفيش معدل كفاية";
+                string fc = f.DaysLeft == 0 ? "خلص" : f.FinishDate is { } fd ? $"{fd:yyyy-MM-dd}" : "لا يوجد معدل كافٍ";
                 sb.AppendLine($"| {Escape(c.Name)} | {FormatMinutes(min)} | {pct} | {fc} |");
             }
             sb.AppendLine();
@@ -221,7 +221,7 @@ public sealed record TopicSummary(
 
 public static class TopicStats
 {
-    public const string NoTopicName = "من غير موضوع";
+    public const string NoTopicName = "بلا موضوع";
 
     /// <summary>سجلات المذاكرة الخاصة بكورسات الموضوع (null = كل حاجة).</summary>
     public static List<JournalEntry> EntriesOf(CourseLibrary lib, Topic? topic, IEnumerable<JournalEntry> entries, bool noTopic = false)

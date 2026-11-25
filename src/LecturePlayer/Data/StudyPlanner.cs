@@ -92,11 +92,11 @@ public static class StudyPlanner
     /// <summary>جملة توضح الموعد واقعي ولا لأ (لشاشة بيانات الكورس).</summary>
     public static string Describe(PlanItem p) => p.Status switch
     {
-        PlanStatus.NoDeadline => "مفيش موعد محدد.",
-        PlanStatus.Overdue => $"⚠ الموعد عدّى وفاضل {StudyStats.FormatMinutes(p.RemainingMinutes)}.",
-        PlanStatus.Unrealistic when p.StudyDaysLeft == 0 => "⚠ مفيش أيام مذاكرة قبل الموعد.",
-        PlanStatus.Unrealistic => $"⚠ مش واقعي: محتاج {StudyStats.FormatMinutes(p.MinutesPerStudyDay)} في كل يوم مذاكرة ({p.StudyDaysLeft} يوم). أجّل الموعد أو زوّد الأيام.",
-        _ => $"محتاج حوالي {StudyStats.FormatMinutes(p.MinutesPerStudyDay)} في كل يوم مذاكرة ({p.StudyDaysLeft} يوم فاضل)."
+        PlanStatus.NoDeadline => "لا يوجد موعد محدد.",
+        PlanStatus.Overdue => $"⚠ فات الموعد ومتبقٍ {StudyStats.FormatMinutes(p.RemainingMinutes)}.",
+        PlanStatus.Unrealistic when p.StudyDaysLeft == 0 => "⚠ لا توجد أيام مذاكرة قبل الموعد.",
+        PlanStatus.Unrealistic => $"⚠ غير واقعي: تحتاج إلى {StudyStats.FormatMinutes(p.MinutesPerStudyDay)} في كل يوم مذاكرة ({p.StudyDaysLeft} يوم). أجّل الموعد أو زِد الأيام.",
+        _ => $"تحتاج إلى نحو {StudyStats.FormatMinutes(p.MinutesPerStudyDay)} في كل يوم مذاكرة (متبقٍ {p.StudyDaysLeft} يوم)."
     };
 }
 
@@ -123,7 +123,7 @@ public static class CourseFilter
 
     public static string StatusText(CourseStatus s) => s switch
     {
-        CourseStatus.Active => "شغال",
+        CourseStatus.Active => "جارٍ",
         CourseStatus.Planned => "مخطط",
         CourseStatus.Paused => "متوقف",
         CourseStatus.Done => "خلص",

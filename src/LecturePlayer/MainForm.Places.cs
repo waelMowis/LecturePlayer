@@ -60,9 +60,9 @@ internal sealed partial class MainForm
         bool current = _currentGroup != null && courses.Any(c => c.Groups.Contains(_currentGroup));
         node.ForeColor = current ? Theme.Accent : done ? Theme.Success : CustomNameColor(p.ColorHex) ?? Theme.Text;
         int doneCourses = courses.Count(c => c.IsCompleted);
-        node.ToolTipText = $"🏫 {p.Name}\n{courses.Count} كورس (خلصت {doneCourses}) · {watched} من {videos} فيديو"
+        node.ToolTipText = $"🏫 {p.Name}\n{courses.Count} دورة (أكملت {doneCourses}) · {watched} من {videos} فيديو"
             + (duration > 0 ? " · " + TimeFormat.Format(duration) : "")
-            + (linked ? "\n🔄 فولدرات متابَعة (الجديد بيتضاف لوحده):\n" + string.Join("\n", links.Select(l => l.Path)) : "");
+            + (linked ? "\n🔄 مجلدات متابَعة (يُضاف الجديد تلقائيًا):\n" + string.Join("\n", links.Select(l => l.Path)) : "");
         _tree.SetRow(node, new LectureTreeView.RowInfo(linked ? "🔄" : "", $"{doneCourses}/{courses.Count}", done));
     }
 
@@ -73,13 +73,13 @@ internal sealed partial class MainForm
         var topic = SelectedTopicContext();
         if (topic == null && _library.Topics.Count == 0)
         {
-            Dialogs.Info(this, "المصدر (المنصة أو الأكاديمية أو القناة أو المدرّس) بيبقى جوه موضوع.\nاعمل الموضوع الأول، وبعدها المصدر جواه.");
+            Dialogs.Info(this, "المصدر (المنصة أو الأكاديمية أو القناة أو المدرّس) يكون داخل موضوع.\nأنشئ الموضوع أولًا، ثم المصدر بداخله.");
             topic = AddTopic();
             if (topic == null) return;
         }
         else if (topic == null)
         {
-            ShowStatus("حدد الموضوع اللي المصدر هيبقى جواه في الشجرة الأول (أو كليك يمين على الموضوع ← مصدر جديد)", 6);
+            ShowStatus("حدّد في الشجرة الموضوع الذي سيكون المصدر بداخله أولًا (أو انقر بالزر الأيمن على الموضوع ← مصدر جديد)", 6);
             return;
         }
         AddPlace(topic);
@@ -90,8 +90,8 @@ internal sealed partial class MainForm
     {
         if (parent != null) topic = _library.TopicOf(parent);
         name ??= Dialogs.Input(this, parent != null ? "مصدر فرعي جديد" : "مصدر جديد",
-            parent != null ? $"اسم المصدر الفرعي جوه «{parent.Name}» (مثلًا اسم المدرّس أو القناة):"
-            : topic != null ? $"اسم المصدر جوه «{topic.Name}» (المنصة أو الأكاديمية أو القناة أو المدرّس):" : "اسم المصدر (المنصة أو الأكاديمية أو القناة أو المدرّس):");
+            parent != null ? $"اسم المصدر الفرعي داخل «{parent.Name}» (مثلًا اسم المدرّس أو القناة):"
+            : topic != null ? $"اسم المصدر داخل «{topic.Name}» (المنصة أو الأكاديمية أو القناة أو المدرّس):" : "اسم المصدر (المنصة أو الأكاديمية أو القناة أو المدرّس):");
         if (string.IsNullOrWhiteSpace(name)) return null;
         Checkpoint("إضافة مصدر");
         var p = new Place { Name = name.Trim(), TopicId = topic?.Id, ParentId = parent?.Id };
@@ -105,7 +105,7 @@ internal sealed partial class MainForm
         MarkDirty();
         RebuildTree();
         SelectItem(p);
-        ShowStatus("اسحب الكورسات وارميها على المصدر، أو كليك يمين على الكورس ← انقل لـ…", 6);
+        ShowStatus("اسحب الدورات وأفلتها على المصدر، أو انقر بالزر الأيمن على الدورة ← انقل إلى…", 6);
         return p;
     }
 
@@ -116,11 +116,11 @@ internal sealed partial class MainForm
         var children = _library.ChildrenOf(p).ToList();
         var topic = _library.TopicOf(p);
         var parent = _library.ParentOf(p);
-        string where = parent != null ? $"في «{parent.Name}»" : topic != null ? $"تحت «{topic.Name}» على طول" : "برا أي مصدر";
-        string msg = $"حذف المصدر «{p.Name}»؟";
-        if (courses.Count > 0) msg += $"\n\nالـ {courses.Count} كورس اللي فيه مش هيتمسحوا — هيفضلوا {where}، بتقدّمهم وعلاماتهم.";
-        if (children.Count > 0) msg += $"\n\nالمصادر اللي جواه ({string.Join("، ", children.Select(x => x.Name))}) هتفضل بكورساتها، وتبقى مصادر أساسية.";
-        if (LinksFor(p).Count > 0) msg += "\n\nالفولدرات المتابَعة هتفضل متابَعة، والجديد هيتحط تحت الموضوع.";
+        string where = parent != null ? $"في «{parent.Name}»" : topic != null ? $"تحت «{topic.Name}» مباشرة" : "خارج أي مصدر";
+        string msg = $"هل تريد حذف المصدر «{p.Name}»؟";
+        if (courses.Count > 0) msg += $"\n\nلن تُحذف الـ {courses.Count} دورة الموجودة فيه — ستبقى {where} مع تقدّمها وعلاماتها.";
+        if (children.Count > 0) msg += $"\n\nتبقى المصادر التي بداخله ({string.Join("، ", children.Select(x => x.Name))}) بدوراتها، وتصبح مصادر أساسية.";
+        if (LinksFor(p).Count > 0) msg += "\n\nتبقى المجلدات المتابَعة متابَعة، ويوضع الجديد تحت الموضوع.";
         if (!Dialogs.Confirm(this, msg)) return;
         Checkpoint("حذف مصدر");
         _deletedKeys.Add(LibrarySync.PlaceKey(p));
@@ -146,8 +146,8 @@ internal sealed partial class MainForm
         if (parent != null && !_library.CanNest(p, parent))
         {
             Dialogs.Info(this, _library.ChildrenOf(p).Any()
-                ? $"«{p.Name}» جواه مصادر فرعية، والمصادر مستويين بس.\nطلّع المصادر اللي جواه الأول، أو انقل كورساتها."
-                : $"«{parent.Name}» نفسه مصدر فرعي، والمصادر مستويين بس.");
+                ? $"«{p.Name}» يحتوي على مصادر فرعية، والمصادر مستويان فقط.\nأخرج المصادر التي بداخله أولًا، أو انقل دوراتها."
+                : $"«{parent.Name}» نفسه مصدر فرعي، والمصادر مستويان فقط.");
             return;
         }
         if (_library.ParentOf(p) == parent) return;
@@ -162,7 +162,7 @@ internal sealed partial class MainForm
     private void MovePlaceToTopic(Place p, Topic? t)
     {
         if (p.TopicId == t?.Id && _library.ParentOf(p) == null) return;
-        Checkpoint("نقل مصدر لموضوع");
+        Checkpoint("نقل مصدر إلى موضوع");
         _library.Places.Remove(p);
         var last = _library.PlacesOf(t).LastOrDefault();
         int to = last != null ? _library.Places.IndexOf(last) + 1 : _library.Places.Count;
@@ -178,12 +178,12 @@ internal sealed partial class MainForm
     {
         var t = place != null ? _library.TopicOf(place) : topic;
         if (_library.TopicOf(c) == t && _library.PlaceOf(c) == place) return;
-        Checkpoint("نقل كورس");
+        Checkpoint("نقل دورة");
         PlaceCourseAtEnd(c, topic, place);
         MarkDirty();
         RebuildTree();
         SelectItem(c);
-        ShowStatus($"اتنقل: {_library.PathOf(c)}", 4);
+        ShowStatus($"نُقل: {_library.PathOf(c)}", 4);
     }
 
     /// <summary>كمّل المكان: آخر كورس اشتغلت عليه فيه ولسه مخلصش (أو أول كورس مخلصش).</summary>
@@ -191,7 +191,7 @@ internal sealed partial class MainForm
     {
         var courses = _library.AllCoursesUnder(p).Where(c => c.VideoCount > 0).ToList();
         var c = courses.Where(x => !x.IsCompleted).OrderByDescending(x => x.LastActivityUtc).FirstOrDefault() ?? courses.FirstOrDefault();
-        if (c == null) { ShowStatus("المصدر ده لسه مفيهوش كورسات بفيديوهات"); return; }
+        if (c == null) { ShowStatus("هذا المصدر لا يحتوي على دورات بفيديوهات بعد"); return; }
         PlayCourse(c);
     }
 
@@ -199,17 +199,17 @@ internal sealed partial class MainForm
     private ToolStripMenuItem MovePlaceToTopicMenu(Place p)
     {
         var current = _library.TopicOf(p);
-        var menu = new ToolStripMenuItem("انقل لـ…") { ForeColor = Theme.Text };
+        var menu = new ToolStripMenuItem("انقل إلى…") { ForeColor = Theme.Text };
         // جوه مصدر تاني (يبقى فرعي)، أو يطلع مستوى لفوق
         var parents = _library.Places.Where(x => _library.CanNest(p, x) && _library.ParentOf(p) != x).ToList();
         foreach (var x in parents)
         {
             var target = x;
             string where = _library.TopicOf(x) is { } xt && xt != current ? $"  ‹{xt.Name}›" : "";
-            menu.DropDownItems.Add(MenuItem("🏫  جوه «" + Modern.Bidi(x.Name) + "»" + where, () => NestPlaceInto(p, target)));
+            menu.DropDownItems.Add(MenuItem("🏫  داخل «" + Modern.Bidi(x.Name) + "»" + where, () => NestPlaceInto(p, target)));
         }
         if (_library.ParentOf(p) is { } pp)
-            menu.DropDownItems.Add(MenuItem($"طلّعه برا «{pp.Name}» (مصدر أساسي)", () => NestPlaceInto(p, null)));
+            menu.DropDownItems.Add(MenuItem($"أخرجه من «{pp.Name}» (مصدر أساسي)", () => NestPlaceInto(p, null)));
         if (menu.DropDownItems.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
         foreach (var t in _library.Topics)
         {
@@ -219,7 +219,7 @@ internal sealed partial class MainForm
             menu.DropDownItems.Add(item);
         }
         if (_library.Topics.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
-        if (current != null) menu.DropDownItems.Add(MenuItem("برا أي موضوع", () => MovePlaceToTopic(p, null)));
+        if (current != null) menu.DropDownItems.Add(MenuItem("خارج أي موضوع", () => MovePlaceToTopic(p, null)));
         menu.DropDownItems.Add(MenuItem("موضوع جديد…", () =>
         {
             var t = AddTopic();
@@ -235,7 +235,7 @@ internal sealed partial class MainForm
     {
         var curTopic = _library.TopicOf(c);
         var curPlace = _library.PlaceOf(c);
-        var menu = new ToolStripMenuItem("انقل لـ…") { ForeColor = Theme.Text };
+        var menu = new ToolStripMenuItem("انقل إلى…") { ForeColor = Theme.Text };
 
         foreach (var t in _library.Topics)
         {
@@ -257,7 +257,7 @@ internal sealed partial class MainForm
                 sub.DropDownItems.Add(pi);
             }
             sub.DropDownItems.Add(new ToolStripSeparator());
-            var direct = MenuItem($"تحت «{t.Name}» على طول (من غير مصدر)", () => MoveCourseTo(c, topic, null));
+            var direct = MenuItem($"تحت «{t.Name}» مباشرة (دون مصدر)", () => MoveCourseTo(c, topic, null));
             direct.Checked = curTopic == t && curPlace == null;
             sub.DropDownItems.Add(direct);
             sub.DropDownItems.Add(MenuItem("مصدر جديد هنا…", () =>
@@ -278,7 +278,7 @@ internal sealed partial class MainForm
         }
 
         if (menu.DropDownItems.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
-        if (curTopic != null || curPlace != null) menu.DropDownItems.Add(MenuItem("برا أي موضوع", () => MoveCourseTo(c, null, null)));
+        if (curTopic != null || curPlace != null) menu.DropDownItems.Add(MenuItem("خارج أي موضوع", () => MoveCourseTo(c, null, null)));
         menu.DropDownItems.Add(MenuItem("موضوع جديد…", () =>
         {
             var t = AddTopic();

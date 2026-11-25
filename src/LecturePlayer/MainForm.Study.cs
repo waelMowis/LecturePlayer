@@ -67,7 +67,7 @@ internal sealed partial class MainForm
             b.Click += (_, _) => { _settings.HomeTopicFilter = key; RefreshHome(); };
             _homeTopics.Controls.Add(b);
         }
-        Chip("", "كل المواضيع");
+        Chip("", "كل الموضوعات");
         foreach (var t in _library.Topics)
         {
             var cs = _library.CoursesOf(t).ToList();
@@ -175,10 +175,10 @@ internal sealed partial class MainForm
             if (i < 0 || _bookmarkList.Items[i] is not BookmarkRow { Bookmark: not null }) return;
             _bookmarkList.SelectedIndex = i;
             ClearNodeMenu();
-            _nodeMenu.Items.Add(MenuItem("روح للعلامة", JumpToSelectedBookmark, "Enter"));
+            _nodeMenu.Items.Add(MenuItem("اذهب إلى العلامة", JumpToSelectedBookmark, "Enter"));
             _nodeMenu.Items.Add(MenuItem("تعديل الملاحظة…", EditSelectedBookmark, "F2"));
             var sel = SelectedBookmark();
-            _nodeMenu.Items.Add(MenuItem(sel?.ReviewDueUtc != null ? "شيلها من المراجعة المتباعدة" : "📌 ضيفها للمراجعة المتباعدة", ToggleReviewForSelectedBookmark, "R"));
+            _nodeMenu.Items.Add(MenuItem(sel?.ReviewDueUtc != null ? "أزلها من المراجعة المتباعدة" : "📌 أضفها إلى المراجعة المتباعدة", ToggleReviewForSelectedBookmark, "R"));
             _nodeMenu.Items.Add(MenuItem("حذف العلامة", DeleteSelectedBookmark, "Delete"));
             _nodeMenu.Show(_bookmarkList, e.Location);
         };
@@ -193,7 +193,7 @@ internal sealed partial class MainForm
         _notesBox.Font = new Font("Segoe UI", 9.75f);
         _notesBox.HandleCreated += (_, _) => NativeMethods.UseDarkExplorerTheme(_notesBox);
         _notesBox.RightToLeft = RightToLeft.Yes;
-        _notesBox.PlaceholderText = "ملاحظاتك على الفيديو ده… (بتتحفظ لوحدها)";
+        _notesBox.PlaceholderText = "ملاحظاتك على هذا الفيديو… (تُحفظ تلقائيًا)";
         _notesBox.TextChanged += (_, _) =>
         {
             if (_loadingNotes) return;
@@ -320,8 +320,8 @@ internal sealed partial class MainForm
             {
                 foreach (var b in v.Bookmarks.OrderBy(b => b.TimeMs))
                 {
-                    string tip = b.ReviewDueUtc is { } due ? $"{b.Note}\nالمراجعة الجاية: {due.ToLocalTime():yyyy/MM/dd}"
-                        : ReviewScheduler.IsMastered(b) ? b.Note + "\n✅ اتثبتت بالمراجعة" : b.Note;
+                    string tip = b.ReviewDueUtc is { } due ? $"{b.Note}\nالمراجعة القادمة: {due.ToLocalTime():yyyy/MM/dd}"
+                        : ReviewScheduler.IsMastered(b) ? b.Note + "\n✅ ثبتت بالمراجعة" : b.Note;
                     _bookmarkList.Items.Add(new BookmarkRow(b, TimeFormat.Format(b.TimeMs), string.IsNullOrWhiteSpace(b.Note) ? "—" : b.Note, tip));
                 }
                 if (v.Bookmarks.Count == 0)
@@ -367,7 +367,7 @@ internal sealed partial class MainForm
     private void AddBookmark(bool withNote)
     {
         var v = _currentVideo;
-        if (v == null || !IsActive) { ShowStatus("شغّل فيديو الأول عشان تحط علامة"); return; }
+        if (v == null || !IsActive) { ShowStatus("شغّل فيديو أولًا لتضع علامة"); return; }
 
         long t = _mp.Time;
         string note = "";
@@ -447,26 +447,26 @@ internal sealed partial class MainForm
     /// <summary>A: أول ضغطة بداية، التانية نهاية (يبدأ التكرار)، التالتة تلغي.</summary>
     private void CycleAbLoop()
     {
-        if (!IsActive) { ShowStatus("شغّل فيديو الأول"); return; }
+        if (!IsActive) { ShowStatus("شغّل فيديو أولًا"); return; }
         long t = _mp.Time;
 
         if (_loopA < 0)
         {
             _loopA = t;
             _loopB = -1;
-            ShowStatus($"الجزء هيبدأ من {TimeFormat.Format(t)} — اضغط A تاني عند آخر الجزء اللي عايز تكرره", 5);
+            ShowStatus($"يبدأ الجزء من {TimeFormat.Format(t)} — اضغط A مرة أخرى عند نهاية الجزء الذي تريد تكراره", 5);
         }
         else if (_loopB < 0)
         {
-            if (t <= _loopA + 1000) { ShowStatus("النهاية لازم تبقى بعد البداية بثانية على الأقل"); return; }
+            if (t <= _loopA + 1000) { ShowStatus("يجب أن تكون النهاية بعد البداية بثانية على الأقل"); return; }
             _loopB = t;
             _mp.Time = _loopA;
-            ShowStatus($"بكرّر الجزء من {TimeFormat.Format(_loopA)} لـ {TimeFormat.Format(_loopB)}  (اضغط A تاني توقفه)", 5);
+            ShowStatus($"جارٍ تكرار الجزء من {TimeFormat.Format(_loopA)} إلى {TimeFormat.Format(_loopB)}  (اضغط A مرة أخرى لإيقافه)", 5);
         }
         else
         {
             ClearAbLoop();
-            ShowStatus("وقف تكرار الجزء");
+            ShowStatus("أوقف تكرار الجزء");
         }
         UpdateSeekMarkers();
     }
@@ -490,18 +490,18 @@ internal sealed partial class MainForm
     private void TakeScreenshot()
     {
         var v = _currentVideo;
-        if (v == null || !IsActive) { ShowStatus("شغّل فيديو الأول"); return; }
+        if (v == null || !IsActive) { ShowStatus("شغّل فيديو أولًا"); return; }
         long t = _mp.Time;
 
         string fileName = NotesExporter.SafeFileName($"{v.Title} - {TimeFormat.Format(t).Replace(':', '-')}") + ".png";
         string? dir = SnapshotDirFor(v);
-        if (dir == null) { ShowStatus("مقدرتش أحفظ اللقطة"); return; }
+        if (dir == null) { ShowStatus("تعذّر حفظ اللقطة"); return; }
 
         string full = Path.Combine(dir, fileName);
         bool ok;
         try { ok = _mp.TakeSnapshot(0, full, 0, 0); }
         catch (Exception ex) { Log.Error("snapshot", ex); ok = false; }
-        if (!ok) { ShowStatus("مقدرتش آخد اللقطة"); return; }
+        if (!ok) { ShowStatus("تعذّر التقاط اللقطة"); return; }
 
         _lastSnapshotDir = dir;
         // علامة تلقائية عند اللقطة عشان تلاقيها في الملاحظات
@@ -509,7 +509,7 @@ internal sealed partial class MainForm
         v.Touch();
         MarkDirty();
         RefreshNotesPane();
-        ShowStatus($"اتحفظت اللقطة في «{Path.GetFileName(dir)}» ✓", 4);
+        ShowStatus($"حُفظت اللقطة في «{Path.GetFileName(dir)}» ✓", 4);
     }
 
     /// <summary>فولدر «لقطات» جنب الفيديو، ولو مش ممكن (أو فيديو نت) فـ Data\snapshots.</summary>
@@ -548,7 +548,7 @@ internal sealed partial class MainForm
     {
         CommitNotes();
         course ??= SelectedCourse() ?? (_currentGroup != null ? _library.FindCourseOf(_currentGroup) : null);
-        if (course == null) { Dialogs.Info(this, "حدد كورس الأول."); return; }
+        if (course == null) { Dialogs.Info(this, "حدّد دورة أولًا."); return; }
 
         using var dlg = new SaveFileDialog
         {
@@ -562,13 +562,13 @@ internal sealed partial class MainForm
         try
         {
             File.WriteAllText(dlg.FileName, NotesExporter.BuildMarkdown(course), System.Text.Encoding.UTF8);
-            ShowStatus("اتصدّرت الملاحظات ✓", 4);
+            ShowStatus("صُدِّرت الملاحظات ✓", 4);
             OpenInExplorer(dlg.FileName);
         }
         catch (Exception ex)
         {
             Log.Error("export-notes", ex);
-            Dialogs.Error(this, "مقدرتش أحفظ الملف:\n" + ex.Message);
+            Dialogs.Error(this, "تعذّر حفظ الملف:\n" + ex.Message);
         }
     }
 
@@ -594,7 +594,7 @@ internal sealed partial class MainForm
         _homeTitle.Font = new Font("Segoe UI", 16f, FontStyle.Bold);
         _homeTitle.ForeColor = Theme.Text;
         _homeTitle.TextAlign = ContentAlignment.MiddleRight;
-        _homeTitle.Text = "كمّل اللي بدأته";
+        _homeTitle.Text = "تابع ما بدأته";
 
         _homeCards.Dock = DockStyle.Fill;
         _homeCards.AutoScroll = true;
@@ -612,7 +612,7 @@ internal sealed partial class MainForm
         _homeHint.ForeColor = Theme.Muted;
         _homeHint.TextAlign = ContentAlignment.MiddleCenter;
         _homeHint.RightToLeft = RightToLeft.Yes;
-        _homeHint.Text = "اسحب فولدر كورس وارميه هنا (الفولدر = كورس، وكل فولدر فرعي = محاضرة)\n" +
+        _homeHint.Text = "اسحب مجلد دورة وأفلته هنا (المجلد = دورة، وكل مجلد فرعي = محاضرة)\n" +
                          "أو Ctrl+U لرابط يوتيوب أو قائمة تشغيل";
         _homeHint.AllowDrop = true;
         _homeHint.DragEnter += OnExternalDragEnter;
@@ -676,13 +676,13 @@ internal sealed partial class MainForm
             return t;
         }
 
-        _homeActions.Controls.Add(Tile(Glyphs.OpenFolder, empty ? "ضيف فولدر فيديوهات" : "ضيف فولدر",
-            "اختار فولدر كورس من جهازك (أو اسحبه وارميه هنا)", Theme.Folder, ImportCourseDialog));
-        _homeActions.Controls.Add(Tile(Glyphs.Link, empty ? "ضيف رابط يوتيوب" : "رابط يوتيوب",
+        _homeActions.Controls.Add(Tile(Glyphs.OpenFolder, empty ? "أضف مجلد فيديوهات" : "أضف مجلدًا",
+            "اختر مجلد دورة من جهازك (أو اسحبه وأفلته هنا)", Theme.Folder, ImportCourseDialog));
+        _homeActions.Controls.Add(Tile(Glyphs.Link, empty ? "أضف رابط يوتيوب" : "رابط يوتيوب",
             "فيديو أو قائمة تشغيل كاملة من يوتيوب", Theme.Danger, () => AddUrlsDialog(null)));
         ActionTile? platformTile = null;
-        platformTile = Tile(Glyphs.Education, empty ? "كورس من منصة" : "من منصة",
-            "كورساتك على يوديمي أو مهارة تك أو IT Legend بحسابك", Theme.Accent, () =>
+        platformTile = Tile(Glyphs.Education, empty ? "دورة من منصة" : "من منصة",
+            "دوراتك على يوديمي أو مهارة تك أو IT Legend بحسابك", Theme.Accent, () =>
             {
                 var m = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
                 m.Items.Add(MenuItem("🎓  يوديمي (بحسابك)…", () => UdemyImport()));
@@ -692,18 +692,18 @@ internal sealed partial class MainForm
                 m.Show(platformTile!, new Point(0, platformTile!.Height));
             });
         _homeActions.Controls.Add(platformTile);
-        _homeActions.Controls.Add(Tile(Glyphs.Book, empty ? "ضيف كتب (PDF)" : "كتب",
-            "كتبك على رف لوحدها، والبرنامج بيفتكر وصلت لأنهي صفحة وقريت إيه", Theme.PlaceColor, () =>
+        _homeActions.Controls.Add(Tile(Glyphs.Book, empty ? "أضف كتبًا (PDF)" : "كتب",
+            "كتبك على رف مستقل، ويتذكّر البرنامج أين وصلت وماذا قرأت", Theme.PlaceColor, () =>
             {
                 if (!_shelfMode || _split.Panel2Collapsed) ToggleShelf();
                 AddBooksDialog(SelectedShelfContext());
             }));
         _homeActions.Controls.Add(Tile(Glyphs.Slides, empty ? "اعرض PowerPoint" : "عرض PowerPoint",
-            "افتح عرض PowerPoint جوه «مسار» بالحركات، واشرح عليه بالأقلام", Color.FromArgb(232, 89, 12), () => AddPresentationsDialog(SelectedShelfContext())));
-        _homeActions.Controls.Add(Tile(Glyphs.Radio, empty ? "اسمع راديو أو شوف الحرم" : "بث مباشر",
+            "افتح عرض PowerPoint داخل «مسار» بالحركات، واشرح عليه بالأقلام", Color.FromArgb(232, 89, 12), () => AddPresentationsDialog(SelectedShelfContext())));
+        _homeActions.Controls.Add(Tile(Glyphs.Radio, empty ? "استمع إلى الراديو أو شاهد الحرم" : "بث مباشر",
             "آلاف محطات الراديو، وبث مباشر من مكة والمدينة", Theme.Success, ShowLiveWindow));
         if (empty)
-            _homeActions.Controls.Add(Tile(Glyphs.Help, "إزاي أستخدم البرنامج؟",
+            _homeActions.Controls.Add(Tile(Glyphs.Help, "كيف أستخدم البرنامج؟",
                 "جولة سريعة في 3 خطوات، والدليل الكامل", Theme.Accent, StartTourOrGuide));
         _homeActions.ResumeLayout(true);
     }
@@ -732,14 +732,14 @@ internal sealed partial class MainForm
         bool emptyLibrary = _library.Courses.Count == 0 && _library.Books.Count == 0;
         RefreshHomeActions(emptyLibrary);
         _homeHint.Visible = emptyLibrary;
-        _homeHint.Text = "أو اسحب فولدر فيه فيديوهات من الويندوز وارميه في أي مكان هنا\n" +
-                         "(الفولدر بيبقى كورس، وكل فولدر جواه بيبقى محاضرة)";
+        _homeHint.Text = "أو اسحب مجلدًا فيه فيديوهات من ويندوز وأفلته في أي مكان هنا\n" +
+                         "(يصبح المجلد دورة، وكل مجلد بداخله محاضرة)";
         _homeTitle.Text = courses.Count == 0 && books.Count == 0
-            ? (emptyLibrary ? "أهلًا بيك في «مسار» 👋  ابدأ من هنا"
-                : _settings.HomeTopicFilter != "" ? "مفيش كورسات شغالة في الموضوع ده ✓"
-                : _library.Courses.Count == 0 ? "مكتبتك فيها كتب بس — ضيف كورس أو افتح كتاب من الرف"
-                : "خلّصت كل الكورسات ✓")
-            : "كمّل اللي بدأته";
+            ? (emptyLibrary ? "مرحبًا بك في «مسار» 👋  ابدأ من هنا"
+                : _settings.HomeTopicFilter != "" ? "لا توجد دورات جارية في هذا الموضوع ✓"
+                : _library.Courses.Count == 0 ? "مكتبتك فيها كتب فقط — أضف دورة أو افتح كتابًا من الرف"
+                : "أكملت كل الدورات ✓")
+            : "تابع ما بدأته";
 
         foreach (var b in books) _homeCards.Controls.Add(BookCard(b));
         foreach (var c in courses) _homeCards.Controls.Add(CourseCard(c));
@@ -766,10 +766,10 @@ internal sealed partial class MainForm
         foreach (var e in libs) _homeCards.Controls.Add(LibraryCard(e));
         _homeCards.ResumeLayout(true);
 
-        _homeTitle.Text = libs.Count > 0 ? "اختار المكتبة اللي هتشتغل عليها" : "أهلًا بيك في «مسار» 👋  ابدأ بمكتبة";
+        _homeTitle.Text = libs.Count > 0 ? "اختر المكتبة التي ستعمل عليها" : "مرحبًا بك في «مسار» 👋  ابدأ بمكتبة";
         _homeHint.Visible = true;
-        _homeHint.Text = "المكتبة ملف واحد فيه كورساتك وتقدّمك. تقدر تعمل أكتر من مكتبة (مثلًا للشغل وللمذاكرة)\n" +
-                         "ولو عايز البرنامج يفتح آخر مكتبة على طول: الإعدادات ← المكتبة.";
+        _homeHint.Text = "المكتبة ملف واحد فيه دوراتك وتقدّمك. يمكنك إنشاء أكثر من مكتبة (مثلًا للعمل وللمذاكرة)\n" +
+                         "وإن أردت أن يفتح البرنامج آخر مكتبة مباشرة: الإعدادات ← المكتبة.";
 
         _homeActionsBig = null;
         _homeActions.SuspendLayout();
@@ -791,9 +791,9 @@ internal sealed partial class MainForm
             _toolTip.SetToolTip(t, subtitle);
             return t;
         }
-        _homeActions.Controls.Add(Tile(Glyphs.OpenFolder, "فتح مكتبة من ملف", "ملف .lpl على جهازك أو على Google Drive (أو اسحبه وارميه هنا)", Theme.Folder, OpenLibraryDialog));
-        _homeActions.Controls.Add(Tile(Glyphs.Add, "مكتبة جديدة", "ابدأ مكتبة فاضية باسم ومكان تختارهم", Theme.Accent, NewLibraryDialog));
-        _homeActions.Controls.Add(Tile(Glyphs.Radio, "اسمع راديو أو شوف الحرم", "البث المباشر مش محتاج مكتبة", Theme.Success, ShowLiveWindow));
+        _homeActions.Controls.Add(Tile(Glyphs.OpenFolder, "فتح مكتبة من ملف", "ملف .lpl على جهازك أو على Google Drive (أو اسحبه وأفلته هنا)", Theme.Folder, OpenLibraryDialog));
+        _homeActions.Controls.Add(Tile(Glyphs.Add, "مكتبة جديدة", "ابدأ مكتبة فارغة باسم ومكان تختارهما", Theme.Accent, NewLibraryDialog));
+        _homeActions.Controls.Add(Tile(Glyphs.Radio, "استمع إلى الراديو أو شاهد الحرم", "البث المباشر لا يحتاج إلى مكتبة", Theme.Success, ShowLiveWindow));
         _homeActions.ResumeLayout(true);
     }
 
@@ -817,7 +817,7 @@ internal sealed partial class MainForm
         var where = new Label
         {
             Dock = DockStyle.Top, Height = 22, AutoEllipsis = true, BackColor = Color.Transparent, ForeColor = Theme.Muted,
-            Text = LibraryFiles.LocationLabel(e.Path) + (e.Exists ? "" : "  ·  مش متاحة دلوقتي")
+            Text = LibraryFiles.LocationLabel(e.Path) + (e.Exists ? "" : "  ·  غير متاحة الآن")
         };
         card.Controls.Add(where);
         card.Controls.Add(title);
@@ -873,13 +873,13 @@ internal sealed partial class MainForm
         {
             Dock = DockStyle.Top, Height = 22, ForeColor = Theme.Muted, AutoEllipsis = true,
             Text = pathText + $"{c.WatchedCount} من {c.VideoCount} فيديو  ·  {percent}%" +
-                   (remaining > 0 ? $"  ·  فاضل {TimeFormat.Format(remaining)}" : "") + last,
+                   (remaining > 0 ? $"  ·  متبقٍ {TimeFormat.Format(remaining)}" : "") + last,
             TextAlign = ContentAlignment.MiddleRight
         };
         var nextLabel = new Label
         {
             Dock = DockStyle.Top, Height = 24, ForeColor = Theme.Text, AutoEllipsis = true,
-            Text = next != null ? "الجاي: " + next.Title : "",
+            Text = next != null ? "التالي: " + next.Title : "",
             TextAlign = ContentAlignment.MiddleRight
         };
         var bar = new Panel { Dock = DockStyle.Bottom, Height = 6, BackColor = Theme.Back };
@@ -915,11 +915,11 @@ internal sealed partial class MainForm
         int days = (DateTime.Now.Date - utc.ToLocalTime().Date).Days;
         return days switch
         {
-            <= 0 => "النهارده",
-            1 => "امبارح",
-            2 => "من يومين",
-            < 11 => $"من {days} أيام",
-            _ => $"من {days} يوم"
+            <= 0 => "اليوم",
+            1 => "أمس",
+            2 => "منذ يومين",
+            < 11 => $"منذ {days} أيام",
+            _ => $"منذ {days} يوم"
         };
     }
 
@@ -970,8 +970,8 @@ internal sealed partial class MainForm
             }
             catch (Exception ex) { Log.Error("tracks", ex); }
         }
-        if (subs.DropDownItems.Count == 0) subs.DropDownItems.Add(new ToolStripMenuItem("(مفيش)") { Enabled = false });
-        if (audio.DropDownItems.Count == 0) audio.DropDownItems.Add(new ToolStripMenuItem("(مفيش)") { Enabled = false });
+        if (subs.DropDownItems.Count == 0) subs.DropDownItems.Add(new ToolStripMenuItem("(لا يوجد)") { Enabled = false });
+        if (audio.DropDownItems.Count == 0) audio.DropDownItems.Add(new ToolStripMenuItem("(لا يوجد)") { Enabled = false });
         menu.DropDownItems.Add(subs);
         menu.DropDownItems.Add(audio);
     }
@@ -981,13 +981,13 @@ internal sealed partial class MainForm
         if (!IsActive) return;
         using var dlg = new OpenFileDialog
         {
-            Title = "اختار ملف الترجمة",
+            Title = "اختر ملف الترجمة",
             Filter = "ملفات الترجمة|*.srt;*.vtt;*.ass;*.ssa;*.sub|كل الملفات|*.*",
             InitialDirectory = _currentVideo is { IsOnline: false } v ? Path.GetDirectoryName(v.LocalPath) : null
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         bool ok = _mp.AddSlave(MediaSlaveType.Subtitle, new Uri(dlg.FileName).AbsoluteUri, true);
-        ShowStatus(ok ? "اتحملت الترجمة ✓" : "مقدرتش أحمّل الترجمة");
+        ShowStatus(ok ? "حُمّلت الترجمة ✓" : "تعذّر تحميل الترجمة");
     }
 
     // =====================================================================
@@ -999,6 +999,6 @@ internal sealed partial class MainForm
         _settings.AlwaysOnTop = !_settings.AlwaysOnTop;
         TopMost = _settings.AlwaysOnTop;
         if (_alwaysOnTopItem != null) _alwaysOnTopItem.Checked = _settings.AlwaysOnTop;
-        ShowStatus(_settings.AlwaysOnTop ? "البرنامج دايمًا فوق الشبابيك التانية (T)" : "اتلغى «دايمًا فوق»");
+        ShowStatus(_settings.AlwaysOnTop ? "البرنامج دائمًا فوق النوافذ الأخرى (T)" : "أُلغي «دائمًا في الأعلى»");
     }
 }

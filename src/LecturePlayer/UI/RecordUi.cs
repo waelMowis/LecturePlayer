@@ -22,8 +22,8 @@ internal sealed class RecordBar : Form
         _p.Controls.Add(_dot);
         _p.Controls.Add(_time);
         _p.Controls.Add(_mic);
-        new ToolTip().SetToolTip(_mic, "مستوى المايك");
-        _pause = Btn("⏸", "إيقاف مؤقت / كمّل (Ctrl+Shift+F10)", "pause");
+        new ToolTip().SetToolTip(_mic, "مستوى الميكروفون");
+        _pause = Btn("⏸", "إيقاف مؤقت / متابعة (Ctrl+Shift+F10)", "pause");
         Btn("⏹", "إنهاء التسجيل (Ctrl+Shift+F9)", "stop").BackColor = Color.FromArgb(200, 50, 50);
         Btn("🔖", "علامة هنا", "mark");
         Btn("🖊", "أقلام على الشاشة (Ctrl+Shift+F8)", "ink");
@@ -31,7 +31,7 @@ internal sealed class RecordBar : Form
         _cam.Visible = camera;
         _scene = Btn("🎬", "المشهد", "scene");
         _scene.Visible = camera;
-        Btn("✕", "إلغاء التسجيل (من غير حفظ)", "cancel");
+        Btn("✕", "إلغاء التسجيل (دون حفظ)", "cancel");
         // النقطة بتنور وتطفي باللون بس — لو اختفت (Visible) الشريط كله بيتحرك من مكانه
         _mic.Visible = mic;
         bool lit = true;
@@ -99,7 +99,7 @@ internal sealed class RegionPicker : Form
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        TextRenderer.DrawText(e.Graphics, "اسحب مستطيل حوالين الجزء اللي هتسجّله — Esc للإلغاء", new Font("Segoe UI", 16f), new Point(40, 40), Color.White);
+        TextRenderer.DrawText(e.Graphics, "اسحب مستطيلًا حول الجزء الذي ستسجّله — Esc للإلغاء", new Font("Segoe UI", 16f), new Point(40, 40), Color.White);
         if (_r.Width > 0) { using var p = new Pen(Color.FromArgb(79, 195, 247), 3); e.Graphics.DrawRectangle(p, _r); using var b = new SolidBrush(Color.FromArgb(60, 255, 255, 255)); e.Graphics.FillRectangle(b, _r); TextRenderer.DrawText(e.Graphics, $"{_r.Width}×{_r.Height}", Font, new Point(_r.X + 6, _r.Y + 6), Color.White); }
     }
 }

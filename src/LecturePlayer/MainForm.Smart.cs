@@ -29,19 +29,19 @@ internal sealed partial class MainForm
         };
 
         var menu = SubMenu("ذكاء",
-            Item("حوّل كلام الفيديو ده لنص مكتوب", () => _ = TranscribeAsync(TargetVideo(), show: true), Keys.Control | Keys.T),
-            Item("حوّل كلام المحاضرة المحددة كلها لنص", () => _ = TranscribeGroupAsync(SelectedGroup() ?? _currentGroup)),
+            Item("حوّل كلام هذا الفيديو إلى نص مكتوب", () => _ = TranscribeAsync(TargetVideo(), show: true), Keys.Control | Keys.T),
+            Item("حوّل كلام المحاضرة المحددة كلها إلى نص", () => _ = TranscribeGroupAsync(SelectedGroup() ?? _currentGroup)),
             Item("بحث في كلام كل الفيديوهات…", ShowTranscriptSearch, Keys.Control | Keys.Shift | Keys.F),
             subtitle,
             new ToolStripSeparator(),
-            Item("لخّصلي الفيديو ده", () => _ = SummarizeAsync(TargetVideo(), force: false)),
-            Item("قسّم الفيديو لأجزاء بعناوين (كعلامات)", () => _ = ChaptersAsync(TargetVideo())),
-            Item("اختبرني في الفيديو ده", () => _ = QuizAsync(TargetVideo()), Keys.Control | Keys.Q),
-            Item("اسأل عن أي حاجة في الكورس…", AskCourse, Keys.Control | Keys.K),
+            Item("لخّص لي هذا الفيديو", () => _ = SummarizeAsync(TargetVideo(), force: false)),
+            Item("قسّم الفيديو إلى أجزاء بعناوين (كعلامات)", () => _ = ChaptersAsync(TargetVideo())),
+            Item("اختبرني في هذا الفيديو", () => _ = QuizAsync(TargetVideo()), Keys.Control | Keys.Q),
+            Item("اسأل عن أي شيء في الدورة…", AskCourse, Keys.Control | Keys.K),
             new ToolStripSeparator(),
             Item("انسخ الكلام المكتوب على الشاشة (كود أو نص)", () => _ = OcrFrameAsync(), display: "O"),
             new ToolStripSeparator(),
-            Item("وقّف الشغل اللي شغال دلوقتي", CancelSmart),
+            Item("أوقف المهمة الجارية الآن", CancelSmart),
             Item("إعدادات الذكاء الاصطناعي…", SettingsDialog));
         return menu;
     }
@@ -51,14 +51,14 @@ internal sealed partial class MainForm
 
     private void CancelSmart()
     {
-        if (_smartCts == null) { ShowStatus("مفيش حاجة شغالة"); return; }
+        if (_smartCts == null) { ShowStatus("لا توجد مهمة قيد العمل"); return; }
         _smartCts.Cancel();
-        ShowStatus("بيتلغي…");
+        ShowStatus("جارٍ الإلغاء…");
     }
 
     private CancellationTokenSource? BeginSmart()
     {
-        if (_smartCts != null) { ShowStatus("فيه شغل ذكي شغال — استنى لما يخلص أو ألغيه من منيو «ذكاء»", 5); return null; }
+        if (_smartCts != null) { ShowStatus("توجد مهمة ذكية قيد العمل — انتظر حتى تنتهي أو ألغِها من «الأدوات ← الذكاء الاصطناعي»", 5); return null; }
         return _smartCts = new CancellationTokenSource();
     }
 
@@ -90,23 +90,23 @@ internal sealed partial class MainForm
         string label = Tools.WhisperModels.FirstOrDefault(m => m.Name == model).Label ?? model;
         // الأداة نفسها جاية مع البرنامج؛ ملف اللغة كبير (مئات الميجا) فبيتنزل مرة واحدة أول ما تحتاجه
         string what = Tools.FindWhisper() != null
-            ? $"أداة تحويل الكلام لنص جاية جاهزة مع البرنامج، وناقص «ملف اللغة» بس ({label}).\n" +
-              "بيتنزل مرة واحدة، وبعدها التحويل بيشتغل على جهازك من غير نت.\n\n"
-            : "تحويل كلام الفيديو لنص بيحصل على جهازك، ومحتاج أداة مجانية تتنزل مرة واحدة (وبعدها بيشتغل من غير نت):\n\n" +
-              $"• الأداة (حوالي 10 ميجا)\n• ملف اللغة: {label}\n\n";
-        if (!Dialogs.Confirm(this, what + "تقدر تغيّر الدقة (وحجم الملف) من الإعدادات. أنزّله دلوقتي؟", "تحويل الكلام لنص"))
+            ? $"أداة تحويل الكلام إلى نص تأتي جاهزة مع البرنامج، وينقصها «ملف اللغة» فقط ({label}).\n" +
+              "يُنزَّل مرة واحدة، وبعدها يعمل التحويل على جهازك دون إنترنت.\n\n"
+            : "تحويل كلام الفيديو إلى نص يتم على جهازك، ويحتاج إلى أداة مجانية تُنزَّل مرة واحدة (وبعدها يعمل دون إنترنت):\n\n" +
+              $"• الأداة (نحو 10 ميجابايت)\n• ملف اللغة: {label}\n\n";
+        if (!Dialogs.Confirm(this, what + "يمكنك تغيير الدقة (وحجم الملف) من الإعدادات. هل أنزّله الآن؟", "تحويل الكلام إلى نص"))
             return false;
         UseWaitCursor = true;
         try
         {
             await Tools.DownloadWhisperAsync(model, new Progress<string>(m => ShowStatus(m, 120)), CancellationToken.None);
-            ShowStatus("أداة تحويل الكلام لنص جاهزة ✓", 4);
+            ShowStatus("أداة تحويل الكلام إلى نص جاهزة ✓", 4);
             return true;
         }
         catch (Exception ex)
         {
             Log.Error("whisper-download", ex);
-            Dialogs.Error(this, "مقدرتش أنزّل أداة تحويل الكلام لنص:\n" + ex.Message);
+            Dialogs.Error(this, "تعذّر تنزيل أداة تحويل الكلام إلى نص:\n" + ex.Message);
             return false;
         }
         finally { UseWaitCursor = false; }
@@ -123,13 +123,13 @@ internal sealed partial class MainForm
         if (v.IsWebLesson)
         {
             // الفيديو محمي جوه صفحة يوديمي: مفيش ملف نقرا منه الصوت
-            if (interactive) ShowStatus("دروس يوديمي مالهاش ترجمة/ملخص من «مسار» (الفيديو محمي جوه يوديمي) — استخدم ترجمة يوديمي نفسها", 6);
+            if (interactive) ShowStatus("دروس يوديمي ليس لها ترجمة/ملخص من «مسار» (الفيديو محمي داخل يوديمي) — استخدم ترجمة يوديمي نفسها", 6);
             return null;
         }
         if (v.IsOnline)
         {
             if (!await EnsureYtDlpAsync()) return null;
-            ShowStatus($"بجيب ترجمة يوتيوب: {v.Title}…", 60);
+            ShowStatus($"جارٍ جلب ترجمة يوتيوب: {v.Title}…", 60);
             t = await Transcriber.FromYoutubeAsync(v.Path, _settings.TranscriptLanguage, ct);
             if (t == null)
             {
@@ -137,8 +137,8 @@ internal sealed partial class MainForm
                 if (local == null)
                 {
                     if (interactive)
-                        Dialogs.Info(this, $"الفيديو «{v.Title}» مالوش ترجمة على يوتيوب.\n\n" +
-                                           "نزّله الأول (كليك يمين ← تنزيل) وبعدين حوّل كلامه لنص (ذكاء ← حوّل كلام الفيديو ده لنص مكتوب).");
+                        Dialogs.Info(this, $"الفيديو «{v.Title}» ليس له ترجمة على يوتيوب.\n\n" +
+                                           "نزّله أولًا (انقر بالزر الأيمن ← تنزيل) ثم حوّل كلامه إلى نص (الأدوات ← الذكاء الاصطناعي ← حوّل كلام هذا الفيديو إلى نص مكتوب).");
                     return null;
                 }
                 t = await WhisperAsync(v, local, ct);
@@ -148,7 +148,7 @@ internal sealed partial class MainForm
         {
             if (!File.Exists(v.LocalPath))
             {
-                if (interactive) Dialogs.Error(this, "ملف الفيديو مش موجود على الجهاز ده:\n" + v.LocalPath);
+                if (interactive) Dialogs.Error(this, "ملف الفيديو غير موجود على هذا الجهاز:\n" + v.LocalPath);
                 return null;
             }
             t = await WhisperAsync(v, v.LocalPath, ct);
@@ -168,14 +168,14 @@ internal sealed partial class MainForm
         return await Transcriber.WithWhisperAsync(file, _settings.WhisperModel, _settings.TranscriptLanguage,
             new Progress<int>(p =>
             {
-                string eta = p is > 3 and < 100 ? $" — فاضل حوالي {TimeFormat.Format((long)(sw.ElapsedMilliseconds * (100.0 - p) / p))}" : "";
-                ShowStatus($"بحوّل كلام «{v.Title}» لنص: {p}%{eta}", 120);
+                string eta = p is > 3 and < 100 ? $" — متبقٍ نحو {TimeFormat.Format((long)(sw.ElapsedMilliseconds * (100.0 - p) / p))}" : "";
+                ShowStatus($"جارٍ تحويل كلام «{v.Title}» إلى نص: {p}%{eta}", 120);
             }), ct);
     }
 
     private async Task TranscribeAsync(VideoItem? v, bool show)
     {
-        if (v == null) { ShowStatus("شغّل أو حدد فيديو الأول"); return; }
+        if (v == null) { ShowStatus("شغّل فيديو أو حدّده أولًا"); return; }
         var cts = BeginSmart();
         if (cts == null) return;
         try
@@ -185,8 +185,8 @@ internal sealed partial class MainForm
             ShowStatus($"النص جاهز ✓ ({t.Cues.Count} سطر)", 4);
             if (show) ShowTranscriptText(v, t);
         }
-        catch (OperationCanceledException) { ShowStatus("اتلغى"); }
-        catch (Exception ex) { Log.Error("transcribe", ex); Dialogs.Error(this, "تحويل الكلام لنص فشل:\n" + ex.Message); }
+        catch (OperationCanceledException) { ShowStatus("أُلغي"); }
+        catch (Exception ex) { Log.Error("transcribe", ex); Dialogs.Error(this, "فشل تحويل الكلام إلى نص:\n" + ex.Message); }
         finally { EndSmart(cts); }
     }
 
@@ -199,9 +199,9 @@ internal sealed partial class MainForm
 
     private async Task TranscribeGroupAsync(LectureGroup? g)
     {
-        if (g == null) { ShowStatus("حدد محاضرة الأول"); return; }
+        if (g == null) { ShowStatus("حدّد محاضرة أولًا"); return; }
         var todo = g.Videos.Where(v => !TranscriptStore.Has(_libraryPath, v)).ToList();
-        if (todo.Count == 0) { ShowStatus("كل فيديوهات المحاضرة كلامها اتحوّل لنص ✓", 4); return; }
+        if (todo.Count == 0) { ShowStatus("حُوّل كلام كل فيديوهات المحاضرة إلى نص ✓", 4); return; }
         if (todo.Any(v => !v.IsOnline) && !await EnsureWhisperAsync()) return;
         var cts = BeginSmart();
         if (cts == null) return;
@@ -211,14 +211,14 @@ internal sealed partial class MainForm
             foreach (var v in todo)
             {
                 cts.Token.ThrowIfCancellationRequested();
-                ShowStatus($"بحوّل كلام المحاضرة لنص: {done + failed + 1} من {todo.Count}…", 60);
+                ShowStatus($"جارٍ تحويل كلام المحاضرة إلى نص: {done + failed + 1} من {todo.Count}…", 60);
                 try { if (await GetTranscriptAsync(v, cts.Token, interactive: false) != null) done++; else failed++; }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { failed++; Log.Error("transcribe " + v.Title, ex); }
             }
-            ShowStatus($"خلص تحويل الكلام لنص: {done} ✓" + (failed > 0 ? $" — {failed} مقدرتش (مالهاش ترجمة أو الملف مش موجود)" : ""), 10);
+            ShowStatus($"اكتمل تحويل الكلام إلى نص: {done} ✓" + (failed > 0 ? $" — تعذّر {failed} (بلا ترجمة أو الملف غير موجود)" : ""), 10);
         }
-        catch (OperationCanceledException) { ShowStatus($"اتلغى بعد {done} فيديو"); }
+        catch (OperationCanceledException) { ShowStatus($"أُلغي بعد {done} فيديو"); }
         finally { EndSmart(cts); }
     }
 
@@ -255,7 +255,7 @@ internal sealed partial class MainForm
         UseWaitCursor = true;
         var (idx, missing) = BuildIndex(_library.AllVideos);
         UseWaitCursor = false;
-        string status = $"{idx.VideoCount} فيديو كلامه متحوّل لنص" + (missing > 0 ? $" — {missing} لسه (حوّلهم من منيو «ذكاء»)" : "");
+        string status = $"{idx.VideoCount} فيديو حُوّل كلامه إلى نص" + (missing > 0 ? $" — {missing} لم تُحوَّل بعد (حوّلها من «الأدوات ← الذكاء الاصطناعي»)" : "");
         new TranscriptSearchForm(status, q => idx.Search(q), PlayAt).Show(this);
     }
 
@@ -268,8 +268,8 @@ internal sealed partial class MainForm
         string key = _settings.ClaudeApiKey;
         if (string.IsNullOrWhiteSpace(key))
         {
-            if (Dialogs.Confirm(this, "المميزات دي بتستخدم الذكاء الاصطناعي Claude، ومحتاجة «مفتاح» بتعمله مرة واحدة من موقع console.anthropic.com.\n\n" +
-                                      "المفتاح بيتحفظ متشفّر على الجهاز ده بس، ومش بيتكتب في ملف المكتبة.\n\nتفتح الإعدادات تحطه؟", "Claude"))
+            if (Dialogs.Confirm(this, "هذه الميزات تستخدم الذكاء الاصطناعي Claude، وتحتاج إلى «مفتاح» تنشئه مرة واحدة من موقع console.anthropic.com.\n\n" +
+                                      "يُحفظ المفتاح مشفّرًا على هذا الجهاز فقط، ولا يُكتب في ملف المكتبة.\n\nهل تفتح الإعدادات لإضافته؟", "Claude"))
                 SettingsDialog();
             key = _settings.ClaudeApiKey;
             if (string.IsNullOrWhiteSpace(key)) return null;
@@ -285,19 +285,19 @@ internal sealed partial class MainForm
         string? block = AiBudget.CheckCanSpend(_settings, DateTime.UtcNow, AiBudget.Estimate(prompt.System + prompt.User, prompt.MaxTokens));
         if (block != null) { Dialogs.Info(this, block); return null; }
 
-        ShowStatus($"Claude بيشتغل على {what}…", 120);
+        ShowStatus($"Claude يعمل على {what}…", 120);
         var reply = await claude.AskAsync(_settings.AiModel, prompt.System, prompt.User, prompt.MaxTokens, ct);
         AiBudget.Record(_settings, DateTime.UtcNow, reply);
         SaveSettings();
         Log.Info($"claude {what}: {reply.InputTokens}+{reply.OutputTokens} tokens");
-        ShowStatus($"{what} جاهز ✓  (استهلك {reply.TotalTokens:N0} وحدة — الشهر ده {AiBudget.UsedThisMonth(_settings, DateTime.UtcNow):N0})", 6);
+        ShowStatus($"{what} جاهز ✓  (استهلك {reply.TotalTokens:N0} وحدة — هذا الشهر {AiBudget.UsedThisMonth(_settings, DateTime.UtcNow):N0})", 6);
         return reply.Text;
     }
 
     /// <summary>بيشغّل مهمة ذكية على فيديو: يجيب النص، وبعدين الشغل.</summary>
     private async Task WithTranscriptAsync(VideoItem? v, string what, Func<Transcript, CancellationToken, Task> work)
     {
-        if (v == null) { ShowStatus("شغّل أو حدد فيديو الأول"); return; }
+        if (v == null) { ShowStatus("شغّل فيديو أو حدّده أولًا"); return; }
         var cts = BeginSmart();
         if (cts == null) return;
         try
@@ -306,10 +306,10 @@ internal sealed partial class MainForm
             if (t == null) return;
             await work(t, cts.Token);
         }
-        catch (OperationCanceledException) { ShowStatus("اتلغى"); }
+        catch (OperationCanceledException) { ShowStatus("أُلغي"); }
         catch (ClaudeException ex) { Dialogs.Error(this, ex.Message); }
-        catch (FormatException ex) { Dialogs.Error(this, $"Claude رد بشكل مش مفهوم ({what}). جرب تاني.\n\n{ex.Message}"); }
-        catch (Exception ex) { Log.Error(what, ex); Dialogs.Error(this, $"{what} فشل:\n{ex.Message}"); }
+        catch (FormatException ex) { Dialogs.Error(this, $"ردّ Claude بشكل غير مفهوم ({what}). حاول مرة أخرى.\n\n{ex.Message}"); }
+        catch (Exception ex) { Log.Error(what, ex); Dialogs.Error(this, $"فشل {what}:\n{ex.Message}"); }
         finally { EndSmart(cts); }
     }
 
@@ -334,7 +334,7 @@ internal sealed partial class MainForm
     private void ShowSummary(VideoItem v, string text)
     {
         new TextViewerForm("ملخص: " + v.Title, text, NotesExporter.SafeFileName(v.Title) + " - ملخص.md",
-            Act("حطه في ملاحظات الفيديو", edited =>
+            Act("ضعه في ملاحظات الفيديو", edited =>
             {
                 v.Notes = string.IsNullOrWhiteSpace(v.Notes) ? edited : v.Notes.TrimEnd() + "\n\n---\n" + edited;
                 v.Touch();
@@ -342,7 +342,7 @@ internal sealed partial class MainForm
                 SaveLibrary();
                 RefreshNotesPane();
                 RefreshVideo(v);
-                ShowStatus("اتحط في الملاحظات ✓");
+                ShowStatus("وُضع في الملاحظات ✓");
             }),
             Act("ملخص جديد", text => { _ = SummarizeAsync(v, force: true); })).Show(this);
     }
@@ -353,7 +353,7 @@ internal sealed partial class MainForm
         if (text == null) return;
         long duration = v.DurationMs > 0 ? v.DurationMs : t.DurationMs + 60_000;
         var chapters = AiTasks.ParseChapters(text, duration);
-        if (chapters.Count == 0) { Dialogs.Info(this, "Claude مرجعش فصول."); return; }
+        if (chapters.Count == 0) { Dialogs.Info(this, "لم يُرجع Claude فصولًا."); return; }
 
         int added = 0;
         foreach (var ch in chapters)
@@ -370,7 +370,7 @@ internal sealed partial class MainForm
         RefreshNotesPane();
         UpdateSeekMarkers();
         RefreshVideo(v);
-        Dialogs.Info(this, $"اتضاف {added} فصل كعلامات 📑 (في لوحة الملاحظات وعلى شريط التقديم).\n\n" +
+        Dialogs.Info(this, $"أُضيف {added} فصل كعلامات 📑 (في لوحة الملاحظات وعلى شريط التقديم).\n\n" +
                            string.Join("\n", chapters.Select(c => $"{Transcript.Short(c.TimeMs)}  {c.Title}")));
     });
 
@@ -379,7 +379,7 @@ internal sealed partial class MainForm
         string? text = await RunClaudeAsync("الاختبار", AiTasks.QuizPrompt(v!.Title, t), ct);
         if (text == null) return;
         var questions = AiTasks.ParseQuiz(text);
-        if (questions.Count == 0) { Dialogs.Info(this, "Claude مرجعش أسئلة صالحة. جرب تاني."); return; }
+        if (questions.Count == 0) { Dialogs.Info(this, "لم يُرجع Claude أسئلة صالحة. حاول مرة أخرى."); return; }
         var g = _library.FindGroupOf(v);
         new QuizForm(v.Title, questions, ms => PlayAt(v, ms), (score, total) =>
         {
@@ -394,24 +394,24 @@ internal sealed partial class MainForm
     private void AskCourse()
     {
         var course = (_currentGroup != null ? _library.FindCourseOf(_currentGroup) : null) ?? SelectedCourse();
-        if (course == null) { Dialogs.Info(this, "شغّل فيديو أو حدد كورس الأول."); return; }
+        if (course == null) { Dialogs.Info(this, "شغّل فيديو أو حدّد دورة أولًا."); return; }
         var (idx, missing) = BuildIndex(course.AllVideos);
         if (idx.VideoCount == 0)
         {
-            Dialogs.Info(this, $"مفيش ولا فيديو في «{course.Name}» كلامه متحوّل لنص.\n\nحوّل كلام المحاضرات لنص الأول (منيو «ذكاء» ← حوّل كلام المحاضرة المحددة كلها لنص)، " +
-                               "وبعدين اسأل وأنا هجاوبك من كلام الفيديوهات نفسها مع الوقت.");
+            Dialogs.Info(this, $"لا يوجد أي فيديو في «{course.Name}» حُوّل كلامه إلى نص.\n\nحوّل كلام المحاضرات إلى نص أولًا («الأدوات ← الذكاء الاصطناعي ← حوّل كلام المحاضرة المحددة كلها إلى نص»)، " +
+                               "ثم اسأل وسأجيبك من كلام الفيديوهات نفسها مع التوقيت.");
             return;
         }
-        if (missing > 0) ShowStatus($"ملحوظة: {missing} فيديو في الكورس كلامهم لسه متحوّلش لنص، ومش هيدخلوا في الإجابة", 8);
+        if (missing > 0) ShowStatus($"ملاحظة: {missing} فيديو في الدورة لم يُحوَّل كلامها إلى نص بعد، ولن تدخل في الإجابة", 8);
 
         new AskForm(course.Name, async (question, ct) =>
         {
             var top = idx.Retrieve(question, 8);
-            if (top.Count == 0) return ("ملقتش أي جزء في نصوص الفيديوهات قريب من سؤالك. جرب كلمات تانية (أو المصطلح بالإنجليزي).", new List<AskSource>());
+            if (top.Count == 0) return ("لم أجد أي جزء في نصوص الفيديوهات قريبًا من سؤالك. جرّب كلمات أخرى (أو المصطلح بالإنجليزية).", new List<AskSource>());
             var sources = top.Select((x, i) => new AskSource(i + 1, x.Video, x.Chunk.StartMs, x.Chunk.Text)).ToList();
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             string? answer = await RunClaudeAsync("الإجابة", AiTasks.AskPrompt(course.Name, question, sources), cts.Token);
-            return (answer ?? "اتلغى.", sources);
+            return (answer ?? "أُلغي.", sources);
         }, PlayAt).Show(this);
     }
 
@@ -421,8 +421,8 @@ internal sealed partial class MainForm
 
     private async Task OcrFrameAsync()
     {
-        if (_currentVideo == null || !IsActive) { ShowStatus("شغّل فيديو الأول"); return; }
-        if (!Ocr.IsSupported) { Dialogs.Info(this, "نسخ النص من الشاشة محتاج Windows 10 أو أحدث."); return; }
+        if (_currentVideo == null || !IsActive) { ShowStatus("شغّل فيديو أولًا"); return; }
+        if (!Ocr.IsSupported) { Dialogs.Info(this, "نسخ النص من الشاشة يحتاج إلى Windows 10 أو أحدث."); return; }
         bool wasPlaying = _mp.State == VLCState.Playing;
         if (wasPlaying) _mp.SetPause(true);
 
@@ -432,25 +432,25 @@ internal sealed partial class MainForm
         try
         {
             File.Delete(raw);
-            if (!_mp.TakeSnapshot(0, raw, 0, 0)) throw new InvalidOperationException("مقدرتش آخد صورة من الفيديو");
+            if (!_mp.TakeSnapshot(0, raw, 0, 0)) throw new InvalidOperationException("تعذّر التقاط صورة من الفيديو");
             for (int i = 0; i < 20 && !File.Exists(raw); i++) await Task.Delay(100); // VLC بيكتب الصورة في الخلفية
-            if (!File.Exists(raw)) throw new InvalidOperationException("الصورة متكتبتش");
+            if (!File.Exists(raw)) throw new InvalidOperationException("لم تُلتقط الصورة");
             await Task.Delay(150);
             UpscaleForOcr(raw, big);
 
             string text = await Ocr.RecognizeAsync(big);
-            if (string.IsNullOrWhiteSpace(text)) { Dialogs.Info(this, "ملقتش نص واضح في الصورة دي."); return; }
-            var viewer = new TextViewerForm("النص اللي على الشاشة", text, "code.txt",
+            if (string.IsNullOrWhiteSpace(text)) { Dialogs.Info(this, "لم أجد نصًا واضحًا في هذه الصورة."); return; }
+            var viewer = new TextViewerForm("النص الموجود على الشاشة", text, "code.txt",
                 Act("افتحه في معمل الكود", edited => OpenCodeLab(edited)));
             viewer.UseCodeFont();
             viewer.Show(this);
             Clipboard.SetText(text);
-            ShowStatus("الكلام اتنسخ ✓ — الصقه في أي مكان (راجع المسافات في أول السطور)", 6);
+            ShowStatus("نُسخ الكلام ✓ — الصقه في أي مكان (راجع المسافات في أول الأسطر)", 6);
         }
         catch (Exception ex)
         {
             Log.Error("ocr", ex);
-            Dialogs.Error(this, "مقدرتش أقرا النص:\n" + ex.Message);
+            Dialogs.Error(this, "تعذّرت قراءة النص:\n" + ex.Message);
         }
     }
 

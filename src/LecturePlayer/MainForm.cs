@@ -132,7 +132,7 @@ internal sealed partial class MainForm : Form
         {
             _settings.OnlineCookiesBrowser = browser;
             SaveSettings();
-            ShowBanner($"يوتيوب كان طالب يتأكد إنك مش روبوت — استخدمت تسجيل دخولك من {browser} واشتغل ✓", BannerKind.Success, seconds: 10);
+            ShowBanner($"طلب يوتيوب التأكد من أنك لست روبوتًا — استُخدم تسجيل دخولك من {browser} ونجح ✓", BannerKind.Success, seconds: 10);
         });
         Log.Info("app started" + (_settings.NormalizeAudio ? " (normvol)" : ""));
         _mp = new MediaPlayer(_libVLC)
@@ -161,8 +161,8 @@ internal sealed partial class MainForm : Form
             _waitingLibrarySinceUtc = DateTime.UtcNow;
             Log.Info("last library not available yet, waiting: " + path);
             StartWithoutLibrary();
-            ShowBanner("بستنى مكتبتك «" + Path.GetFileNameWithoutExtension(path) + "» تظهر — غالبًا Google Drive أو OneDrive لسه بيفتح. هفتحها لوحدي أول ما توصل.",
-                BannerKind.Warning, "اختارها بنفسي", OpenLibraryDialog, seconds: 0, key: "waiting-library");
+            ShowBanner("أنتظر مكتبتك «" + Path.GetFileNameWithoutExtension(path) + "» تظهر — غالبًا Google Drive أو OneDrive ما زال يُفتح. سأفتحها تلقائيًا فور وصولها.",
+                BannerKind.Warning, "سأختارها بنفسي", OpenLibraryDialog, seconds: 0, key: "waiting-library");
         }
         else LoadLibrary(path);
 
@@ -387,16 +387,16 @@ internal sealed partial class MainForm : Form
         _nodeMenu.RightToLeft = RightToLeft.Yes;
 
         _toolTip.SetToolTip(_btnPrev, "الفيديو السابق (PageUp)");
-        _toolTip.SetToolTip(_btnBack, "رجوع 10 ثواني (Ctrl+←  = 30 ثانية)");
+        _toolTip.SetToolTip(_btnBack, "رجوع 10 ثوانٍ (Ctrl+←  = 30 ثانية)");
         _toolTip.SetToolTip(_btnPlay, "تشغيل / إيقاف مؤقت (Space)");
-        _toolTip.SetToolTip(_btnFwd, "تقديم 10 ثواني (Ctrl+→  = 30 ثانية)");
+        _toolTip.SetToolTip(_btnFwd, "تقديم 10 ثوانٍ (Ctrl+→  = 30 ثانية)");
         _toolTip.SetToolTip(_btnNext, "الفيديو التالي (PageDown)");
         _toolTip.SetToolTip(_btnStop, "إيقاف");
         _toolTip.SetToolTip(_btnMute, "كتم الصوت (M)");
-        _toolTip.SetToolTip(_btnFullscreen, "ملء الشاشة (F11 أو دبل كليك)");
+        _toolTip.SetToolTip(_btnFullscreen, "ملء الشاشة (F11 أو نقر مزدوج)");
         _toolTip.SetToolTip(_btnPlaylist, "إظهار / إخفاء المكتبة (F6)");
         _toolTip.SetToolTip(_btnMini, "المشغل الصغير (P)");
-        _toolTip.SetToolTip(_btnBookmark, "حط علامة عند اللحظة دي عشان ترجعلها بعدين (B)\nكليك يمين: علامة بملاحظة، علامة مراجعة، لقطة شاشة…");
+        _toolTip.SetToolTip(_btnBookmark, "ضع علامة عند هذه اللحظة لتعود إليها لاحقًا (B)\nانقر بالزر الأيمن: علامة بملاحظة، علامة مراجعة، لقطة شاشة…");
 
         ResumeLayout(false);
         PerformLayout();
@@ -426,7 +426,7 @@ internal sealed partial class MainForm : Form
         _timeLabel.Dock = DockStyle.Right;
         _timeLabel.Width = 190;
         _timeLabel.Font = new Font("Consolas", 10.5f);
-        _toolTip.SetToolTip(_timeLabel, "دوس هنا عشان تبدّل بين «الباقي» و«المدة كلها»");
+        _toolTip.SetToolTip(_timeLabel, "اضغط هنا للتبديل بين «المتبقي» و«المدة كاملة»");
         _timeLabel.ModeChanged += (_, _) => { _settings.TimeShowsTotal = _timeLabel.ShowTotal; SaveSettings(); };
         seekRow.Controls.Add(_seekBar);
         seekRow.Controls.Add(_timeLabel);
@@ -555,17 +555,17 @@ internal sealed partial class MainForm : Form
             return b;
         }
         // الشريط الجانبي المرتّب: الرئيسية · المكتبة (الدورات والكتب في مكان واحد) · سبورة · تسجيل · الأدوات (كل الباقي)
-        _activityHome = Act(Glyphs.Home, "الرئيسية", "الشاشة الرئيسية: كمّل اللي بدأته، وضيف محتوى (Alt+Home)", GoHome, top);
-        _activityExplorer = Act(Glyphs.Library, "المكتبة", "المكتبة: الدورات والفيديوهات، والكتب والعروض والسبورات — اضغط تخفيها أو تظهرها (F6)", OnExplorerActivity, top);
+        _activityHome = Act(Glyphs.Home, "الرئيسية", "الشاشة الرئيسية: أكمل ما بدأته، وأضف محتوى (Alt+Home)", GoHome, top);
+        _activityExplorer = Act(Glyphs.Library, "المكتبة", "المكتبة: الدورات والفيديوهات، والكتب والعروض والسبورات — اضغط لإخفائها أو إظهارها (F6)", OnExplorerActivity, top);
         UpdateActivityIndicators();
-        _activityBoard = Act(Glyphs.Board, "سبورة", "السبورة البيضاء: سبورة جديدة أو افتح واحدة من سبوراتك", () => ShowBoardActivityMenu(_activityBoard), top);
+        _activityBoard = Act(Glyphs.Board, "سبورة", "السبورة البيضاء: سبورة جديدة أو افتح إحدى سبوراتك", () => ShowBoardActivityMenu(_activityBoard), top);
         _activityRecord = Act(Glyphs.Record, "تسجيل", "سجّل شرح: الشاشة والكاميرا والصوت وأقلام على الشاشة (Ctrl+Shift+F9 من أي برنامج)", OnRecordActivity, top);
         _activityTools = Act(Glyphs.Tools, "الأدوات", "كل الأدوات: عرض PowerPoint، أقلام الشاشة، المراجعة، الإحصائيات، التركيز، البث المباشر، التنزيل… — وابحث عن أي أمر (Ctrl+Shift+Space)", () => ShowToolsMenu(_activityTools), top);
 
         var bottom = new Panel { Dock = DockStyle.Bottom, Height = LogicalToDeviceUnits(112), BackColor = Theme.Panel };
         var settings = Act(Glyphs.Settings, "الإعدادات", "الإعدادات (Ctrl+,)", SettingsDialog, bottom);
         settings.Dock = DockStyle.Bottom;
-        var help = Act(Glyphs.Help, "مساعدة", "دليل الاستخدام (F1) — والجولة السريعة من منيو مساعدة", () => HelpGuide.Open(this), bottom);
+        var help = Act(Glyphs.Help, "مساعدة", "دليل الاستخدام (F1) — والجولة السريعة من قائمة مساعدة", () => HelpGuide.Open(this), bottom);
         help.Dock = DockStyle.Bottom;
         _activity.Controls.Add(top);
         _activity.Controls.Add(bottom);
@@ -614,7 +614,7 @@ internal sealed partial class MainForm : Form
         var moreMenu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
         ToolStripMenuItem MoreItem(string text, Action click) { var i = new ToolStripMenuItem(text) { ForeColor = Theme.Text }; i.Click += (_, _) => click(); moreMenu.Items.Add(i); return i; }
         // «···»: عرض الشجرة وترتيبها (أوامر الحاجة المحددة في كليك يمين وفي قايمة «المكتبة»)
-        MoreItem("ترتيب الكورسات بالاسم", SortCourses);
+        MoreItem("ترتيب الدورات بالاسم", SortCourses);
         var sepAll = MoreItem("➖  فواصل بين كل الموضوعات", () => ToggleAllTopicSeparators());
         moreMenu.Opening += (_, _) => sepAll.Checked = _settings.TopicSeparators;
         var more = Icon(Glyphs.More, "المزيد", () => { }, titleRow);
@@ -629,7 +629,7 @@ internal sealed partial class MainForm : Form
         _courseLabel.TextAlign = ContentAlignment.MiddleRight;
         _courseLabel.AutoEllipsis = true;
         _courseLabel.Cursor = Cursors.Hand;
-        _toolTip.SetToolTip(_courseLabel, "اسم المكتبة المفتوحة — اضغط عشان تبدّل لمكتبة تانية أو تعمل واحدة جديدة");
+        _toolTip.SetToolTip(_courseLabel, "اسم المكتبة المفتوحة — اضغط للتبديل إلى مكتبة أخرى أو إنشاء مكتبة جديدة");
         sectionRow.Controls.Add(_courseLabel);
         // زرار واحد «＋ إضافة» بدل 6 أيقونات صغيرة من غير أسامي
         var addMenu = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
@@ -647,7 +647,7 @@ internal sealed partial class MainForm : Form
             Dock = DockStyle.Left, Width = LogicalToDeviceUnits(82), Margin = Padding.Empty, TabStop = false
         };
         addButton.Click += (_, _) => addMenu.Show(addButton, new Point(0, addButton.Height + 2));
-        _toolTip.SetToolTip(addButton, "إضافة حسب اللي واقف عليه: موضوع ← مصدر ← كورس ← محاضرة ← فيديوهات (أو Insert)");
+        _toolTip.SetToolTip(addButton, "إضافة حسب العنصر المحدد: موضوع ← مصدر ← دورة ← محاضرة ← فيديوهات (أو Insert)");
         sectionRow.Controls.Add(addButton);
 
         // سطر الأرقام اتشال: الإحصائيات بقت في تلميح اسم المكتبة، والسطر ده بيظهر بس لما فيه فلتر شغال (عشان متتلخبطش ليه حاجات مش ظاهرة)
@@ -730,14 +730,14 @@ internal sealed partial class MainForm : Form
             Item("فتح مكتبة…", OpenLibraryDialog, Keys.Control | Keys.O),
             _recentMenu = SubMenu("المكتبات الأخيرة"),
             new ToolStripSeparator(),
-            Item("حفظ", () => { SaveLibrary(); ShowStatus("اتحفظ ✓"); }, Keys.Control | Keys.S),
+            Item("حفظ", () => { SaveLibrary(); ShowStatus("حُفظ ✓"); }, Keys.Control | Keys.S),
             Item("حفظ المكتبة باسم…", SaveLibraryAsDialog, Keys.Control | Keys.Shift | Keys.S),
             new ToolStripSeparator(),
-            Item("نقل المكتبة لـ OneDrive / Google Drive (مزامنة بين الأجهزة)…", MoveLibraryToCloudDialog),
+            Item("نقل المكتبة إلى OneDrive / Google Drive (مزامنة بين الأجهزة)…", MoveLibraryToCloudDialog),
             Item("استرجاع نسخة احتياطية…", RestoreBackupDialog),
             new ToolStripSeparator(),
             Item("فتح مكان ملف المكتبة", () => { if (HasLibrary) OpenInExplorer(_libraryPath); }),
-            Item("قفل المكتبة (البرنامج يفضل مفتوح)", () => { if (HasLibrary) StartWithoutLibrary(); }),
+            Item("إغلاق المكتبة (يبقى البرنامج مفتوحًا)", () => { if (HasLibrary) StartWithoutLibrary(); }),
             new ToolStripSeparator(),
             Item("خروج", Close, Keys.Alt | Keys.F4));
         _recentMenu.DropDownOpening += (_, _) => BuildRecentMenu();
@@ -778,40 +778,40 @@ internal sealed partial class MainForm : Form
             new ToolStripSeparator(),
             Item("موضوع جديد…", () => AddTopic(), Keys.Control | Keys.Shift | Keys.N),
             Item("مصدر جديد في الموضوع المحدد…", AddPlaceFromMenu),
-            Item("كورس من فولدر…", ImportCourseDialog, Keys.Control | Keys.I),
-            Item("كورس من يوتيوب…", () => AddUrlsDialog(null), display: "Ctrl+U"),
-            SubMenu("كورس من منصة",
+            Item("دورة من مجلد…", ImportCourseDialog, Keys.Control | Keys.I),
+            Item("دورة من يوتيوب…", () => AddUrlsDialog(null), display: "Ctrl+U"),
+            SubMenu("دورة من منصة",
                 Item("🎓  يوديمي (بحسابك)…", () => UdemyImport()),
                 Item("🎓  مهارة تك أو أي موقع Moodle…", () => MoodleImport()),
                 Item("🎓  IT Legend…", () => ItLegendImport())),
-            Item("كورس فاضي…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
-            Item("محاضرة فاضية في الكورس المحدد…", () => AddGroup(), Keys.Control | Keys.G),
+            Item("دورة فارغة…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
+            Item("محاضرة فارغة في الدورة المحددة…", () => AddGroup(), Keys.Control | Keys.G),
             Item("فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A),
             new ToolStripSeparator(),
-            Item("📖  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(SelectedShelfContext())),
-            Item("📁  فولدر كتب كامل (يبقى رف)…", () => AddBooksFromFolderDialog(SelectedShelfContext())),
+            Item("📖  كتاب (PDF / EPUB) — ملف واحد أو أكثر…", () => AddBooksDialog(SelectedShelfContext())),
+            Item("📁  مجلد كتب كامل (يصبح رفًا)…", () => AddBooksFromFolderDialog(SelectedShelfContext())),
             Item("🔗  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(SelectedShelfContext())),
             Item("📽  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), display: "Ctrl+Shift+P"),
             Item("🧑‍🏫  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())),
             Item("رف جديد…", () => AddShelfDialog(null)),
             Item("🔍  بحث داخل كل الكتب…", () => ShowBookSearch()),
             new ToolStripSeparator(),
-            Item("🔄  هات الجديد من كل الفولدرات المتابَعة", () => _ = SyncLinkedFoldersAsync(null, manual: true)),
-            Item("🔄  هات الجديد من كل قوايم يوتيوب", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
+            Item("🔄  اجلب الجديد من كل المجلدات المتابَعة", () => _ = SyncLinkedFoldersAsync(null, manual: true)),
+            Item("🔄  اجلب الجديد من كل قوائم يوتيوب", () => _ = SyncPlaylistsAsync(null, quiet: false), Keys.Control | Keys.R),
             new ToolStripSeparator(),
-            Item("بيانات الكورس المحدد…", () => EditCourseInfo(SelectedCourse()), Keys.F4),
+            Item("بيانات الدورة المحددة…", () => EditCourseInfo(SelectedCourse()), Keys.F4),
             Item("تقسيم تلقائي للمحاضرة المحددة (عند Part 01)…", () => AutoSplitDialog(SelectedGroup())),
             SubMenu("ترتيب بالاسم",
                 Item("فيديوهات المحاضرة المحددة", () => SortGroupVideos(SelectedGroup())),
-                Item("محاضرات الكورس المحدد", () => SortGroups(SelectedCourse())),
+                Item("محاضرات الدورة المحددة", () => SortGroups(SelectedCourse())),
                 Item("الكورسات", SortCourses)),
             new ToolStripSeparator(),
             sepAll,
             Item("فتح الكل", () => SetAllExpanded(true), display: "Ctrl+Shift+]"),
-            Item("قفل الكل", () => SetAllExpanded(false), display: "Ctrl+Shift+["),
+            Item("طي الكل", () => SetAllExpanded(false), display: "Ctrl+Shift+["),
             new ToolStripSeparator(),
-            Item("حفظ ملاحظات الكورس المحدد في ملف…", () => ExportNotesDialog(null), Keys.Control | Keys.E),
-            Item("تصفير المشاهدة للمكتبة كلها…", () => ResetWatched(_library.AllVideos, "كل الكورسات")));
+            Item("حفظ ملاحظات الدورة المحددة في ملف…", () => ExportNotesDialog(null), Keys.Control | Keys.E),
+            Item("تصفير المشاهدة للمكتبة كلها…", () => ResetWatched(_library.AllVideos, "كل الدورات")));
         library.DropDownOpening += (_, _) => sepAll.Checked = _settings.TopicSeparators;
 
         // ---------------- التشغيل: كل حاجة بتأثر على الفيديو اللي شغال ----------------
@@ -820,12 +820,12 @@ internal sealed partial class MainForm : Form
             _settings.AutoPlayNext = !_settings.AutoPlayNext;
             _autoNextItem.Checked = _settings.AutoPlayNext;
         });
-        _continueGroupsItem = Item("بعد آخر فيديو في المحاضرة، كمّل على المحاضرة اللي بعدها (في نفس الكورس)", () =>
+        _continueGroupsItem = Item("بعد آخر فيديو في المحاضرة، أكمل المحاضرة التالية (في الدورة نفسها)", () =>
         {
             _settings.ContinueToNextGroup = !_settings.ContinueToNextGroup;
             _continueGroupsItem.Checked = _settings.ContinueToNextGroup;
         });
-        _resumeItem = Item("استكمال الفيديو من آخر مكان وقفت عنده", () =>
+        _resumeItem = Item("استكمال الفيديو من آخر موضع توقفت عنده", () =>
         {
             _settings.ResumePosition = !_settings.ResumePosition;
             _resumeItem.Checked = _settings.ResumePosition;
@@ -839,13 +839,13 @@ internal sealed partial class MainForm : Form
         {
             _settings.NormalizeAudio = !_settings.NormalizeAudio;
             normalize.Checked = _settings.NormalizeAudio;
-            ShowStatus("هيتطبق المرة الجاية اللي تفتح فيها البرنامج", 5);
+            ShowStatus("سيُطبَّق في المرة القادمة التي تفتح فيها البرنامج", 5);
         };
-        var skip = Item("تخطي السكوت تلقائيًا", ToggleSkipSilence, display: "Shift+S");
+        var skip = Item("تخطي الصمت تلقائيًا", ToggleSkipSilence, display: "Shift+S");
         var sleep = BuildSleepMenu();
         var play = SubMenu("التشغيل",
             Item("تشغيل / إيقاف مؤقت", TogglePlay, display: "Space"),
-            Item("كمّل الكورس المحدد من آخر مكان", () => { if (SelectedCourse() is { } c) PlayCourse(c); }),
+            Item("أكمل الدورة المحددة من آخر موضع", () => { if (SelectedCourse() is { } c) PlayCourse(c); }),
             Item("الفيديو التالي", () => PlayNext(false), display: "PageDown"),
             Item("الفيديو السابق", PlayPrevious, display: "PageUp"),
             Item("إيقاف", StopPlayback),
@@ -857,7 +857,7 @@ internal sealed partial class MainForm : Form
             tracks, normalize, skip,
             new ToolStripSeparator(),
             _autoNextItem, _continueGroupsItem, _resumeItem,
-            SubMenu("التكرار بعد ما الفيديو يخلص", BuildRepeatMenuItems()),
+            SubMenu("التكرار بعد انتهاء الفيديو", BuildRepeatMenuItems()),
             new ToolStripSeparator(),
             sleep);
         play.DropDownOpening += (_, _) =>
@@ -881,48 +881,48 @@ internal sealed partial class MainForm : Form
             Item("المكتبة: الكتب والعروض والسبورات", () => { if (_split.Panel2Collapsed) ToggleSidePanel(); ShowShelf(true); }, display: "Ctrl+Shift+B"),
             Item("المكتبة: الدورات والفيديوهات", () => { if (_split.Panel2Collapsed) ToggleSidePanel(); ShowShelf(false); }),
             Item("المشغل الصغير", ToggleMiniMode, display: "P"),
-            _alwaysOnTopItem = Item("دايمًا فوق الشبابيك التانية", ToggleAlwaysOnTop, display: "T"),
+            _alwaysOnTopItem = Item("دائمًا فوق النوافذ الأخرى", ToggleAlwaysOnTop, display: "T"),
             Item("الشاشة الرئيسية", GoHome, display: "Alt+Home"),
             new ToolStripSeparator(),
             seekPreview,
             new ToolStripSeparator(),
-            _advancedItem = Item("الوضع المتقدم (أزرار جانبية وشريط حالة زيادة)", () => SetAdvancedMode(!AdvancedMode)));
+            _advancedItem = Item("الوضع المتقدم (أزرار جانبية وشريط حالة إضافي)", () => SetAdvancedMode(!AdvancedMode)));
 
         // ---------------- مذاكرة: العلامات والمراجعة والتركيز والإحصائيات ----------------
         var study = SubMenu("المذاكرة",
-            Item("علامة عند اللحظة دي", () => AddBookmark(false), display: "B"),
+            Item("علامة عند هذه اللحظة", () => AddBookmark(false), display: "B"),
             Item("علامة بملاحظة…", () => AddBookmark(true), display: "Shift+B"),
-            Item("علامة مراجعة (تفكّرني أراجعها)…", AddReviewBookmark, display: "R"),
+            Item("علامة مراجعة (لتذكيرك بمراجعتها)…", AddReviewBookmark, display: "R"),
             Item("لقطة شاشة", TakeScreenshot, display: "S"),
-            Item("كرّر جزء معيّن (بداية ونهاية)", CycleAbLoop, display: "A"),
+            Item("كرّر جزءًا معيّنًا (بداية ونهاية)", CycleAbLoop, display: "A"),
             new ToolStripSeparator(),
-            Item("مراجعة النهارده…", ShowReview, Keys.F7),
-            Item("الأجزاء الصعبة في الفيديو ده", ShowDifficultSpots),
-            Item("«اللي فات» في الكورس ده", () => { var c = CurrentOrSelectedCourse(); if (c != null) ShowRecap(c, force: true); }),
+            Item("مراجعة اليوم…", ShowReview, Keys.F7),
+            Item("الأجزاء الصعبة في هذا الفيديو", ShowDifficultSpots),
+            Item("«ما فاتك» في هذه الدورة", () => { var c = CurrentOrSelectedCourse(); if (c != null) ShowRecap(c, force: true); }),
             new ToolStripSeparator(),
             Item("بومودورو (تشغيل / إيقاف)", TogglePomodoro, Keys.F9),
             Item("وضع التركيز الصارم…", StartFocusDialog),
             Item("إنهاء وضع التركيز", () => EndFocus(early: true)),
             new ToolStripSeparator(),
             Item("إحصائيات المذاكرة", ShowStats, Keys.F8),
-            Item("صفحة إنجازاتي (تفتح في المتصفح)…", ExportAchievements));
+            Item("صفحة إنجازاتي (تُفتح في المتصفح)…", ExportAchievements));
 
         // ---------------- مساعدة ----------------
         var help = SubMenu("مساعدة",
             Item("دليل الاستخدام", () => HelpGuide.Open(this), display: "F1"),
             Item("جولة سريعة (3 خطوات)", StartTour),
-            Item("اختصارات الكيبورد", ShowShortcuts),
+            Item("اختصارات لوحة المفاتيح", ShowShortcuts),
             new ToolStripSeparator(),
             Item("التحقق من التحديثات", () => _ = CheckForUpdatesAsync(manual: true)),
             Item("مستودع التحديثات على GitHub…", SetUpdateRepoDialog),
             new ToolStripSeparator(),
-            SubMenu("فتح فولدر",
+            SubMenu("فتح مجلد",
                 Item("البيانات (المكتبات والإعدادات)", () =>
                 {
                     Directory.CreateDirectory(Storage.AppDataDir);
                     try { System.Diagnostics.Process.Start("explorer.exe", $"\"{Storage.AppDataDir}\""); } catch { }
                 }),
-                Item("الفيديوهات المتنزلة", () => OpenDataFolder("offline")),
+                Item("الفيديوهات المنزّلة", () => OpenDataFolder("offline")),
                 Item("اللقطات", OpenSnapshotsFolder),
                 Item("سجل الأخطاء", () => OpenDataFolder("logs")),
                 Item("الأدوات", () => OpenDataFolder("tools"))),
@@ -930,7 +930,7 @@ internal sealed partial class MainForm : Form
             Item("عن البرنامج", () => AboutDialog.Show(this, UpdateChecker.CurrentVersion.ToString(3) + (Application.ProductVersion.Contains("-test") ? " (نسخة تجريبية)" : ""),
                 "محرك التشغيل: VLC (LibVLCSharp)\nفيديوهات النت: yt-dlp + Deno\nمنصة التشغيل: .NET " + Environment.Version.ToString(2) +
                 "\n\nملف المكتبة الحالية:\n" + _libraryPath +
-                "\n\nفولدر البيانات" + (Storage.IsPortable ? " (جنب البرنامج)" : " (%AppData% — مفيش صلاحية كتابة جنب البرنامج)") +
+                "\n\nمجلد البيانات" + (Storage.IsPortable ? " (بجانب البرنامج)" : " (%AppData% — لا توجد صلاحية كتابة بجانب البرنامج)") +
                 ":\n" + Storage.AppDataDir)));
 
         // ---------------- الأدوات: الشرح فوق، وبعدها المذاكرة والذكاء والإنترنت (كانت 3 قوايم منفصلة) ----------------
@@ -974,7 +974,7 @@ internal sealed partial class MainForm : Form
         var list = RecentLibraries(10);
         if (list.Count == 0)
         {
-            _recentMenu.DropDownItems.Add(new ToolStripMenuItem("(مفيش)") { Enabled = false });
+            _recentMenu.DropDownItems.Add(new ToolStripMenuItem("(لا يوجد)") { Enabled = false });
             return;
         }
         foreach (var e in list)
@@ -990,7 +990,7 @@ internal sealed partial class MainForm : Form
         if (list.Any(x => !x.Exists))
         {
             _recentMenu.DropDownItems.Add(new ToolStripSeparator());
-            _recentMenu.DropDownItems.Add(Item("🧹  شيل المكتبات اللي مش موجودة من القايمة", RemoveMissingRecent));
+            _recentMenu.DropDownItems.Add(Item("🧹  أزل المكتبات غير الموجودة من القائمة", RemoveMissingRecent));
         }
     }
 
@@ -1304,41 +1304,41 @@ internal sealed partial class MainForm : Form
         Dialogs.Info(this,
             "التشغيل\n" +
             "  Space  ←  تشغيل / إيقاف مؤقت\n" +
-            "  → / ←  ←  تقديم / رجوع 5 ثواني\n" +
+            "  → / ←  ←  تقديم / رجوع 5 ثوانٍ\n" +
             "  Ctrl + → / ←  ←  30 ثانية\n" +
-            "  ↑ / ↓  ←  الصوت (أو عجلة الماوس على الفيديو)\n" +
-            "  M  ←  كتم الصوت (والصوت لحد 200%)\n" +
+            "  ↑ / ↓  ←  الصوت (أو عجلة الفأرة على الفيديو)\n" +
+            "  M  ←  كتم الصوت (والصوت حتى 200%)\n" +
             "  B / Shift+B  ←  علامة / علامة بملاحظة\n" +
             "  A  ←  تكرار جزء: بداية، نهاية، إلغاء\n" +
             "  S  ←  لقطة شاشة\n" +
-            "  T  ←  دايمًا فوق الشبابيك التانية\n" +
-            "  P  ←  المشغل الصغير (فوق كل الشبابيك)\n" +
+            "  T  ←  دائمًا فوق النوافذ الأخرى\n" +
+            "  P  ←  المشغل الصغير (فوق كل النوافذ)\n" +
             "  Ctrl + Z / Ctrl + Y  ←  تراجع / إعادة لتعديلات المكتبة\n" +
-            "  Ctrl + E  ←  تصدير ملاحظات الكورس\n" +
+            "  Ctrl + E  ←  تصدير ملاحظات الدورة\n" +
             "  C / X / Z  ←  أسرع / أبطأ / سرعة عادية\n" +
             "  PageDown / PageUp  ←  الفيديو التالي / السابق\n" +
-            "  F11 أو F أو دبل كليك  ←  ملء الشاشة (Esc للخروج)\n" +
+            "  F11 أو F أو نقر مزدوج  ←  ملء الشاشة (Esc للخروج)\n" +
             "  F6  ←  إظهار / إخفاء المكتبة\n" +
             "  O  ←  نسخ الكلام المكتوب على الشاشة\n" +
-            "  Shift+S  ←  تخطي السكوت\n\n" +
+            "  Shift+S  ←  تخطي الصمت\n\n" +
             "المذاكرة والذكاء\n" +
-            "  R  ←  علامة مراجعة متباعدة   ·   F7  ←  مراجعة النهارده\n" +
-            "  F4  ←  بيانات الكورس (الموعد والوسوم)   ·   F8  ←  الإحصائيات   ·   F9  ←  بومودورو\n" +
+            "  R  ←  علامة مراجعة متباعدة   ·   F7  ←  مراجعة اليوم\n" +
+            "  F4  ←  بيانات الدورة (الموعد والوسوم)   ·   F8  ←  الإحصائيات   ·   F9  ←  بومودورو\n" +
             "  Ctrl+T  ←  نص الفيديو   ·   Ctrl+Shift+F  ←  بحث في كلام الفيديوهات\n" +
-            "  Ctrl+Q  ←  اختبرني   ·   Ctrl+K  ←  اسأل الكورس   ·   Ctrl+L  ←  معمل الكود\n" +
+            "  Ctrl+Q  ←  اختبرني   ·   Ctrl+K  ←  اسأل الدورة   ·   Ctrl+L  ←  معمل الكود\n" +
             "  Ctrl+,  ←  الإعدادات\n\n" +
-            "المكتبة (لما تكون واقف عليها)\n" +
-            "  Enter  ←  تشغيل الفيديو / المحاضرة / الكورس\n" +
+            "المكتبة (عند تحديدها)\n" +
+            "  Enter  ←  تشغيل الفيديو / المحاضرة / الدورة\n" +
             "  F2  ←  إعادة تسمية\n" +
             "  W  ←  تعليم كمُشاهَد / غير مُشاهَد\n" +
-            "  Alt + ↑ / ↓  ←  تحريك لفوق / لتحت\n" +
+            "  Alt + ↑ / ↓  ←  تحريك لأعلى / لأسفل\n" +
             "  Delete  ←  حذف\n" +
             "  Ctrl + F  ←  بحث\n" +
             "  Ctrl + U  ←  إضافة رابط يوتيوب / قائمة تشغيل\n" +
             "  Ctrl + V  ←  لصق رابط من الحافظة\n" +
-            "  السحب والإفلات  ←  نقل فيديو بين المحاضرات، أو محاضرة بين الكورسات،\n" +
-            "                         أو ترتيب الكورسات، أو سحب ملفات/فولدرات من الويندوز",
-            "اختصارات الكيبورد  ·  الدليل الكامل: F1");
+            "  السحب والإفلات  ←  نقل فيديو بين المحاضرات، أو محاضرة بين الدورات،\n" +
+            "                         أو ترتيب الدورات، أو سحب ملفات/مجلدات من ويندوز",
+            "اختصارات لوحة المفاتيح  ·  الدليل الكامل: F1");
     }
 
     // =====================================================================
@@ -1489,8 +1489,8 @@ internal sealed partial class MainForm : Form
         while (HasLibrary && !TrySaveLibrary(out string? error))
         {
             var answer = MessageBox.Show(this,
-                "مقدرتش أحفظ المكتبة قبل القفل:\n" + error + "\n\n" +
-                "إعادة المحاولة: أجرّب تاني (مثلًا بعد ما الدرايف يشتغل)\nتجاهل: اقفل من غير آخر التغييرات\nإلغاء: متقفلش",
+                "تعذّر حفظ المكتبة قبل الإغلاق:\n" + error + "\n\n" +
+                "إعادة المحاولة: أحاول مرة أخرى (مثلًا بعد تشغيل Drive)\nتجاهل: أغلق دون آخر التغييرات\nإلغاء: لا تغلق",
                 "حفظ المكتبة", MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2,
                 MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
             if (answer == DialogResult.Retry) continue;

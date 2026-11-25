@@ -40,7 +40,7 @@ internal sealed partial class MainForm
         {
             Dock = DockStyle.Left, Width = LogicalToDeviceUnits(36), BackColor = Theme.PanelLight
         };
-        _toolTip.SetToolTip(close, "قفل");
+        _toolTip.SetToolTip(close, "إغلاق");
         close.Click += (_, _) => HideBanner();
         _bannerAction = new PillButton("", PillStyle.Primary) { Visible = false };
         var actionHost = new Panel

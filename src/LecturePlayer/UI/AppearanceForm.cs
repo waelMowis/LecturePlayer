@@ -58,7 +58,7 @@ internal static class AppearanceForm
             using (var b = Theme.NodeIcon(s, kind, selIcon, c, done: true)) g.DrawImage(b, 12, h / 2 + 3);
             using var small = new Font("Segoe UI", 8.5f);
             TextRenderer.DrawText(g, "في الشجرة", small, new Point(16 + s, h / 2 - s - 2), Theme.Muted);
-            TextRenderer.DrawText(g, "لما يخلص ✓", small, new Point(16 + s, h / 2 + 4), Theme.Muted);
+            TextRenderer.DrawText(g, "عند الاكتمال ✓", small, new Point(16 + s, h / 2 + 4), Theme.Muted);
         };
 
         // ---------- اللون ----------
@@ -96,7 +96,7 @@ internal static class AppearanceForm
             swatches.Add(sw);
         }
         customSwatch = new Swatch(null, Theme.Muted, isCustom: true);
-        tips.SetToolTip(customSwatch, "لون تاني…");
+        tips.SetToolTip(customSwatch, "لون آخر…");
         customSwatch.Click += (_, _) =>
         {
             using var dlg = new ColorDialog { FullOpen = true, AnyColor = true, Color = Current() };
@@ -115,12 +115,12 @@ internal static class AppearanceForm
         ToggleSwitch? children = null;
         if (childrenText != null)
         {
-            children = kit.Full(new ToggleSwitch { Text = childrenText + " (اللون بس — كل واحد بيفضل بأيقونته)", Checked = false }, 32);
+            children = kit.Full(new ToggleSwitch { Text = childrenText + " (اللون فقط — يحتفظ كل عنصر بأيقونته)", Checked = false }, 32);
         }
 
         // ---------- الأيقونة ----------
         kit.Header("🔣  الأيقونة");
-        var search = kit.Row("دوّر:", new TextBox { PlaceholderText = "مثلًا: كود، C#، بايثون، SQL، يوتيوب، طب…" }, 32);
+        var search = kit.Row("ابحث:", new TextBox { PlaceholderText = "مثلًا: كود، C#، بايثون، SQL، يوتيوب، طب…" }, 32);
         var grid = kit.Full(new FlowLayoutPanel
         {
             FlowDirection = FlowDirection.LeftToRight, // مع RightToLeft بتاع الشاشة = بتبدأ من اليمين
@@ -192,7 +192,7 @@ internal static class AppearanceForm
                 int shown = 0;
                 foreach (var t in list)
                 {
-                    bool ok = q.Length == 0 || t.Key == null && "عادي افتراضي".Contains(q)
+                    bool ok = q.Length == 0 || t.Key == null && "الافتراضي".Contains(q)
                               || (t.Tag as string)?.Contains(q, StringComparison.CurrentCultureIgnoreCase) == true;
                     t.Visible = ok;
                     if (ok) shown++;
@@ -203,7 +203,7 @@ internal static class AppearanceForm
             grid.AutoScrollPosition = Point.Empty;
         };
 
-        kit.Buttons("حفظ", "إلغاء", ("↺  رجّع الافتراضي", () => { autoColor = false; SelectIcon(null); SelectColor(null); }));
+        kit.Buttons("حفظ", "إلغاء", ("↺  استعادة الافتراضي", () => { autoColor = false; SelectIcon(null); SelectColor(null); }));
         SelectColor(selColor);
 
         // لو فيه أيقونة مختارة (ممكن تكون في آخر الفئات)، الشبكة تفتح عندها

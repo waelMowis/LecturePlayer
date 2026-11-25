@@ -109,7 +109,7 @@ internal sealed class ReaderPane : Panel
         _pageReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         core.Navigate($"https://{ReaderHost}/reader.html");
         var done = await Task.WhenAny(_pageReady.Task, Task.Delay(20_000));
-        if (done != _pageReady.Task) throw new TimeoutException("صفحة القارئ مافتحتش");
+        if (done != _pageReady.Task) throw new TimeoutException("لم تُفتح صفحة القارئ");
         IsReady = true;
         Data.Log.Info("reader: ready (" + UdemyWeb.RuntimeVersion + ")");
     }
@@ -240,7 +240,7 @@ internal sealed class ReaderPane : Panel
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16))
                 body.CopyTo(fs);
-            if (new FileInfo(tmp).Length == 0) throw new IOException("الملف طلع فاضي");
+            if (new FileInfo(tmp).Length == 0) throw new IOException("الملف فارغ");
         }
         catch (Exception ex)
         {
@@ -294,7 +294,7 @@ internal sealed class ReaderPane : Panel
     private static CoreWebView2WebResourceResponse SaveError(CoreWebView2Environment env, Exception ex)
     {
         Data.Log.Info("reader save: " + ex.Message);
-        var msg = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(ex is IOException or UnauthorizedAccessException ? "الملف مفتوح في برنامج تاني أو مفيش صلاحية: " + ex.Message : ex.Message));
+        var msg = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(ex is IOException or UnauthorizedAccessException ? "الملف مفتوح في برنامج آخر أو لا توجد صلاحية: " + ex.Message : ex.Message));
         return env.CreateWebResourceResponse(msg, 500, "Error", "Content-Type: text/plain; charset=utf-8");
     }
 
@@ -318,7 +318,7 @@ internal sealed class ReaderPane : Panel
             using (ct.Register(() => tcs.TrySetCanceled()))
             {
                 var done = await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs, CancellationToken.None));
-                return done == tcs.Task ? await tcs.Task : new JobResult(false, "الشغلانة خدت وقت أكتر من اللازم", 0, 0);
+                return done == tcs.Task ? await tcs.Task : new JobResult(false, "استغرقت العملية وقتًا أطول من اللازم", 0, 0);
             }
         }
         finally { _jobs.Remove(id); }

@@ -17,9 +17,9 @@ internal static class WebQuality
     public static readonly (int Cap, string Label)[] Caps =
     {
         (Max, "أعلى جودة متاحة"),
-        (1080, "لحد 1080p"),
-        (720, "لحد 720p (نت أبطأ)"),
-        (0, "سيبها للموقع (Auto)"),
+        (1080, "حتى 1080p"),
+        (720, "حتى 720p (إنترنت أبطأ)"),
+        (0, "اتركها للموقع (Auto)"),
     };
 
     public static int CapIndex(int cap) => Math.Max(0, Array.FindIndex(Caps, c => c.Cap == cap));

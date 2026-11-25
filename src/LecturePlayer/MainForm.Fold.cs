@@ -74,8 +74,8 @@ internal sealed partial class MainForm
 
     /// <summary>«افتح كل اللي جواه» و«اقفل كل اللي جواه» لقايمة الكليك يمين.</summary>
     private ToolStripMenuItem FoldMenu(object item) => SubMenuOf("طي وتوسيع",
-        MenuItem("⊞  افتح كل اللي جواه", () => SetSubtreeExpanded(item, true)),
-        MenuItem("⊟  اقفل كل اللي جواه", () => SetSubtreeExpanded(item, false)));
+        MenuItem("⊞  افتح كل ما بداخله", () => SetSubtreeExpanded(item, true)),
+        MenuItem("⊟  أغلق كل ما بداخله", () => SetSubtreeExpanded(item, false)));
 
     private readonly ContextMenuStrip _foldMenu = new() { RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
 
@@ -90,16 +90,16 @@ internal sealed partial class MainForm
             _foldMenu.Items.Add(i);
         }
         Add("⊞  فتح الكل", () => ExpandToLevel(4), "Ctrl+Shift+]");
-        Add("⊟  قفل الكل", () => ExpandToLevel(0), "Ctrl+Shift+[");
+        Add("⊟  إغلاق الكل", () => ExpandToLevel(0), "Ctrl+Shift+[");
         _foldMenu.Items.Add(new ToolStripSeparator());
-        _foldMenu.Items.Add(new ToolStripLabel("اعرض لحد:") { ForeColor = Theme.Muted, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) });
-        Add("      المواضيع بس", () => ExpandToLevel(0));
+        _foldMenu.Items.Add(new ToolStripLabel("اعرض حتى:") { ForeColor = Theme.Muted, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) });
+        Add("      الموضوعات فقط", () => ExpandToLevel(0));
         Add("      المصادر", () => ExpandToLevel(1));
-        Add("      الكورسات", () => ExpandToLevel(2));
+        Add("      الدورات", () => ExpandToLevel(2));
         Add("      المحاضرات", () => ExpandToLevel(3));
 
         var button = new GlyphButton(Glyphs.Fold, 11f) { Dock = DockStyle.Left, Width = LogicalToDeviceUnits(30) };
-        _toolTip.SetToolTip(button, "طي وتوسيع: فتح الكل، قفل الكل، أو اعرض لحد مستوى معيّن");
+        _toolTip.SetToolTip(button, "طي وتوسيع: فتح الكل، أو إغلاق الكل، أو العرض حتى مستوى معيّن");
         button.Click += (_, _) => _foldMenu.Show(button, new Point(0, button.Height + 2));
         row.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 2, BackColor = Theme.Panel });
         row.Controls.Add(button);

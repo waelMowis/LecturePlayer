@@ -111,8 +111,8 @@ public sealed class ScreenRecorder : IDisposable
             lock (_log) { if (_log.Length < 20_000) _log.AppendLine(e.Data); }
             if (e.Data.StartsWith("frame=", StringComparison.Ordinal)) started.TrySetResult();
         };
-        p.Exited += (_, _) => { started.TrySetResult(); if (_proc == p && !_stopping) Failed?.Invoke("التسجيل وقف لوحده: " + LastLine()); };
-        if (!p.Start()) throw new InvalidOperationException("ffmpeg ماشتغلش");
+        p.Exited += (_, _) => { started.TrySetResult(); if (_proc == p && !_stopping) Failed?.Invoke("توقف التسجيل تلقائيًا: " + LastLine()); };
+        if (!p.Start()) throw new InvalidOperationException("لم يعمل ffmpeg");
         // الساعة والصوت بيبدأوا مع العملية نفسها (تقرير ffmpeg عن أول إطار بيتأخر نص ثانية)
         _seg.Restart();
         SegmentStarts.Add(Stopwatch.GetTimestamp());
@@ -131,7 +131,7 @@ public sealed class ScreenRecorder : IDisposable
             SegmentStarts.RemoveAt(SegmentStarts.Count - 1);
             // ddagrab ممكن يقع (مثلًا شاشة مقفولة/RDP): نجرب gdigrab مرة
             if (Source == "ddagrab") { Source = "gdigrab"; _ddagrab = false; await StartSegmentAsync(); return; }
-            throw new InvalidOperationException("ffmpeg مقدرش يسجل: " + LastLine());
+            throw new InvalidOperationException("لم يستطع ffmpeg التسجيل: " + LastLine());
         }
     }
 
@@ -175,13 +175,13 @@ public sealed class ScreenRecorder : IDisposable
     {
         if (_proc != null) await StopSegmentAsync();
         var segs = _segments.Where(s => File.Exists(s) && new FileInfo(s).Length > 0).ToList();
-        if (segs.Count == 0) throw new InvalidOperationException("مفيش حاجة اتسجلت");
+        if (segs.Count == 0) throw new InvalidOperationException("لم يُسجَّل شيء");
         if (segs.Count == 1) return segs[0];
         string list = Path.Combine(_o.WorkDir, "segments.txt");
         File.WriteAllLines(list, segs.Select(s => $"file '{s.Replace("'", "'\\''")}'"));
         string outFile = Path.Combine(_o.WorkDir, "screen.mp4");
         var r = await RunAsync(_ffmpeg, $"-hide_banner -v error -y -f concat -safe 0 -i \"{list}\" -c copy \"{outFile}\"", 120_000);
-        if (r.Code != 0) throw new InvalidOperationException("مقدرتش ألزق أجزاء التسجيل: " + r.Err);
+        if (r.Code != 0) throw new InvalidOperationException("تعذّر دمج أجزاء التسجيل: " + r.Err);
         return outFile;
     }
 
@@ -293,7 +293,7 @@ public static class RecordingEdit
         args.Append(vmap == "0:v" ? "-c:v copy " : encoderArgs + " ");
         args.Append($"-shortest -movflags +faststart {Q(outFile)}");
         var r = await ScreenRecorder.RunAsync(ffmpeg, args.ToString(), 3_600_000);
-        if (r.Code != 0 || !File.Exists(outFile)) throw new InvalidOperationException("مقدرتش أجهّز الفيديو: " + r.Err.Split('\n').FirstOrDefault(l => l.Trim().Length > 0));
+        if (r.Code != 0 || !File.Exists(outFile)) throw new InvalidOperationException("تعذّر تجهيز الفيديو: " + r.Err.Split('\n').FirstOrDefault(l => l.Trim().Length > 0));
     }
 
     static string Pos(Corner c) => c switch
@@ -325,7 +325,7 @@ public static class RecordingEdit
 
     public static async Task TrimAsync(string ffmpeg, string input, IReadOnlyList<(double From, double To)> keep, bool hasAudio, string encoderArgs, string outFile)
     {
-        if (keep.Count == 0) throw new InvalidOperationException("مفيش حاجة هتفضل بعد القص");
+        if (keep.Count == 0) throw new InvalidOperationException("لن يتبقى شيء بعد القص");
         var fc = new StringBuilder();
         for (int i = 0; i < keep.Count; i++)
         {
@@ -336,7 +336,7 @@ public static class RecordingEdit
         fc.Append($"concat=n={keep.Count}:v=1:a={(hasAudio ? 1 : 0)}[v]{(hasAudio ? "[a]" : "")}");
         string args = $"-hide_banner -v error -y -i {Q(input)} -filter_complex {Q(fc.ToString())} -map \"[v]\" {(hasAudio ? "-map \"[a]\" -c:a aac -b:a 160k" : "")} {encoderArgs} -movflags +faststart {Q(outFile)}";
         var r = await ScreenRecorder.RunAsync(ffmpeg, args, 3_600_000);
-        if (r.Code != 0 || !File.Exists(outFile)) throw new InvalidOperationException("القص فشل: " + r.Err.Split('\n').FirstOrDefault(l => l.Trim().Length > 0));
+        if (r.Code != 0 || !File.Exists(outFile)) throw new InvalidOperationException("فشل القص: " + r.Err.Split('\n').FirstOrDefault(l => l.Trim().Length > 0));
     }
 
     /// <summary>العلامات بعد القص: اللي في جزء اتشال بتتشال، والباقي بيتزحزح.</summary>

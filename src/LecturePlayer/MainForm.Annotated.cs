@@ -86,14 +86,14 @@ internal partial class MainForm
     internal async Task<bool> BuildAnnotatedCopyAsync(Book b, bool quiet, string? exportTo = null, JsonObject? fromDoc = null)
     {
         if (!HasLibrary || !CanAnnotate(b)) return false;
-        if (!ReaderPane.Available) { if (!quiet) ShowStatus("محتاج قارئ الكتب (WebView2)", 5); return false; }
+        if (!ReaderPane.Available) { if (!quiet) ShowStatus("يحتاج إلى قارئ الكتب (WebView2)", 5); return false; }
         if (_annotBusy.Contains(b.Id))
         {
             if (quiet) { _annotQueue.Add(b.Id); return false; }
             // طلب منك وفي نسخة تلقائية شغالة: نستناها تخلص وبعدين نكمّل
             var until = DateTime.UtcNow.AddMinutes(3);
             while (_annotBusy.Contains(b.Id) && DateTime.UtcNow < until) await Task.Delay(200);
-            if (exportTo == null && !NeedsAnnotated(b)) { ShowStatus("النسخة المشروحة متحدّثة ✓", 4); return true; }
+            if (exportTo == null && !NeedsAnnotated(b)) { ShowStatus("النسخة المشروحة محدّثة ✓", 4); return true; }
         }
         if (!_annotBusy.Add(b.Id)) return false;
         try
@@ -102,9 +102,9 @@ internal partial class MainForm
             SaveAllInk();
             var inkStamp = InkStore.Stamp(InkStore.FileFor(_libraryPath, b.Id));
             var doc = fromDoc ?? (_ink?.Book == b ? _ink.Doc : InkStore.Load(InkStore.FileFor(_libraryPath, b.Id)));
-            if (InkStore.Count(doc) == 0) { if (!quiet) ShowStatus("مفيش شرح على الكتاب ده لسه — افتحه واضغط 🖊", 5); return false; }
+            if (InkStore.Count(doc) == 0) { if (!quiet) ShowStatus("لا يوجد شرح على هذا الكتاب بعد — افتحه واضغط 🖊", 5); return false; }
             string src = BookFile(b);
-            if (!File.Exists(src)) { if (!quiet) ShowStatus("ملف الكتاب مش موجود", 5); return false; }
+            if (!File.Exists(src)) { if (!quiet) ShowStatus("ملف الكتاب غير موجود", 5); return false; }
             var copy = AnnotatedCopyOf(b);
             if (exportTo == null && copy != null && ReaderShown && _currentBook == copy)
             {
@@ -114,18 +114,18 @@ internal partial class MainForm
             string target = exportTo ?? AnnotatedTarget(b);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             var pane = EnsureReader();
-            if (!quiet) ShowStatus($"بعمل النسخة المشروحة من «{b.Title}»…", 30);
-            var progress = new Progress<double>(p => { if (!quiet) ShowStatus($"بعمل النسخة المشروحة… {(int)(p * 100)}%", 10); });
+            if (!quiet) ShowStatus($"جارٍ إنشاء النسخة المشروحة من «{b.Title}»…", 30);
+            var progress = new Progress<double>(p => { if (!quiet) ShowStatus($"جارٍ إنشاء النسخة المشروحة… {(int)(p * 100)}%", 10); });
             var r = await pane.BuildAnnotatedAsync(src, doc, target, b.Title, progress, CancellationToken.None);
             if (!r.Ok)
             {
                 Log.Info("annotated copy failed: " + r.Error);
-                if (!quiet || exportTo != null) ShowBanner("مقدرتش أعمل النسخة المشروحة: " + r.Error, BannerKind.Warning, seconds: 10, key: "annot");
+                if (!quiet || exportTo != null) ShowBanner("تعذّر إنشاء النسخة المشروحة: " + r.Error, BannerKind.Warning, seconds: 10, key: "annot");
                 return false;
             }
             FileCache.Forget(target);
             Log.Info($"annotated copy: {b.Title} → {target} ({r.Size / 1024} KB, {r.Pages} pages)");
-            if (exportTo != null) { ShowStatus("اتصدّرت النسخة المشروحة ✓", 5); return true; }
+            if (exportTo != null) { ShowStatus("صُدِّرت النسخة المشروحة ✓", 5); return true; }
             _annotBuiltFrom[b.Id] = inkStamp;
             if (copy == null)
             {
@@ -139,13 +139,13 @@ internal partial class MainForm
                 _library.Books.Add(copy);
                 MarkDirty();
                 RebuildShelf();
-                ShowStatus($"اتعملت النسخة المشروحة في «{AnnotatedFolderName}» 🖊 — بتتحدّث لوحدها كل ما تشرح", 6);
+                ShowStatus($"أُنشئت النسخة المشروحة في «{AnnotatedFolderName}» 🖊 — تتحدّث تلقائيًا كلما شرحت", 6);
             }
             else
             {
                 copy.PageCount = r.Pages;
                 if (_shelfMode) RefreshBookRows(copy);
-                if (!quiet) ShowStatus("اتحدّثت النسخة المشروحة ✓", 4);
+                if (!quiet) ShowStatus("حُدِّثت النسخة المشروحة ✓", 4);
             }
             QueueProbe(new[] { copy });
             return true;
@@ -153,7 +153,7 @@ internal partial class MainForm
         catch (Exception ex)
         {
             Log.Error("annotated copy", ex);
-            if (!quiet) ShowBanner("مقدرتش أعمل النسخة المشروحة: " + ex.Message, BannerKind.Warning, seconds: 10, key: "annot");
+            if (!quiet) ShowBanner("تعذّر إنشاء النسخة المشروحة: " + ex.Message, BannerKind.Warning, seconds: 10, key: "annot");
             return false;
         }
         finally { _annotBusy.Remove(b.Id); }
@@ -176,13 +176,13 @@ internal partial class MainForm
         string? path = SmokeSavePath;
         if (path == null)
         {
-            using var dlg = new SaveFileDialog { Title = "حفظ الصفحة صورة", Filter = "صورة PNG|*.png", FileName = $"{b.Title} - صفحة {page}.png", RestoreDirectory = true };
+            using var dlg = new SaveFileDialog { Title = "حفظ الصفحة صورة", Filter = "صورة PNG|*.png", FileName = $"{b.Title} - الصفحة {page}.png", RestoreDirectory = true };
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
             path = dlg.FileName;
         }
         var r = await _reader.PagePngAsync(page, path, 2.5);
-        if (r.Ok) ShowStatus($"اتحفظت صفحة {page} بالشرح ✓", 4);
-        else ShowBanner("مقدرتش أحفظ الصورة: " + r.Error, BannerKind.Warning, seconds: 8);
+        if (r.Ok) ShowStatus($"حُفظت الصفحة {page} مع الشرح ✓", 4);
+        else ShowBanner("تعذّر حفظ الصورة: " + r.Error, BannerKind.Warning, seconds: 8);
     }
 
     /// <summary>للفحص: مكان حفظ من غير شباك «حفظ باسم».</summary>
@@ -195,21 +195,21 @@ internal partial class MainForm
         if (!HasLibrary) return;
         SaveAllInk();
         var doc = _ink?.Book == b ? _ink.Doc : InkStore.Load(InkStore.FileFor(_libraryPath, b.Id));
-        if (InkStore.Count(doc) == 0) { ShowStatus("مفيش شرح تتحفظ منه نسخة", 4); return; }
-        name ??= AskText("اسم النسخة", "اسم يفكّرك بيها (مثلًا: قبل الامتحان، شرح الأستاذ):", DateTime.Now.ToString("d MMMM"));
+        if (InkStore.Count(doc) == 0) { ShowStatus("لا يوجد شرح لحفظ نسخة منه", 4); return; }
+        name ??= AskText("اسم النسخة", "اسم يذكّرك بها (مثلًا: قبل الامتحان، شرح الأستاذ):", DateTime.Now.ToString("d MMMM"));
         if (name == null) return;
         InkStore.SaveVersion(_libraryPath, b.Id, doc, name);
-        ShowStatus($"اتحفظت نسخة «{name}» من الشرح ✓", 4);
+        ShowStatus($"حُفظت نسخة «{name}» من الشرح ✓", 4);
     }
 
     private void RestoreInkVersion(Book b, InkStore.Version v)
     {
-        if (!Confirm($"ترجع الشرح لنسخة «{v.Name}» ({v.Local:yyyy-MM-dd HH:mm})؟\nالشرح الحالي هيتحفظ نسخة الأول عشان تقدر ترجعله.")) return;
+        if (!Confirm($"هل تريد إرجاع الشرح إلى نسخة «{v.Name}» ({v.Local:yyyy-MM-dd HH:mm})؟\nسيُحفظ الشرح الحالي نسخةً أولًا لتتمكن من الرجوع إليه.")) return;
         SaveAllInk();
         string file = InkStore.FileFor(_libraryPath, b.Id);
         bool live = _ink?.Book == b;
         var doc = live ? _ink!.Doc : InkStore.Load(file);
-        if (InkStore.Count(doc) > 0) InkStore.SaveVersion(_libraryPath, b.Id, doc, "قبل الرجوع لـ " + v.Name);
+        if (InkStore.Count(doc) > 0) InkStore.SaveVersion(_libraryPath, b.Id, doc, "قبل الرجوع إلى " + v.Name);
         InkStore.Restore(doc, InkStore.Load(v.File));
         if (live)
         {
@@ -223,23 +223,23 @@ internal partial class MainForm
             b.InkCount = InkStore.Count(doc); b.TouchProgress(); MarkPositionDirty();
         }
         QueueAnnotated(b);
-        ShowStatus($"رجع الشرح لنسخة «{v.Name}» ✓", 5);
+        ShowStatus($"أُرجع الشرح إلى نسخة «{v.Name}» ✓", 5);
     }
 
     private ToolStripItem[] InkVersionItems(Book b)
     {
-        var items = new List<ToolStripItem> { MenuItem("💾  احفظ نسخة من الشرح دلوقتي…", () => SaveInkVersion(b)) };
+        var items = new List<ToolStripItem> { MenuItem("💾  احفظ نسخة من الشرح الآن…", () => SaveInkVersion(b)) };
         var list = HasLibrary ? InkStore.Versions(_libraryPath, b.Id) : new();
         if (list.Count > 0) items.Add(Sep());
         foreach (var v in list.Take(30))
             items.Add(SubMenuOf($"🕘  {v.Name} — {v.Local:yyyy-MM-dd HH:mm} ({v.Count})",
-                MenuItem("↺  ارجع للنسخة دي", () => RestoreInkVersion(b, v)),
+                MenuItem("↺  ارجع إلى هذه النسخة", () => RestoreInkVersion(b, v)),
                 MenuItem("📤  صدّرها PDF…", () =>
                 {
                     using var dlg = new SaveFileDialog { Title = "حفظ النسخة PDF", Filter = "PDF|*.pdf", FileName = $"{b.Title} — {v.Name}.pdf", RestoreDirectory = true };
                     if (dlg.ShowDialog(this) == DialogResult.OK) _ = BuildAnnotatedCopyAsync(b, quiet: false, exportTo: dlg.FileName, fromDoc: InkStore.Load(v.File));
                 }),
-                MenuItem("🗑  امسح النسخة دي", () => { if (Confirm($"تمسح نسخة «{v.Name}»؟")) { try { File.Delete(v.File); } catch { } } })));
+                MenuItem("🗑  احذف هذه النسخة", () => { if (Confirm($"هل تريد حذف نسخة «{v.Name}»؟")) { try { File.Delete(v.File); } catch { } } })));
         return items.ToArray();
     }
 
@@ -249,15 +249,15 @@ internal partial class MainForm
         if (!CanAnnotate(b)) return;
         var copy = AnnotatedCopyOf(b);
         if (section == 0 && copy != null)
-            items.Add(MenuItem("🖊  افتح النسخة المشروحة" + (NeedsAnnotated(b) ? " (هتتحدّث)" : ""), () => { if (NeedsAnnotated(b)) _ = BuildAnnotatedCopyAsync(b, quiet: false).ContinueWith(_ => BeginInvoke(() => OpenBook(copy))); else OpenBook(copy); }));
+            items.Add(MenuItem("🖊  افتح النسخة المشروحة" + (NeedsAnnotated(b) ? " (ستُحدَّث)" : ""), () => { if (NeedsAnnotated(b)) _ = BuildAnnotatedCopyAsync(b, quiet: false).ContinueWith(_ => BeginInvoke(() => OpenBook(copy))); else OpenBook(copy); }));
         if (section == 5 && b.InkCount > 0)
-            items.Add(SubMenuOf("↺  نسخ الشرح (احفظ/ارجع)", InkVersionItems(b)));
+            items.Add(SubMenuOf("↺  نسخ الشرح (حفظ/رجوع)", InkVersionItems(b)));
         if (section == 6 && b.InkCount > 0)
         {
             items.Add(SubMenuOf("📤  الشرح (PDF / صورة)",
-                MenuItem(copy == null ? "🖊  اعمل النسخة المشروحة في «شروحاتي»" : "🔄  حدّث النسخة المشروحة دلوقتي", () => _ = BuildAnnotatedCopyAsync(b, quiet: false)),
-                MenuItem("📤  صدّر نسخة مشروحة في مكان تاني…", () => ExportAnnotatedAs(b)),
-                MenuItem("🖼  الصفحة الحالية بالشرح صورة (PNG)…", () => ExportPagePng(b))));
+                MenuItem(copy == null ? "🖊  أنشئ النسخة المشروحة في «شروحاتي»" : "🔄  حدّث النسخة المشروحة الآن", () => _ = BuildAnnotatedCopyAsync(b, quiet: false)),
+                MenuItem("📤  صدّر نسخة مشروحة إلى مكان آخر…", () => ExportAnnotatedAs(b)),
+                MenuItem("🖼  الصفحة الحالية مع الشرح صورة (PNG)…", () => ExportPagePng(b))));
         }
     }
 }

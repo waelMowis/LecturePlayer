@@ -27,7 +27,7 @@ internal sealed class StatsForm : Form
         var ws = StudyStats.StartOfWeek(_today);
         int today = pages.Where(e => DateOnly.FromDateTime(e.StartUtc.ToLocalTime()) == _today).Sum(e => e.Score);
         int week = pages.Where(e => DateOnly.FromDateTime(e.StartUtc.ToLocalTime()) >= ws).Sum(e => e.Score);
-        return $"\n📖 القراية: النهارده {today} صفحة     الأسبوع ده {week} صفحة";
+        return $"\n📖 القراءة: اليوم {today} صفحة     هذا الأسبوع {week} صفحة";
     }
     private readonly SelectBox _topicCombo = new();
     private readonly List<Scope> _scopes = new();
@@ -70,7 +70,7 @@ internal sealed class StatsForm : Form
         var scopeLabel = new Label { Dock = DockStyle.Right, Width = 70, Text = "الموضوع:", ForeColor = Theme.Muted, TextAlign = ContentAlignment.MiddleRight };
         _topicCombo.Dock = DockStyle.Right;
         _topicCombo.Width = 260;
-        _scopes.Add(new Scope("", "كل المواضيع", null));
+        _scopes.Add(new Scope("", "كل الموضوعات", null));
         foreach (var t in lib.Topics)
         {
             _scopes.Add(new Scope(t.Id, t.Name, t));
@@ -93,7 +93,7 @@ internal sealed class StatsForm : Form
         _summary.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
         _summary.TextAlign = ContentAlignment.MiddleRight;
 
-        var heatTitle = Title("آخر 12 أسبوع");
+        var heatTitle = Title("آخر 12 أسبوعًا");
         _heat.Dock = DockStyle.Top;
         _heat.Height = 7 * (Cell + CellGap) + 16;
         _heat.BackColor = Theme.Panel;
@@ -101,7 +101,7 @@ internal sealed class StatsForm : Form
         _heat.MouseMove += HeatHover;
         EnableDoubleBuffer(_heat);
 
-        var barsTitle = Title("آخر 14 يوم (الخط = الهدف)");
+        var barsTitle = Title("آخر 14 يومًا (الخط = الهدف)");
         _bars.Dock = DockStyle.Top;
         _bars.Height = 150;
         _bars.BackColor = Theme.Panel;
@@ -109,17 +109,17 @@ internal sealed class StatsForm : Form
         EnableDoubleBuffer(_bars);
 
         // ---------- المواضيع ----------
-        _topicsTitle = Title("المواضيع");
+        _topicsTitle = Title("الموضوعات");
         _topics.Dock = DockStyle.Top;
         _topics.Height = 120;
         SetupList(_topics);
         _topics.Columns.Add("الموضوع", 190);
-        _topics.Columns.Add("كورسات", 60);
+        _topics.Columns.Add("دورات", 60);
         _topics.Columns.Add("التقدم", 90);
-        _topics.Columns.Add("الأسبوع ده", 90);
+        _topics.Columns.Add("هذا الأسبوع", 90);
         _topics.Columns.Add("الإجمالي", 90);
-        _topics.Columns.Add("فاضل", 90);
-        _topics.Columns.Add("هتخلص", 95);
+        _topics.Columns.Add("متبقٍ", 90);
+        _topics.Columns.Add("ستنتهي", 95);
         _topics.Columns.Add("الفهم", 70);
         ReverseColumns(_topics);
         _topics.DoubleClick += (_, _) =>
@@ -138,20 +138,20 @@ internal sealed class StatsForm : Form
         _courses.Columns.Add("الكورس", 210);
         _courses.Columns.Add("الحالة", 60);
         _courses.Columns.Add("التقدم", 60);
-        _courses.Columns.Add("فاضل", 90);
+        _courses.Columns.Add("متبقٍ", 90);
         _courses.Columns.Add("معدلك/يوم", 85);
-        _courses.Columns.Add("هتخلص", 95);
+        _courses.Columns.Add("ستنتهي", 95);
         _courses.Columns.Add("الموعد", 170);
         _courses.Columns.Add("الفهم", 120);
         ReverseColumns(_courses);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 50, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(4, 10, 4, 0), BackColor = Theme.Window };
-        buttons.Controls.Add(Btn("قفل", Close, PillStyle.Ghost));
+        buttons.Controls.Add(Btn("إغلاق", Close, PillStyle.Ghost));
         buttons.Controls.Add(Btn("حفظ تقرير الأسبوع في ملف…", SaveWeeklyReport, PillStyle.Primary));
         buttons.Controls.Add(Btn("نسخ التقرير", () =>
         {
             Clipboard.SetText(StudyStats.WeeklyReport(_lib, _entries, _today, _settings.DailyGoalMinutes));
-            Dialogs.Info(this, "اتنسخ ✓ — الصقه في أي مكان (رسالة، ملاحظات، إيميل).");
+            Dialogs.Info(this, "نُسخ ✓ — الصقه في أي مكان (رسالة، ملاحظات، بريد إلكتروني).");
         }, PillStyle.Ghost));
 
         // كل قسم كارت لوحده (زي باقي البرنامج)
@@ -215,7 +215,7 @@ internal sealed class StatsForm : Form
     }
 
     private Scope CurrentScope => _topicCombo.SelectedIndex >= 0 && _topicCombo.SelectedIndex < _scopes.Count
-        ? _scopes[_topicCombo.SelectedIndex] : new Scope("", "كل المواضيع", null);
+        ? _scopes[_topicCombo.SelectedIndex] : new Scope("", "كل الموضوعات", null);
 
     /// <summary>بيحسب كل حاجة من جديد للنطاق المختار.</summary>
     private void Reload()
@@ -235,9 +235,9 @@ internal sealed class StatsForm : Form
         if (all)
         {
             var streak = StudyStats.Streak(_daily, _today, minMinutes: 10);
-            _summary.Text = $"النهارده: {StudyStats.FormatMinutes(today)} من {_settings.DailyGoalMinutes} دقيقة {(today >= _settings.DailyGoalMinutes ? "✓" : "")}" +
-                            $"     🔥 السلسلة: {streak.Current} يوم" + (streak.FreezesUsed > 0 ? $" (فيها {streak.FreezesUsed} يوم متجمد)" : "") +
-                            $"\nالأسبوع ده: {StudyStats.FormatMinutes(week)}     أحسن سلسلة: {streak.Best} يوم     الإجمالي: {StudyStats.FormatMinutes(total)}" +
+            _summary.Text = $"اليوم: {StudyStats.FormatMinutes(today)} من {_settings.DailyGoalMinutes} دقيقة {(today >= _settings.DailyGoalMinutes ? "✓" : "")}" +
+                            $"     🔥 السلسلة: {streak.Current} يوم" + (streak.FreezesUsed > 0 ? $" (منها {streak.FreezesUsed} يوم مجمّد)" : "") +
+                            $"\nهذا الأسبوع: {StudyStats.FormatMinutes(week)}     أفضل سلسلة: {streak.Best} يوم     الإجمالي: {StudyStats.FormatMinutes(total)}" +
                             PagesLine();
         }
         else
@@ -245,10 +245,10 @@ internal sealed class StatsForm : Form
             var t = sc.Place != null
                 ? TopicStats.ForPlace(_lib, sc.Place, _entries, _today, _settings.Rate)
                 : TopicStats.For(_lib, sc.Topic, _entries, _today, _settings.Rate);
-            string fc = t.Videos > 0 && t.Watched == t.Videos ? "خلص ✓"
-                : t.FinishDate is { } fd ? $"هتخلص حوالي {fd:yyyy/MM/dd}" : "مفيش معدل كفاية للتوقع";
-            _summary.Text = $"{Modern.Bidi(t.Name)}:  {t.Percent}%  ({t.Watched} من {t.Videos} فيديو في {t.Courses} كورس)     {fc}" +
-                            $"\nالنهارده: {StudyStats.FormatMinutes(today)}     الأسبوع ده: {StudyStats.FormatMinutes(week)}     الإجمالي: {StudyStats.FormatMinutes(total)}" +
+            string fc = t.Videos > 0 && t.Watched == t.Videos ? "اكتمل ✓"
+                : t.FinishDate is { } fd ? $"ستنتهي نحو {fd:yyyy/MM/dd}" : "لا يوجد معدل كافٍ للتوقع";
+            _summary.Text = $"{Modern.Bidi(t.Name)}:  {t.Percent}%  ({t.Watched} من {t.Videos} فيديو في {t.Courses} دورة)     {fc}" +
+                            $"\nاليوم: {StudyStats.FormatMinutes(today)}     هذا الأسبوع: {StudyStats.FormatMinutes(week)}     الإجمالي: {StudyStats.FormatMinutes(total)}" +
                             (t.Understanding is { } u ? $"     الفهم: {u}/100" : "");
         }
 
@@ -267,9 +267,9 @@ internal sealed class StatsForm : Form
                     t.Place != null ? (t.Topic != null ? "      " : "") + (_lib.ParentOf(t.Place) != null ? "      ↳ " : "↳ 🏫 ") + t.Place.Name : t.Name, t.Courses.ToString(), $"{t.Percent}%  ({t.Watched}/{t.Videos})",
                     StudyStats.FormatMinutes(t.WeekMinutes), StudyStats.FormatMinutes(t.TotalMinutes),
                     StudyStats.FormatMinutes(t.RemainingMinutes),
-                    done ? "خلص ✓" : t.FinishDate is { } d ? d.ToString("yyyy/MM/dd") : "—",
+                    done ? "اكتمل ✓" : t.FinishDate is { } d ? d.ToString("yyyy/MM/dd") : "—",
                     t.Understanding is { } u ? $"{u}/100" : "—"
-                }) { Tag = t, ForeColor = done ? Theme.Success : Theme.Text, ToolTipText = "دبل كليك لإحصائيات الموضوع ده لوحده" };
+                }) { Tag = t, ForeColor = done ? Theme.Success : Theme.Text, ToolTipText = "انقر نقرًا مزدوجًا لإحصائيات هذا الموضوع وحده" };
                 _topics.Items.Add(item);
             }
             _topics.EndUpdate();
@@ -331,12 +331,12 @@ internal sealed class StatsForm : Form
             var p = StudyPlanner.PlanFor(c, _entries, _today, _settings.Rate);
             var u = UnderstandingIndex.For(c, _entries);
             string pct = $"{c.WatchedCount * 100 / Math.Max(1, c.VideoCount)}%";
-            string finish = f.DaysLeft == 0 ? "خلص ✓" : f.FinishDate is { } d ? d.ToString("yyyy/MM/dd") : "—";
+            string finish = f.DaysLeft == 0 ? "اكتمل ✓" : f.FinishDate is { } d ? d.ToString("yyyy/MM/dd") : "—";
             string deadline = c.Deadline is { } dl
                 ? $"{dl:yyyy/MM/dd} · " + p.Status switch
                 {
-                    PlanStatus.Overdue => "⚠ عدّى",
-                    PlanStatus.Unrealistic => "⚠ مش واقعي",
+                    PlanStatus.Overdue => "⚠ تجاوز الموعد",
+                    PlanStatus.Unrealistic => "⚠ غير واقعي",
                     _ => $"{StudyStats.FormatMinutes(p.MinutesPerStudyDay)}/يوم"
                 }
                 : "";
@@ -349,7 +349,7 @@ internal sealed class StatsForm : Form
                 StudyStats.FormatMinutes(f.AvgMinutesPerDay), finish, deadline,
                 $"{u.Score}/100 · {u.Level}"
             });
-            item.ToolTipText = $"مشاهدة {u.CoveragePct}%" + (u.QuizPct is { } q ? $" · اختبارات {q}%" : " · من غير اختبارات") +
+            item.ToolTipText = $"مشاهدة {u.CoveragePct}%" + (u.QuizPct is { } q ? $" · اختبارات {q}%" : " · بدون اختبارات") +
                                (u.ReviewPct is { } r ? $" · مراجعة {r}%" : "") + (u.DifficultSpots > 0 ? $" · {u.DifficultSpots} جزء صعب" : "") + "\n" + u.Advice;
             if (p.Status is PlanStatus.Overdue or PlanStatus.Unrealistic && c.Deadline != null) item.ForeColor = Theme.Danger;
             else if (c.IsCompleted) item.ForeColor = Theme.Success;
@@ -402,7 +402,7 @@ internal sealed class StatsForm : Form
             using var b = new SolidBrush(LevelColor(i));
             g.FillRectangle(b, lx + 30 + i * (Cell + 2), 6, Cell, Cell);
         }
-        g.DrawString("أكتر", font, muted, lx + 30 + 5 * (Cell + 2) + 2, 4);
+        g.DrawString("أكثر", font, muted, lx + 30 + 5 * (Cell + 2) + 2, 4);
     }
 
     private void HeatHover(object? sender, MouseEventArgs e)
@@ -456,8 +456,8 @@ internal sealed class StatsForm : Form
         try
         {
             File.WriteAllText(dlg.FileName, StudyStats.WeeklyReport(_lib, _entries, _today, _settings.DailyGoalMinutes), new System.Text.UTF8Encoding(true));
-            Dialogs.Info(this, "اتحفظ ✓\n" + dlg.FileName);
+            Dialogs.Info(this, "حُفظ ✓\n" + dlg.FileName);
         }
-        catch (Exception ex) { Dialogs.Error(this, "مقدرتش أحفظ التقرير:\n" + ex.Message); }
+        catch (Exception ex) { Dialogs.Error(this, "تعذّر حفظ التقرير:\n" + ex.Message); }
     }
 }

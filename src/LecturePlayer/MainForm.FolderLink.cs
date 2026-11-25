@@ -16,7 +16,7 @@ internal sealed partial class MainForm
     private void ImportCourseDialog()
     {
         if (!EnsureLibrary()) return;
-        string? path = PickFolder(this, "اختار فولدر الكورس (أو الفولدر اللي فيه كذا كورس)");
+        string? path = PickFolder(this, "اختر مجلد الدورة (أو المجلد الذي يحتوي على عدة دورات)");
         if (path != null) ShowAddFolderDialog(path);
     }
 
@@ -31,7 +31,7 @@ internal sealed partial class MainForm
         string key = FolderLink.Norm(path);
         if (_library.Links.FirstOrDefault(l => key.StartsWith(FolderLink.Norm(l.Path) + "\\")) is { } parent)
         {
-            Dialogs.Info(this, $"الفولدر ده جوه فولدر متابَع بالفعل:\n{parent.Path}\n\nأي جديد فيه بيتضاف لوحده في «{TargetText(parent)}».");
+            Dialogs.Info(this, $"هذا المجلد داخل مجلد متابَع بالفعل:\n{parent.Path}\n\nيُضاف أي جديد فيه تلقائيًا في «{TargetText(parent)}».");
             return;
         }
 
@@ -54,7 +54,7 @@ internal sealed partial class MainForm
     /// <summary>بينفّذ اختيار شاشة «إضافة كورس»: الموضوع/المصدر الجديد، الكورسات، والمتابعة.</summary>
     private void AddFolder(AddFolderForm.Result r)
     {
-        Checkpoint("إضافة كورس من فولدر");
+        Checkpoint("إضافة دورة من مجلد");
         var (topic, place) = ResolveDestination(r.Topic, r.Source);
         if (r.SubSourceName != null) place = SubSourceFor(topic, place, r.SubSourceName);
 
@@ -114,10 +114,10 @@ internal sealed partial class MainForm
 
         string where = string.Join(" › ", new[] { topic?.Name ?? (place != null ? _library.TopicOf(place)?.Name : null),
             place != null ? _library.ParentOf(place)?.Name : null, place?.Name }.Where(x => x != null));
-        string msg = $"اتضاف ✓  {r.Snapshot.Courses.Count} كورس · {res.NewGroups} محاضرة · {res.NewVideos.Count + res.Moved} فيديو" +
+        string msg = $"أُضيف ✓  {r.Snapshot.Courses.Count} دورة · {res.NewGroups} محاضرة · {res.NewVideos.Count + res.Moved} فيديو" +
                      (where.Length > 0 ? $"  في «{where}»" : "");
-        if (res.Moved > 0) msg += $"\n{res.Moved} فيديو كانوا عندك قبل كده — اتنقلوا بتقدّمك وعلاماتك.";
-        if (r.Follow) msg += "\nوأي جديد ينزل في الفولدر هيتضاف لوحده.";
+        if (res.Moved > 0) msg += $"\n{res.Moved} فيديو كانت عندك من قبل — نُقلت مع تقدّمك وعلاماتك.";
+        if (r.Follow) msg += "\nوسيُضاف تلقائيًا أي جديد في المجلد.";
         ShowBanner(msg.Replace("\n", "  ·  "), BannerKind.Success, seconds: 10, key: "folder-added");
     }
 
@@ -214,7 +214,7 @@ internal sealed partial class MainForm
                 if (!_library.Links.Contains(link)) continue;
                 if (snap == null)
                 {
-                    if (manual) Dialogs.Info(this, $"الفولدر ده مش موجود دلوقتي:\n{root}\n\nلو على Google Drive اتأكد إن الدرايف شغال.");
+                    if (manual) Dialogs.Info(this, $"هذا المجلد غير موجود الآن:\n{root}\n\nإن كان على Google Drive فتأكد من أن Drive يعمل.");
                     continue;
                 }
                 var r = FolderLink.Apply(_library, link, snap, initial: false);
@@ -233,11 +233,11 @@ internal sealed partial class MainForm
             if (newOnes.Count > 0)
             {
                 var first = newOnes[0];
-                string where = newOnes.Select(x => x.Course).Distinct().Count() == 1 ? $"«{first.Course.Name} › {first.Group.Name}»" : "أكتر من كورس";
+                string where = newOnes.Select(x => x.Course).Distinct().Count() == 1 ? $"«{first.Course.Name} › {first.Group.Name}»" : "أكثر من دورة";
                 ShowBanner($"📥 نزل {newOnes.Count} فيديو جديد في {where}", BannerKind.Success, "▶  شغّل",
                     () => PlayVideo(first.Group, first.Video, 0), seconds: 0, key: "folder-new");
             }
-            else if (manual) ShowStatus("الفولدر متحدّث — مفيش جديد ✓", 4);
+            else if (manual) ShowStatus("المجلد محدَّث — لا جديد ✓", 4);
         }
         catch (Exception ex) { Log.Error("folder sync", ex); }
         finally { _folderSyncRunning = false; }
@@ -266,35 +266,35 @@ internal sealed partial class MainForm
 
     /// <summary>سطر بيتضاف لرسالة الحذف لو الحاجة جاية من فولدر متابَع.</summary>
     private string FollowedDeleteNote(string? path) => LinkContaining(path) != null
-        ? "\n\nده من فولدر متابَع: البرنامج مش هيرجّعه تاني لوحده (ولو عايزه يرجع، ضيف الفولدر تاني من «إضافة كورس من فولدر»)."
+        ? "\n\nهذا من مجلد متابَع: لن يعيده البرنامج تلقائيًا (وإن أردت إعادته فأضف المجلد مرة أخرى من «إضافة دورة من مجلد»)."
         : "";
 
     /// <summary>أوامر الفولدر المتابَع في قايمة الكورس (لو الكورس جاي من فولدر متابَع).</summary>
     private void AddCourseLinkMenuItems(Course c, ToolStripItemCollection items)
     {
         if (_library.LinkOf(c) is not { } link) return;
-        items.Add(MenuItem("🔄  هات الجديد من الفولدر", () => _ = SyncLinkedFoldersAsync(link, manual: true)));
-        items.Add(MenuItem("📂  فتح الفولدر", () => OpenFolder(c.SourceFolder ?? link.Path)));
-        items.Add(MenuItem("بطّل متابعة الفولدر (الكورسات بتفضل)", () => StopFollowing(link)));
+        items.Add(MenuItem("🔄  اجلب الجديد من المجلد", () => _ = SyncLinkedFoldersAsync(link, manual: true)));
+        items.Add(MenuItem("📂  فتح المجلد", () => OpenFolder(c.SourceFolder ?? link.Path)));
+        items.Add(MenuItem("أوقف متابعة المجلد (تبقى الدورات)", () => StopFollowing(link)));
     }
 
     /// <summary>«هات الجديد» في قايمة الموضوع/المصدر (لو فيه فولدرات متابَعة).</summary>
     private void AddRefreshLinksMenuItem(object item, ToolStripItemCollection items)
     {
         int n = LinksFor(item).Count;
-        if (n > 0) items.Add(MenuItem(n == 1 ? "🔄  هات الجديد من الفولدر" : $"🔄  هات الجديد من الفولدرات ({n})", () => _ = SyncLinkedFoldersAsync(item, manual: true)));
+        if (n > 0) items.Add(MenuItem(n == 1 ? "🔄  اجلب الجديد من المجلد" : $"🔄  اجلب الجديد من المجلدات ({n})", () => _ = SyncLinkedFoldersAsync(item, manual: true)));
     }
 
     internal void OpenFolder(string path)
     {
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose(); }
-        catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتح الفولدر:\n" + ex.Message); }
+        catch (Exception ex) { Dialogs.Error(this, "تعذّر فتح المجلد:\n" + ex.Message); }
     }
 
     private void StopFollowing(LinkedFolder link)
     {
-        if (!Dialogs.Confirm(this, $"البرنامج مش هيتابع الفولدر ده تاني:\n{link.Path}\n\nالكورسات والتقدّم بيفضلوا زي ما هما، بس الجديد مش هيتضاف لوحده. متأكد؟", "بطّل المتابعة")) return;
-        Checkpoint("إيقاف متابعة فولدر");
+        if (!Dialogs.Confirm(this, $"لن يتابع البرنامج هذا المجلد بعد الآن:\n{link.Path}\n\nتبقى الدورات والتقدّم كما هي، لكن لن يُضاف الجديد تلقائيًا. هل أنت متأكد؟", "أوقف المتابعة")) return;
+        Checkpoint("إيقاف متابعة مجلد");
         _deletedKeys.Add(LibrarySync.LinkKey(link));
         _library.Links.Remove(link);
         MarkDirty();
@@ -307,7 +307,7 @@ internal sealed partial class MainForm
     /// </summary>
     private ToolStripMenuItem ConvertTopicToPlaceMenu(Topic source)
     {
-        var menu = new ToolStripMenuItem("حوّله لمصدر جوه موضوع تاني…") { ForeColor = Theme.Text };
+        var menu = new ToolStripMenuItem("حوّله إلى مصدر داخل موضوع آخر…") { ForeColor = Theme.Text };
         foreach (var t in _library.Topics.Where(t => t != source))
         {
             var target = t;
@@ -316,7 +316,7 @@ internal sealed partial class MainForm
         if (menu.DropDownItems.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
         menu.DropDownItems.Add(MenuItem("موضوع جديد…", () =>
         {
-            string? name = Dialogs.Input(this, "موضوع جديد", "اسم الموضوع اللي المصدر هيبقى جواه:");
+            string? name = Dialogs.Input(this, "موضوع جديد", "اسم الموضوع الذي سيوضع المصدر بداخله:");
             if (!string.IsNullOrWhiteSpace(name)) ConvertTopicToPlace(source, null, name.Trim());
         }));
         return menu;
@@ -327,13 +327,13 @@ internal sealed partial class MainForm
     {
         string targetName = target?.Name ?? newTopicName ?? "";
         var existing = target != null ? _library.PlacesOf(target).ToList() : new List<Place>();
-        string hint = existing.Count > 0 ? $"\n(المصادر الموجودة: {string.Join("، ", existing.Select(p => p.Name))} — لو كتبت اسم منهم الكورسات هتتحط فيه)" : "";
-        string? name = Dialogs.Input(this, "حوّله لمصدر",
-            $"الكورسات اللي في «{source.Name}» هتتنقل جوه «{targetName}» في مصدر اسمه:{hint}", existing.FirstOrDefault()?.Name ?? source.Name);
+        string hint = existing.Count > 0 ? $"\n(المصادر الموجودة: {string.Join("، ", existing.Select(p => p.Name))} — إن كتبت اسم أحدها فستوضع الدورات فيه)" : "";
+        string? name = Dialogs.Input(this, "حوّله إلى مصدر",
+            $"ستُنقل الدورات الموجودة في «{source.Name}» إلى «{targetName}» داخل مصدر اسمه:{hint}", existing.FirstOrDefault()?.Name ?? source.Name);
         if (string.IsNullOrWhiteSpace(name)) return false;
         name = name.Trim();
 
-        Checkpoint("تحويل موضوع لمصدر");
+        Checkpoint("تحويل موضوع إلى مصدر");
         if (target == null)
         {
             target = new Topic { Name = targetName };
@@ -354,7 +354,7 @@ internal sealed partial class MainForm
         RebuildTree();
         SaveLibrary();
         SelectItem(place);
-        ShowStatus($"اتنقل {courses} كورس لـ «{target.Name} › {place.Name}» بتقدّمهم ✓ (Ctrl+Z للتراجع)", 8);
+        ShowStatus($"نُقلت {courses} دورة إلى «{target.Name} › {place.Name}» مع تقدّمها ✓ (Ctrl+Z للتراجع)", 8);
         return true;
     }
 

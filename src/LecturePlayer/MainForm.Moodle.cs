@@ -38,7 +38,7 @@ internal sealed partial class MainForm
     /// </summary>
     private async void MoodleImport(Course? refresh = null, string? siteForTest = null, ImportTarget? target = null)
     {
-        if (_moodleBusy) { ShowStatus("فيه استيراد من Moodle شغال دلوقتي…"); return; }
+        if (_moodleBusy) { ShowStatus("يوجد استيراد من Moodle قيد العمل الآن…"); return; }
         string? site = refresh != null ? Moodle.ParseCourseUrl(refresh.SourceUrl)?.Site : siteForTest ?? AskMoodleSite();
         if (site == null) return;
         _moodleBusy = true;
@@ -50,7 +50,7 @@ internal sealed partial class MainForm
             string platform = SiteLabel(account, account.Site);
             using var cts = new CancellationTokenSource();
 
-            ShowBanner($"🎓 {platform}: بجيب كورساتك…", BannerKind.Info, "إلغاء", cts.Cancel, seconds: 0, key: "moodle");
+            ShowBanner($"🎓 {platform}: جارٍ جلب دوراتك…", BannerKind.Info, "إلغاء", cts.Cancel, seconds: 0, key: "moodle");
             var courses = Moodle.ParseCourses(await client.CallAsync("core_enrol_get_users_courses",
                 new[] { MoodleClient.Arg("userid", account.UserId) }, cts.Token));
             await FillMoodleInstructorsAsync(client, courses, cts.Token);
@@ -62,16 +62,16 @@ internal sealed partial class MainForm
             {
                 long id = Moodle.ParseCourseUrl(refresh.SourceUrl)!.Value.Id;
                 chosen = courses.Where(c => c.Id == id).ToList();
-                if (chosen.Count == 0) { HideBanner("moodle"); MoodleNotice(false, $"«{refresh.Name}» مش لاقيه في الكورسات المسجّل فيها على {platform}."); return; }
+                if (chosen.Count == 0) { HideBanner("moodle"); MoodleNotice(false, $"لم يُعثر على «{refresh.Name}» في الدورات المسجّل فيها على {platform}."); return; }
             }
             else
             {
-                if (courses.Count == 0) { HideBanner("moodle"); MoodleNotice(false, $"مفيش كورسات مسجّل فيها على {platform} للحساب ده."); return; }
+                if (courses.Count == 0) { HideBanner("moodle"); MoodleNotice(false, $"لا توجد دورات مسجّل فيها على {platform} لهذا الحساب."); return; }
                 HideBanner("moodle");
                 string Url(long id) => Moodle.CourseUrl(account.Site, id);
                 var pick = PickPlatformCourses(this, platform, platform,
                     courses.Select(c => (c.Id, c.Title, c.Instructor, _library.Courses.Any(x => x.SourceUrl == Url(c.Id)))).ToList(),
-                    "كورسات " + platform, "والكورس جواه أقسام الموقع كمحاضرات، وفيديوهات يوتيوب كفيديوهات، والاختبارات والأنشطة التانية بتتفتح في المتصفح.", target);
+                    "دورات " + platform, "وفي الدورة أقسام الموقع كمحاضرات، وفيديوهات يوتيوب كفيديوهات، وتُفتح الاختبارات والأنشطة الأخرى في المتصفح.", target);
                 if (pick == null) return;
                 chosen = courses.Where(c => pick.Value.Ids.Contains(c.Id)).ToList();
                 topicName = pick.Value.Topic;
@@ -83,11 +83,11 @@ internal sealed partial class MainForm
             for (int i = 0; i < chosen.Count; i++)
             {
                 var mc = chosen[i];
-                ShowBanner($"🎓 ({i + 1}/{chosen.Count}) بقرا «{mc.Title}»…", BannerKind.Info, "إلغاء", cts.Cancel, seconds: 0, key: "moodle");
+                ShowBanner($"🎓 ({i + 1}/{chosen.Count}) جارٍ قراءة «{mc.Title}»…", BannerKind.Info, "إلغاء", cts.Cancel, seconds: 0, key: "moodle");
                 var sections = Moodle.ParseContents(await client.CallAsync("core_course_get_contents",
                     new[] { MoodleClient.Arg("courseid", mc.Id) }, cts.Token));
                 await ResolveMoodleVideosAsync(client, mc, sections, (done, total) =>
-                    ShowBanner($"🎓 ({i + 1}/{chosen.Count}) «{mc.Title}»: بدوّر على الفيديوهات {done}/{total}…", BannerKind.Info, "إلغاء", cts.Cancel, seconds: 0, key: "moodle"),
+                    ShowBanner($"🎓 ({i + 1}/{chosen.Count}) «{mc.Title}»: جارٍ البحث عن الفيديوهات {done}/{total}…", BannerKind.Info, "إلغاء", cts.Cancel, seconds: 0, key: "moodle"),
                     cts.Token);
 
                 string url = Moodle.CourseUrl(account.Site, mc.Id);
@@ -96,7 +96,7 @@ internal sealed partial class MainForm
                 if (course == null)
                 {
                     course = new Course { Name = mc.Title };
-                    topic = PlaceImportedCourse(course, target, topic, topicName ?? "كورسات " + platform, platform, mc.Instructor);
+                    topic = PlaceImportedCourse(course, target, topic, topicName ?? "دورات " + platform, platform, mc.Instructor);
                     _library.Courses.Add(course);
                 }
                 results.Add((course, Moodle.Apply(course, account.Site, mc, sections, firstImport: isNew), isNew));
@@ -109,26 +109,26 @@ internal sealed partial class MainForm
             SelectItem(results[0].Course);
             int videos = results.Sum(r => r.Sync.Videos), items = results.Sum(r => r.Course.VideoCount);
             string vidNote = videos == 0 && items > 0
-                ? " — ملحوظة: مالقيتش روابط الفيديوهات، فهتتفتح في المتصفح (ابعتلنا لوج البرنامج نصلّحها)"
-                : $" — منهم {videos} فيديو بيشتغلوا هنا";
+                ? " — ملاحظة: لم يُعثر على روابط الفيديوهات، لذا ستُفتح في المتصفح (أرسل لنا سجل البرنامج لإصلاحها)"
+                : $" — منها {videos} فيديو تعمل هنا";
             ShowBanner(results.Any(r => r.New)
-                    ? $"🎓 اتضاف {results.Count(r => r.New)} كورس من {platform} ({items} عنصر){vidNote}"
-                    : $"🎓 اتحدّث من {platform}: {results.Sum(r => r.Sync.AddedItems)} عنصر جديد، و{results.Sum(r => r.Sync.MarkedWatched)} اتعلّم «اتشاف» من تقدّمك هناك{vidNote}",
+                    ? $"🎓 أُضيف {results.Count(r => r.New)} دورة من {platform} ({items} عنصر){vidNote}"
+                    : $"🎓 حُدِّث من {platform}: {results.Sum(r => r.Sync.AddedItems)} عنصر جديد، و{results.Sum(r => r.Sync.MarkedWatched)} وُسم «شوهد» حسب تقدّمك هناك{vidNote}",
                 videos == 0 && items > 0 ? BannerKind.Warning : BannerKind.Success, seconds: 12);
         }
-        catch (OperationCanceledException) { HideBanner("moodle"); ShowStatus("اتلغى الاستيراد"); }
+        catch (OperationCanceledException) { HideBanner("moodle"); ShowStatus("أُلغي الاستيراد"); }
         catch (MoodleException ex) when (ex.TokenInvalid)
         {
             HideBanner("moodle");
             _settings.MoodleAccounts.RemoveAll(a => string.Equals(a.Site, site, StringComparison.OrdinalIgnoreCase));
             SaveSettings();
-            MoodleNotice(false, "الدخول على الموقع انتهى — جرّب تاني وهيطلب منك تدخل من المتصفح.");
+            MoodleNotice(false, "انتهت جلسة الدخول إلى الموقع — حاول مرة أخرى وسيطلب منك الدخول من المتصفح.");
         }
         catch (Exception ex)
         {
             Log.Error("moodle import", ex);
             HideBanner("moodle");
-            MoodleNotice(true, "الاستيراد من Moodle مانجحش:\n" + ex.Message);
+            MoodleNotice(true, "لم ينجح الاستيراد من Moodle:\n" + ex.Message);
         }
         finally { _moodleBusy = false; }
     }
@@ -144,18 +144,18 @@ internal sealed partial class MainForm
 
     private string? AskMoodleSite()
     {
-        using var kit = new FormKit("Moodle / مهارة تك — كورساتي", 560);
+        using var kit = new FormKit("Moodle / مهارة تك — دوراتي", 560);
         kit.Header("🎓  الموقع");
         var box = kit.Row("الموقع:", new TextBox { Text = _settings.MoodleLastSite ?? Moodle.DefaultSite });
-        kit.Note("مهارة تك، أو أي موقع Moodle (ITI، جامعتك…). ممكن تحط رابط أي صفحة من الموقع.", 24, Theme.Muted);
+        kit.Note("مهارة تك، أو أي موقع Moodle (ITI، جامعتك…). يمكنك وضع رابط أي صفحة من الموقع.", 24, Theme.Muted);
         bool known = _settings.MoodleAccounts.Count > 0;
-        kit.Note("الدخول بيحصل في متصفحك العادي (جوجل/مايكروسوفت/باسورد) — «مسار» مابيشوفش بيانات دخولك.\n" +
-                 "لما المتصفح يسألك «تفتح الرابط ده بـ «مسار»؟» دوس فتح." +
-                 (known ? "\nالمواقع اللي دخلتها قبل كده مش هتطلب دخول تاني." : ""), known ? 62 : 44, Theme.Muted);
+        kit.Note("يتم الدخول في متصفحك المعتاد (جوجل/مايكروسوفت/كلمة مرور) — «مسار» لا يرى بيانات دخولك.\n" +
+                 "عندما يسألك المتصفح «هل تفتح هذا الرابط بـ «مسار»؟» اضغط فتح." +
+                 (known ? "\nالمواقع التي سجّلت الدخول إليها من قبل لن تطلب الدخول مرة أخرى." : ""), known ? 62 : 44, Theme.Muted);
         kit.Buttons("متابعة", "إلغاء");
         if (kit.Show(this) != DialogResult.OK) return null;
         string? site = Moodle.NormalizeSite(box.Text);
-        if (site == null) { MoodleNotice(false, "اكتب عنوان الموقع، زي maharatech.gov.eg"); return null; }
+        if (site == null) { MoodleNotice(false, "اكتب عنوان الموقع، مثل maharatech.gov.eg"); return null; }
         _settings.MoodleLastSite = site;
         SaveSettings();
         return site;
@@ -176,7 +176,7 @@ internal sealed partial class MainForm
             catch (MoodleException ex) when (ex.TokenInvalid) { Log.Info("moodle: saved token expired"); }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
-                MoodleNotice(true, "مقدرتش أوصل للموقع — اتأكد من النت.\n" + ex.Message);
+                MoodleNotice(true, "تعذّر الوصول إلى الموقع — تأكد من الإنترنت.\n" + ex.Message);
                 return null;
             }
         }
@@ -194,22 +194,22 @@ internal sealed partial class MainForm
         using var protocol = UrlProtocol.Register(Moodle.Scheme, exe);
         string launch = Moodle.LaunchUrl(site, passport);
 
-        using var kit = new FormKit("الدخول على " + new Uri(site).Host, 560);
-        kit.Header("🔐  كمّل الدخول في المتصفح");
-        kit.Note("اتفتحت صفحة الموقع في متصفحك:\n" +
-                 "1) لو مش داخل، ادخل عادي (جوجل/مايكروسوفت/باسورد).\n" +
-                 "2) المتصفح هيسألك «تفتح الرابط ده بتطبيق؟» ← اختار «مسار» ودوس فتح.\n" +
-                 "الشباك ده هيقفل لوحده أول ما الدخول يوصل.", 104);
-        var status = kit.Note("مستني…", 24, Theme.Muted);
-        kit.Header("✋  لو المتصفح ماسألكش");
-        kit.Note("في الصفحة اللي اتفتحت، كليك يمين على رابط «Click here to launch the app» (أو «اضغط هنا…») ← «نسخ الرابط»، والزقه هنا:", 40, Theme.Muted);
+        using var kit = new FormKit("الدخول إلى " + new Uri(site).Host, 560);
+        kit.Header("🔐  أكمل الدخول في المتصفح");
+        kit.Note("فُتحت صفحة الموقع في متصفحك:\n" +
+                 "1) إن لم تكن مسجّل الدخول فسجّل الدخول كالمعتاد (جوجل/مايكروسوفت/كلمة مرور).\n" +
+                 "2) سيسألك المتصفح «هل تفتح هذا الرابط بتطبيق؟» ← اختر «مسار» واضغط فتح.\n" +
+                 "ستُغلق هذه النافذة تلقائيًا فور وصول الدخول.", 104);
+        var status = kit.Note("في الانتظار…", 24, Theme.Muted);
+        kit.Header("✋  إن لم يسألك المتصفح");
+        kit.Note("في الصفحة التي فُتحت، انقر بالزر الأيمن على رابط «Click here to launch the app» (أو «اضغط هنا…») ← «نسخ الرابط»، والصقه هنا:", 40, Theme.Muted);
         var paste = kit.Row("الرابط:", new TextBox());
         paste.TextChanged += (_, _) =>
         {
             if (Moodle.NormalizePastedCallback(paste.Text) is { } cb) _moodleSso?.TrySetResult(cb);
-            else if (paste.Text.Length > 0) status.Text = "ده مش رابط الدخول — لازم يبدأ بـ moodlemobile://";
+            else if (paste.Text.Length > 0) status.Text = "هذا ليس رابط الدخول — يجب أن يبدأ بـ moodlemobile://";
         };
-        kit.Buttons("خلاص", "إلغاء", ("افتح المتصفح تاني", () => OpenInBrowser(launch)));
+        kit.Buttons("تم", "إلغاء", ("افتح المتصفح مرة أخرى", () => OpenInBrowser(launch)));
         kit.Ok!.Visible = false;
         string? callback = null;
         kit.Form.Shown += async (_, _) =>
@@ -218,7 +218,7 @@ internal sealed partial class MainForm
             var done = await Task.WhenAny(_moodleSso.Task, Task.Delay(TimeSpan.FromMinutes(15)));
             if (kit.Form.IsDisposed) return;
             if (done == _moodleSso.Task) { callback = _moodleSso.Task.Result; kit.Form.DialogResult = DialogResult.OK; }
-            else status.Text = "الوقت خلص — دوس «افتح المتصفح تاني» أو إلغاء.";
+            else status.Text = "انتهى الوقت — اضغط «افتح المتصفح مرة أخرى» أو إلغاء.";
         };
         SmokeMoodleSignIn?.Invoke(kit.Form, launch);
         var result = kit.Show(this);
@@ -229,7 +229,7 @@ internal sealed partial class MainForm
         if (tokens == null)
         {
             Log.Info("moodle sso: callback rejected (" + callback.Length + " chars)");
-            MoodleNotice(true, "الرد اللي رجع من الموقع مش مطابق للطلب ده (ممكن يكون من دخول قديم). جرّب تاني.");
+            MoodleNotice(true, "الرد الذي عاد من الموقع لا يطابق هذا الطلب (قد يكون من دخول سابق). حاول مرة أخرى.");
             return null;
         }
         using var client = new MoodleClient(site, tokens.Value.Token);
@@ -243,7 +243,7 @@ internal sealed partial class MainForm
         _settings.MoodleAccounts.Add(account);
         SaveSettings();
         Log.Info($"moodle: signed in to {site} (user {info.UserId})");
-        ShowStatus($"أهلًا {info.Name} — دخلت على {SiteLabel(account, site)} ✓", 4);
+        ShowStatus($"مرحبًا {info.Name} — سجّلت الدخول إلى {SiteLabel(account, site)} ✓", 4);
         return account;
     }
 
@@ -412,12 +412,12 @@ internal sealed partial class MainForm
 
     private void MoodleSignOut()
     {
-        if (_settings.MoodleAccounts.Count == 0) { ShowStatus("مفيش حسابات Moodle محفوظة على الجهاز ده"); return; }
+        if (_settings.MoodleAccounts.Count == 0) { ShowStatus("لا توجد حسابات Moodle محفوظة على هذا الجهاز"); return; }
         string sites = string.Join("، ", _settings.MoodleAccounts.Select(a => SiteLabel(a, a.Site)));
-        if (!Dialogs.Confirm(this, $"تشيل دخولك المحفوظ على: {sites}؟\nالكورسات بتفضل في مكتبتك، والتحديث الجاي هيطلب منك تدخل تاني.")) return;
+        if (!Dialogs.Confirm(this, $"هل تريد إزالة دخولك المحفوظ على: {sites}؟\nتبقى الدورات في مكتبتك، وسيطلب منك التحديث القادم الدخول مرة أخرى.")) return;
         _settings.MoodleAccounts.Clear();
         SaveSettings();
-        ShowStatus("اتشال الدخول المحفوظ ✓", 4);
+        ShowStatus("أُزيل الدخول المحفوظ ✓", 4);
     }
 
 }

@@ -30,39 +30,39 @@ internal static class UrlForm
 
         using var kit = new FormKit("إضافة من يوتيوب", 600);
         kit.Header("الروابط");
-        kit.Note("حط رابط فيديو أو قائمة تشغيل (أو كذا رابط، كل واحد في سطر):", 22, Theme.Text);
+        kit.Note("ضع رابط فيديو أو قائمة تشغيل (أو عدة روابط، كل رابط في سطر):", 22, Theme.Text);
         var box = kit.Full(new TextBox
         {
             Text = initial, Multiline = true, ScrollBars = ScrollBars.Vertical, WordWrap = false,
             RightToLeft = RightToLeft.No, Font = new Font("Consolas", 10f), AcceptsReturn = true
         }, 120);
 
-        kit.Header("هيتحط فين؟");
+        kit.Header("أين سيوضع؟");
         ComboBox? courseBox = null;
         TextBox? nameBox = null;
         Label? hint = null;
         if (lecture != null)
         {
-            kit.Note($"الفيديوهات هتتضاف في محاضرة «{lecture.Name}».\n" +
-                     "وقائمة التشغيل بتبقى محاضرة جديدة باسمها في نفس الكورس.", 40, Theme.Text);
+            kit.Note($"ستُضاف الفيديوهات في محاضرة «{lecture.Name}».\n" +
+                     "وتصبح قائمة التشغيل محاضرة جديدة باسمها في الدورة نفسها.", 40, Theme.Text);
         }
         else
         {
-            courseBox = kit.Row("الكورس:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 30);
-            courseBox.Items.Add(new Item("＋  كورس جديد في " + where, null));
+            courseBox = kit.Row("الدورة:", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 30);
+            courseBox.Items.Add(new Item("＋  دورة جديدة في " + where, null));
             foreach (var c in courses) courseBox.Items.Add(new Item("📘  " + c.Name, c));
             int pre = preselected == null ? -1 : courses.ToList().IndexOf(preselected);
             courseBox.SelectedIndex = pre >= 0 ? pre + 1 : 0;
-            nameBox = kit.Row("اسم الكورس الجديد:", new TextBox(), 30);
+            nameBox = kit.Row("اسم الدورة الجديدة:", new TextBox(), 30);
             hint = kit.Note("", 40);
             void Update()
             {
                 bool isNew = (courseBox.SelectedItem as Item)?.Course == null;
                 nameBox.Enabled = isNew;
                 hint.Text = isNew
-                    ? "مثلًا «سورة البقرة». لو كل الروابط قوائم تشغيل وسبت الاسم فاضي، كل قائمة بتبقى كورس باسمها.\n" +
-                      "الفيديوهات لوحدها بتتحط في محاضرة «الفيديوهات»، وقائمة التشغيل بتبقى محاضرة باسمها."
-                    : "الفيديوهات لوحدها بتتحط في محاضرة «الفيديوهات» في الكورس ده، وقائمة التشغيل بتبقى محاضرة جديدة باسمها.";
+                    ? "مثلًا «سورة البقرة». إن كانت كل الروابط قوائم تشغيل وتركت الاسم فارغًا، تصبح كل قائمة دورة باسمها.\n" +
+                      "الفيديوهات المفردة توضع في محاضرة «الفيديوهات»، وقائمة التشغيل تصبح محاضرة باسمها."
+                    : "الفيديوهات المفردة توضع في محاضرة «الفيديوهات» في هذه الدورة، وقائمة التشغيل تصبح محاضرة جديدة باسمها.";
             }
             courseBox.SelectedIndexChanged += (_, _) => Update();
             Update();
@@ -90,7 +90,7 @@ internal static class UrlForm
             if (urls.Count == 0)
             {
                 e.Cancel = true;
-                Dialogs.Error(kit.Form, "مفيش رابط صحيح. الرابط لازم يبدأ بـ https://");
+                Dialogs.Error(kit.Form, "لا يوجد رابط صحيح. يجب أن يبدأ الرابط بـ https://");
                 return;
             }
             // كورس جديد فيه فيديوهات لوحدها (مش قوائم): لازم اسم، عشان ميبقاش «فيديوهات من يوتيوب» تاني
@@ -98,7 +98,7 @@ internal static class UrlForm
                 && urls.Any(u => !PlaylistSync.IsPlaylistUrl(u)))
             {
                 e.Cancel = true;
-                Dialogs.Error(kit.Form, "اكتب اسم الكورس الجديد (مثلًا: سورة البقرة)، أو اختار كورس موجود.");
+                Dialogs.Error(kit.Form, "اكتب اسم الدورة الجديدة (مثلًا: سورة البقرة)، أو اختر دورة موجودة.");
                 nameBox.Focus();
             }
         };

@@ -69,7 +69,7 @@ public sealed class BookText
         {
             if (!Pages.TryGetValue(p, out var t) || string.IsNullOrWhiteSpace(t)) continue;
             string block = $"[ص {p}]\n{t.Trim()}\n\n";
-            if (sb.Length + block.Length > maxChars) { sb.Append("[… الباقي اتقص عشان الطول]"); break; }
+            if (sb.Length + block.Length > maxChars) { sb.Append("[… حُذف الباقي بسبب الطول]"); break; }
             sb.Append(block);
         }
         return sb.ToString();

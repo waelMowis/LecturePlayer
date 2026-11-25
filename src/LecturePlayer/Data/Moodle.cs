@@ -144,7 +144,7 @@ public static class Moodle
             if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("exception", out _))
                 return (Str(doc.RootElement, "errorcode") ?? "error") + ": " + (Str(doc.RootElement, "message") ?? "");
         }
-        catch (JsonException) { return "رد مش مفهوم من الموقع"; }
+        catch (JsonException) { return "رد غير مفهوم من الموقع"; }
         return null;
     }
 

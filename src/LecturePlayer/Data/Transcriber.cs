@@ -36,7 +36,7 @@ public static class Transcriber
 
     public static async Task<Transcript?> FromYoutubeAsync(string url, string preferredLang, CancellationToken ct)
     {
-        string exe = YtDlp.FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب مش موجودة");
+        string exe = YtDlp.FindYtDlp() ?? throw new FileNotFoundException("أداة يوتيوب غير موجودة");
         string dir = Path.Combine(Path.GetTempPath(), "LecturePlayer-subs", Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(dir);
         try
@@ -109,9 +109,9 @@ public static class Transcriber
     /// <summary>تفريغ ملف على الجهاز بـ whisper.cpp. progress: 0..100.</summary>
     public static async Task<Transcript> WithWhisperAsync(string videoFile, string model, string lang, IProgress<int> progress, CancellationToken ct)
     {
-        string whisper = Tools.FindWhisper() ?? throw new FileNotFoundException("whisper مش متنزّل");
+        string whisper = Tools.FindWhisper() ?? throw new FileNotFoundException("لم يُنزَّل whisper");
         string modelPath = Tools.ModelPath(model);
-        if (!File.Exists(modelPath)) throw new FileNotFoundException("موديل whisper مش متنزّل: " + model);
+        if (!File.Exists(modelPath)) throw new FileNotFoundException("لم يُنزَّل نموذج whisper: " + model);
 
         string dir = Path.Combine(Path.GetTempPath(), "LecturePlayer-whisper", Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(dir);
@@ -133,7 +133,7 @@ public static class Transcriber
 
             string vtt = prefix + ".vtt";
             if (r.ExitCode != 0 || !File.Exists(vtt))
-                throw new InvalidOperationException("whisper فشل: " + ProcessRunner.LastErrorLine(r.StdErr, "خطأ غير معروف"));
+                throw new InvalidOperationException("فشل whisper: " + ProcessRunner.LastErrorLine(r.StdErr, "خطأ غير معروف"));
             progress.Report(100);
             return RemoveRepeats(Transcript.Parse(await File.ReadAllTextAsync(vtt, ct)));
         }

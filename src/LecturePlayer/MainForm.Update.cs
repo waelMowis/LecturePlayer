@@ -26,11 +26,11 @@ internal sealed partial class MainForm
         if (string.IsNullOrEmpty(_settings.LastRunVersion))
         {
             if (!firstRunTour)
-                ShowBanner("أهلًا بيك في «مسار» 👋  ابدأ بإنك تضيف فولدر فيديوهات أو رابط يوتيوب",
+                ShowBanner("مرحبًا بك في «مسار» 👋  ابدأ بإضافة مجلد فيديوهات أو رابط يوتيوب",
                     BannerKind.Info, "جولة سريعة", StartTour, seconds: 20, key: "welcome");
         }
         else if (_settings.LastRunVersion != current)
-            ShowBanner($"اتحدّث «مسار» لـ {current} ✓", BannerKind.Success, "إيه الجديد؟", OpenReleaseNotes, seconds: 12, key: "updated");
+            ShowBanner($"حُدِّث «مسار» إلى {current} ✓", BannerKind.Success, "ما الجديد؟", OpenReleaseNotes, seconds: 12, key: "updated");
         if (_settings.LastRunVersion != current) { _settings.LastRunVersion = current; SaveSettings(); }
 
         if (!_settings.CheckUpdates || UpdateRepo == null) return;
@@ -60,7 +60,7 @@ internal sealed partial class MainForm
             if (manual)
             {
                 _updateCheckManual = true;
-                ShowBanner("لسه بتحقق من التحديثات… استنى ثواني", BannerKind.Info, seconds: 0, key: "update-check");
+                ShowBanner("ما زلت أتحقق من التحديثات… انتظر ثوانيَ", BannerKind.Info, seconds: 0, key: "update-check");
             }
             return _updateCheck;
         }
@@ -76,19 +76,19 @@ internal sealed partial class MainForm
             if (_updateCheckManual) SetUpdateRepoDialog();
             return;
         }
-        if (_updating) { ShowStatus("التحديث شغال بالفعل…"); return; }
+        if (_updating) { ShowStatus("التحديث يعمل بالفعل…"); return; }
         UpdateChecksStarted++;
 
         try
         {
-            if (_updateCheckManual) ShowBanner("بشوف فيه تحديث ولا لأ…", BannerKind.Info, seconds: 0, key: "update-check");
+            if (_updateCheckManual) ShowBanner("جارٍ البحث عن تحديث…", BannerKind.Info, seconds: 0, key: "update-check");
             var latest = await UpdateChecker.GetLatestAsync(repo, CancellationToken.None);
             bool manual = _updateCheckManual;
             HideBanner("update-check");
             if (_closing) return;
             if (latest == null || !UpdateChecker.IsNewer(latest.Version, UpdateChecker.CurrentVersion))
             {
-                if (manual) ShowBanner($"إنت على آخر إصدار ({UpdateChecker.CurrentVersion.ToString(3)}) ✓", BannerKind.Success, seconds: 6, key: "update-check");
+                if (manual) ShowBanner($"أنت على آخر إصدار ({UpdateChecker.CurrentVersion.ToString(3)}) ✓", BannerKind.Success, seconds: 6, key: "update-check");
                 return;
             }
 
@@ -100,14 +100,14 @@ internal sealed partial class MainForm
             // الإصدار اللي المستخدم قال «تخطّاه» مايتعرضش لوحده تاني (لكن يتعرض لو طلب التحقق بنفسه)
             if (!manual && string.Equals(_settings.SkippedUpdate, latest.Tag, StringComparison.OrdinalIgnoreCase))
             {
-                ShowBanner($"فيه إصدار جديد من «مسار» ({latest.Tag})", BannerKind.Info, "حدّث دلوقتي",
+                ShowBanner($"يوجد إصدار جديد من «مسار» ({latest.Tag})", BannerKind.Info, "حدّث الآن",
                     () => _ = CheckForUpdatesAsync(manual: true), seconds: 15, key: "update");
                 return;
             }
             // لو بيتفرج دلوقتي مانقاطعهوش: نقول في الشريط بس
             if (!manual && _mp.IsPlaying)
             {
-                ShowBanner($"فيه إصدار جديد من «مسار» ({latest.Tag}) — مش هقاطعك وإنت بتتفرج", BannerKind.Info, "حدّث دلوقتي",
+                ShowBanner($"يوجد إصدار جديد من «مسار» ({latest.Tag}) — لن أقاطعك أثناء المشاهدة", BannerKind.Info, "حدّث الآن",
                     () => _ = CheckForUpdatesAsync(manual: true), seconds: 0, key: "update");
                 return;
             }
@@ -120,10 +120,10 @@ internal sealed partial class MainForm
                 case DialogResult.Ignore:
                     _settings.SkippedUpdate = latest.Tag;
                     SaveSettings();
-                    ShowBanner($"مش هفكّرك بـ {latest.Tag} تاني. تقدر تحدّث وقت ما تحب من: مساعدة ← التحقق من التحديثات", BannerKind.Info, seconds: 8);
+                    ShowBanner($"لن أذكّرك بـ {latest.Tag} مرة أخرى. يمكنك التحديث متى شئت من: مساعدة ← التحقق من التحديثات", BannerKind.Info, seconds: 8);
                     break;
                 default:
-                    ShowBanner("التحديث متاح وقت ما تحب", BannerKind.Info, "حدّث دلوقتي", () => _ = CheckForUpdatesAsync(manual: true), seconds: 10, key: "update");
+                    ShowBanner("التحديث متاح متى شئت", BannerKind.Info, "حدّث الآن", () => _ = CheckForUpdatesAsync(manual: true), seconds: 10, key: "update");
                     break;
             }
         }
@@ -134,8 +134,8 @@ internal sealed partial class MainForm
             else Log.Error("update-check", ex);
             HideBanner("update-check");
             if (_updateCheckManual && !_closing)
-                ShowBanner(ex is UpdateChecker.UpdateCheckException ? ex.Message : "مقدرتش أتحقق من التحديثات: " + ex.Message,
-                    BannerKind.Warning, "حاول تاني", () => _ = CheckForUpdatesAsync(manual: true), seconds: 20, key: "update-check");
+                ShowBanner(ex is UpdateChecker.UpdateCheckException ? ex.Message : "تعذّر التحقق من التحديثات: " + ex.Message,
+                    BannerKind.Warning, "حاول مرة أخرى", () => _ = CheckForUpdatesAsync(manual: true), seconds: 20, key: "update-check");
         }
     }
 
@@ -144,11 +144,11 @@ internal sealed partial class MainForm
     {
         using var kit = new FormKit("تحديث جديد", 540);
         kit.Header($"«مسار» {r.Version.ToString(3)} متاح");
-        kit.Note($"إنت على {UpdateChecker.CurrentVersion.ToString(3)}. التحديث بيتنزّل ويتثبت لوحده، والبرنامج بيفتح تاني بعده.\n" +
-                 "مكتبتك وإعداداتك وتقدّمك مش بيتلمسوا.");
+        kit.Note($"أنت على {UpdateChecker.CurrentVersion.ToString(3)}. يُنزَّل التحديث ويُثبَّت تلقائيًا، ويُفتح البرنامج بعده.\n" +
+                 "لا تُمس مكتبتك وإعداداتك وتقدّمك.");
         if (!string.IsNullOrWhiteSpace(r.Notes))
         {
-            kit.Header("الجديد في الإصدار ده");
+            kit.Header("الجديد في هذا الإصدار");
             var notes = kit.Full(new TextBox
             {
                 Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, WordWrap = true,
@@ -158,11 +158,11 @@ internal sealed partial class MainForm
             notes.SelectionStart = 0;
         }
         if (r.SetupUrl == null)
-            kit.Note("الإصدار ده مالوش مثبّت على GitHub، فهيتفتح صفحة التحميل في المتصفح.", color: Theme.Folder);
+            kit.Note("هذا الإصدار ليس له مثبّت على GitHub، لذا ستُفتح صفحة التنزيل في المتصفح.", color: Theme.Folder);
         else if (r.SetupSize > 0)
-            kit.Note($"حجم التحديث: {r.SetupSize / 1024.0 / 1024.0:0} ميجا");
+            kit.Note($"حجم التحديث: {r.SetupSize / 1024.0 / 1024.0:0} ميجابايت");
 
-        kit.Buttons("حدّث دلوقتي", "بعدين", ("تخطّى الإصدار ده", () => kit.Form.DialogResult = DialogResult.Ignore));
+        kit.Buttons("حدّث الآن", "لاحقًا", ("تخطَّ هذا الإصدار", () => kit.Form.DialogResult = DialogResult.Ignore));
         return kit.Show(this);
     }
 
@@ -198,26 +198,26 @@ internal sealed partial class MainForm
             catch (Exception ex) { Log.Info("update fingerprint: " + ex.Message); }
             if (r.SetupSha256 == null)
             {
-                ShowBanner("مقدرتش أتأكد من بصمة التحديث من GitHub دلوقتي — نزّله من الصفحة أو جرّب كمان شوية.", BannerKind.Warning,
-                    "صفحة التحميل", () => OpenInBrowser(r.Url), seconds: 20, key: "update");
+                ShowBanner("تعذّر التحقق من بصمة التحديث من GitHub الآن — نزّله من الصفحة أو حاول بعد قليل.", BannerKind.Warning,
+                    "صفحة التنزيل", () => OpenInBrowser(r.Url), seconds: 20, key: "update");
                 return;
             }
         }
         _updating = true;
         try
         {
-            var progress = new Progress<int>(p => ShowStatus($"بنزّل التحديث {r.Tag}… {p}%", 60));
+            var progress = new Progress<int>(p => ShowStatus($"جارٍ تنزيل التحديث {r.Tag}… {p}%", 60));
             string file = await UpdateChecker.DownloadSetupAsync(r, repo, progress, CancellationToken.None);
             Log.Info($"update downloaded: {r.Tag} -> {file}");
             if (_closing) return;
-            ShowStatus("التحديث اتنزّل ✓", 5);
+            ShowStatus("نُزّل التحديث ✓", 5);
 
             if (!Dialogs.Confirm(this,
                     $"التحديث {r.Version.ToString(3)} جاهز.\n\n" +
-                    "البرنامج هيقفل (بعد ما يحفظ كل حاجة)، والتحديث هيتثبت، وبعدين يفتح تاني لوحده.\n\nنكمّل؟",
+                    "سيُغلق البرنامج (بعد حفظ كل شيء)، ثم يُثبَّت التحديث، ثم يُفتح تلقائيًا.\n\nهل نتابع؟",
                     "تحديث"))
             {
-                ShowBanner("التحديث متنزّل وجاهز يتثبت لما توافق", BannerKind.Info, "ثبّته", () => _ = CheckForUpdatesAsync(manual: true), seconds: 0, key: "update");
+                ShowBanner("التحديث منزّل وجاهز للتثبيت عند موافقتك", BannerKind.Info, "ثبّته", () => _ = CheckForUpdatesAsync(manual: true), seconds: 0, key: "update");
                 return;
             }
 
@@ -231,7 +231,7 @@ internal sealed partial class MainForm
         {
             Log.Error("update-download", ex);
             ShowStatus("");
-            if (Dialogs.Confirm(this, "مقدرتش أنزّل التحديث:\n" + ex.Message + "\n\nتحب تفتح صفحة التحميل في المتصفح؟", "تحديث"))
+            if (Dialogs.Confirm(this, "تعذّر تنزيل التحديث:\n" + ex.Message + "\n\nهل تريد فتح صفحة التنزيل في المتصفح؟", "تحديث"))
                 OpenInBrowser(r.Url);
         }
         finally { _updating = false; }
@@ -256,7 +256,7 @@ internal sealed partial class MainForm
     private void SetUpdateRepoDialog()
     {
         string? repo = Dialogs.Input(this, "مستودع التحديثات",
-            "مستودع GitHub بتاع البرنامج (owner/repo):", _settings.UpdateRepo.Length > 0 ? _settings.UpdateRepo : UpdateChecker.BuiltInRepo ?? "");
+            "مستودع GitHub الخاص بالبرنامج (owner/repo):", _settings.UpdateRepo.Length > 0 ? _settings.UpdateRepo : UpdateChecker.BuiltInRepo ?? "");
         if (repo == null) return;
         _settings.UpdateRepo = repo.Trim().Replace("https://github.com/", "", StringComparison.OrdinalIgnoreCase).Trim('/');
         SaveSettings();

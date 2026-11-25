@@ -48,7 +48,7 @@ internal sealed partial class MainForm
             _waitingLibraryPath = null;
             Log.Info("waited library appeared: " + path);
             SwitchLibrary(path);
-            ShowBanner("اتفتحت مكتبتك «" + Path.GetFileNameWithoutExtension(path) + "» ✓", BannerKind.Success, seconds: 6, key: "waiting-library");
+            ShowBanner("فُتحت مكتبتك «" + Path.GetFileNameWithoutExtension(path) + "» ✓", BannerKind.Success, seconds: 6, key: "waiting-library");
             return;
         }
         if (DateTime.UtcNow - _waitingLibrarySinceUtc < TimeSpan.FromMinutes(2)) return;
@@ -56,8 +56,8 @@ internal sealed partial class MainForm
         _waitingLibraryPath = null;
         HideBanner("waiting-library");
         if (Dialogs.Confirm(this,
-                "مقدرتش ألاقي آخر مكتبة كنت فاتحها:\n" + path +
-                "\n\nلو الملف في Google Drive أو OneDrive، اتأكد إن البرنامج بتاعهم شغال.\nتحب تدوّر عليها بنفسك؟", "ملف المكتبة"))
+                "تعذّر العثور على آخر مكتبة كانت مفتوحة:\n" + path +
+                "\n\nإن كان الملف في Google Drive أو OneDrive فتأكد من أن برنامجهما يعمل.\nهل تريد البحث عنه بنفسك؟", "ملف المكتبة"))
             OpenLibraryDialog();
     }
 
@@ -70,7 +70,7 @@ internal sealed partial class MainForm
             try { lib = Storage.LoadLibrary(path, _settings.PathMappings); }
             catch (Exception ex)
             {
-                Dialogs.Error(this, "مقدرتش أفتح ملف المكتبة:\n" + path + "\n\n" + ex.Message);
+                Dialogs.Error(this, "تعذّر فتح ملف المكتبة:\n" + path + "\n\n" + ex.Message);
                 if (!string.Equals(path, Storage.DefaultLibraryPath, StringComparison.OrdinalIgnoreCase))
                 {
                     // مؤقتًا: من غير مانسجّل «مكتبتي» كآخر قائمة، فالقائمة الأصلية تفتح تاني المرة الجاية
@@ -164,7 +164,7 @@ internal sealed partial class MainForm
         }
         catch (Exception ex) { Dialogs.Error(this, ex.Message); return; }
         LoadLibrary(dlg.FileName);
-        ShowStatus("المكتبة الجديدة جاهزة — ضيف فولدر فيديوهات أو اسحبه وارميه هنا", 6);
+        ShowStatus("المكتبة الجديدة جاهزة — أضف مجلد فيديوهات أو اسحبه وأفلته هنا", 6);
     }
 
     private void OpenLibraryDialog()
@@ -182,7 +182,7 @@ internal sealed partial class MainForm
     {
         using var dlg = new SaveFileDialog
         {
-            Title = "حفظ نسخة من المكتبة باسم تاني",
+            Title = "حفظ نسخة من المكتبة باسم آخر",
             Filter = Storage.LibraryFilter,
             DefaultExt = Storage.LibraryExtension,
             FileName = _library.Name + Storage.LibraryExtension,
@@ -204,20 +204,20 @@ internal sealed partial class MainForm
         string? cloud = gDrive ?? oneDrive;
 
         if (!Dialogs.Confirm(this,
-                "عشان تكمّل مذاكرتك على أكتر من جهاز:\n\n" +
-                "1. المكتبة هتتنقل لفولدر بيتزامن (Google Drive أو OneDrive)، ومعاها سجل مذاكرتك.\n" +
-                "2. على الجهاز التاني: «📚 اسم المكتبة ▾» ← «فتح مكتبة من ملف»، واختار نفس الملف.\n" +
-                "3. البرنامج بيدمج التقدم والعلامات والملاحظات من الجهازين لوحده.\n\n" +
-                "الفيديوهات نفسها مش بتتنقل. لو مكانها مختلف على الجهاز التاني، حدد مكان أي فيديو مرة واحدة، " +
-                "والبرنامج هيفتكر المكان ده للجهاز ده بس.\n\n" +
-                (cloud != null ? "لقيت فولدر بيتزامن هنا:\n" + cloud : "ملقتش Google Drive ولا OneDrive على الجهاز ده، اختار أي فولدر بيتزامن.") +
-                "\n\nنكمّل؟", "مزامنة بين الأجهزة"))
+                "لمتابعة مذاكرتك على أكثر من جهاز:\n\n" +
+                "1. ستُنقل المكتبة إلى مجلد متزامن (Google Drive أو OneDrive)، ومعها سجل مذاكرتك.\n" +
+                "2. على الجهاز الآخر: «📚 اسم المكتبة ▾» ← «فتح مكتبة من ملف»، واختر الملف نفسه.\n" +
+                "3. يدمج البرنامج التقدّم والعلامات والملاحظات من الجهازين تلقائيًا.\n\n" +
+                "لا تُنقل الفيديوهات نفسها. إن كان مكانها مختلفًا على الجهاز الآخر فحدّد مكان أي فيديو مرة واحدة، " +
+                "وسيتذكّر البرنامج هذا المكان لهذا الجهاز فقط.\n\n" +
+                (cloud != null ? "وُجد مجلد متزامن هنا:\n" + cloud : "لم يُعثر على Google Drive أو OneDrive على هذا الجهاز، اختر أي مجلد متزامن.") +
+                "\n\nهل نتابع؟", "مزامنة بين الأجهزة"))
             return;
 
         string initial = cloud ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         using var dlg = new SaveFileDialog
         {
-            Title = "مكان المكتبة في فولدر المزامنة",
+            Title = "مكان المكتبة في مجلد المزامنة",
             Filter = Storage.LibraryFilter,
             DefaultExt = Storage.LibraryExtension,
             FileName = _library.Name + Storage.LibraryExtension,
@@ -237,7 +237,7 @@ internal sealed partial class MainForm
     private void RelocateLibrary(string target, bool move)
     {
         target = Path.GetFullPath(target);
-        if (string.Equals(target, Path.GetFullPath(_libraryPath), StringComparison.OrdinalIgnoreCase)) { SaveLibrary(); ShowStatus("اتحفظ ✓"); return; }
+        if (string.Equals(target, Path.GetFullPath(_libraryPath), StringComparison.OrdinalIgnoreCase)) { SaveLibrary(); ShowStatus("حُفظ ✓"); return; }
 
         string oldPath = _libraryPath;
         string oldName = _library.Name;
@@ -257,7 +257,7 @@ internal sealed partial class MainForm
         {
             _library.Name = oldName;
             Log.Error(move ? "move library" : "save-as", ex);
-            Dialogs.Error(this, "مقدرتش أحفظ المكتبة هنا:\n" + target + "\n\n" + ex.Message);
+            Dialogs.Error(this, "تعذّر حفظ المكتبة هنا:\n" + target + "\n\n" + ex.Message);
             return;
         }
 
@@ -278,8 +278,8 @@ internal sealed partial class MainForm
         UpdateTitle();
         Log.Info($"library {(move ? "moved" : "saved as")}: {oldPath} -> {target} (name «{newName}», {companions} companion files)");
         ShowBanner(move
-                ? $"المكتبة «{newName}» بقت في {LibraryFiles.LocationLabel(target)} ✓ — افتحها من الجهاز التاني من «فتح مكتبة من ملف»."
-                : $"اتعملت نسخة باسم «{newName}» في {LibraryFiles.LocationLabel(target)}، وإنت شغال عليها دلوقتي ✓ — النسخة القديمة «{oldName}» لسه موجودة في «مكتباتك».",
+                ? $"أصبحت المكتبة «{newName}» في {LibraryFiles.LocationLabel(target)} ✓ — افتحها من الجهاز الآخر عبر «فتح مكتبة من ملف»."
+                : $"أُنشئت نسخة باسم «{newName}» في {LibraryFiles.LocationLabel(target)}، وأنت تعمل عليها الآن ✓ — النسخة القديمة «{oldName}» ما زالت موجودة في «مكتباتك».",
             BannerKind.Success, seconds: 10, key: "library-relocated");
     }
 
@@ -290,19 +290,19 @@ internal sealed partial class MainForm
         if (!HasBackups(dir)) dir = Storage.LegacyBackupDir(_libraryPath); // نسخ قبل 4.1.37
         if (!HasBackups(dir))
         {
-            Dialogs.Info(this, "لسه مفيش نسخ احتياطية للمكتبة دي.\nالبرنامج بياخد نسخة كل 6 ساعات وبيحتفظ بآخر 10.");
+            Dialogs.Info(this, "لا توجد نسخ احتياطية لهذه المكتبة بعد.\nيأخذ البرنامج نسخة كل 6 ساعات ويحتفظ بآخر 10.");
             return;
         }
 
         using var dlg = new OpenFileDialog
         {
-            Title = "اختار النسخة اللي عايز ترجعلها",
+            Title = "اختر النسخة التي تريد الرجوع إليها",
             Filter = Storage.LibraryFilter,
             InitialDirectory = dir
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
-        if (!Dialogs.Confirm(this, $"ترجع المكتبة لنسخة «{Path.GetFileNameWithoutExtension(dlg.FileName)}»؟\n" +
-                                   "الحالة الحالية هتتحفظ كنسخة احتياطية الأول، فتقدر ترجعلها.")) return;
+        if (!Dialogs.Confirm(this, $"هل تريد إرجاع المكتبة إلى نسخة «{Path.GetFileNameWithoutExtension(dlg.FileName)}»؟\n" +
+                                   "ستُحفظ الحالة الحالية نسخةً احتياطية أولًا لتتمكن من الرجوع إليها.")) return;
 
         try
         {
@@ -313,19 +313,19 @@ internal sealed partial class MainForm
             File.Copy(dlg.FileName, _libraryPath, overwrite: true);
             Log.Info("backup restored: " + dlg.FileName);
             LoadLibrary(_libraryPath);
-            ShowStatus("رجعت للنسخة الاحتياطية ✓", 5);
+            ShowStatus("عُدت إلى النسخة الاحتياطية ✓", 5);
         }
         catch (Exception ex)
         {
             Log.Error("restore", ex);
-            Dialogs.Error(this, "مقدرتش أرجّع النسخة:\n" + ex.Message);
+            Dialogs.Error(this, "تعذّر إرجاع النسخة:\n" + ex.Message);
         }
     }
 
     private void SaveLibrary()
     {
         if (!TrySaveLibrary(out string? error))
-            ShowBanner("مقدرتش أحفظ المكتبة: " + error + " — هحاول تاني لوحدي", BannerKind.Error, seconds: 15, key: "save-error");
+            ShowBanner("تعذّر حفظ المكتبة: " + error + " — ستُعاد المحاولة تلقائيًا", BannerKind.Error, seconds: 15, key: "save-error");
     }
 
     /// <summary>بيحفظ المكتبة (بعد ما يدمج أي تغيير من جهاز تاني). false + السبب لو فشل.</summary>
@@ -382,7 +382,7 @@ internal sealed partial class MainForm
         RebuildTree();
         RefreshNotesPane();
         RefreshHome();
-        ShowBanner($"اتجابت تغييرات عملتها على جهاز تاني ({result.Total}) ✓", BannerKind.Success, seconds: 6);
+        ShowBanner($"جُلبت تغييرات أجريتها على جهاز آخر ({result.Total}) ✓", BannerKind.Success, seconds: 6);
         return true;
     }
 
@@ -442,15 +442,15 @@ internal sealed partial class MainForm
             if (e.Current) item.Font = new Font(item.Font, FontStyle.Bold);
             anyMissing |= !e.Exists;
         }
-        if (anyMissing) Add("🧹  شيل المكتبات اللي مش موجودة من القايمة", RemoveMissingRecent);
+        if (anyMissing) Add("🧹  أزل المكتبات غير الموجودة من القائمة", RemoveMissingRecent);
         menu.Items.Add(new ToolStripSeparator());
         Add("➕  مكتبة جديدة…", NewLibraryDialog, shortcut: "Ctrl+N");
         Add("📂  فتح مكتبة من ملف…", OpenLibraryDialog, shortcut: "Ctrl+O");
         menu.Items.Add(new ToolStripSeparator());
-        Add("✏️  تغيير اسم المكتبة دي…", RenameLibrary, HasLibrary);
-        Add("💾  حفظ نسخة باسم تاني…", SaveLibraryAsDialog, HasLibrary, "Ctrl+Shift+S");
+        Add("✏️  تغيير اسم هذه المكتبة…", RenameLibrary, HasLibrary);
+        Add("💾  حفظ نسخة باسم آخر…", SaveLibraryAsDialog, HasLibrary, "Ctrl+Shift+S");
         Add("📍  فتح مكان الملف", () => OpenInExplorer(_libraryPath), HasLibrary);
-        Add("✖  قفل المكتبة (البرنامج يفضل مفتوح)", StartWithoutLibrary, HasLibrary);
+        Add("✖  إغلاق المكتبة (يبقى البرنامج مفتوحًا)", StartWithoutLibrary, HasLibrary);
         menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
         menu.Show(_courseLabel, new Point(_courseLabel.Width, _courseLabel.Height), ToolStripDropDownDirection.BelowLeft);
     }
@@ -473,7 +473,7 @@ internal sealed partial class MainForm
             bool current = string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase);
             bool exists = current || File.Exists(f);
             string name = current ? _library.Name : exists ? LibraryFiles.PeekName(f) : Path.GetFileNameWithoutExtension(f);
-            string text = Modern.Bidi(name) + "   ·   " + LibraryFiles.LocationLabel(f) + (exists ? "" : "  (مش متاحة دلوقتي)");
+            string text = Modern.Bidi(name) + "   ·   " + LibraryFiles.LocationLabel(f) + (exists ? "" : "  (غير متاحة الآن)");
             list.Add(new RecentLibrary(f, text, current, exists));
         }
         return list;
@@ -483,13 +483,13 @@ internal sealed partial class MainForm
     {
         int n = _settings.RecentFiles.RemoveAll(f => !string.Equals(f, _libraryPath, StringComparison.OrdinalIgnoreCase) && !File.Exists(f));
         SaveSettings();
-        ShowStatus(n == 0 ? "مفيش حاجة تتشال" : $"اتشال {n} من القايمة (الملفات نفسها متمسحتش) ✓", 4);
+        ShowStatus(n == 0 ? "لا يوجد ما يُزال" : $"أُزيل {n} من القائمة (لم تُحذف الملفات نفسها) ✓", 4);
     }
 
     private void RenameLibrary()
     {
         string? name = Dialogs.Input(this, "اسم المكتبة",
-            "اكتب اسم المكتبة (ده اللي بيظهر فوق الشجرة وفي «مكتباتك»؛ اسم الملف نفسه مش بيتغيّر):", _library.Name);
+            "اكتب اسم المكتبة (وهو ما يظهر فوق الشجرة وفي «مكتباتك»؛ لا يتغيّر اسم الملف نفسه):", _library.Name);
         if (string.IsNullOrWhiteSpace(name)) return;
         _library.Name = name.Trim();
         MarkDirty();
@@ -505,7 +505,7 @@ internal sealed partial class MainForm
         if (!HasLibrary)
         {
             _courseLabel.Text = "📚  افتح مكتبة  ▾";
-            _toolTip.SetToolTip(_courseLabel, "مفيش مكتبة مفتوحة — دوس هنا واختار مكتبة من مكتباتك، أو اعمل مكتبة جديدة");
+            _toolTip.SetToolTip(_courseLabel, "لا توجد مكتبة مفتوحة — اضغط هنا واختر مكتبة من مكتباتك، أو أنشئ مكتبة جديدة");
             return;
         }
         _courseLabel.Text = "📚  " + Modern.Bidi(_library.Name) + "  ▾";
@@ -514,13 +514,13 @@ internal sealed partial class MainForm
         string duration = total > 0 ? "  ·  " + TimeFormat.Format(total) : "";
         int percent = videos == 0 ? 0 : (int)Math.Round(watched * 100.0 / videos);
         string stats = (_library.Topics.Count > 0 ? $"{_library.Topics.Count} موضوع  ·  " : "") +
-            $"{_library.Courses.Count} كورس  ·  {videos} فيديو{duration}  ·  {percent}% خلص";
+            $"{_library.Courses.Count} دورة  ·  {videos} فيديو{duration}  ·  {percent}% مكتمل";
         _toolTip.SetToolTip(_courseLabel, "المكتبة المفتوحة: " + _library.Name + "  ·  " + LibraryFiles.LocationLabel(_libraryPath) + "\n" + stats + "\n" + _libraryPath +
-                                          "\n\nاضغط عشان تبدّل لمكتبة تانية أو تعمل واحدة جديدة");
+                                          "\n\nاضغط للتبديل إلى مكتبة أخرى أو إنشاء مكتبة جديدة");
         _toolTip.SetToolTip(_libraryProgress, stats);
         // السطر ده بيظهر بس لما فيه فلتر شغال
         bool filtered = _activeFilterText.Length > 0;
-        _courseInfoLabel.Text = filtered ? $"🔎 فلتر شغال: {Modern.Bidi(_activeFilterText)}" : "";
+        _courseInfoLabel.Text = filtered ? $"🔎 تصفية فعّالة: {Modern.Bidi(_activeFilterText)}" : "";
         if (_infoRow != null && _infoRow.Visible != filtered) _infoRow.Visible = filtered;
         _libraryProgress.Value = videos == 0 ? 0 : (double)watched / videos;
     }
@@ -532,20 +532,20 @@ internal sealed partial class MainForm
         if (g == null && c == null && _tree.SelectedNode?.Tag is Place pl)
         {
             var pc = _library.AllCoursesUnder(pl).ToList();
-            _statusGroup.Text = $"{_library.TopicOf(pl)?.Name} › {pl.Name}:  {pc.Count} كورس  ·  {pc.Sum(x => x.WatchedCount)} من {pc.Sum(x => x.VideoCount)} فيديو خلصوا";
+            _statusGroup.Text = $"{_library.TopicOf(pl)?.Name} › {pl.Name}:  {pc.Count} دورة  ·  {pc.Sum(x => x.WatchedCount)} من {pc.Sum(x => x.VideoCount)} فيديو مكتمل";
             return;
         }
         if (g == null && c == null && _tree.SelectedNode?.Tag is Topic t)
         {
             var tc = _library.CoursesOf(t).ToList();
-            _statusGroup.Text = $"{t.Name}:  {tc.Count} كورس  ·  {tc.Sum(x => x.WatchedCount)} من {tc.Sum(x => x.VideoCount)} فيديو خلصوا";
+            _statusGroup.Text = $"{t.Name}:  {tc.Count} دورة  ·  {tc.Sum(x => x.WatchedCount)} من {tc.Sum(x => x.VideoCount)} فيديو مكتمل";
             return;
         }
         if (g != null)
-            _statusGroup.Text = $"{c?.Name} › {g.Name}:  {g.WatchedCount} من {g.Videos.Count} خلصوا" +
+            _statusGroup.Text = $"{c?.Name} › {g.Name}:  {g.WatchedCount} من {g.Videos.Count} مكتمل" +
                                 (g.TotalDurationMs > 0 ? "  ·  " + TimeFormat.Format(g.TotalDurationMs) : "");
         else if (c != null)
-            _statusGroup.Text = $"{c.Name}:  {c.WatchedCount} من {c.VideoCount} فيديو خلصوا";
+            _statusGroup.Text = $"{c.Name}:  {c.WatchedCount} من {c.VideoCount} فيديو مكتمل";
         else
             _statusGroup.Text = "";
     }
@@ -643,7 +643,7 @@ internal sealed partial class MainForm
                 UpdateTopicNode(tn, t);
                 if (t.HasTitledSeparator && !filtering)
                 {
-                    var dn = new TreeNode { Tag = new TopicDivider(t), Text = t.SeparatorTitle!.Trim(), ToolTipText = "فاصل — كليك يمين عشان تعدّله أو تشيله" };
+                    var dn = new TreeNode { Tag = new TopicDivider(t), Text = t.SeparatorTitle!.Trim(), ToolTipText = "فاصل — انقر بالزر الأيمن لتعديله أو إزالته" };
                     _dividerNodes[t] = dn;
                     _tree.SetRow(dn, new LectureTreeView.RowInfo("", Divider: true));
                     _tree.Nodes.Add(dn);
@@ -748,7 +748,7 @@ internal sealed partial class MainForm
             ? Math.Clamp((double)v.LastPositionMs / v.DurationMs, 0.02, 0.98) : -1;
         string time = v.DurationMs <= 0 ? ""
             : v.LastPositionMs > 0 && !v.Watched
-                ? $"المدة {TimeFormat.Format(v.DurationMs)} — وقفت عند {TimeFormat.Format(v.LastPositionMs)}"
+                ? $"المدة {TimeFormat.Format(v.DurationMs)} — توقفت عند {TimeFormat.Format(v.LastPositionMs)}"
                 : $"المدة {TimeFormat.Format(v.DurationMs)}";
 
         node.Text = v.Title;
@@ -758,9 +758,9 @@ internal sealed partial class MainForm
             !exists ? "missing" : playing ? "playing" : v.Watched ? "watched" : v.LastPositionMs > 0 ? "partial"
             : v.IsOnline ? "online" : "video";
         node.ForeColor = !exists ? Theme.Danger : playing ? Theme.Accent : v.Watched ? Theme.Muted : Theme.Text;
-        node.ToolTipText = v.IsOnline ? (IsDownloaded(v) ? "متنزّل للمشاهدة من غير نت:\n" : "من النت:\n") + v.Path
+        node.ToolTipText = v.IsOnline ? (IsDownloaded(v) ? "منزّل للمشاهدة دون إنترنت:\n" : "من الإنترنت:\n") + v.Path
             : exists ? v.LocalPath
-            : "الملف مش موجود على الجهاز ده:\n" + v.Path;
+            : "الملف غير موجود على هذا الجهاز:\n" + v.Path;
         if (time.Length > 0) node.ToolTipText = time + "\n" + node.ToolTipText;
         if (v.Bookmarks.Count > 0 || !string.IsNullOrWhiteSpace(v.Notes))
             node.ToolTipText += $"\n\n{v.Bookmarks.Count} علامة" + (string.IsNullOrWhiteSpace(v.Notes) ? "" : " · فيه ملاحظات");
@@ -819,7 +819,7 @@ internal sealed partial class MainForm
         if (v != null)
         {
             var group = _library.FindGroupOf(v);
-            ShowBanner($"آخر حاجة كنت بتتفرج عليها: {v.Title}", BannerKind.Info, "▶  كمّل",
+            ShowBanner($"آخر ما كنت تشاهده: {v.Title}", BannerKind.Info, "▶  تابع",
                 () => { if (group != null) PlayVideo(group, v, v.LastPositionMs); }, seconds: 12, key: "resume");
         }
     }
@@ -868,10 +868,10 @@ internal sealed partial class MainForm
     private Course? AddCourse(string? name = null, Course? after = null, Topic? topicFor = null, bool atRoot = false, Place? placeFor = null)
     {
         if (!EnsureLibrary()) return null;
-        name ??= Dialogs.Input(this, "كورس جديد", placeFor != null ? $"اسم الكورس (في «{placeFor.Name}»):" : "اسم الكورس:", $"كورس {_library.Courses.Count + 1}");
+        name ??= Dialogs.Input(this, "دورة جديدة", placeFor != null ? $"اسم الدورة (في «{placeFor.Name}»):" : "اسم الدورة:", $"دورة {_library.Courses.Count + 1}");
         if (name == null) return null;
 
-        Checkpoint("إضافة كورس");
+        Checkpoint("إضافة دورة");
         Place? place = atRoot || topicFor != null ? null
             : placeFor ?? (after != null ? _library.PlaceOf(after) : SelectedPlaceContext());
         var topic = atRoot ? null : place != null ? _library.TopicOf(place)
@@ -897,7 +897,7 @@ internal sealed partial class MainForm
 
     private void SortCourses()
     {
-        Checkpoint("ترتيب الكورسات");
+        Checkpoint("ترتيب الدورات");
         _library.Courses = _library.Courses.OrderBy(c => c.Name, NaturalComparer.Instance).ToList();
         MarkDirty();
         RebuildTree();
@@ -907,7 +907,7 @@ internal sealed partial class MainForm
     {
         var source = _library.FindCourseOf(g);
         if (source == null) return;
-        Checkpoint("نقل محاضرة لكورس تاني");
+        Checkpoint("نقل محاضرة إلى دورة أخرى");
         source.Groups.Remove(g);
         target.Groups.Insert(Math.Clamp(index ?? target.Groups.Count, 0, target.Groups.Count), g);
         target.Expanded = true;
@@ -927,7 +927,7 @@ internal sealed partial class MainForm
         course ??= after != null ? _library.FindCourseOf(after) : TargetCourseOrCreate();
         if (course == null) return null;
 
-        name ??= Dialogs.Input(this, "محاضرة جديدة", $"اسم المحاضرة (في كورس «{course.Name}»):", $"محاضرة {course.Groups.Count + 1}");
+        name ??= Dialogs.Input(this, "محاضرة جديدة", $"اسم المحاضرة (في دورة «{course.Name}»):", $"محاضرة {course.Groups.Count + 1}");
         if (name == null) return null;
 
         Checkpoint("إضافة محاضرة");
@@ -962,7 +962,7 @@ internal sealed partial class MainForm
                 break;
             case Course c:
             {
-                string? name = Dialogs.Input(this, "إعادة تسمية", "اسم الكورس:", c.Name);
+                string? name = Dialogs.Input(this, "إعادة تسمية", "اسم الدورة:", c.Name);
                 if (name == null) return;
                 Checkpoint("إعادة تسمية");
                 c.Name = name;
@@ -978,7 +978,7 @@ internal sealed partial class MainForm
             }
             case VideoItem v:
             {
-                string? name = Dialogs.Input(this, "إعادة تسمية", "الاسم اللي هيظهر في المكتبة (الملف نفسه مش هيتغير):", v.Title);
+                string? name = Dialogs.Input(this, "إعادة تسمية", "الاسم الذي سيظهر في المكتبة (لن يتغيّر الملف نفسه):", v.Title);
                 if (name == null) return;
                 Checkpoint("إعادة تسمية");
                 v.Title = name;
@@ -1009,12 +1009,12 @@ internal sealed partial class MainForm
                 return;
 
             case Course c:
-                if (!Dialogs.Confirm(this, $"حذف الكورس «{c.Name}» من المكتبة؟\n" +
-                                           $"({c.Groups.Count} محاضرة · {c.VideoCount} فيديو — الملفات نفسها مش هتتمسح من الجهاز)" +
+                if (!Dialogs.Confirm(this, $"هل تريد حذف الدورة «{c.Name}» من المكتبة؟\n" +
+                                           $"({c.Groups.Count} محاضرة · {c.VideoCount} فيديو — لن تُحذف الملفات نفسها من الجهاز)" +
                                            FollowedDeleteNote(c.SourceFolder)))
                     return;
                 if (_currentGroup != null && c.Groups.Contains(_currentGroup)) StopPlaybackCore(clearCurrent: true);
-                Checkpoint("حذف كورس");
+                Checkpoint("حذف دورة");
                 IgnoreInFollowed(c.SourceFolder);
                 foreach (var cv in c.AllVideos) IgnoreInFollowed(cv.Path); // حتى اللي اتنقل له من فولدر تاني
                 _deletedKeys.Add(LibrarySync.CourseKey(c));
@@ -1022,7 +1022,7 @@ internal sealed partial class MainForm
                 break;
 
             case LectureGroup g:
-                if (!Dialogs.Confirm(this, $"حذف المحاضرة «{g.Name}» من المكتبة؟\n({g.Videos.Count} فيديو — الملفات نفسها مش هتتمسح من الجهاز)" +
+                if (!Dialogs.Confirm(this, $"هل تريد حذف المحاضرة «{g.Name}» من المكتبة؟\n({g.Videos.Count} فيديو — لن تُحذف الملفات نفسها من الجهاز)" +
                                            FollowedDeleteNote(g.SourceFolder)))
                     return;
                 if (g == _currentGroup) StopPlaybackCore(clearCurrent: true);
@@ -1085,7 +1085,7 @@ internal sealed partial class MainForm
             {
                 var vids = _library.CoursesOf(t).SelectMany(c => c.AllVideos).ToList();
                 bool all = vids.Any(v => !v.Watched);
-                if (all && !Dialogs.Confirm(this, $"تعليم كل فيديوهات «{t.Name}» ({vids.Count}) كمُشاهَدة؟")) return;
+                if (all && !Dialogs.Confirm(this, $"هل تريد وسم كل فيديوهات «{t.Name}» ({vids.Count}) كمُشاهَدة؟")) return;
                 foreach (var v in vids) SetWatched(v, all, refresh: false);
                 RebuildTree();
                 break;
@@ -1094,7 +1094,7 @@ internal sealed partial class MainForm
             {
                 var vids = _library.AllCoursesUnder(p).SelectMany(c => c.AllVideos).ToList();
                 bool all = vids.Any(v => !v.Watched);
-                if (all && !Dialogs.Confirm(this, $"تعليم كل فيديوهات «{p.Name}» ({vids.Count}) كمُشاهَدة؟")) return;
+                if (all && !Dialogs.Confirm(this, $"هل تريد وسم كل فيديوهات «{p.Name}» ({vids.Count}) كمُشاهَدة؟")) return;
                 foreach (var v in vids) SetWatched(v, all, refresh: false);
                 RebuildTree();
                 break;
@@ -1116,11 +1116,11 @@ internal sealed partial class MainForm
     private void ResetWatched(IEnumerable<VideoItem> videos, string what)
     {
         var list = videos.ToList();
-        if (!Dialogs.Confirm(this, $"تصفير التقدم لـ {what}؟\n\n" +
-                                   $"• {list.Count(v => v.Watched)} فيديو متعلّم «اتشاف» هيرجع «لسه»\n" +
-                                   $"• {list.Count(v => v.LastPositionMs > 0)} فيديو هيبدأ من الأول بدل ما يكمّل\n\n" +
-                                   "العلامات والملاحظات مش هتتمسح. وتقدر ترجع بـ Ctrl+Z.", "تصفير التقدم")) return;
-        Checkpoint("تصفير التقدم");
+        if (!Dialogs.Confirm(this, $"هل تريد تصفير التقدّم لـ {what}؟\n\n" +
+                                   $"• {list.Count(v => v.Watched)} فيديو موسوم «شوهد» سيعود «لم يُشاهَد»\n" +
+                                   $"• {list.Count(v => v.LastPositionMs > 0)} فيديو سيبدأ من البداية بدلًا من المتابعة\n\n" +
+                                   "لن تُحذف العلامات والملاحظات. ويمكنك التراجع بـ Ctrl+Z.", "تصفير التقدّم")) return;
+        Checkpoint("تصفير التقدّم");
         foreach (var v in list)
         {
             v.Watched = false;
@@ -1131,7 +1131,7 @@ internal sealed partial class MainForm
         SaveLibrary();
         RebuildTree();
         RefreshHome();
-        ShowStatus($"اتصفّر التقدم لـ {what} ✓ (Ctrl+Z للتراجع)", 5);
+        ShowStatus($"صُفِّر التقدّم لـ {what} ✓ (Ctrl+Z للتراجع)", 5);
     }
 
     private void MoveSelected(int direction)
@@ -1194,7 +1194,7 @@ internal sealed partial class MainForm
 
     private void SortGroupVideos(LectureGroup? g)
     {
-        if (g == null) { Dialogs.Info(this, "حدد محاضرة الأول."); return; }
+        if (g == null) { Dialogs.Info(this, "حدّد محاضرة أولًا."); return; }
         Checkpoint("ترتيب الفيديوهات");
         g.Videos = g.Videos.OrderBy(v => Path.GetFileName(v.Path), NaturalComparer.Instance).ToList();
         MarkDirty();
@@ -1203,7 +1203,7 @@ internal sealed partial class MainForm
 
     private void SortGroups(Course? c)
     {
-        if (c == null) { Dialogs.Info(this, "حدد كورس الأول."); return; }
+        if (c == null) { Dialogs.Info(this, "حدّد دورة أولًا."); return; }
         Checkpoint("ترتيب المحاضرات");
         c.Groups = c.Groups.OrderBy(g => g.Name, NaturalComparer.Instance).ToList();
         MarkDirty();
@@ -1214,20 +1214,20 @@ internal sealed partial class MainForm
 
     private void AutoSplitDialog(LectureGroup? g)
     {
-        if (g == null) { Dialogs.Info(this, "حدد المحاضرة اللي عايز تقسمها الأول."); return; }
+        if (g == null) { Dialogs.Info(this, "حدّد المحاضرة التي تريد تقسيمها أولًا."); return; }
         var course = _library.FindCourseOf(g);
         if (course == null) return;
 
         var chunks = MediaFiles.SplitByPartReset(g.Videos);
         if (chunks.Count < 2)
         {
-            Dialogs.Info(this, "ملقتش مكان الترقيم بيرجع فيه من الأول (زي Part 12 وبعدها Part 01)، فمفيش تقسيم تلقائي.\n\n" +
-                               "تقدر تقسم يدوي: كليك يمين على أول فيديو في المحاضرة الجديدة ← «ابدأ محاضرة جديدة من هنا».");
+            Dialogs.Info(this, "لم يُعثر على موضع يعود فيه الترقيم إلى البداية (مثل Part 12 ثم Part 01)، لذا لا يوجد تقسيم تلقائي.\n\n" +
+                               "يمكنك التقسيم يدويًا: انقر بالزر الأيمن على أول فيديو في المحاضرة الجديدة ← «ابدأ محاضرة جديدة من هنا».");
             return;
         }
 
         string? prefix = Dialogs.Input(this, "تقسيم تلقائي",
-            $"هتتقسم لـ {chunks.Count} محاضرات. اكتب بداية الاسم (هيتكتب بعده الرقم):", "محاضرة");
+            $"ستُقسَّم إلى {chunks.Count} محاضرات. اكتب بداية الاسم (يُكتب بعده الرقم):", "محاضرة");
         if (prefix == null) return;
 
         int index = course.Groups.IndexOf(g);
@@ -1246,7 +1246,7 @@ internal sealed partial class MainForm
         MarkDirty();
         RebuildTree();
         SelectItem(newGroups[0]);
-        ShowStatus($"اتقسمت لـ {newGroups.Count} محاضرات ✓");
+        ShowStatus($"قُسّمت إلى {newGroups.Count} محاضرات ✓");
     }
 
     private void SplitFromHere(VideoItem v)
@@ -1255,9 +1255,9 @@ internal sealed partial class MainForm
         var course = owner != null ? _library.FindCourseOf(owner) : null;
         if (owner == null || course == null) return;
         int i = owner.Videos.IndexOf(v);
-        if (i <= 0) { Dialogs.Info(this, "ده أول فيديو في المحاضرة أصلًا."); return; }
+        if (i <= 0) { Dialogs.Info(this, "هذا أول فيديو في المحاضرة بالفعل."); return; }
 
-        string? name = Dialogs.Input(this, "محاضرة جديدة", "اسم المحاضرة الجديدة (هتبدأ من الفيديو ده):", $"محاضرة {course.Groups.Count + 1}");
+        string? name = Dialogs.Input(this, "محاضرة جديدة", "اسم المحاضرة الجديدة (تبدأ من هذا الفيديو):", $"محاضرة {course.Groups.Count + 1}");
         if (name == null) return;
 
         Checkpoint("تقسيم محاضرة");
@@ -1281,7 +1281,7 @@ internal sealed partial class MainForm
         if (!EnsureLibrary()) return;
         using var dlg = new OpenFileDialog
         {
-            Title = target == null ? "اختار فيديوهات المحاضرة الجديدة" : $"إضافة فيديوهات لـ «{target.Name}»",
+            Title = target == null ? "اختر فيديوهات المحاضرة الجديدة" : $"إضافة فيديوهات إلى «{target.Name}»",
             Filter = MediaFiles.DialogFilter,
             Multiselect = true
         };
@@ -1309,7 +1309,7 @@ internal sealed partial class MainForm
             .Select(VideoItem.FromFile)
             .ToList();
 
-        if (added.Count == 0) { ShowStatus("مفيش فيديوهات جديدة تتضاف"); return; }
+        if (added.Count == 0) { ShowStatus("لا توجد فيديوهات جديدة للإضافة"); return; }
 
         Checkpoint("إضافة فيديوهات");
         target.Videos.AddRange(added);
@@ -1319,7 +1319,7 @@ internal sealed partial class MainForm
         RebuildTree();
         SelectItem(added[0]);
         QueueProbe(added);
-        ShowStatus($"اتضاف {added.Count} فيديو لـ «{target.Name}»");
+        ShowStatus($"أُضيف {added.Count} فيديو إلى «{target.Name}»");
     }
 
     private static string? PickFolder(IWin32Window owner, string description)
@@ -1337,7 +1337,7 @@ internal sealed partial class MainForm
     /// <summary>فولدر محاضرات يتضاف لكورس موجود.</summary>
     private void ImportIntoCourseDialog(Course course)
     {
-        string? path = PickFolder(this, $"اختار فولدر محاضرات يتضاف لكورس «{course.Name}»");
+        string? path = PickFolder(this, $"اختر مجلد محاضرات يُضاف إلى دورة «{course.Name}»");
         if (path != null) ImportFolder(path, into: course);
     }
 
@@ -1352,7 +1352,7 @@ internal sealed partial class MainForm
 
         if (groups.Count == 0)
         {
-            Dialogs.Info(this, "ملقتش أي فيديوهات في الفولدر ده أو الفولدرات اللي جواه.");
+            Dialogs.Info(this, "لم يُعثر على أي فيديوهات في هذا المجلد أو المجلدات التي بداخله.");
             return;
         }
 
@@ -1361,9 +1361,9 @@ internal sealed partial class MainForm
         {
             int courseCount = MediaFiles.ScanMultiCourse(root).Count;
             if (Dialogs.Confirm(this,
-                    $"الفولدر «{new DirectoryInfo(root).Name}» شكله فيه {courseCount} كورسات جواه.\n\n" +
-                    "• نعم: كل فولدر جواه يبقى كورس لوحده، والفولدرات اللي جوه كل كورس تبقى محاضرات\n" +
-                    "• لا: كله يبقى كورس واحد"))
+                    $"يبدو أن المجلد «{new DirectoryInfo(root).Name}» يحتوي على {courseCount} دورات.\n\n" +
+                    "• نعم: يصبح كل مجلد بداخله دورة مستقلة، وتصبح المجلدات داخل كل دورة محاضرات\n" +
+                    "• لا: يصبح الكل دورة واحدة"))
             {
                 ImportMultiCourse(root);
                 return;
@@ -1371,7 +1371,7 @@ internal sealed partial class MainForm
         }
 
         Course course;
-        Checkpoint("استيراد فولدر");
+        Checkpoint("استيراد مجلد");
         if (into == null)
         {
             course = new Course { Name = new DirectoryInfo(root).Name, Groups = groups };
@@ -1389,15 +1389,15 @@ internal sealed partial class MainForm
         RebuildTree();
         SelectItem(groups[0]);
         QueueProbe(groups.SelectMany(g => g.Videos));
-        ShowStatus($"«{course.Name}»: اتضاف {groups.Count} محاضرة ({groups.Sum(g => g.Videos.Count)} فيديو) ✓", 5);
+        ShowStatus($"«{course.Name}»: أُضيف {groups.Count} محاضرة ({groups.Sum(g => g.Videos.Count)} فيديو) ✓", 5);
 
         // فولدر واحد مليان فيديوهات والترقيم بيرجع لـ Part 01 (زي اللي في PotPlayer) ← اعرض التقسيم
         if (groups.Count == 1)
         {
             int parts = MediaFiles.SplitByPartReset(groups[0].Videos).Count;
             if (parts > 1 && Dialogs.Confirm(this,
-                    $"الفيديوهات دي كلها في فولدر واحد، بس الترقيم بيرجع لـ Part 01 أكتر من مرة.\n" +
-                    $"تحب أقسمها تلقائيًا لـ {parts} محاضرات؟"))
+                    $"هذه الفيديوهات كلها في مجلد واحد، لكن الترقيم يعود إلى Part 01 أكثر من مرة.\n" +
+                    $"هل تريد تقسيمها تلقائيًا إلى {parts} محاضرات؟"))
             {
                 SelectItem(groups[0]);
                 AutoSplitDialog(groups[0]);
@@ -1414,13 +1414,13 @@ internal sealed partial class MainForm
 
         if (courses.Count == 0)
         {
-            Dialogs.Info(this, "ملقتش أي فيديوهات في الفولدر ده.");
+            Dialogs.Info(this, "لم يُعثر على أي فيديوهات في هذا المجلد.");
             return;
         }
 
-        Checkpoint("استيراد كورسات");
+        Checkpoint("استيراد دورات");
         string topicName = new DirectoryInfo(root).Name;
-        if (Dialogs.Confirm(this, $"تحط الـ {courses.Count} كورس تحت موضوع جديد اسمه «{topicName}»؟\n\n(«لأ» = يتضافوا من غير موضوع، أو تحت الموضوع المحدد)", "موضوع"))
+        if (Dialogs.Confirm(this, $"هل تريد وضع الـ {courses.Count} دورة تحت موضوع جديد اسمه «{topicName}»؟\n\n(«لا» = تُضاف دون موضوع، أو تحت الموضوع المحدد)", "موضوع"))
         {
             var t = new Topic { Name = topicName };
             t.TouchInfo();
@@ -1434,7 +1434,7 @@ internal sealed partial class MainForm
         RebuildTree();
         SelectItem(courses[0]);
         QueueProbe(courses.SelectMany(c => c.AllVideos));
-        ShowStatus($"اتضاف {courses.Count} كورس ({courses.Sum(c => c.Groups.Count)} محاضرة · {courses.Sum(c => c.VideoCount)} فيديو) ✓", 6);
+        ShowStatus($"أُضيف {courses.Count} دورة ({courses.Sum(c => c.Groups.Count)} محاضرة · {courses.Sum(c => c.VideoCount)} فيديو) ✓", 6);
     }
 
     // =====================================================================
@@ -1445,7 +1445,7 @@ internal sealed partial class MainForm
     {
         using var dlg = new OpenFileDialog
         {
-            Title = $"فين الملف «{Path.GetFileName(v.Path)}» دلوقتي؟",
+            Title = $"أين الملف «{Path.GetFileName(v.Path)}» الآن؟",
             Filter = MediaFiles.DialogFilter,
             FileName = Path.GetFileName(v.Path)
         };
@@ -1476,7 +1476,7 @@ internal sealed partial class MainForm
 
         MarkDirty();
         RebuildTree();
-        ShowStatus(fixedCount > 1 ? $"اتصلّح مكان {fixedCount} ملف ✓" : "اتصلّح مكان الملف ✓");
+        ShowStatus(fixedCount > 1 ? $"صُحِّح مكان {fixedCount} ملف ✓" : "صُحِّح مكان الملف ✓");
     }
 
     // =====================================================================
@@ -1669,12 +1669,12 @@ internal sealed partial class MainForm
         if (targetTag is Topic tt && dragged.Tag is VideoItem or LectureGroup)
         {
             targetTag = _library.CoursesOf(tt).LastOrDefault();
-            if (targetTag == null) { ShowStatus("الموضوع ده فاضي — ضيف فيه كورس الأول"); return; }
+            if (targetTag == null) { ShowStatus("هذا الموضوع فارغ — أضف إليه دورة أولًا"); return; }
         }
         if (targetTag is Place tp && dragged.Tag is VideoItem or LectureGroup)
         {
             targetTag = _library.CoursesInPlace(tp).LastOrDefault() ?? _library.AllCoursesUnder(tp).LastOrDefault();
-            if (targetTag == null) { ShowStatus("المصدر ده فاضي — ضيف فيه كورس الأول"); return; }
+            if (targetTag == null) { ShowStatus("هذا المصدر فارغ — أضف إليه دورة أولًا"); return; }
         }
 
         switch (dragged.Tag)

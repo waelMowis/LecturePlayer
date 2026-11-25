@@ -86,8 +86,8 @@ internal partial class MainForm
         {
             // اختصار محجوز لبرنامج تاني: نقول بدل ما يبقى مش شغال وخلاص
             Log.Info("global hotkeys taken by another app: " + string.Join(", ", failed));
-            ShowBanner("الاختصارات دي محجوزة لبرنامج تاني فمش هتشتغل من برّه «مسار»: " + string.Join("، ", failed) +
-                " — الأوامر نفسها موجودة في «مذاكرة» وفي زرار ⏺ في الشريط الجانبي.", BannerKind.Warning, seconds: 20, key: "hotkeys");
+            ShowBanner("هذه الاختصارات محجوزة لبرنامج آخر فلن تعمل من خارج «مسار»: " + string.Join("، ", failed) +
+                " — الأوامر نفسها موجودة في «الأدوات» وفي زر ⏺ في الشريط الجانبي.", BannerKind.Warning, seconds: 20, key: "hotkeys");
         }
     }
 
@@ -152,7 +152,7 @@ internal partial class MainForm
         _screenInk = new ScreenInk(screen);
         _screenInk.FormClosed += (_, _) => _screenInk = null;
         _screenInk.Show();
-        ShowStatus("🖊 أقلام على الشاشة — 🖱 يرجّعك تشتغل على البرامج والرسم ظاهر، ✕ تقفلها (Ctrl+Shift+F8)", 6);
+        ShowStatus("🖊 أقلام على الشاشة — 🖱 يعيدك للعمل على البرامج مع بقاء الرسم، و✕ يغلقها (Ctrl+Shift+F8)", 6);
     }
 
     // ---------------- البداية ----------------
@@ -174,35 +174,35 @@ internal partial class MainForm
     internal RecChoice? RecordSetupDialog(List<string> cams, List<AudioRecorder.Device> mics, LectureGroup? target)
     {
         using var kit = new FormKit("سجّل شرح", 640);
-        var area = kit.Row("أسجّل إيه", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
+        var area = kit.Row("ماذا أسجّل", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
         var screens = Screen.AllScreens;
         for (int i = 0; i < screens.Length; i++) area.Items.Add(screens.Length == 1 ? "الشاشة كلها" : $"الشاشة {i + 1}" + (screens[i].Primary ? " (الأساسية)" : "") + $" — {screens[i].Bounds.Width}×{screens[i].Bounds.Height}");
-        area.Items.Add("جزء أحدده بالماوس…");
-        area.Items.Add("شباك «مسار» بس");
+        area.Items.Add("جزء أحدّده بالفأرة…");
+        area.Items.Add("نافذة «مسار» فقط");
         var wins = TopWindows();
-        foreach (var (h, t) in wins) area.Items.Add("شباك: " + (t.Length > 60 ? t[..60] + "…" : t));
+        foreach (var (h, t) in wins) area.Items.Add("نافذة: " + (t.Length > 60 ? t[..60] + "…" : t));
         area.SelectedIndex = Array.IndexOf(screens, Screen.FromControl(this));
-        var mic = kit.Row("المايك", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
-        mic.Items.Add("من غير مايك");
+        var mic = kit.Row("الميكروفون", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
+        mic.Items.Add("بلا ميكروفون");
         foreach (var m in mics) mic.Items.Add(m.Name);
         string? def = AudioRecorder.DefaultMicrophone();
         mic.SelectedIndex = mics.Count == 0 ? 0 : 1 + Math.Max(0, mics.FindIndex(m => m.Id == def));
-        var sys = kit.Row("صوت الجهاز", new ToggleSwitch { Text = "سجّل الصوت اللي طالع من الجهاز (فيديو/برنامج)", Checked = false });
+        var sys = kit.Row("صوت الجهاز", new ToggleSwitch { Text = "سجّل الصوت الصادر من الجهاز (فيديو/برنامج)", Checked = false });
         var cam = kit.Row("الكاميرا", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
-        cam.Items.Add("من غير كاميرا");
+        cam.Items.Add("بلا كاميرا");
         foreach (var n in cams) cam.Items.Add(n);
         cam.SelectedIndex = 0;
         var scene = kit.Row("المشهد", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
-        scene.Items.AddRange(new object[] { "الشاشة + الكاميرا صغيرة (زي ما هي على الشاشة)", "الكاميرا كبيرة + الشاشة صغيرة", "الكاميرا بس", "الشاشة بس (الكاميرا في ملف لوحده)" });
+        scene.Items.AddRange(new object[] { "الشاشة + الكاميرا صغيرة (كما هي على الشاشة)", "الكاميرا كبيرة + الشاشة صغيرة", "الكاميرا فقط", "الشاشة فقط (الكاميرا في ملف مستقل)" });
         scene.SelectedIndex = 0;
         var shape = kit.Row("شكل الكاميرا", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
-        shape.Items.AddRange(new object[] { "دايرة", "مستطيل مدوّر", "مستطيل" });
+        shape.Items.AddRange(new object[] { "دائرة", "مستطيل مدوّر", "مستطيل" });
         shape.SelectedIndex = 0;
-        var camFile = kit.Row("ملف الكاميرا", new ToggleSwitch { Text = "احفظ الكاميرا في ملف لوحده (تقدر تغير مكانها والمشهد بعد التسجيل)", Checked = true });
-        var fx = kit.Row("الماوس", new ToggleSwitch { Text = "لمعة حوالين الماوس ودايرة عند الكليك", Checked = true });
-        var cd = kit.Row("عد تنازلي", new ToggleSwitch { Text = "3، 2، 1 قبل ما يبدأ", Checked = true });
+        var camFile = kit.Row("ملف الكاميرا", new ToggleSwitch { Text = "احفظ الكاميرا في ملف مستقل (يمكنك تغيير مكانها والمشهد بعد التسجيل)", Checked = true });
+        var fx = kit.Row("الفأرة", new ToggleSwitch { Text = "توهّج حول الفأرة ودائرة عند النقر", Checked = true });
+        var cd = kit.Row("عد تنازلي", new ToggleSwitch { Text = "3، 2، 1 قبل البدء", Checked = true });
         var title = kit.Row("الاسم", FormKit.Style(new TextBox { Text = target != null ? "شرح — " + target.Name : "شرح " + DateTime.Now.ToString("d MMMM HH:mm"), RightToLeft = RightToLeft.Yes }));
-        kit.Note("وانت بتسجل: Ctrl+Shift+F9 إنهاء، Ctrl+Shift+F10 إيقاف مؤقت، Ctrl+Shift+F8 أقلام على الشاشة، Ctrl+Shift+F7 الكاميرا — شريط التحكم مابيظهرش في الفيديو.", 44, Theme.Muted);
+        kit.Note("أثناء التسجيل: Ctrl+Shift+F9 إنهاء، Ctrl+Shift+F10 إيقاف مؤقت، Ctrl+Shift+F8 أقلام على الشاشة، Ctrl+Shift+F7 الكاميرا — شريط التحكم لا يظهر في الفيديو.", 44, Theme.Muted);
         kit.Buttons("ابدأ التسجيل");
         if (SmokeShowDialog(kit, "record-setup")) return null;
         if (kit.Show(this) != DialogResult.OK) return null;
@@ -234,7 +234,7 @@ internal partial class MainForm
             _ => screens[Math.Clamp(c.Monitor, 0, screens.Length - 1)].Bounds
         };
         area.Intersect(SystemInformation.VirtualScreen);
-        if (area.Width < 64 || area.Height < 64) { ShowStatus("المساحة صغيرة قوي", 4); return false; }
+        if (area.Width < 64 || area.Height < 64) { ShowStatus("المساحة صغيرة جدًا", 4); return false; }
         var scr = Screen.FromRectangle(area);
         int mon = Array.IndexOf(screens, scr);
         string dir = Path.Combine(RecordingsDir, ".work", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
@@ -266,8 +266,8 @@ internal partial class MainForm
                 s.Cam.Failed += m => BeginInvoke(() => ShowStatus("📷 الكاميرا: " + m, 6));
                 s.Cam.Start(c.Camera, s.CamWin.Mirror, null, "");
             }
-            if (c.Mic != null) { s.Mic = new AudioRecorder(Path.Combine(dir, "mic.wav"), c.Mic == "default" ? null : c.Mic, loopback: false); if (!s.Mic.Open()) { ShowStatus("🎙 المايك مااشتغلش: " + s.Mic.Error, 6); s.Mic = null; } }
-            if (c.SystemAudio) { s.Sys = new AudioRecorder(Path.Combine(dir, "system.wav"), null, loopback: true); if (!s.Sys.Open()) { ShowStatus("🔊 صوت الجهاز مااشتغلش: " + s.Sys.Error, 6); s.Sys = null; } }
+            if (c.Mic != null) { s.Mic = new AudioRecorder(Path.Combine(dir, "mic.wav"), c.Mic == "default" ? null : c.Mic, loopback: false); if (!s.Mic.Open()) { ShowStatus("🎙 لم يعمل الميكروفون: " + s.Mic.Error, 6); s.Mic = null; } }
+            if (c.SystemAudio) { s.Sys = new AudioRecorder(Path.Combine(dir, "system.wav"), null, loopback: true); if (!s.Sys.Open()) { ShowStatus("🔊 لم يعمل صوت الجهاز: " + s.Sys.Error, 6); s.Sys = null; } }
             Directory.CreateDirectory(dir);
             if (c.Countdown) await new Countdown(area).RunAsync(3);
             rec.SegmentStarted += () => { s.Mic?.Begin(); s.Sys?.Begin(); };
@@ -293,9 +293,9 @@ internal partial class MainForm
                     // المايك بيبعت أصفار: غالبًا Mute أو ويندوز مانع البرامج من المايك — نقول وهو لسه بيسجل
                     s.MicWarned = true;
                     Log.Info("recording: microphone sends pure silence");
-                    ShowBanner("🎙 المايك بيبعت سكوت تام — الصوت مش بيتسجل. اتأكد إن المايك مش مقفول (Mute)، " +
-                        "وإن «إعدادات ويندوز ← الخصوصية ← الميكروفون ← اسمح للبرامج تستخدم المايك» شغالة، أو اختار مايك تاني.",
-                        BannerKind.Warning, "إعدادات المايك", () => { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:privacy-microphone") { UseShellExecute = true }); } catch { } }, seconds: 0, key: "mic-silent");
+                    ShowBanner("🎙 الميكروفون يرسل صمتًا تامًا — الصوت لا يُسجَّل. تأكد من أن الميكروفون غير مكتوم (Mute)، " +
+                        "وأن «إعدادات ويندوز ← الخصوصية ← الميكروفون ← السماح للتطبيقات باستخدام الميكروفون» مفعّل، أو اختر ميكروفونًا آخر.",
+                        BannerKind.Warning, "إعدادات الميكروفون", () => { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:privacy-microphone") { UseShellExecute = true }); } catch { } }, seconds: 0, key: "mic-silent");
                 }
             };
             s.Tick.Start();
@@ -309,7 +309,7 @@ internal partial class MainForm
         {
             Log.Error("recording start", ex);
             CleanupRecording(s, delete: true);
-            ShowBanner("مقدرتش أبدأ التسجيل: " + ex.Message, BannerKind.Warning, seconds: 0);
+            ShowBanner("تعذّر بدء التسجيل: " + ex.Message, BannerKind.Warning, seconds: 0);
             return false;
         }
     }
@@ -321,13 +321,13 @@ internal partial class MainForm
         {
             case "pause": _ = TogglePauseAsync(); break;
             case "stop": _ = StopRecordingAsync(save: true); break;
-            case "cancel": if (Confirm("تلغي التسجيل وتمسحه؟")) _ = StopRecordingAsync(save: false); break;
-            case "mark": RecordingMark("علامة " + (s.Rec.Marks.Count + 1)); ShowStatus("🔖 اتعلّمت", 2); break;
+            case "cancel": if (Confirm("هل تريد إلغاء التسجيل وحذفه؟")) _ = StopRecordingAsync(save: false); break;
+            case "mark": RecordingMark("علامة " + (s.Rec.Marks.Count + 1)); ShowStatus("🔖 وُضعت العلامة", 2); break;
             case "ink": ToggleScreenInk(); break;
             case "cam": if (s.CamWin != null) s.CamWin.Visible = !s.CamWin.Visible; break;
             case "scene":
                 var m = new ContextMenuStrip { RightToLeft = RightToLeft.Yes };
-                string[] names = { "الشاشة + الكاميرا صغيرة", "الكاميرا كبيرة + الشاشة صغيرة", "الكاميرا بس", "الشاشة بس" };
+                string[] names = { "الشاشة + الكاميرا صغيرة", "الكاميرا كبيرة + الشاشة صغيرة", "الكاميرا فقط", "الشاشة فقط" };
                 for (int i = 0; i < names.Length; i++)
                 {
                     int k = i;
@@ -348,7 +348,7 @@ internal partial class MainForm
             await s.Rec.PauseAsync();
             s.Mic?.Pause(); s.Sys?.Pause();
             if (s.Cam is { } cam && cam.Files.Count > 0) cam.Start(s.Choice.Camera!, s.CamWin!.Mirror, null, ""); // معاينة بس وقت الإيقاف
-            ShowStatus("⏸ متوقف — Ctrl+Shift+F10 يكمّل", 4);
+            ShowStatus("⏸ متوقف — Ctrl+Shift+F10 للمتابعة", 4);
         }
         else
         {
@@ -386,28 +386,28 @@ internal partial class MainForm
         catch (Exception ex)
         {
             Log.Error("recording stop", ex);
-            ShowBanner("التسجيل ماتحفظش: " + ex.Message, BannerKind.Warning, seconds: 0);
+            ShowBanner("لم يُحفظ التسجيل: " + ex.Message, BannerKind.Warning, seconds: 0);
             CleanupRecording(s, delete: false);
             return null;
         }
         var marks = s.Rec.Marks.ToList();
         string log = s.Rec.LastLog;
         CleanupRecording(s, delete: false);
-        if (!save) { try { Directory.Delete(s.Dir, true); } catch { } ShowStatus("اتلغى التسجيل", 4); return null; }
+        if (!save) { try { Directory.Delete(s.Dir, true); } catch { } ShowStatus("أُلغي التسجيل", 4); return null; }
         string ff = Tools.FindFfmpeg()!;
         var audio = new List<(string, double)>();
         if (s.Mic is { HasData: true }) audio.Add((s.Mic.File, 0));
         if (s.Sys is { HasData: true }) audio.Add((s.Sys.File, 0));
         try
         {
-            ShowStatus("⏺ بجهّز الفيديو…", 60);
+            ShowStatus("⏺ جارٍ تجهيز الفيديو…", 60);
             string composed = Path.Combine(s.Dir, "final.mp4");
             bool camInScreen = s.Choice.Scene == RecordingEdit.Scene.ScreenWithCam;   // الفقاعة كانت ظاهرة في الشاشة ولا مستخبية
             await RecordingEdit.ComposeAsync(ff, screen!, camFile, s.Scene, RecordingEdit.Corner.BottomRight, s.Scene == RecordingEdit.Scene.ScreenWithCam ? 0.28 : 0.32, audio, RecordingEdit.EncoderArgs(s.Encoder!), composed, camInScreen);
             double dur = await ScreenRecorder.DurationAsync(ff, composed);
             // تعديل بعد التسجيل: قص ومكان الكاميرا والمشهد
             var edit = SmokeRecordEdit ?? (quick ? new RecordEdit(s.Choice.Title, 0, 0, new(), s.Scene, RecordingEdit.Corner.BottomRight) : PostRecordDialog(s.Choice.Title, dur, camFile != null, s.Scene));
-            if (edit == null) { ShowStatus("التسجيل لسه في «تسجيلاتي/.work» لو احتجته", 6); return null; }
+            if (edit == null) { ShowStatus("ما زال التسجيل في «تسجيلاتي/.work» إن احتجت إليه", 6); return null; }
             if (camFile != null && (edit.Scene != s.Scene || edit.Corner != RecordingEdit.Corner.BottomRight))
             {
                 string re = Path.Combine(s.Dir, "final2.mp4");
@@ -438,7 +438,7 @@ internal partial class MainForm
         {
             Log.Error("recording finish", ex);
             Log.Info("ffmpeg log: " + log);
-            ShowBanner("مقدرتش أجهّز الفيديو: " + ex.Message + " — الملفات الأصلية في «تسجيلاتي/.work»", BannerKind.Warning, "افتح", () => OpenFolder(s.Dir), seconds: 0);
+            ShowBanner("تعذّر تجهيز الفيديو: " + ex.Message + " — الملفات الأصلية في «تسجيلاتي/.work»", BannerKind.Warning, "افتح", () => OpenFolder(s.Dir), seconds: 0);
             return null;
         }
     }
@@ -480,7 +480,7 @@ internal partial class MainForm
         QueueProbe(new[] { v });
         LastRecording = v;
         var gg = g;
-        ShowBanner($"⏺ اتحفظ «{title}» ({v.Bookmarks.Count} علامة)", BannerKind.Success, "شغّله", () => PlayVideo(gg, v), seconds: 15);
+        ShowBanner($"⏺ حُفظ «{title}» ({v.Bookmarks.Count} علامة)", BannerKind.Success, "شغّله", () => PlayVideo(gg, v), seconds: 15);
         return v;
     }
 
@@ -490,23 +490,23 @@ internal partial class MainForm
 
     private RecordEdit? PostRecordDialog(string title, double duration, bool camera, RecordingEdit.Scene scene)
     {
-        using var kit = new FormKit("التسجيل خلص — " + FormatSeconds(duration), 600);
+        using var kit = new FormKit("انتهى التسجيل — " + FormatSeconds(duration), 600);
         var name = kit.Row("الاسم", FormKit.Style(new TextBox { Text = title, RightToLeft = RightToLeft.Yes }));
         var start = kit.Row("ابدأ من", FormKit.Style(new TextBox { Text = "0:00", RightToLeft = RightToLeft.No }));
-        var end = kit.Row("لحد", FormKit.Style(new TextBox { Text = FormatSeconds(duration), RightToLeft = RightToLeft.No }));
-        var cuts = kit.Row("أجزاء تتشال", FormKit.Style(new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, RightToLeft = RightToLeft.No, PlaceholderText = "كل سطر: 1:20-1:45" }), 70);
+        var end = kit.Row("حتى", FormKit.Style(new TextBox { Text = FormatSeconds(duration), RightToLeft = RightToLeft.No }));
+        var cuts = kit.Row("أجزاء تُحذف", FormKit.Style(new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, RightToLeft = RightToLeft.No, PlaceholderText = "كل سطر: 1:20-1:45" }), 70);
         ComboBox? sc = null, corner = null;
         if (camera)
         {
             sc = kit.Row("المشهد", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
-            sc.Items.AddRange(new object[] { "الشاشة + الكاميرا صغيرة", "الكاميرا كبيرة + الشاشة صغيرة", "الكاميرا بس", "الشاشة بس" });
+            sc.Items.AddRange(new object[] { "الشاشة + الكاميرا صغيرة", "الكاميرا كبيرة + الشاشة صغيرة", "الكاميرا فقط", "الشاشة فقط" });
             sc.SelectedIndex = (int)scene;
-            corner = kit.Row("مكان الصغير", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
-            corner.Items.AddRange(new object[] { "تحت يمين", "تحت شمال", "فوق يمين", "فوق شمال" });
+            corner = kit.Row("مكان الصورة الصغيرة", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
+            corner.Items.AddRange(new object[] { "أسفل اليمين", "أسفل اليسار", "أعلى اليمين", "أعلى اليسار" });
             corner.SelectedIndex = 0;
         }
-        kit.Note("القص بيتعمل في نسخة جديدة — والعلامات بتتظبط لوحدها.", 26, Theme.Muted);
-        kit.Buttons("احفظ", "سيبه في الفولدر");
+        kit.Note("يُجرى القص في نسخة جديدة — وتُضبط العلامات تلقائيًا.", 26, Theme.Muted);
+        kit.Buttons("احفظ", "اتركه في المجلد");
         if (kit.Show(this) != DialogResult.OK) return null;
         var list = new List<(double, double)>();
         foreach (var line in cuts.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

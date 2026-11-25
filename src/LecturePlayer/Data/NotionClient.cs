@@ -17,12 +17,12 @@ public sealed class NotionException : Exception
     /// <summary>رسالة بالعربي للمستخدم.</summary>
     public string Friendly => (Status, Code) switch
     {
-        (401, _) => "مفتاح نوشن مش صحيح أو اتلغى — اعمل مفتاح جديد من notion.so/my-integrations والصقه في الإعدادات.",
-        (403, _) => "الـ integration مالوش صلاحية — اتأكد إنه عنده «Insert content» و«Update content» في إعداداته.",
-        (404, _) or (_, "object_not_found") => "نوشن مش لاقي الصفحة — اتأكد إنك شاركت صفحة «مسار» مع الـ integration (⋯ ← Connections).",
-        (429, _) => "نوشن طلب نستنى شوية (ضغط طلبات) — هيكمّل لوحده.",
-        (400, "validation_error") => "نوشن رفض البيانات: " + Message,
-        (0, _) => "مفيش اتصال بنوشن — اتأكد من النت.",
+        (401, _) => "مفتاح نوشن غير صحيح أو أُلغي — أنشئ مفتاحًا جديدًا من notion.so/my-integrations والصقه في الإعدادات.",
+        (403, _) => "الـ integration لا يملك صلاحية — تأكد من تفعيل «Insert content» و«Update content» في إعداداته.",
+        (404, _) or (_, "object_not_found") => "لم يجد نوشن الصفحة — تأكد من مشاركة صفحة «مسار» مع الـ integration (⋯ ← Connections).",
+        (429, _) => "طلب نوشن الانتظار قليلًا (ضغط طلبات) — سيكمل تلقائيًا.",
+        (400, "validation_error") => "رفض نوشن البيانات: " + Message,
+        (0, _) => "لا يوجد اتصال بنوشن — تأكد من الإنترنت.",
         _ => $"نوشن رد بـ {Status}: {Message}"
     };
 }
@@ -197,7 +197,7 @@ public sealed class NotionClient : IDisposable
             var again = await GetAsync("databases/" + dbId, ct);
             ds = again["data_sources"]?.AsArray().FirstOrDefault()?["id"]?.GetValue<string>();
         }
-        return (dbId, ds ?? throw new NotionException(500, "no_data_source", "نوشن ماردّش برقم قاعدة البيانات"));
+        return (dbId, ds ?? throw new NotionException(500, "no_data_source", "لم يُرجع نوشن رقم قاعدة البيانات"));
     }
 
     /// <summary>بيضيف بلوكات في آخر الصفحة (100 في كل طلب) ← أرقام البلوكات الجديدة بنفس الترتيب.</summary>

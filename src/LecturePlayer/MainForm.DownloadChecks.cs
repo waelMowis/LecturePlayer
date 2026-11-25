@@ -26,7 +26,7 @@ internal sealed partial class MainForm
         // ---------- 2) قراية التقدم (صورة + صوت ورا بعض، والترجمة مش جزء) ----------
         var r0 = new YtDlp.ProgressReader();
         // سطور الغلاف بتتطبع قبل التنزيل: ماتبقاش 100% ولا «بيضيف الغلاف» (كان الشريط بيقفز لآخره أول ما يبدأ)
-        Check(r0.Read("[ThumbnailsConvertor] There aren't any thumbnails to convert") == null && r0.Stage == "بيبدأ…", "pre-download thumbnail line");
+        Check(r0.Read("[ThumbnailsConvertor] There aren't any thumbnails to convert") == null && r0.Stage == "يبدأ…", "pre-download thumbnail line");
         var r = new YtDlp.ProgressReader();
         Check(r.Read("[info] abc: Downloading subtitles: ar") == null, "subs info line");
         r.Read("[info] abc: Downloading 1 format(s): 137+140");

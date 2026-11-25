@@ -154,7 +154,7 @@ public sealed class Transcript
             if (sb.Length > maxChars) break;
         }
         Flush();
-        if (sb.Length > maxChars) { sb.Length = maxChars; sb.Append("\n[… النص اتقص لأنه طويل جدًا]"); }
+        if (sb.Length > maxChars) { sb.Length = maxChars; sb.Append("\n[… اقتُطع النص لأنه طويل جدًا]"); }
         return sb.ToString();
     }
 

@@ -15,7 +15,7 @@ internal static class CourseInfoDialog
     /// <returns>true لو اتحفظ تغيير.</returns>
     public static bool Show(IWin32Window owner, Course c, IReadOnlyList<JournalEntry> journal, IEnumerable<string> knownTags, float defaultRate)
     {
-        using var kit = new FormKit("بيانات الكورس", 560);
+        using var kit = new FormKit("بيانات الدورة", 560);
         var name = kit.Row("الاسم", new TextBox { Text = c.Name });
 
         var status = kit.Row("الحالة", new SelectBox());
@@ -35,9 +35,9 @@ internal static class CourseInfoDialog
         var goal = kit.Row("الهدف", new TextBox { Text = c.Goal ?? "", Multiline = true, ScrollBars = ScrollBars.Vertical }, 54);
 
         kit.Header("الموعد والخطة");
-        var hasDeadline = kit.Row("ليه موعد", new ToggleSwitch { Text = "عايز أخلصه قبل تاريخ معيّن", Checked = c.Deadline != null });
+        var hasDeadline = kit.Row("لها موعد", new ToggleSwitch { Text = "أريد إنهاءها قبل تاريخ معيّن", Checked = c.Deadline != null });
         var deadline = kit.Row("التاريخ", new DateBox { Value = (c.Deadline ?? DateTime.Today.AddDays(30)).Date, Enabled = c.Deadline != null });
-        kit.Note("− / + يوم بيوم، وShift معاهم = أسبوع، أو اكتب التاريخ yyyy/MM/dd.");
+        kit.Note("− / + يومًا بيوم، ومع Shift = أسبوع، أو اكتب التاريخ yyyy/MM/dd.");
 
         var days = kit.Row("أيام المذاكرة", new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, WrapContents = true, BackColor = Theme.Panel }, 72);
         var ar = CultureInfo.GetCultureInfo("ar-EG");
@@ -63,9 +63,9 @@ internal static class CourseInfoDialog
             var today = DateOnly.FromDateTime(DateTime.Now);
             var p = StudyPlanner.PlanFor(tmp, journal, today, defaultRate);
             var f = StudyStats.Forecast(tmp, journal, today, defaultRate: defaultRate);
-            string fc = f.DaysLeft == 0 ? "الكورس خلص."
-                : f.FinishDate is { } fd ? $"بمعدلك في آخر أسبوعين ({StudyStats.FormatMinutes(f.AvgMinutesPerDay)}/يوم) هتخلص حوالي {fd:yyyy/MM/dd}."
-                : $"فاضل {StudyStats.FormatMinutes(f.RemainingMinutes)} — لسه مفيش معدل مذاكرة كفاية للتوقع.";
+            string fc = f.DaysLeft == 0 ? "اكتملت الدورة."
+                : f.FinishDate is { } fd ? $"بمعدلك في آخر أسبوعين ({StudyStats.FormatMinutes(f.AvgMinutesPerDay)}/يوم) ستنتهي نحو {fd:yyyy/MM/dd}."
+                : $"متبقٍ {StudyStats.FormatMinutes(f.RemainingMinutes)} — لا يوجد معدل مذاكرة كافٍ للتوقع بعد.";
             plan.Text = StudyPlanner.Describe(p) + "\n" + fc;
             plan.ForeColor = p.Status is PlanStatus.Unrealistic or PlanStatus.Overdue ? Theme.Danger : Theme.Text;
         }
@@ -85,8 +85,8 @@ internal static class CourseInfoDialog
         kit.Form.FormClosing += (_, e) =>
         {
             if (kit.Form.DialogResult != DialogResult.OK) return;
-            if (string.IsNullOrWhiteSpace(name.Text)) { e.Cancel = true; Dialogs.Error(kit.Form, "الاسم مينفعش يبقى فاضي."); return; }
-            if (dayBoxes.All(x => !x.Box.Checked)) { e.Cancel = true; Dialogs.Error(kit.Form, "اختار يوم مذاكرة واحد على الأقل."); }
+            if (string.IsNullOrWhiteSpace(name.Text)) { e.Cancel = true; Dialogs.Error(kit.Form, "لا يمكن أن يكون الاسم فارغًا."); return; }
+            if (dayBoxes.All(x => !x.Box.Checked)) { e.Cancel = true; Dialogs.Error(kit.Form, "اختر يوم مذاكرة واحدًا على الأقل."); }
         };
         if (kit.Show(owner) != DialogResult.OK) return false;
 

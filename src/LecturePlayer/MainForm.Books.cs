@@ -66,16 +66,16 @@ internal sealed partial class MainForm
         addMenu.Items.Add(new ToolStripMenuItem("…"));
         var addButton = new PillButton("＋  إضافة", PillStyle.Ghost) { Dock = DockStyle.Left, Width = LogicalToDeviceUnits(82), Margin = Padding.Empty, TabStop = false };
         addButton.Click += (_, _) => addMenu.Show(addButton, new Point(0, addButton.Height + 2));
-        _toolTip.SetToolTip(addButton, "رف جديد، أو كتب (PDF / EPUB) أو عروض PowerPoint من ملفات أو فولدر — بتتحط في الرف اللي واقف عليه");
+        _toolTip.SetToolTip(addButton, "رف جديد، أو كتب (PDF / EPUB) أو عروض PowerPoint من ملفات أو مجلد — تُوضع في الرف المحدد");
         titleRow.Controls.Add(addButton);
         var searchAll = new GlyphButton(Glyphs.Search, 11f) { Size = new Size(LogicalToDeviceUnits(26), LogicalToDeviceUnits(24)), Dock = DockStyle.Left };
         searchAll.Click += (_, _) => ShowBookSearch();
-        _toolTip.SetToolTip(searchAll, "دوّر على كلمة جوه كل الكتب");
+        _toolTip.SetToolTip(searchAll, "ابحث عن كلمة داخل كل الكتب");
         titleRow.Controls.Add(searchAll);
 
         var searchRow = new Panel { Dock = DockStyle.Top, Height = LogicalToDeviceUnits(38), Padding = new Padding(10, 2, 14, 8), BackColor = Theme.Panel };
         _shelfSearch.RightToLeft = RightToLeft.Yes;
-        _shelfSearch.PlaceholderText = "دوّر على كتاب…";
+        _shelfSearch.PlaceholderText = "ابحث عن كتاب…";
         _shelfSearch.Font = new Font("Segoe UI", 9.5f);
         _shelfSearch.TextChanged += (_, _) => RebuildShelf();
         searchRow.Controls.Add(new RoundedHost(_shelfSearch, searchIcon: true, padding: 7) { Dock = DockStyle.Fill });
@@ -125,7 +125,7 @@ internal sealed partial class MainForm
         _shelfEmpty.RightToLeft = RightToLeft.Yes;
         _shelfEmpty.Cursor = Cursors.Hand;
         _shelfEmpty.AllowDrop = true;
-        _shelfEmpty.Text = "رف الكتب فاضي\n\nاضغط هنا عشان تضيف كتب (PDF)\nمن ملفات أو فولدر على الجهاز،\nأو رابط Google Drive / Dropbox / OneDrive\n\nأو اسحب الملفات وارميها هنا";
+        _shelfEmpty.Text = "رف الكتب فارغ\n\nاضغط هنا لإضافة كتب (PDF)\nمن ملفات أو مجلد على الجهاز،\nأو رابط Google Drive / Dropbox / OneDrive\n\nأو اسحب الملفات وأفلتها هنا";
         _shelfEmpty.Click += (_, _) => addMenu.Show(_shelfEmpty, new Point(_shelfEmpty.Width / 2, _shelfEmpty.Height / 2));
         _shelfEmpty.DragEnter += (_, e) => e.Effect = BookFilesIn(e.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None;
         _shelfEmpty.DragDrop += (_, e) => DropBookFiles(BookFilesIn(e.Data), null);
@@ -152,7 +152,7 @@ internal sealed partial class MainForm
         _segBooks = new PillButton("الكتب والعروض والسبورات", PillStyle.Ghost) { Dock = DockStyle.Fill, Margin = new Padding(LogicalToDeviceUnits(2), 0, LogicalToDeviceUnits(2), 0), TabStop = false };
         _segCourses.Click += (_, _) => { if (_split.Panel2Collapsed) ToggleSidePanel(); ShowShelf(false); };
         _segBooks.Click += (_, _) => { if (_split.Panel2Collapsed) ToggleSidePanel(); ShowShelf(true); };
-        _toolTip.SetToolTip(_segCourses, "الدورات والمحاضرات والفيديوهات (يوتيوب، المنصات، فولدرات الجهاز)");
+        _toolTip.SetToolTip(_segCourses, "الدورات والمحاضرات والفيديوهات (يوتيوب، المنصات، مجلدات الجهاز)");
         _toolTip.SetToolTip(_segBooks, "الكتب (PDF / EPUB) وعروض PowerPoint والسبورات (Ctrl+Shift+B)");
         bar.Controls.Add(_segCourses, 0, 0);
         bar.Controls.Add(_segBooks, 1, 0);
@@ -318,7 +318,7 @@ internal sealed partial class MainForm
         n.ImageKey = n.SelectedImageKey = ShelfImageKey("shelf", "library", s.IconKey, s.ColorHex, Theme.PlaceColor, all);
         n.ForeColor = all ? Theme.Success : CustomNameColor(s.ColorHex) ?? Theme.Text;
         n.NodeFont = _topicNodeFont;
-        n.ToolTipText = s.Name + $"\n{books.Count} كتاب · خلصت {done}" + (s.SourceFolder != null ? " · مربوط بفولدر" : "");
+        n.ToolTipText = s.Name + $"\n{books.Count} كتاب · أكملت {done}" + (s.SourceFolder != null ? " · مربوط بفولدر" : "");
     }
 
     private void UpdateBookNode(TreeNode n, Book b)
@@ -340,7 +340,7 @@ internal sealed partial class MainForm
     {
         string unit = b.IsPresentation ? "شريحة" : "صفحة";
         var lines = new List<string> { b.Title };
-        if (missing) lines.Add("⚠ الملف مش موجود — كليك يمين ← 📂 الملف");
+        if (missing) lines.Add("⚠ الملف غير موجود — انقر بالزر الأيمن ← 📂 الملف");
         else if (b.PageCount > 0)
             lines.Add($"{(int)Math.Round(b.Fraction * 100)}% · {(b.IsPresentation ? "آخر شريحة" : "آخر صفحة")} {Math.Max(1, b.LastPage)} من {b.PageCount} {unit}" +
                       (b.LastOpenedUtc is { } lo ? " · " + RelativeDay(lo) : ""));
@@ -358,17 +358,17 @@ internal sealed partial class MainForm
         n.ImageKey = n.SelectedImageKey = ShelfImageKey("section", "document_text", null, null, done ? Theme.Success : Theme.Muted, false);
         n.ForeColor = here ? Theme.Accent : done ? Theme.Success : Theme.Text;
         n.NodeFont = _regularNodeFont;
-        n.ToolTipText = $"{s.Title}\nصفحات {s.From}–{s.To} · قريت {(int)Math.Round(f * 100)}%";
+        n.ToolTipText = $"{s.Title}\nالصفحات {s.From}–{s.To} · قرأت {(int)Math.Round(f * 100)}%";
     }
 
     private void UpdateMarkNode(TreeNode n, Book b, PageMark m)
     {
-        n.Text = string.IsNullOrWhiteSpace(m.Note) ? $"علامة — صفحة {m.Page}" : Modern.Bidi(m.Note.Split('\n')[0]);
+        n.Text = string.IsNullOrWhiteSpace(m.Note) ? $"علامة — الصفحة {m.Page}" : Modern.Bidi(m.Note.Split('\n')[0]);
         _shelfTree.SetRow(n, new LectureTreeView.RowInfo($"ص {m.Page}"));
         n.ImageKey = n.SelectedImageKey = ShelfImageKey("mark", "bookmark", null, null, Theme.Accent, false);
         n.ForeColor = Theme.Text;
         n.NodeFont = _regularNodeFont;
-        n.ToolTipText = $"صفحة {m.Page}" + (string.IsNullOrWhiteSpace(m.Note) ? "" : "\n" + m.Note);
+        n.ToolTipText = $"الصفحة {m.Page}" + (string.IsNullOrWhiteSpace(m.Note) ? "" : "\n" + m.Note);
     }
 
     /// <summary>تحديث صفوف كتاب (وفصوله) من غير ما الشجرة تتبني من الأول.</summary>
@@ -465,35 +465,35 @@ internal sealed partial class MainForm
             _ => null
         };
         string where = shelf != null ? $" في «{shelf.Name}»" : "";
-        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكتر…" + where, () => AddBooksDialog(shelf)));
-        items.Add(MenuItem("➕  فولدر كتب كامل (يبقى رف)…" + where, () => AddBooksFromFolderDialog(shelf)));
+        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكثر…" + where, () => AddBooksDialog(shelf)));
+        items.Add(MenuItem("➕  مجلد كتب كامل (يصبح رفًا)…" + where, () => AddBooksFromFolderDialog(shelf)));
         items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…" + where, () => AddBookLinksDialog(shelf)));
         items.Add(MenuItem("➕  عرض PowerPoint من ملف…" + where, () => AddPresentationsDialog(shelf)));
         items.Add(Sep());
-        items.Add(MenuItem(shelf != null ? $"➕  رف جوه «{shelf.Name}»…" : "➕  رف جديد…", () => AddShelfDialog(shelf)));
+        items.Add(MenuItem(shelf != null ? $"➕  رف داخل «{shelf.Name}»…" : "➕  رف جديد…", () => AddShelfDialog(shelf)));
         if (shelf != null) items.Add(MenuItem("➕  رف جديد (أساسي)…", () => AddShelfDialog(null)));
         items.Add(Sep());
         items.Add(MenuItem("➕  سبورة بيضاء جديدة (صفحات ترسم وتشرح عليها)…", () => NewBoardDialog(null, shelf)));
-        items.Add(MenuItem("➕  رف متشارك من حد (ملف ZIP من «مسار»)…", () => ReceiveSharedShelfDialog(shelf)));
+        items.Add(MenuItem("➕  رف مشترك من شخص آخر (ملف ZIP من «مسار»)…", () => ReceiveSharedShelfDialog(shelf)));
     }
 
     private void BuildShelfMenu(Shelf s, ToolStripItemCollection items)
     {
         var last = _library.AllBooksUnder(s).Where(b => b.LastOpenedUtc != null).OrderByDescending(b => b.LastOpenedUtc).FirstOrDefault()
                    ?? _library.AllBooksUnder(s).FirstOrDefault(b => !b.IsDone);
-        if (last != null) items.Add(MenuItem($"▶  كمّل القراية: {last.Title}", () => OpenBook(last)));
+        if (last != null) items.Add(MenuItem($"▶  تابع القراءة: {last.Title}", () => OpenBook(last)));
         items.Add(Sep());
-        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكتر…", () => AddBooksDialog(s)));
-        items.Add(MenuItem("➕  فولدر كتب كامل (يبقى رف)…", () => AddBooksFromFolderDialog(s)));
+        items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكثر…", () => AddBooksDialog(s)));
+        items.Add(MenuItem("➕  مجلد كتب كامل (يصبح رفًا)…", () => AddBooksFromFolderDialog(s)));
         items.Add(MenuItem("➕  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(s)));
-        items.Add(MenuItem("➕  رف جوه الرف ده…", () => AddShelfDialog(s)));
-        items.Add(MenuItem("➕  رف متشارك من حد (ZIP) جوه الرف ده…", () => ReceiveSharedShelfDialog(s)));
-        items.Add(MenuItem("➕  سبورة جديدة في الرف ده…", () => NewBoardDialog(null, s)));
-        items.Add(MenuItem("➕  عرض PowerPoint في الرف ده…", () => AddPresentationsDialog(s)));
+        items.Add(MenuItem("➕  رف داخل هذا الرف…", () => AddShelfDialog(s)));
+        items.Add(MenuItem("➕  رف مشترك من شخص آخر (ZIP) داخل هذا الرف…", () => ReceiveSharedShelfDialog(s)));
+        items.Add(MenuItem("➕  سبورة جديدة في هذا الرف…", () => NewBoardDialog(null, s)));
+        items.Add(MenuItem("➕  عرض PowerPoint في هذا الرف…", () => AddPresentationsDialog(s)));
         if (s.SourceFolder != null)
         {
             items.Add(Sep());
-            items.Add(MenuItem("🔄  هات الكتب الجديدة من الفولدر", () => RefreshShelfFolder(s, announce: true)));
+            items.Add(MenuItem("🔄  اجلب الكتب الجديدة من المجلد", () => RefreshShelfFolder(s, announce: true)));
         }
         items.Add(Sep());
         items.Add(MenuItem("✏  إعادة تسمية…", () => RenameShelfItem(s), "F2"));
@@ -501,20 +501,20 @@ internal sealed partial class MainForm
         items.Add(Sep());
         items.Add(ShelfMoveMenu(s));
         items.Add(SubMenuOf("↕  ترتيب",
-            MenuItem("تحريك لفوق", () => MoveShelfItem(s, -1), "Alt+↑"),
-            MenuItem("تحريك لتحت", () => MoveShelfItem(s, +1), "Alt+↓"),
+            MenuItem("تحريك لأعلى", () => MoveShelfItem(s, -1), "Alt+↑"),
+            MenuItem("تحريك لأسفل", () => MoveShelfItem(s, +1), "Alt+↓"),
             Sep(),
             MenuItem("ترتيب الكتب بالاسم", () => SortShelfBooks(s))));
         var books = _library.AllBooksUnder(s).ToList();
         if (books.Count > 0)
             items.Add(SubMenuOf("✔  التقدّم",
-                MenuItem("تعليم كل الكتب «اتقرت»", () => SetBooksDone(books, true)),
-                MenuItem("↺  تصفير التقدّم في الرف…", () => { if (Confirm("تصفّر الصفحات المقروءة في كل كتب الرف؟")) SetBooksDone(books, false); })));
-        if (books.Count > 0) items.Add(MenuItem("📤  شارك الرف (ملف ZIP تبعته لحد)…", () => ShareShelfDialog(s)));
+                MenuItem("وسم كل الكتب «مقروءة»", () => SetBooksDone(books, true)),
+                MenuItem("↺  تصفير التقدّم في الرف…", () => { if (Confirm("هل تريد تصفير الصفحات المقروءة في كل كتب الرف؟")) SetBooksDone(books, false); })));
+        if (books.Count > 0) items.Add(MenuItem("📤  شارك الرف (ملف ZIP ترسله لشخص آخر)…", () => ShareShelfDialog(s)));
         if (s.SourceFolder != null)
             items.Add(SubMenuOf("📂  المصدر",
-                MenuItem("📂  فتح الفولدر", () => OpenFolder(s.SourceFolder)),
-                MenuItem("بطّل متابعة الفولدر (الكتب بتفضل)", () => { Checkpoint("بطّل متابعة الفولدر"); s.SourceFolder = null; s.TouchInfo(); MarkDirty(); RebuildShelf(); })));
+                MenuItem("📂  فتح المجلد", () => OpenFolder(s.SourceFolder)),
+                MenuItem("أوقف متابعة المجلد (تبقى الكتب)", () => { Checkpoint("أوقف متابعة المجلد"); s.SourceFolder = null; s.TouchInfo(); MarkDirty(); RebuildShelf(); })));
         items.Add(Sep());
         items.Add(MenuItem("🗑  حذف الرف…", () => DeleteShelfItem(s), "Delete"));
     }
@@ -522,8 +522,8 @@ internal sealed partial class MainForm
     private void BuildBookMenu(Book b, ToolStripItemCollection items)
     {
         if (b.IsBoard) { BuildBoardMenu(b, items); return; }
-        items.Add(MenuItem(b.IsPresentation ? (b.LastPage > 1 ? $"▶  اعرض من شريحة {b.LastPage}" : "▶  اعرض (بالأنيميشن)") : b.IsStarted && b.LastPage > 1 && !b.IsDone ? $"▶  كمّل من صفحة {b.LastPage}" : "▶  افتح الكتاب", () => OpenBook(b), "Enter"));
-        if (b.LastPage > 1) items.Add(MenuItem("⏮  افتحه من الأول", () => OpenBook(b, 1)));
+        items.Add(MenuItem(b.IsPresentation ? (b.LastPage > 1 ? $"▶  اعرض من الشريحة {b.LastPage}" : "▶  اعرض (بالحركات)") : b.IsStarted && b.LastPage > 1 && !b.IsDone ? $"▶  تابع من الصفحة {b.LastPage}" : "▶  افتح الكتاب", () => OpenBook(b), "Enter"));
+        if (b.LastPage > 1) items.Add(MenuItem("⏮  افتحه من البداية", () => OpenBook(b, 1)));
         if (BookFiles.FormatOf(BookFile(b)) == "pdf")
             items.Add(MenuItem("🖊  اشرح عليه (أقلام وألوان وأشكال وملصقات)" + (b.InkCount > 0 ? $" — عليه {b.InkCount}" : ""), () => OpenBookForInk(b), "Ctrl+Shift+D"));
         AddAnnotatedMenu(b, items, 0);
@@ -532,7 +532,7 @@ internal sealed partial class MainForm
         if (b.IsOnline)
         {
             items.Add(Sep());
-            items.Add(MenuItem(File.Exists(BookFile(b)) ? "🔄  هات أحدث نسخة من المصدر" : "🔄  نزّل الكتاب على الجهاز", () => _ = RefreshOnlineBookAsync(b)));
+            items.Add(MenuItem(File.Exists(BookFile(b)) ? "🔄  اجلب أحدث نسخة من المصدر" : "🔄  نزّل الكتاب على الجهاز", () => _ = RefreshOnlineBookAsync(b)));
         }
         items.Add(Sep());
         items.Add(MenuItem("✏  إعادة تسمية…", () => RenameShelfItem(b), "F2"));
@@ -543,11 +543,11 @@ internal sealed partial class MainForm
         items.Add(Sep());
         items.Add(ShelfMoveMenu(b));
         items.Add(SubMenuOf("↕  ترتيب",
-            MenuItem("تحريك لفوق", () => MoveShelfItem(b, -1), "Alt+↑"),
-            MenuItem("تحريك لتحت", () => MoveShelfItem(b, +1), "Alt+↓")));
+            MenuItem("تحريك لأعلى", () => MoveShelfItem(b, -1), "Alt+↑"),
+            MenuItem("تحريك لأسفل", () => MoveShelfItem(b, +1), "Alt+↓")));
         items.Add(SubMenuOf("✔  التقدّم",
-            MenuItem(b.IsDone ? "رجّعه «مش مقروء»" : "تعليمه «اتقرا»", () => SetBooksDone(new[] { b }, !b.IsDone), "W"),
-            MenuItem("↺  تصفير التقدّم…", () => { if (Confirm($"تصفّر الصفحات المقروءة في «{b.Title}»؟")) ResetBook(b); })));
+            MenuItem(b.IsDone ? "أعده «غير مقروء»" : "وسمه «مقروء»", () => SetBooksDone(new[] { b }, !b.IsDone), "W"),
+            MenuItem("↺  تصفير التقدّم…", () => { if (Confirm($"هل تريد تصفير الصفحات المقروءة في «{b.Title}»؟")) ResetBook(b); })));
         if (b.PageCount > 0)
         {
             int pg = Math.Max(1, b.LastPage);
@@ -555,36 +555,36 @@ internal sealed partial class MainForm
         }
         AddAnnotatedMenu(b, items, 5);
         AddAnnotatedMenu(b, items, 6);
-        if (b.IsPresentation) items.Add(MenuItem("📤  حوّل العرض لفيديو MP4 (بالأنيميشن وعلامة لكل شريحة)…", () => ConvertPresentationToVideo(b)));
+        if (b.IsPresentation) items.Add(MenuItem("📤  حوّل العرض إلى فيديو MP4 (بالحركات وعلامة لكل شريحة)…", () => ConvertPresentationToVideo(b)));
         items.Add(MenuItem("📝  حفظ التظليلات والملاحظات (Markdown)…", () => ExportBookNotes(b)));
         if (BookFiles.FormatOf(BookFile(b)) == "pdf")
-            items.Add(MenuItem("📝  حوّل الصفحات المتصوّرة لنص (OCR) — للبحث والذكاء", () => _ = OcrBookAsync(b)));
+            items.Add(MenuItem("📝  حوّل الصفحات المصوّرة إلى نص (OCR) — للبحث والذكاء الاصطناعي", () => _ = OcrBookAsync(b)));
         var src = new List<ToolStripItem>();
         if (b.IsOnline) src.Add(MenuItem("🌐  افتح الرابط في المتصفح", () => OpenInBrowser(b.Path)));
         if (File.Exists(BookFile(b)))
         {
-            src.Add(MenuItem("📂  افتح مكان الملف" + (b.IsOnline ? " (النسخة المتنزلة)" : ""), () => OpenInExplorer(BookFile(b))));
-            src.Add(MenuItem("📂  افتحه في البرنامج العادي للـ PDF", () => OpenExternally(b)));
+            src.Add(MenuItem("📂  افتح مكان الملف" + (b.IsOnline ? " (النسخة المنزّلة)" : ""), () => OpenInExplorer(BookFile(b))));
+            src.Add(MenuItem("📂  افتحه في برنامج PDF المعتاد", () => OpenExternally(b)));
         }
         if (!b.IsOnline && !FileCache.Exists(b.LocalPath)) src.Add(MenuItem("📂  حدّد مكان الملف…", () => RelocateBook(b)));
         items.Add(SubMenuOf("📂  الملف", src.ToArray()));
         items.Add(Sep());
-        items.Add(MenuItem("🗑  شيل الكتاب من الرف (الملف مش بيتمسح)", () => DeleteShelfItem(b), "Delete"));
+        items.Add(MenuItem("🗑  أزل الكتاب من الرف (لا يُحذف الملف)", () => DeleteShelfItem(b), "Delete"));
     }
 
     private void BuildSectionMenu(BookSection s, ToolStripItemCollection items)
     {
-        items.Add(MenuItem($"▶  افتح عند «{s.Title}» (صفحة {s.From})", () => OpenBook(s.Book, s.From), "Enter"));
+        items.Add(MenuItem($"▶  افتح عند «{s.Title}» (الصفحة {s.From})", () => OpenBook(s.Book, s.From), "Enter"));
         items.Add(Sep());
         bool done = s.Book.FractionOf(s.From, s.To) >= 0.95;
-        items.Add(MenuItem(done ? "✔  رجّع الفصل «مش مقروء»" : "✔  علّم الفصل «اتقرا»", () => SetSectionRead(s, !done), "W"));
+        items.Add(MenuItem(done ? "✔  أعد الفصل «غير مقروء»" : "✔  وسم الفصل «مقروء»", () => SetSectionRead(s, !done), "W"));
         items.Add(MenuItem($"✨  لخّص «{s.Title}»", () => _ = SummarizeBookPartAsync(s.Book, s.Title, s.From, s.To)));
         items.Add(MenuItem($"✨  اختبرني في «{s.Title}»", () => _ = QuizBookPartAsync(s.Book, s.Title, s.From, s.To)));
     }
 
     private void BuildMarkMenu(BookMarkRef m, ToolStripItemCollection items)
     {
-        items.Add(MenuItem($"▶  روح لصفحة {m.Mark.Page}", () => OpenBook(m.Book, m.Mark.Page), "Enter"));
+        items.Add(MenuItem($"▶  اذهب إلى الصفحة {m.Mark.Page}", () => OpenBook(m.Book, m.Mark.Page), "Enter"));
         items.Add(Sep());
         items.Add(MenuItem("✏  تعديل الملاحظة…", () => EditPageMark(m), "F2"));
         items.Add(Sep());
@@ -596,7 +596,7 @@ internal sealed partial class MainForm
         var self = item as Shelf;
         var current = item switch { Book b => _library.ShelfOf(b), Shelf s => _library.ParentOf(s), _ => null };
         var list = new List<ToolStripItem>();
-        if (current != null) list.Add(MenuItem(self != null ? "برا (رف أساسي)" : "برا الرفوف", () => MoveToShelf(item, null)));
+        if (current != null) list.Add(MenuItem(self != null ? "خارج الرفوف (رف أساسي)" : "خارج الرفوف", () => MoveToShelf(item, null)));
         foreach (var s in _library.Shelves)
         {
             if (s == current || self != null && !_library.CanNest(self, s)) continue;
@@ -605,8 +605,8 @@ internal sealed partial class MainForm
             var target = s;
             list.Add(MenuItem(string.Join(" › ", path), () => MoveToShelf(item, target)));
         }
-        if (list.Count == 0) list.Add(new ToolStripMenuItem("مفيش رفوف تانية") { Enabled = false, ForeColor = Theme.Muted });
-        return SubMenuOf("↔  انقل لرف…", list.ToArray());
+        if (list.Count == 0) list.Add(new ToolStripMenuItem("لا توجد رفوف أخرى") { Enabled = false, ForeColor = Theme.Muted });
+        return SubMenuOf("↔  انقل إلى رف…", list.ToArray());
     }
 
     private bool Confirm(string text) => SmokeAskText != null || Dialogs.Confirm(this, text);
@@ -625,7 +625,7 @@ internal sealed partial class MainForm
     private void AddShelfDialog(Shelf? parent)
     {
         if (!EnsureLibrary()) return;
-        string? name = AskText("رف جديد", parent != null ? $"اسم الرف (جوه «{parent.Name}»):" : "اسم الرف:", "");
+        string? name = AskText("رف جديد", parent != null ? $"اسم الرف (داخل «{parent.Name}»):" : "اسم الرف:", "");
         if (name == null) return;
         var s = AddShelf(name, parent);
         SelectShelfItem(s);
@@ -649,7 +649,7 @@ internal sealed partial class MainForm
         if (!EnsureLibrary()) return;
         using var dlg = new OpenFileDialog
         {
-            Title = "اختار كتاب أو أكتر (PDF / EPUB / PowerPoint)" + (shelf != null ? $" — هيتحط في «{shelf.Name}»" : ""),
+            Title = "اختر كتابًا أو أكثر (PDF / EPUB / PowerPoint)" + (shelf != null ? $" — سيوضع في «{shelf.Name}»" : ""),
             Filter = "كتب وعروض (PDF و EPUB و PowerPoint)|*.pdf;*.epub;*.pptx;*.ppsx;*.pptm;*.ppt;*.pps|كل الملفات|*.*", Multiselect = true, RestoreDirectory = true
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
@@ -668,18 +668,18 @@ internal sealed partial class MainForm
     private void AddBooksFromFolderDialog(Shelf? parent)
     {
         if (!EnsureLibrary()) return;
-        string? dir = PickFolder(this, "اختار فولدر الكتب (كل فولدر جواه بيبقى رف)" + (parent != null ? $" — جوه «{parent.Name}»" : ""));
+        string? dir = PickFolder(this, "اختر مجلد الكتب (كل مجلد بداخله يصبح رفًا)" + (parent != null ? $" — داخل «{parent.Name}»" : ""));
         if (dir == null) return;
-        if (!BookFiles.HasBooks(dir)) { Dialogs.Info(this, "مفيش كتب (PDF أو EPUB) في الفولدر ده ولا في الفولدرات اللي جواه."); return; }
+        if (!BookFiles.HasBooks(dir)) { Dialogs.Info(this, "لا توجد كتب (PDF أو EPUB) في هذا المجلد ولا في المجلدات التي بداخله."); return; }
         var s = AddBooksFromFolder(dir, parent);
         SelectShelfItem(s);
-        ShowStatus($"اتضاف رف «{s.Name}» فيه {_library.AllBooksUnder(s).Count()} كتاب — وأي كتاب جديد في الفولدر هيتضاف لما تحدّث الرف", 6);
+        ShowStatus($"أُضيف رف «{s.Name}» وفيه {_library.AllBooksUnder(s).Count()} كتاب — وسيُضاف أي كتاب جديد في المجلد عند تحديث الرف", 6);
     }
 
     private void AnnounceAdded(int added, int picked)
     {
-        if (added == 0) ShowStatus(picked > 0 ? "الكتب دي موجودة على الرف أصلًا" : "مفيش كتب اتضافت", 4);
-        else ShowStatus(added == 1 ? "اتضاف كتاب ✓ — دبل كليك عشان تقراه" : $"اتضاف {added} كتاب ✓", 4);
+        if (added == 0) ShowStatus(picked > 0 ? "هذه الكتب موجودة على الرف بالفعل" : "لم تُضف أي كتب", 4);
+        else ShowStatus(added == 1 ? "أُضيف كتاب ✓ — انقر نقرًا مزدوجًا لقراءته" : $"أُضيف {added} كتاب ✓", 4);
     }
 
     /// <summary>بيضيف ملفات كتب للرف (الموجود أصلًا بيتساب). بيرجّع اللي اتضاف.</summary>
@@ -710,7 +710,7 @@ internal sealed partial class MainForm
     /// <summary>فولدر = رف (والفولدرات اللي جواه رفوف فرعية)، ومربوط عشان الجديد يتضاف.</summary>
     internal Shelf AddBooksFromFolder(string dir, Shelf? parent)
     {
-        Checkpoint("كتب من فولدر");
+        Checkpoint("كتب من مجلد");
         dir = Path.GetFullPath(dir);
         var shelf = _library.Shelves.FirstOrDefault(s => s.SourceFolder != null && FolderLink.Norm(s.SourceFolder) == FolderLink.Norm(dir))
                     ?? AddShelf(Path.GetFileName(dir.TrimEnd('\\', '/')) is { Length: > 0 } n ? n : dir, parent, dir, checkpoint: false);
@@ -754,13 +754,13 @@ internal sealed partial class MainForm
         if (s.SourceFolder == null) return 0;
         if (!Directory.Exists(s.SourceFolder))
         {
-            if (announce) ShowBanner("فولدر الرف مش موجود دلوقتي: " + s.SourceFolder + " — لو على الدرايف اتأكد إن برنامجه شغال", BannerKind.Warning, seconds: 8);
+            if (announce) ShowBanner("مجلد الرف غير موجود الآن: " + s.SourceFolder + " — إن كان على Drive فتأكد من أن برنامجه يعمل", BannerKind.Warning, seconds: 8);
             return 0;
         }
-        Checkpoint("الكتب الجديدة من الفولدر");
+        Checkpoint("الكتب الجديدة من المجلد");
         int n = FillShelfFromFolder(s, s.SourceFolder, 0);
         if (n > 0) { MarkDirty(); RebuildShelf(); }
-        if (announce) ShowStatus(n == 0 ? "مفيش كتب جديدة في الفولدر" : $"اتضاف {n} كتاب جديد ✓", 4);
+        if (announce) ShowStatus(n == 0 ? "لا توجد كتب جديدة في المجلد" : $"أُضيف {n} كتاب جديد ✓", 4);
         return n;
     }
 
@@ -942,8 +942,8 @@ internal sealed partial class MainForm
                 var shelves = _library.ShelfTree(s).ToList();
                 var books = _library.AllBooksUnder(s).ToList();
                 string text = books.Count == 0 && shelves.Count == 1
-                    ? $"تحذف الرف «{s.Name}»؟"
-                    : $"تحذف الرف «{s.Name}» وكل اللي جواه ({books.Count} كتاب{(shelves.Count > 1 ? $"، {shelves.Count - 1} رف" : "")})؟\nالملفات نفسها مش هتتمسح من الجهاز.";
+                    ? $"هل تريد حذف الرف «{s.Name}»؟"
+                    : $"هل تريد حذف الرف «{s.Name}» وكل ما بداخله ({books.Count} كتاب{(shelves.Count > 1 ? $"، {shelves.Count - 1} رف" : "")})؟\nلن تُحذف الملفات نفسها من الجهاز.";
                 if (!Confirm(text)) return;
                 Checkpoint("حذف رف");
                 if (_currentBook != null && books.Contains(_currentBook)) CloseReader(showHome: true);
@@ -952,8 +952,8 @@ internal sealed partial class MainForm
                 break;
             }
             case Book b:
-                if (!Confirm($"تشيل «{b.Title}» من الرف؟\n(الملف نفسه مش هيتمسح، بس التقدّم والعلامات بتوعه هيروحوا)")) return;
-                Checkpoint("شيل كتاب");
+                if (!Confirm($"هل تريد إزالة «{b.Title}» من الرف؟\n(لن يُحذف الملف نفسه، لكن سيُحذف تقدّمه وعلاماته)")) return;
+                Checkpoint("إزالة كتاب");
                 if (b == _currentBook) CloseReader(showHome: true);
                 _library.Books.Remove(b);
                 _deletedKeys.Add(LibrarySync.BookKey(b));
@@ -974,7 +974,7 @@ internal sealed partial class MainForm
     {
         var list = books.ToList();
         if (list.Count == 0) return;
-        Checkpoint(done ? "تعليم «اتقرا»" : "تصفير التقدّم");
+        Checkpoint(done ? "وسم «مقروء»" : "تصفير التقدّم");
         foreach (var b in list)
         {
             if (done) b.MarkedDone = true;
@@ -998,7 +998,7 @@ internal sealed partial class MainForm
 
     internal void SetSectionRead(BookSection s, bool read)
     {
-        Checkpoint(read ? "تعليم الفصل «اتقرا»" : "الفصل «مش مقروء»");
+        Checkpoint(read ? "وسم الفصل «مقروء»" : "الفصل «غير مقروء»");
         var set = s.Book.Read;
         var pages = set.Pages.ToHashSet();
         for (int p = s.From; p <= s.To; p++) { if (read) pages.Add(p); else pages.Remove(p); }
@@ -1015,20 +1015,20 @@ internal sealed partial class MainForm
     internal PageMark AddPageMark(Book b, int page, string note = "")
     {
         var existing = b.Marks.FirstOrDefault(m => m.Page == page);
-        if (existing != null) { ShowStatus($"فيه علامة على صفحة {page} أصلًا", 3); return existing; }
+        if (existing != null) { ShowStatus($"توجد علامة على الصفحة {page} بالفعل", 3); return existing; }
         var m = new PageMark { Page = page, Note = note };
         b.Marks.Add(m);
         b.TouchProgress();
         MarkDirty();
         if (b == _currentBook) _ = _reader?.SetMarksAsync(b.Marks.Select(x => x.Page));
         if (_shelfMode) RebuildShelf();
-        ShowStatus($"🔖 علامة على صفحة {page} — بتلاقيها تحت الكتاب في «الكتب»", 4);
+        ShowStatus($"🔖 علامة على الصفحة {page} — تجدها تحت الكتاب في «الكتب»", 4);
         return m;
     }
 
     private void EditPageMark(BookMarkRef m)
     {
-        string? note = AskText("ملاحظة العلامة", $"ملاحظة على صفحة {m.Mark.Page}:", m.Mark.Note);
+        string? note = AskText("ملاحظة العلامة", $"ملاحظة على الصفحة {m.Mark.Page}:", m.Mark.Note);
         if (note == null || note == m.Mark.Note) return;
         Checkpoint("تعديل علامة");
         m.Mark.Note = note;
@@ -1040,12 +1040,12 @@ internal sealed partial class MainForm
     private void OpenExternally(Book b)
     {
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(BookFile(b)) { UseShellExecute = true })?.Dispose(); }
-        catch (Exception ex) { Dialogs.Error(this, "مقدرتش أفتحه: " + ex.Message); }
+        catch (Exception ex) { Dialogs.Error(this, "تعذّر فتحه: " + ex.Message); }
     }
 
     private bool RelocateBook(Book b)
     {
-        using var dlg = new OpenFileDialog { Title = $"فين «{b.Title}»؟", Filter = "كتب (PDF و EPUB)|*.pdf;*.epub|كل الملفات|*.*", FileName = Path.GetFileName(b.Path) };
+        using var dlg = new OpenFileDialog { Title = $"أين «{b.Title}»؟", Filter = "كتب (PDF و EPUB)|*.pdf;*.epub|كل الملفات|*.*", FileName = Path.GetFileName(b.Path) };
         try { if (Directory.Exists(Path.GetDirectoryName(b.Path))) dlg.InitialDirectory = Path.GetDirectoryName(b.Path); } catch { }
         if (dlg.ShowDialog(this) != DialogResult.OK) return false;
         Checkpoint("مكان الكتاب");
@@ -1143,7 +1143,7 @@ internal sealed partial class MainForm
         {
             if (gen != _readerGen || IsDisposed) return;
             Log.Info($"reader failed: {code} {message}");
-            ShowBanner("مقدرتش أفتح الكتاب" + (string.IsNullOrWhiteSpace(message) ? "" : ": " + message), BannerKind.Warning, seconds: 10, key: "reader");
+            ShowBanner("تعذّر فتح الكتاب" + (string.IsNullOrWhiteSpace(message) ? "" : ": " + message), BannerKind.Warning, seconds: 10, key: "reader");
         };
         pane.KeyForwarded += key =>
         {
@@ -1163,8 +1163,8 @@ internal sealed partial class MainForm
         if (!ReaderPane.Available)
         {
             ShowBanner(UdemyWeb.RuntimeVersion == null
-                    ? "قارئ الكتب محتاج «Microsoft Edge WebView2» (موجود في ويندوز 10/11 عادةً)"
-                    : "ملفات قارئ الكتب مش موجودة جنب البرنامج — نزّل آخر إصدار تاني",
+                    ? "قارئ الكتب يحتاج إلى «Microsoft Edge WebView2» (موجود عادةً في ويندوز 10/11)"
+                    : "ملفات قارئ الكتب غير موجودة بجانب البرنامج — نزّل آخر إصدار مرة أخرى",
                 BannerKind.Warning, UdemyWeb.RuntimeVersion == null ? "تنزيله" : null,
                 UdemyWeb.RuntimeVersion == null ? () => OpenInBrowser(WebView2Download) : null, seconds: 0, key: "reader");
             return;
@@ -1179,7 +1179,7 @@ internal sealed partial class MainForm
             FileCache.Forget(b.LocalPath);
             if (!File.Exists(b.LocalPath))
             {
-                if (SmokeAskText == null && Dialogs.Confirm(this, $"ملف الكتاب مش موجود:\n{b.Path}\n\nلو على Google Drive أو Dropbox اتأكد إن برنامجهم شغال.\nتحب تحدد مكانه الجديد؟") && RelocateBook(b))
+                if (SmokeAskText == null && Dialogs.Confirm(this, $"ملف الكتاب غير موجود:\n{b.Path}\n\nإن كان على Google Drive أو Dropbox فتأكد من أن برنامجهما يعمل.\nهل تريد تحديد مكانه الجديد؟") && RelocateBook(b))
                     OpenBook(b, page);
                 return;
             }
@@ -1224,12 +1224,12 @@ internal sealed partial class MainForm
             _readerGen = await pane.OpenAsync(BookFile(b), b.Title, b, Math.Max(1, _settings.ReadSeconds), _settings.ReaderTheme, b.Read.Pages, ink, _settings.InkPrefs);
             BindInkSession(_readerGen);
             if (b.IsOnline) _ = CheckBookUpdateAsync(b);
-            ShowStatus(b.LastPage > 1 && page == null ? $"«{b.Title}» — كمّل من صفحة {b.LastPage}" : $"«{b.Title}»", 4);
+            ShowStatus(b.LastPage > 1 && page == null ? $"«{b.Title}» — تابع من الصفحة {b.LastPage}" : $"«{b.Title}»", 4);
         }
         catch (Exception ex)
         {
             Log.Error("reader open", ex);
-            if (_currentBook == b) ShowBanner("مقدرتش أفتح قارئ الكتب: " + ex.Message, BannerKind.Warning, seconds: 0, key: "reader");
+            if (_currentBook == b) ShowBanner("تعذّر فتح قارئ الكتب: " + ex.Message, BannerKind.Warning, seconds: 0, key: "reader");
         }
     }
 
@@ -1299,7 +1299,7 @@ internal sealed partial class MainForm
         b.TouchProgress();
         MarkPositionDirty();
         if (oldPage != st.Page && _shelfMode) RefreshBookRows(b);
-        if (oldPage != st.Page && Recording) RecordingMark((b.IsBoard ? "🧑‍🏫 " : "📖 ") + b.Title + " — صفحة " + st.Page);
+        if (oldPage != st.Page && Recording) RecordingMark((b.IsBoard ? "🧑‍🏫 " : "📖 ") + b.Title + " — الصفحة " + st.Page);
     }
 
     private void OnPagesRead(int gen, int[] pages)
@@ -1314,7 +1314,7 @@ internal sealed partial class MainForm
         _pagesSession += added;
         MarkPositionDirty();
         if (_shelfMode) RefreshBookRows(b);
-        if (!wasDone && b.IsDone) ShowBanner($"خلّصت «{b.Title}» 🎉", BannerKind.Success, seconds: 8);
+        if (!wasDone && b.IsDone) ShowBanner($"أكملت «{b.Title}» 🎉", BannerKind.Success, seconds: 8);
     }
 
     private void OnReaderCommand(int gen, string name, int page)
@@ -1328,7 +1328,7 @@ internal sealed partial class MainForm
             case "ai": ShowReaderAiMenu(); break;
             case "present-on": OnReaderPresent(true); break;
             case "present-off": OnReaderPresent(false); break;
-            case "ink-save": SaveAllInk(); ShowStatus("الشرح اتحفظ", 3); break;
+            case "ink-save": SaveAllInk(); ShowStatus("حُفظ الشرح", 3); break;
             case "ink-off": SaveAllInk(); break;
             case "pe-open": OpenPageEditor(b); break;
             case var bc when bc.StartsWith("board-", StringComparison.Ordinal): OnBoardCommand(bc); break;
@@ -1369,7 +1369,7 @@ internal sealed partial class MainForm
                 case Keys.PageDown: _ = _reader!.StepAsync(1); return true;
                 case Keys.PageUp: _ = _reader!.StepAsync(-1); return true;
                 case Keys.B: AddPageMark(_currentBook!, Math.Max(1, _currentBook!.LastPage)); return true;
-                case Keys.P: ShowStatus("المشغل الصغير للفيديو بس", 2); return true;
+                case Keys.P: ShowStatus("المشغل الصغير للفيديو فقط", 2); return true;
                 case Keys.Space when !_shelfTree.Focused: _ = _reader!.FocusAsync(); return true;
             }
         }
@@ -1403,14 +1403,14 @@ internal sealed partial class MainForm
         var info = new Label
         {
             Dock = DockStyle.Top, Height = 22, ForeColor = Theme.Muted, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleRight,
-            Text = shelf + (b.PageCount > 0 ? $"صفحة {Math.Max(1, b.LastPage)} من {b.PageCount}  ·  {percent}%" : "لسه بادئ") +
+            Text = shelf + (b.PageCount > 0 ? $"الصفحة {Math.Max(1, b.LastPage)} من {b.PageCount}  ·  {percent}%" : "في البداية") +
                    (b.LastOpenedUtc is { } lo ? "  ·  " + RelativeDay(lo) : "")
         };
         var f = BookForecast(b);
         var next = new Label
         {
             Dock = DockStyle.Top, Height = 24, ForeColor = Theme.Text, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleRight,
-            Text = CurrentSectionTitle(b) is { } sec ? "إنت في: " + sec : f.Finish is { } d ? $"هتخلّصه حوالي {d:d MMM}" : ""
+            Text = CurrentSectionTitle(b) is { } sec ? "أنت في: " + sec : f.Finish is { } d ? $"ستُكمله نحو {d:d MMM}" : ""
         };
         var bar = new Panel { Dock = DockStyle.Bottom, Height = 6, BackColor = Theme.Back };
         bar.Paint += (_, e) =>
