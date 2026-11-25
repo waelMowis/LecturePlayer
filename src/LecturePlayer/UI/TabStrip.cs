@@ -20,7 +20,9 @@ internal sealed class TabStrip : Control
     private string _lastTip = "";
 
     /// <summary>نص زر الجلسة (مثل «📚 بلا جلسة ▾»).</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public string SessionText { get; set; } = "";
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool SessionActive { get; set; }
 
     public event Action<int>? TabClicked;
