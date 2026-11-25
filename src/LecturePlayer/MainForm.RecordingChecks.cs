@@ -49,6 +49,7 @@ internal sealed partial class MainForm
             Pump(1500);
             SaveSmokeShot(this, "record-live");
             RecordingMark("علامة الفحص");
+            double markAt = s.Rec.Elapsed.TotalSeconds;
             Pump(1200);
             Run(async () => { await TogglePauseAsync(); return 0; });
             Check(s.Rec.Paused, "paused");
@@ -62,8 +63,8 @@ internal sealed partial class MainForm
             double recorded = s.Rec.Elapsed.TotalSeconds;
             ToggleScreenInk();
             Check(_screenInk == null, "screen ink closed");
-            // قص: نشيل أول نص ثانية وثانية من النص — والمشهد يتغير لـ «الكاميرا كبيرة» فوق شمال
-            SmokeRecordEdit = new RecordEdit("تسجيل الفحص", 0.5, 0, new() { (2.0, 3.0) }, RecordingEdit.Scene.CamBigScreenSmall, RecordingEdit.Corner.TopLeft);
+            // قص: نشيل أول نص ثانية، وثانية بعد العلامة (العلامة نفسها لازم تفضل وتتزحلق) — والمشهد يتغير لـ «الكاميرا كبيرة» فوق شمال
+            SmokeRecordEdit = new RecordEdit("تسجيل الفحص", 0.5, 0, new() { (markAt + 0.8, markAt + 1.8) }, RecordingEdit.Scene.CamBigScreenSmall, RecordingEdit.Corner.TopLeft);
             SmokeKeepRecording = true;
             work = s.Dir;
             var v = Run(() => StopRecordingAsync(save: true));
@@ -74,7 +75,8 @@ internal sealed partial class MainForm
             double expect = recorded - 0.5 - 1.0;
             Console.WriteLine($"SMOKE record: recorded {recorded:0.00}s → final {dur:0.00}s (expect ≈{expect:0.00}), marks: {string.Join(" | ", v.Bookmarks.Select(b => b.TimeMs + ":" + b.Note))}");
             Check(Math.Abs(dur - expect) < 1.2, $"duration after trim {dur:0.00} vs {expect:0.00}");
-            Check(v.Bookmarks.Any(b => b.Note == "علامة الفحص"), "manual mark became a bookmark");
+            var mk = v.Bookmarks.FirstOrDefault(b => b.Note == "علامة الفحص");
+            Check(mk != null && Math.Abs(mk.TimeMs / 1000.0 - (markAt - 0.5)) < 0.6, $"manual mark became a bookmark, shifted by the trimmed start ({mk?.TimeMs} vs {(markAt - 0.5) * 1000:0})");
             Check(_library.Courses.Any(c => c.Name == "تسجيلاتي" && c.Groups.Any(g => g.Videos.Contains(v))), "added to «تسجيلاتي»");
             Check(LastRecordingCamera != null && File.Exists(LastRecordingCamera) && File.Exists(Path.ChangeExtension(final, null) + " — كاميرا.mp4"), "camera file kept");
 
