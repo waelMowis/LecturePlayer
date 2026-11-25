@@ -2,6 +2,7 @@ import { Epub as E } from "./epub.js";
 import { Ink } from "./ink.js";
 import { InkUI } from "./ink-ui.js";
 import { buildAnnotated, pagePng } from "./ink-export.js";
+import { PageEditor } from "./page-editor.js";
 const host = window.chrome && window.chrome.webview;
 function post(msg) {
   const s = JSON.stringify(msg);
@@ -605,6 +606,7 @@ function toLatin(s) { return String(s).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦�
 function typing(el) { return el && (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA"); }
 function onKeyDown(e) {
   const k = e.key, ctrl = e.ctrlKey || e.metaKey;
+  if (document.body.classList.contains("pe-on")) return; // محرر الصفحات بيتعامل مع الكيبورد بتاعه
   if (InkUI.key(e)) return;
   if (k === "F5" && S.kind === "pdf" && S.doc && !ctrl && !e.altKey) { e.preventDefault(); setPresent(); return; }
   if (k === "Escape" && document.body.classList.contains("present")) { e.preventDefault(); setPresent(false); return; }
@@ -669,6 +671,11 @@ window.masar = {
   inkTest: () => ({ Ink, InkUI }),
   /** نسخة مشروحة: الأصل + الشرح ← PDF بيتبعت للبرنامج على save. النتيجة: رسالة job. */
   annotate: (id, src, save, inkJson, title) => { runAnnotate(id, src, save, inkJson, title); return "ok"; },
+  /** محرر الصفحات (البرنامج بيفتحه على نسخة العمل بس). */
+  pageEditor: () => { openPageEditor(); return "ok"; },
+  /** رد البرنامج على طلب ملف (فتح/حفظ): رابط أو null. */
+  pickResult: (id, url) => { const r = picks.get(id); if (r) { picks.delete(id); r(url || null); } return "ok"; },
+  peTest: () => PageEditor,
   /** صورة الصفحة بالشرح (PNG) ← save. */
   pagePng: (id, page, save, scale) => { runPagePng(id, page, save, scale); return "ok"; },
   state: () => JSON.stringify({ kind: S.kind, page: hasDoc() ? curPage() : 0, pages: pageTotal(), scale: S.kind === "epub" ? "font:" + E.font : String(viewer.currentScaleValue), spread: S.spread, theme: S.theme, rtl: S.rtl, read: [...S.read], gen: S.opts.gen })
@@ -693,6 +700,28 @@ async function runPagePng(id, page, save, scale) {
   } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
 }
 
+// ---------------------------------------------------------------- محرر الصفحات
+const picks = new Map();
+let pickSeq = 0;
+/** طلب من البرنامج: open-pdf (ملف يتضم) / save-pdf (مكان حفظ) / save-self (نسخة العمل نفسها). */
+function pick(kind, name) {
+  const id = "p" + (++pickSeq);
+  return new Promise(r => { picks.set(id, r); post({ t: "pick", gen: S.opts.gen, id, kind, name: name || "" }); });
+}
+async function openPageEditor() {
+  if (S.kind !== "pdf" || !S.doc || document.body.classList.contains("pe-on")) return;
+  if (Ink.on) InkUI.setOn(false);
+  Ink.flush();
+  await PageEditor.open({
+    doc: S.doc, src: S.opts.url, title: S.opts.title, pick, pdfjsLib, docOpts: DOC_OPTS, rtl: S.rtl,
+    onMap: map => post({ t: "pemap", gen: S.opts.gen, map }),
+    goTo: p => goTo(p),
+    onSaved: r => post({ t: "cmd", gen: S.opts.gen, name: "pe-saved", page: r && r.pages || 0 }),
+    onClose: () => container.focus()
+  });
+}
+$("pagesBtn").addEventListener("click", () => post({ t: "cmd", gen: S.opts.gen, name: "pe-open", page: curPage() }));
+
 // ---------------------------------------------------------------- أدوات الشرح
 Ink.init({ post: m => post({ ...m, gen: S.opts.gen }), container });
 Ink.keepAlive($("viewer"));
@@ -714,6 +743,8 @@ function inkOpen(o) {
   if (o.inkPrefs) Ink.setPrefs(o.inkPrefs);
   applyInkPrefs();
   $("inkBtn").hidden = o.format === "epub"; // EPUB: التظليل بس (الصفحات بتتغير مع حجم الخط)
+  $("pagesBtn").hidden = o.format === "epub";
+  if (document.body.classList.contains("pe-on")) PageEditor.close(true);
 }
 function inkClose() { if (Ink.on) InkUI.setOn(false); Ink.flush(); Ink.clearSurfaces(); setPresent(false); }
 function setInk(on) {

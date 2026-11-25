@@ -512,6 +512,8 @@ internal sealed partial class MainForm
         items.Add(MenuItem("✏  إعادة تسمية…", () => RenameShelfItem(b), "F2"));
         items.Add(AppearanceMenuItem(b));
         items.Add(MenuItem("📋  بيانات الكتاب (المؤلف)…", () => EditBookInfo(b)));
+        if (BookFiles.FormatOf(BookFile(b)) == "pdf")
+            items.Add(MenuItem(b.WorkCopyOf != null ? "📑  محرر الصفحات…" : "📑  محرر الصفحات (على نسخة عمل)…" + (WorkCopyOf(b) != null ? " — موجودة" : ""), () => OpenPageEditor(b)));
         items.Add(Sep());
         items.Add(ShelfMoveMenu(b));
         items.Add(SubMenuOf("↕  ترتيب",
@@ -1096,6 +1098,8 @@ internal sealed partial class MainForm
         pane.HighlightEdited += OnHighlightEdited;
         pane.InkChanged += OnInkChanged;
         pane.InkPrefsChanged += OnInkPrefsChanged;
+        pane.PickRequested += OnReaderPick;
+        pane.PagesRemapped += OnPagesRemapped;
         pane.Failed += (gen, code, message) =>
         {
             if (gen != _readerGen || IsDisposed) return;
@@ -1231,6 +1235,7 @@ internal sealed partial class MainForm
     {
         if (gen != _readerGen || _currentBook is not { } b || IsDisposed) return;
         if (_inkOnOpen == b) { _inkOnOpen = null; _ = _reader?.SetInkModeAsync(true); }
+        if (_peOnOpen == b) { _peOnOpen = null; _ = _reader?.OpenPageEditorAsync(); }
         int sections = b.Sections().Count;
         ApplyDocInfo(b, info);
         if (b.LastPage > b.PageCount && b.PageCount > 0) b.LastPage = b.PageCount;
@@ -1282,6 +1287,8 @@ internal sealed partial class MainForm
             case "present-off": OnReaderPresent(false); break;
             case "ink-save": SaveAllInk(); ShowStatus("الشرح اتحفظ", 3); break;
             case "ink-off": SaveAllInk(); break;
+            case "pe-open": OpenPageEditor(b); break;
+            case "pe-saved": ReloadAfterPageEdit(b); break;
         }
     }
 

@@ -102,6 +102,33 @@ async function edit(m) {
   let n = 0;
   for (const op of m.ops) {
     switch (op.op) {
+      case "compose": {
+        // ترتيب الصفحات الجديد كله مرة واحدة: صفحات من الكتاب (أو ملف متضاف) بلفّة، وصفحات سبورة وصور
+        const out = await PDFDocument.create();
+        const docs = { src: doc };
+        for (const k in op.merges || {}) docs[k] = await load(op.merges[k]);
+        const want = {};
+        for (const p of op.pages) if (p.doc) (want[p.doc] ||= []).push(p.index);
+        const copies = {};
+        for (const k in want) copies[k] = await out.copyPages(docs[k], want[k]);
+        const used = {};
+        for (const p of op.pages) {
+          if (p.doc) {
+            const pg = copies[p.doc][used[p.doc] = (used[p.doc] ?? -1) + 1];
+            if (p.rot) pg.setRotation(degrees(((pg.getRotation().angle + p.rot) % 360 + 360) % 360));
+            out.addPage(pg);
+          } else if (p.board) boardPage(out, p.size, p.board);
+          else if (p.image) {
+            const img = p.type === "jpg" ? await out.embedJpg(p.image) : await out.embedPng(p.image);
+            const [w, h] = p.size, pg = out.addPage([w, h]);
+            const k = Math.min((w - 40) / img.width, (h - 40) / img.height, 1e9);
+            pg.drawImage(img, { x: (w - img.width * k) / 2, y: (h - img.height * k) / 2, width: img.width * k, height: img.height * k });
+          }
+        }
+        try { const t = doc.getTitle(); if (t) out.setTitle(t); const a = doc.getAuthor(); if (a) out.setAuthor(a); } catch (x) { }
+        doc = out;
+        break;
+      }
       case "order": {
         // ترتيب جديد (أرقام الصفحات القديمة من 0) — بيعمل مستند جديد بالترتيب ده
         const out = await PDFDocument.create();

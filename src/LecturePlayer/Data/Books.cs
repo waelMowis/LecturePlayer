@@ -108,6 +108,8 @@ public sealed class Book
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int InkCount { get; set; }
     /// <summary>النسخة المشروحة: رقم الكتاب الأصلي (الملف ده «مسار» بيعيد كتابته لما الشرح يتغير).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? AnnotatedOf { get; set; }
+    /// <summary>نسخة عمل (محرر الصفحات): رقم الكتاب الأصلي. «مسار» يقدر يعدّل الملف ده بس، والأصل مابيتلمسش.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? WorkCopyOf { get; set; }
 
     public DateTime AddedUtc { get; set; } = DateTime.UtcNow;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DateTime? LastOpenedUtc { get; set; }
@@ -183,6 +185,7 @@ public sealed class Book
 /// <summary>مجموعة صفحات متخزنة كمدى ("1-12,15") عشان الكتب الكبيرة ماتكبّرش الملف.</summary>
 public sealed class PageSet
 {
+    public static PageSet Of(IEnumerable<int> pages) { var s = new PageSet(); foreach (int p in pages) s.Add(p); return s; }
     private readonly SortedSet<int> _pages = new();
 
     public static PageSet Parse(string? s)

@@ -144,3 +144,40 @@ body.present #toolbar { display: none; }
 body.present #viewerContainer, body.present #overlay { inset: 0; }
 body.present #viewerContainer { background: #000; }
 body.present .pdfViewer .page { box-shadow: none; }
+
+/* ===================== محرر الصفحات ===================== */
+#pageEditor { position: fixed; inset: 0; z-index: 60; background: #1e1f22; display: flex; flex-direction: column; outline: none; direction: rtl; font: 13px "Segoe UI", Tahoma, sans-serif; color: #e6e6e6; }
+#pageEditor.busy .pe-grid { opacity: .55; pointer-events: none; }
+.pe-bar { display: flex; align-items: center; gap: 5px; padding: 6px 10px; background: #2b2d31; box-shadow: 0 2px 8px #0006; flex-wrap: wrap; }
+.pe-bar button { height: 30px; font-size: 13px; padding: 0 9px; }
+.pe-bar button:disabled { opacity: .4; cursor: default; }
+.pe-bar button.on { background: #1971c2; color: #fff; }
+.pe-title { font-weight: 700; }
+.pe-count { color: #a0a6ac; }
+.pe-sp { flex: 1; }
+.pe-grid { flex: 1; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; padding: 18px; align-content: start; direction: ltr; }
+.pe-card { background: #2b2d31; border-radius: 8px; padding: 8px; cursor: pointer; border: 2px solid transparent; user-select: none; position: relative; }
+.pe-card.sel { border-color: #4fc3f7; background: #233544; }
+.pe-card.drop-l { box-shadow: -4px 0 0 #ffd43b; }
+.pe-card.drop-r { box-shadow: 4px 0 0 #ffd43b; }
+.pe-thumb { height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.pe-page { position: relative; max-width: 100%; max-height: 100%; background: #fff; box-shadow: 0 2px 8px #0008; transition: transform .2s; }
+.pe-page canvas { display: block; max-width: 150px; max-height: 190px; }
+.pe-page .pe-ink { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.pe-board { width: 140px; }
+.pe-board img { width: 100%; height: 100%; object-fit: contain; }
+.pe-grid-bg, .pe-board.pe-grid { background-image: linear-gradient(#ced4da 1px, transparent 1px), linear-gradient(90deg, #ced4da 1px, transparent 1px); background-size: 10px 10px; }
+.pe-board.pe-lined { background-image: linear-gradient(#ced4da 1px, transparent 1px); background-size: 100% 12px; }
+.pe-board.pe-dots { background-image: radial-gradient(#adb5bd 1px, transparent 1.2px); background-size: 10px 10px; }
+.pe-num { text-align: center; margin-top: 6px; color: #a0a6ac; direction: rtl; }
+.pe-card.sel .pe-num { color: #4fc3f7; }
+.pe-status { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); background: #2b2d31f2; padding: 8px 16px; border-radius: 10px; box-shadow: 0 4px 16px #000a; }
+.pe-status[hidden] { display: none; }
+.pe-dialog, .pe-menu { position: fixed; z-index: 70; background: #2b2d31; border-radius: 10px; box-shadow: 0 10px 30px #000c; padding: 10px; direction: rtl; color: #e6e6e6; font: 13px "Segoe UI", Tahoma, sans-serif; }
+.pe-dialog h4 { margin: 0 0 8px; }
+.pe-dialog .row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.pe-dialog select, .pe-dialog input[type=text] { height: 28px; padding: 0 6px; }
+.pe-dialog button.on { background: #1971c2; color: #fff; }
+.pe-menu { display: flex; flex-direction: column; gap: 3px; padding: 5px; }
+.pe-menu button { text-align: right; justify-content: flex-start; height: 30px; }
+body.pe-on #inkbar, body.pe-on #inksel { display: none; }

@@ -143,6 +143,35 @@ internal partial class MainForm
             Check(InkStore.Versions(_libraryPath, book.Id).Count == 2, "auto version before restore");
             Check(Until(() => !NeedsAnnotated(book), 60_000), "annotated copy rebuilt after restore");
 
+            // ---------- محرر الصفحات على نسخة عمل ----------
+            long origLen = new FileInfo(pdf).Length;
+            OpenPageEditor(book);
+            var wc = WorkCopyOf(book);
+            Check(wc != null && File.Exists(wc.LocalPath) && wc.LocalPath.Contains(AnnotatedFolderName) && wc.InkCount == 8, "work copy created with its ink: " + wc?.InkCount);
+            Check(Until(() => ReaderShown && _currentBook == wc && Js("String(!!document.getElementById('pageEditor'))") == "true", 20_000), "editor opened on the work copy");
+            AddPageMark(wc!, 1);
+            Check(wc!.Marks.Any(m => m.Page == 1), "mark on page 1");
+            string n = Js("(()=>{const P=masar.peTest();P.order([2,1,3,4,5,6]);P.sel=new Set([P.entries[1].id]);P.rotate(90);P.sel=new Set([P.entries[5].id]);P.insertBoard('lined');P.save();return String(P.entries.length)})()");
+            Check(n == "7", "editor entries: " + n);
+            Check(Until(() => wc.PageCount == 7 && ReaderShown && _currentBook == wc && _reader!.Info?.Pages == 7, 40_000), "saved and reloaded: " + wc.PageCount);
+            Check(wc.Marks.Any(m => m.Page == 2) && !wc.Marks.Any(m => m.Page == 1), "mark moved with its page");
+            var wink = InkStore.Load(InkStore.FileFor(_libraryPath, wc.Id));
+            Check(Until(() => { wink = InkStore.Load(InkStore.FileFor(_libraryPath, wc.Id)); return InkStore.Pages(wink)["2"]?.AsArray().Count == 7 && InkStore.Pages(wink)["1"]?.AsArray().Count == 1; }, 10_000),
+                "ink moved with pages: " + string.Join(",", InkStore.Pages(wink).Select(p => p.Key + ":" + p.Value!.AsArray().Count)));
+            Check(new FileInfo(pdf).Length == origLen && book.PageCount == 6, "original untouched");
+            Check(Until(() => Js("String(document.querySelectorAll('.page[data-page-number=\"2\"] .ink-svg > g').length)") == "7", 15_000), "ink drawn on the rotated page");
+            Until(() => false, 500);
+            SaveSmokeShot(this, "ink-workcopy");
+            // استخراج صفحتين لملف لوحده (من غير شباك «حفظ باسم»)
+            SmokeSavePath = Path.Combine(dir, "extract.pdf");
+            Js("masar.pageEditor()");
+            Check(Until(() => Js("String(!!document.querySelector('#pageEditor .pe-card'))") == "true", 10_000), "editor again");
+            Js("(()=>{const P=masar.peTest();P.sel=new Set([P.entries[0].id,P.entries[6].id]);P.extract();return 'ok'})()");
+            Check(Until(() => File.Exists(SmokeSavePath) && new FileInfo(SmokeSavePath).Length > 500, 30_000), "extracted file");
+            var probe = _reader!.ProbeAsync(SmokeSavePath);
+            Check(Until(() => probe.IsCompleted, 30_000) && probe.Result?.Pages == 2, "extracted 2 pages: " + probe.Result?.Pages);
+            Js("masar.peTest().close(true)");
+
             // ---------- وضع العرض ----------
             Js("window.dispatchEvent(new KeyboardEvent('keydown',{key:'F5',bubbles:true}))");
             Check(Until(() => _fullscreen && Js("String(document.body.classList.contains('present'))") == "true", 8000), "present mode → fullscreen");
@@ -164,10 +193,12 @@ internal partial class MainForm
             if (_fullscreen != wasFull) ToggleFullscreen();
             if (ReaderShown) CloseReader(showHome: true);
             var ids = added.Select(x => x.Id).ToHashSet();
-            foreach (var c in _library.Books.Where(x => x.AnnotatedOf != null && ids.Contains(x.AnnotatedOf)).ToList())
+            foreach (var c in _library.Books.Where(x => (x.AnnotatedOf != null && ids.Contains(x.AnnotatedOf)) || (x.WorkCopyOf != null && ids.Contains(x.WorkCopyOf))).ToList())
             {
                 try { File.Delete(c.LocalPath); } catch { }
+                try { File.Delete(InkStore.FileFor(_libraryPath, c.Id)); } catch { }
                 _library.Books.Remove(c);
+                foreach (var cc in _library.Books.Where(x => x.AnnotatedOf == c.Id).ToList()) { try { File.Delete(cc.LocalPath); } catch { } _library.Books.Remove(cc); }
             }
             foreach (var id in ids) try { Directory.Delete(InkStore.VersionsDir(_libraryPath, id), true); } catch { }
             _library.Shelves.RemoveAll(x => x.Kind == AnnotatedShelfKind && !_library.Books.Any(bk => bk.ShelfId == x.Id));

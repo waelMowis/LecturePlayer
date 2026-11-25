@@ -106,12 +106,13 @@ export const InkUI = {
     else this.tool(t, t === "pen" && Ink.pen === "hl" ? "pen" : undefined);
   },
   setOn(on) {
+    const changed = !!on !== Ink.on;
     Ink.setOn(on);
     this.bar.hidden = !on;
     if (!on) { this.closePop(); this.selbar.hidden = true; document.body.classList.remove("present"); }
     if (on && Ink.tool === "hand") Ink.setTool("pen");
     this.refresh();
-    if (this.opts.onToggle) this.opts.onToggle(on);
+    if (changed && this.opts.onToggle) this.opts.onToggle(on);
   },
   dragBar() {
     const bar = this.bar; let d = null;

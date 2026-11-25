@@ -41,6 +41,10 @@ internal sealed class ReaderPane : Panel
     public event Action<int, JsonElement, JsonElement>? InkChanged;
     /// <summary>إعدادات أدوات الشرح اتغيرت (الألوان والمقاسات والملصقات): JSON.</summary>
     public event Action<string>? InkPrefsChanged;
+    /// <summary>الصفحة عايزة ملف: (رقم الفتحة، رقم الطلب، النوع open-pdf/save-pdf/save-self، اسم مقترح).</summary>
+    public event Action<int, string, string, string>? PickRequested;
+    /// <summary>محرر الصفحات حفظ: لكل صفحة جديدة [الصفحة القديمة (0 = جديدة)، اللفة].</summary>
+    public event Action<int, int[][]>? PagesRemapped;
 
     /// <summary>رقم آخر كتاب اتفتح (الرسايل القديمة بتتجاهل).</summary>
     public int Generation { get; private set; }
@@ -317,6 +321,14 @@ internal sealed class ReaderPane : Panel
         finally { _jobs.Remove(id); }
     }
 
+    /// <summary>رد على طلب ملف من الصفحة (رابط قراية/حفظ، أو null = اتلغى).</summary>
+    public Task PickResultAsync(string id, string? url) => Run($"masar.pickResult({JsonSerializer.Serialize(id)}, {JsonSerializer.Serialize(url)})");
+    /// <summary>رابط حفظ لمرة واحدة لملف معين.</summary>
+    public string SaveUrlFor(string target) => SaveUrl(target);
+    /// <summary>رابط قراية لملف من الجهاز.</summary>
+    public string ServeUrl(string file) => Serve(file);
+    public Task OpenPageEditorAsync() => Run("masar.pageEditor()");
+
     /// <summary>نسخة مشروحة من ملف: الأصل + الشرح ← target.</summary>
     public Task<JobResult> BuildAnnotatedAsync(string srcFile, System.Text.Json.Nodes.JsonObject ink, string target, string title, IProgress<double>? progress, CancellationToken ct)
     {
@@ -497,6 +509,8 @@ internal sealed class ReaderPane : Panel
         [JsonPropertyName("prefs")] public JsonElement Prefs { get; set; }
         [JsonPropertyName("progress")] public double? Progress { get; set; }
         [JsonPropertyName("size")] public long Size { get; set; }
+        [JsonPropertyName("kind")] public string? Kind { get; set; }
+        [JsonPropertyName("map")] public int[][]? Map { get; set; }
     }
 
     private sealed class OutlineItem
@@ -575,6 +589,12 @@ internal sealed class ReaderPane : Panel
                 case "job" when m.Id != null && _jobs.TryGetValue(m.Id, out var job):
                     if (m.Progress is { } pr) job.Progress?.Report(pr);
                     else job.Done.TrySetResult(new JobResult(m.Ok, m.Error, m.Size, m.Pages.ValueKind == JsonValueKind.Number ? m.Pages.GetInt32() : 0));
+                    break;
+                case "pick" when m.Gen == Generation && m.Id != null:
+                    PickRequested?.Invoke(m.Gen, m.Id, m.Kind ?? "", m.Name ?? "");
+                    break;
+                case "pemap" when m.Gen == Generation && m.Map != null:
+                    PagesRemapped?.Invoke(m.Gen, m.Map);
                     break;
                 case "ink":
                     InkChanged?.Invoke(m.Gen, m.Pages, m.Tomb);

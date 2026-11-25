@@ -733,6 +733,35 @@ export const Ink = {
     this.edit(key, items => items.filter(i => what === "all" ? false : what === "temp" ? i.ly !== "t" : what.startsWith("#") ? (i.c || "").toLowerCase() !== what.toLowerCase() : true));
     this.setSel(null);
   },
+  /**
+   * بعد محرر الصفحات: الشرح يمشي مع صفحته (ترتيب جديد/لف/تكرار/مسح).
+   * entries = الصفحات الجديدة بالترتيب: {kind:"src", index (من 0), rot} أو غيرها (من غير شرح).
+   * aspects[index] = الطول÷العرض لصفحة الكتاب القديمة. العناصر بتاخد أرقام جديدة والقديمة بتتمسح (عشان الأجهزة التانية).
+   */
+  remapPages(entries, aspects) {
+    const t = now(), old = this.doc.pages, next = new Map();
+    entries.forEach((e, i) => {
+      if (e.kind !== "src") return;
+      const items = old.get(String(e.index + 1)) || [];
+      if (!items.length) return;
+      next.set(String(i + 1), items.map(it => {
+        const c = clone(it); c.id = uid(); c.u = t;
+        let H = (aspects[e.index] || 1.414) * W;
+        for (let r = ((e.rot || 0) % 360 + 360) % 360; r > 0; r -= 90) {
+          // لفة 90° مع عقارب الساعة: (u,v) ← (H−v, u) وبعدين نصغّر للعرض الجديد
+          rotateItem(c, [0, 0], 90); moveItem(c, H, 0);
+          const k = W / H; scaleItem(c, [0, 0], k, k); H = W * W / H;
+        }
+        return c;
+      }));
+    });
+    for (const items of old.values()) for (const it of items) this.doc.del.set(it.id, t);
+    const keys = new Set([...old.keys(), ...next.keys()]);
+    this.doc.pages = next;
+    for (const k of keys) this.doc.dirty.add(k);
+    this.undo = []; this.redo = []; this.sel = null;
+    this.changed([]);
+  },
   resetCurtains() {
     for (const [k, items] of this.doc.pages) if (items.some(i => i.t === "curtain" && i.rv)) this.edit(k, its => its.map(i => { if (i.t === "curtain") { i.rv = 0; i.u = now(); } return i; }));
   },
