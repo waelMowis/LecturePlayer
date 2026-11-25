@@ -57,6 +57,7 @@ internal partial class MainForm
         {
             items.Add(new ToolStripLabel($"{w} مفتوحة: {s.Name}") { ForeColor = Theme.Muted });
             items.Add(Item($"📝  الخطة والواجب…", () => SessionNotesDialog(s)));
+            items.Add(Item($"📤  تصدير ال{w} (PDF للطالب، وحزمة «مسار»، والتسجيل بالفصول)…", () => ExportSessionDialog(s)));
             items.Add(Item("✏  إعادة التسمية…", () => RenameSession(s)));
             items.Add(Item(s.ClassId != null ? $"⏹  إنهاء ال{w} (المرة القادمة تبدأ من هنا)" : $"⏹  إغلاق ال{w} (تبقى التبويبات مفتوحة)", () => EndSession(markDone: s.ClassId != null)));
             items.Add(new ToolStripSeparator());

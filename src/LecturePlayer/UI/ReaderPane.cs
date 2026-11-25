@@ -341,6 +341,33 @@ internal sealed class ReaderPane : Panel
         return RunJobAsync(id => $"masar.annotate({id}, {JsonSerializer.Serialize(src)}, {JsonSerializer.Serialize(save)}, {JsonSerializer.Serialize(ink.ToJsonString())}, {JsonSerializer.Serialize(title)})", progress, ct);
     }
 
+    /// <summary>سبورة (ملفها وشرحها) ← PDF دون فتحها.</summary>
+    public Task<JobResult> BoardPdfFileAsync(string boardFile, System.Text.Json.Nodes.JsonObject ink, string target, string title, CancellationToken ct)
+    {
+        string save = SaveUrl(target);
+        string board = File.ReadAllText(boardFile);
+        return RunJobAsync(id => $"masar.boardPdfFile({id}, {JsonSerializer.Serialize(board)}, {JsonSerializer.Serialize(ink.ToJsonString())}, {JsonSerializer.Serialize(save)}, {JsonSerializer.Serialize(title)})", null, ct);
+    }
+
+    /// <summary>جزء من ملف مجمّع: صفحات من PDF (من 0، أو كلها) أو صورة بمقاس صفحة (بالنقاط).</summary>
+    public sealed record ComposePart(string? Pdf = null, int[]? Pages = null, string? Image = null, double W = 0, double H = 0);
+
+    /// <summary>ملف PDF واحد من أجزاء بالترتيب.</summary>
+    public Task<JobResult> ComposeAsync(IEnumerable<ComposePart> parts, string target, string title, IProgress<double>? progress, CancellationToken ct)
+    {
+        string save = SaveUrl(target);
+        var arr = new System.Text.Json.Nodes.JsonArray();
+        foreach (var p in parts)
+        {
+            var o = new System.Text.Json.Nodes.JsonObject();
+            if (p.Pdf != null) { o["pdf"] = Serve(p.Pdf); if (p.Pages is { Length: > 0 }) o["pages"] = new System.Text.Json.Nodes.JsonArray(p.Pages.Select(x => (System.Text.Json.Nodes.JsonNode)x).ToArray()); }
+            else if (p.Image != null) { o["img"] = Serve(p.Image); o["w"] = p.W; o["h"] = p.H; }
+            else continue;
+            arr.Add(o);
+        }
+        return RunJobAsync(id => $"masar.compose({id}, {JsonSerializer.Serialize(arr.ToJsonString())}, {JsonSerializer.Serialize(save)}, {JsonSerializer.Serialize(title)})", progress, ct);
+    }
+
     /// <summary>صورة صفحة من الكتاب المفتوح بالشرح اللي عليها.</summary>
     public Task<JobResult> PagePngAsync(int page, string target, double scale = 2)
     {

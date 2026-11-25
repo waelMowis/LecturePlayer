@@ -70,6 +70,21 @@ internal sealed class ScreenInk : LayeredWindow
 
     /// <summary>رسم الصفحة الحالية (عشان كل شريحة ليها رسمها).</summary>
     public List<Item> TakePage() { var l = _items.ToList(); _items.Clear(); _undo.Clear(); Render(); return l; }
+    /// <summary>نسخة من رسم الصفحة الحالية دون مسحه.</summary>
+    public List<Item> PeekPage() => _items.ToList();
+
+    /// <summary>إلى إحداثيات نسبية (0..1) لحفظها مستقلة عن مقاس الشاشة؛ السُمك نسبةً إلى الارتفاع.</summary>
+    public static List<Item> Normalize(IEnumerable<Item> items, SizeF area) =>
+        area.Width <= 0 || area.Height <= 0 ? items.ToList() :
+        items.Where(i => i.Tool != Tool.Laser).Select(i => new Item { Tool = i.Tool, Color = i.Color, Width = i.Width / area.Height, Pts = i.Pts.Select(p => new PointF(p.X / area.Width, p.Y / area.Height)).ToList() }).ToList();
+    public static List<Item> Denormalize(IEnumerable<Item> items, SizeF area) =>
+        items.Select(i => new Item { Tool = i.Tool, Color = i.Color, Width = Math.Max(1f, i.Width * area.Height), Pts = i.Pts.Select(p => new PointF(p.X * area.Width, p.Y * area.Height)).ToList() }).ToList();
+    /// <summary>يرسم عناصر (بإحداثيات المساحة نفسها) — للتصدير فوق صورة الشريحة.</summary>
+    public static void RenderItems(Graphics g, IEnumerable<Item> items)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        foreach (var i in items) Draw(g, i);
+    }
     public void LoadPage(List<Item>? items) { _items.Clear(); _undo.Clear(); if (items != null) _items.AddRange(items); Render(); }
 
     public void SetTool(Tool t)

@@ -30,10 +30,10 @@ internal sealed class PresentationPane : Panel
         var form = FindForm();
         _ink = new ScreenInk(_host.RectangleToScreen(_host.ClientRectangle), overlay: true);
         if (form != null) _ink.Owner = form;
-        _ink.FormClosed += (_, _) => { if (_ink != null) { _inkPages[_inkPage] = _ink.TakePage(); _ink = null; } _inkBtn.Style = PillStyle.Primary; };
+        _ink.FormClosed += (_, _) => { if (_ink != null) { _inkPages[_inkPage] = ScreenInk.Normalize(_ink.TakePage(), _ink.ClientSize); _ink = null; } _inkBtn.Style = PillStyle.Primary; };
         _inkPage = Math.Max(1, _last);
         _ink.Show();
-        _ink.LoadPage(_inkPages.GetValueOrDefault(_inkPage));
+        _ink.LoadPage(ScreenInk.Denormalize(_inkPages.GetValueOrDefault(_inkPage) ?? new(), _ink.ClientSize));
         _inkBtn.Style = PillStyle.Ghost;
     }
 
@@ -41,9 +41,32 @@ internal sealed class PresentationPane : Panel
     private void InkSlide(int n)
     {
         if (_ink == null || n == _inkPage) return;
-        _inkPages[_inkPage] = _ink.TakePage();
+        _inkPages[_inkPage] = ScreenInk.Normalize(_ink.TakePage(), _ink.ClientSize);
         _inkPage = n;
-        _ink.LoadPage(_inkPages.GetValueOrDefault(n));
+        _ink.LoadPage(ScreenInk.Denormalize(_inkPages.GetValueOrDefault(n) ?? new(), _ink.ClientSize));
+    }
+
+    /// <summary>نسبة عرض مساحة العرض إلى ارتفاعها (الرسم نسبي إليها).</summary>
+    public float InkAspect => _host.Height > 0 ? _host.Width / (float)_host.Height : 0;
+
+    /// <summary>رسم كل الشرائح (نسبيًا، والصفحة المفتوحة الآن معه) — للحفظ والتصدير.</summary>
+    public Dictionary<int, List<ScreenInk.Item>> InkPages()
+    {
+        var r = _inkPages.Where(p => p.Value.Count > 0).ToDictionary(p => p.Key, p => p.Value.ToList());
+        if (_ink is { IsDisposed: false } k)
+        {
+            var cur = ScreenInk.Normalize(k.PeekPage(), k.ClientSize);
+            if (cur.Count > 0) r[_inkPage] = cur; else r.Remove(_inkPage);
+        }
+        return r;
+    }
+
+    /// <summary>رسم محفوظ من قبل (عند فتح العرض).</summary>
+    public void SetInkPages(Dictionary<int, List<ScreenInk.Item>> pages)
+    {
+        _inkPages.Clear();
+        foreach (var (k, v) in pages) _inkPages[k] = v.ToList();
+        if (_ink is { IsDisposed: false } k2) k2.LoadPage(ScreenInk.Denormalize(_inkPages.GetValueOrDefault(_inkPage) ?? new(), k2.ClientSize));
     }
 
     private void InkFollow() { if (_ink is { IsDisposed: false } && _host.IsHandleCreated && Visible) _ink.MoveTo(_host.RectangleToScreen(_host.ClientRectangle)); }

@@ -105,6 +105,16 @@ internal partial class MainForm
             if (r.Shelves.FirstOrDefault(x => x.ParentId == parent?.Id) is { } top) SelectShelfItem(top);
             var local = r.Books.Where(b => !b.IsOnline && File.Exists(b.LocalPath)).ToList();
             if (local.Count > 0) QueueProbe(local);
+            var session = ImportSessionFromZip(zip, r);
+            if (session != null)
+            {
+                LastImportedSession = session;
+                ShowBanner($"📥 وصلت «{session.Name}»: {r.Books.Count} ملف" + (r.Annotations > 0 ? $"، و{r.Annotations} عليها شرح 🖊" : "") +
+                           (session.Homework is { Length: > 0 } hw ? "  ·  الواجب: " + FirstLine(hw) : ""), BannerKind.Success,
+                    "افتحها", () => OpenSession(session), seconds: 0, key: "import-session");
+                RefreshHome();
+                return r;
+            }
             ShowBanner($"📥 أُضيف رف «{r.Name}»: {r.Books.Count} كتاب" + (r.Annotations > 0 ? $"، و{r.Annotations} عليها شرح 🖊" : ""), BannerKind.Success,
                 "افتح مجلد الكتب", () => OpenFolder(r.Folder), seconds: 15);
             return r;

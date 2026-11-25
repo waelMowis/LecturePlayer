@@ -3,7 +3,7 @@
 //  الشرح متخزّن برقم الصفحة الثابت (id) — ترتيب الصفحات مابيحركش الرسم.
 //  التصدير PDF فيكتور بنفس طريق «النسخة المشروحة».
 // =====================================================================
-import { Ink, renderSvg, W, onDark, adaptDark } from "./ink.js";
+import { Ink, InkDoc, renderSvg, W, onDark, adaptDark } from "./ink.js";
 import { runJob, pagePlan, pagePng } from "./ink-export.js";
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -379,6 +379,18 @@ export const Board = {
     this.post({ t: "cmd", name: r.ok ? "board-exported" : "board-failed", page: 1 });
   }
 };
+
+/** سبورة من ملفها وشرحها دون فتحها (للتصدير): خطة PDF لكل صفحة. */
+export async function boardPlans(meta, inkJson) {
+  const doc = new InkDoc(inkJson || "{}");
+  const plans = [];
+  for (const p of (meta && meta.pages) || []) {
+    const vp = { width: p.w, height: p.h, transform: [1, 0, 0, -1, 0, p.h] };
+    const items = doc.items(p.id).filter(i => i && !i.tempPen && i.ly !== "t").map(it => darkItem(it, p));
+    plans.push({ w: p.w, h: p.h, bg: (BGS[p.bg] || BGS.white)[0], pat: p.pat, dark: isDark(p.bg), ...(await pagePlan(items, vp)) });
+  }
+  return plans;
+}
 
 /** على سبورة غامقة: ألوان العنصر الغامقة تبقى فاتحة (زي ما بتبان على الشاشة). */
 function darkItem(it, p) {

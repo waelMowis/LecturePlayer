@@ -176,6 +176,7 @@ internal sealed partial class MainForm
         RunBoardChecks();
         RunPresentationChecks();
         RunTabChecks();
+        RunSessionExportChecks();
         RunRecordingChecks();
         RunStressAndPlaybackChecks();
 

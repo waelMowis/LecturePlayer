@@ -137,6 +137,7 @@ internal partial class MainForm
         }
         _presStartUtc = DateTime.UtcNow;
         _presViewed = 0;
+        if (HasLibrary) pane.SetInkPages(SlideInk.Load(_libraryPath, b.Id));
         b.LastOpenedUtc = DateTime.UtcNow;
         _library.LastBookId = b.Id;
         if (pane.Total > 0 && b.PageCount != pane.Total) { b.PageCount = pane.Total; b.TouchInfo(); }
@@ -193,6 +194,7 @@ internal partial class MainForm
     {
         if (!PresentationShown || _presPane is not { } pane || _presBook is not { } b) return;
         MarkPresentationViewed(b);
+        SaveSlideInk(pane, b);
         _presSuspended = b;
         _presSuspendedUtc = DateTime.UtcNow;
         _presBook = null;
@@ -201,6 +203,15 @@ internal partial class MainForm
         if (!_fullscreen) ControlChromeVisible = true;
         if (_shelfMode) RefreshBookRows(b);
         MarkPositionDirty();
+    }
+
+    /// <summary>رسم «أقلام وأشكال» على الشرائح يُحفظ مع المكتبة (يعود عند الفتح ويدخل في التصدير).</summary>
+    private void SaveSlideInk(PresentationPane pane, Book b)
+    {
+        if (!HasLibrary) return;
+        var pages = pane.InkPages();
+        if (pages.Count == 0 && !File.Exists(SlideInk.FileFor(_libraryPath, b.Id))) return;
+        SlideInk.Save(_libraryPath, b.Id, pages, pane.InkAspect);
     }
 
     /// <summary>العرض المستخبي يتقفل بجد (نسخة مشروحة لو كتبت، وسجل المذاكرة).</summary>
@@ -220,6 +231,7 @@ internal partial class MainForm
         var pane = _presPane; var b = _presBook;
         if (pane == null || b == null) { pane?.Stop(); return; }
         _presBook = null;
+        SaveSlideInk(pane, b);
         try
         {
             MarkPresentationViewed(b);

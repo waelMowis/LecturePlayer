@@ -263,6 +263,38 @@ internal sealed class PowerPointShow : IDisposable
         return n;
     }
 
+    /// <summary>أرقام الشرائح التي فيها حبر PowerPoint (من 1).</summary>
+    public List<int> InkSlideIndices()
+    {
+        var r = new List<int>();
+        try
+        {
+            int i = 0;
+            foreach (dynamic slide in _pres!.Slides)
+            {
+                i++;
+                foreach (dynamic sh in slide.Shapes)
+                    if ((int)sh.Type is 22 or 23) { r.Add(i); break; }
+            }
+        }
+        catch { }
+        return r;
+    }
+
+    /// <summary>صورة شريحة واحدة (PNG) بعرض معيّن؛ الارتفاع بنسبة الشريحة.</summary>
+    public bool ExportSlide(int index, string file, int width)
+    {
+        float w = 0, h = 0;
+        try { w = (float)_pres!.PageSetup.SlideWidth; h = (float)_pres.PageSetup.SlideHeight; } catch { }
+        int height = w > 0 ? (int)(width * h / w) : width * 9 / 16;
+        try { _pres!.Slides.Item(index).Export(file, "PNG", width, height); return File.Exists(file); }
+        catch
+        {
+            try { _pres!.Slides[index].Export(file, "PNG", width, height); return File.Exists(file); }
+            catch (Exception ex) { Data.Log.Info("powerpoint export slide: " + (ex.InnerException ?? ex).Message); return false; }
+        }
+    }
+
     public void SaveCopyAs(string path) => _pres!.SaveCopyAs(path);
 
     /// <summary>فيديو من العرض بالأنيميشن (PowerPoint بيعمله في الخلفية).</summary>

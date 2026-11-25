@@ -3,7 +3,8 @@ import { Ink } from "./ink.js";
 import { InkUI } from "./ink-ui.js";
 import { buildAnnotated, pagePng } from "./ink-export.js";
 import { PageEditor } from "./page-editor.js";
-import { Board } from "./board.js";
+import { Board, boardPlans } from "./board.js";
+import { runJob } from "./ink-export.js";
 const host = window.chrome && window.chrome.webview;
 function post(msg) {
   const s = JSON.stringify(msg);
@@ -707,6 +708,8 @@ window.masar = {
   inkTest: () => ({ Ink, InkUI }),
   /** نسخة مشروحة: الأصل + الشرح ← PDF بيتبعت للبرنامج على save. النتيجة: رسالة job. */
   annotate: (id, src, save, inkJson, title) => { runAnnotate(id, src, save, inkJson, title); return "ok"; },
+  boardPdfFile: (id, boardJson, inkJson, save, title) => { runBoardFile(id, boardJson, inkJson, save, title); return "ok"; },
+  compose: (id, partsJson, save, title) => { runCompose(id, partsJson, save, title); return "ok"; },
   /** محرر الصفحات (البرنامج بيفتحه على نسخة العمل بس). */
   pageEditor: () => { openPageEditor(); return "ok"; },
   /** رد البرنامج على طلب ملف (فتح/حفظ): رابط أو null. */
@@ -725,6 +728,24 @@ async function runAnnotate(id, src, save, inkJson, title) {
   try {
     const ink = typeof inkJson === "string" ? JSON.parse(inkJson) : inkJson;
     const r = await buildAnnotated({ src, save, ink, title, pdfjsLib, docOpts: DOC_OPTS, onProgress: p => post({ t: "job", id, progress: p }) });
+    post({ t: "job", id, ok: true, size: r.size, pages: r.pages });
+  } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
+}
+/** سبورة غير مفتوحة ← PDF (لتصدير الحصة). */
+async function runBoardFile(id, boardJson, inkJson, save, title) {
+  try {
+    const meta = typeof boardJson === "string" ? JSON.parse(boardJson) : boardJson;
+    const plans = await boardPlans(meta, inkJson);
+    if (!plans.length) throw new Error("السبورة فارغة");
+    const r = await runJob({ job: "board", save, plans, title: title || "سبورة" }, p => post({ t: "job", id, progress: p }));
+    post({ t: "job", id, ok: true, size: r.size, pages: r.pages });
+  } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
+}
+/** ملف واحد من أجزاء: صفحات من ملفات PDF وصور (صفحة لكل صورة). */
+async function runCompose(id, partsJson, save, title) {
+  try {
+    const parts = typeof partsJson === "string" ? JSON.parse(partsJson) : partsJson;
+    const r = await runJob({ job: "compose", save, parts, title }, p => post({ t: "job", id, progress: p }));
     post({ t: "job", id, ok: true, size: r.size, pages: r.pages });
   } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
 }

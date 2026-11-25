@@ -695,6 +695,8 @@ public sealed class StudySession
     public List<WorkTab> Tabs { get; set; } = new();
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Plan { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Homework { get; set; }
+    /// <summary>التسجيلات التي صُوّرت أثناء الجلسة (مسارات الفيديو) — تُصدَّر بالفصول.</summary>
+    public List<string> Recordings { get; set; } = new();
     public bool Done { get; set; }
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastOpenedUtc { get; set; } = DateTime.UtcNow;

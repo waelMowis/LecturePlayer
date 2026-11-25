@@ -479,6 +479,11 @@ internal partial class MainForm
         RebuildTree();
         QueueProbe(new[] { v });
         LastRecording = v;
+        if (ActiveSession is { } sess && !sess.Recordings.Contains(v.Path))
+        {
+            sess.Recordings.Add(v.Path);   // يُصدَّر مع الجلسة بالفصول
+            sess.UpdatedUtc = DateTime.UtcNow;
+        }
         var gg = g;
         ShowBanner($"⏺ حُفظ «{title}» ({v.Bookmarks.Count} علامة)", BannerKind.Success, "شغّله", () => PlayVideo(gg, v), seconds: 15);
         return v;

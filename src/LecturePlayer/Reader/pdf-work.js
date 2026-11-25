@@ -232,12 +232,42 @@ async function boardPdf(m) {
   return { size, pages: doc.getPageCount() };
 }
 
+/** ملف من أجزاء بالترتيب: {pdf: رابط, pages: [أرقام من 0] أو كل الصفحات} أو {img: رابط, w, h}. */
+async function compose(m) {
+  const out = await PDFDocument.create();
+  let i = 0;
+  for (const p of m.parts || []) {
+    if (p.pdf) {
+      const src = await load(p.pdf);
+      const idx = Array.isArray(p.pages) && p.pages.length ? p.pages.filter(n => n >= 0 && n < src.getPageCount()) : src.getPageIndices();
+      const copies = await out.copyPages(src, idx);
+      for (const c of copies) out.addPage(c);
+    } else if (p.img) {
+      const r = await fetch(p.img);
+      if (!r.ok) throw new Error("تعذّرت قراءة صورة (" + r.status + ")");
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      const png = bytes[0] === 0x89 && bytes[1] === 0x50;
+      const img = png ? await out.embedPng(bytes) : await out.embedJpg(bytes);
+      const w = p.w || img.width, h = p.h || img.height;
+      const page = out.addPage([w, h]);
+      page.drawImage(img, { x: 0, y: 0, width: w, height: h });
+    }
+    post({ id: m.id, progress: ++i / Math.max(1, m.parts.length) * 0.9 });
+  }
+  if (!out.getPageCount()) throw new Error("لا توجد صفحات للتصدير");
+  out.setTitle(m.title || "مسار");
+  out.setProducer("مسار (Masar)");
+  out.setCreationDate(new Date());
+  const size = await saveTo(out, m.save);
+  return { size, pages: out.getPageCount() };
+}
+
 function post(m) { self.postMessage(m); }
 
 self.onmessage = async e => {
   const m = e.data;
   try {
-    const r = m.job === "annotate" ? await annotate(m) : m.job === "edit" ? await edit(m) : m.job === "board" ? await boardPdf(m) : null;
+    const r = m.job === "annotate" ? await annotate(m) : m.job === "edit" ? await edit(m) : m.job === "board" ? await boardPdf(m) : m.job === "compose" ? await compose(m) : null;
     if (!r) throw new Error("job?");
     post({ id: m.id, ok: true, ...r });
   } catch (err) {

@@ -18,7 +18,11 @@ public static class ShelfShare
     public sealed record Options(bool Progress, bool Annotations, bool AnnotatedCopies);
     public sealed record Plan(string Name, List<Shelf> Shelves, List<Book> Books, List<Book> PrivateLinks, List<Book> Missing, long Bytes);
     public sealed record ExportResult(int Books, int Files, long Bytes);
-    public sealed record ImportResult(string Name, List<Shelf> Shelves, List<Book> Books, string Folder, int Annotations);
+    public sealed record ImportResult(string Name, List<Shelf> Shelves, List<Book> Books, string Folder, int Annotations)
+    {
+        /// <summary>رقم الكتاب في الملف ← رقمه الجديد في المكتبة.</summary>
+        public Dictionary<string, string> IdMap { get; init; } = new();
+    }
 
     /// <summary>رابط فيه توكن/توقيع أو رابط Drive خاص — اللي هيستقبله ممكن مايقدرش يفتحه (أو يشوف حاجة مش المفروض يشوفها).</summary>
     public static bool LooksPrivate(string url)
@@ -131,6 +135,8 @@ public static class ShelfShare
                 if (o.Annotations)
                     foreach (var b in plan.Books)
                     {
+                        string slides = InkStore.FileFor(libraryPath, b.Id + "-slides");   // رسم «أقلام وأشكال» على شرائح العرض
+                        if (File.Exists(slides)) zip.CreateEntryFromFile(slides, annDir + Path.GetFileName(slides), CompressionLevel.Optimal);
                         string ink = InkStore.FileFor(libraryPath, b.Id);
                         if (!File.Exists(ink)) continue;
                         zip.CreateEntryFromFile(ink, annDir + Path.GetFileName(ink), CompressionLevel.Optimal);
@@ -227,6 +233,12 @@ public static class ShelfShare
             if (b.WorkCopyOf != null) b.WorkCopyOf = bookMap.GetValueOrDefault(b.WorkCopyOf);
             if (!b.IsOnline) { b.Path = b.LocalPath; b.RelativePath = null; }
             b.TouchInfo();
+            string slidesFile = Path.Combine(annSrc, oldId + "-slides.json");
+            if (File.Exists(slidesFile) && !string.IsNullOrEmpty(libraryPath))
+            {
+                Directory.CreateDirectory(InkStore.DirFor(libraryPath));
+                File.Copy(slidesFile, InkStore.FileFor(libraryPath, b.Id + "-slides"), overwrite: true);
+            }
             string inkFile = Path.Combine(annSrc, oldId + ".json");
             if (File.Exists(inkFile) && !string.IsNullOrEmpty(libraryPath))
             {
@@ -242,6 +254,6 @@ public static class ShelfShare
         try { File.Delete(lplEntry); } catch { }
         try { if (Directory.Exists(annSrc)) Directory.Delete(annSrc, true); } catch { }
         try { File.Delete(Path.Combine(root, Manifest)); } catch { }
-        return new ImportResult(name, shelves, books, dest, ann);
+        return new ImportResult(name, shelves, books, dest, ann) { IdMap = bookMap };
     }
 }
