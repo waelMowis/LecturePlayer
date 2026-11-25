@@ -127,8 +127,7 @@ internal partial class MainForm
         m.Items.Add(new ToolStripSeparator());
         Add("📂  كل السبورات (رف «سبوراتي»)", ShowBoardsShelf);
         Add("🖊  أقلام على الشاشة (Ctrl+Shift+F8)", ToggleScreenInk);
-        var at = anchor.PointToScreen(Point.Empty);
-        m.Show(new Point(at.X - m.PreferredSize.Width, at.Y));   // جنب الزرار ناحية الشاشة (الشريط على اليمين)
+        m.Show(anchor, new Point(-4, 0), ToolStripDropDownDirection.Left);   // جنب الزرار ناحية الشاشة (الشريط على اليمين)
         LastBoardMenu = m;
     }
     internal ContextMenuStrip? LastBoardMenu;
