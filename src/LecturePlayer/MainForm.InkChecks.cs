@@ -176,7 +176,8 @@ internal partial class MainForm
 
             // ---------- شارك الرف واستقبله ----------
             SmokeShareOptions = null;
-            ShareShelfDialog(shelf);                     // صورة الشباك بس
+            SmokeDialogShots = true;                     // صورة الشباك بس (مايتفتحش ويستنى)
+            try { ShareShelfDialog(shelf); } finally { SmokeDialogShots = false; }
             SmokeShareOptions = new ShelfShare.Options(Progress: true, Annotations: true, AnnotatedCopies: true);
             SmokeSavePath = Path.Combine(dir, "share.zip");
             _lastShareZip = null;
