@@ -733,7 +733,9 @@ internal sealed partial class MainForm
                          "(الفولدر بيبقى كورس، وكل فولدر جواه بيبقى محاضرة)";
         _homeTitle.Text = courses.Count == 0 && books.Count == 0
             ? (emptyLibrary ? "أهلًا بيك في «مسار» 👋  ابدأ من هنا"
-                : _settings.HomeTopicFilter != "" ? "مفيش كورسات شغالة في الموضوع ده ✓" : "خلّصت كل الكورسات ✓")
+                : _settings.HomeTopicFilter != "" ? "مفيش كورسات شغالة في الموضوع ده ✓"
+                : _library.Courses.Count == 0 ? "مكتبتك فيها كتب بس — ضيف كورس أو افتح كتاب من الرف"
+                : "خلّصت كل الكورسات ✓")
             : "كمّل اللي بدأته";
 
         foreach (var b in books) _homeCards.Controls.Add(BookCard(b));

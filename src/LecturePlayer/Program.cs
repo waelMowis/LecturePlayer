@@ -3,8 +3,9 @@ namespace LecturePlayer;
 
 internal static class Program
 {
+    private const string ActivateToken = "--masar-activate";
     [STAThread]
-    private static int Main(string[] args)
+    static int Main(string[] args)
     {
         // وضع التركيز: البرنامج بيشغّل نفسه كمسؤول (UAC) عشان يعدّل ملف hosts ويقفل على طول
         if (args.Length > 0 && args[0] is "--focus-block" or "--focus-unblock")
@@ -48,6 +49,10 @@ internal static class Program
         // البرنامج شغال أصلًا: ابعت الفيديوهات للشباك المفتوح بدل ما نفتح شباك تاني على نفس المكتبة
         if (!instance.IsFirst && mediaFiles.Count > 0 && LecturePlayer.Data.SingleInstance.Send(mediaFiles))
             return 0;
+        // فتحته تاني من غير ملفات: النسخة المفتوحة تيجي قدام بدل نسخة تانية
+        // (نسختين = اختصارات التسجيل محجوزة للأولى، والتحديث مايقدرش يستبدل ملفات البرنامج)
+        if (!instance.IsFirst && mediaFiles.Count == 0 && libraryFile == null && LecturePlayer.Data.SingleInstance.Send(new[] { ActivateToken }, 3000))
+            return 0;
 
         MainForm form;
         try
@@ -73,7 +78,9 @@ internal static class Program
         {
             try
             {
-                if (paths.Count > 0 && paths[0].StartsWith(LecturePlayer.Data.Moodle.Scheme + "://", StringComparison.OrdinalIgnoreCase))
+                if (paths.Count == 1 && paths[0] == ActivateToken)
+                    form.BeginInvoke(() => { if (form.WindowState == FormWindowState.Minimized) form.WindowState = FormWindowState.Normal; form.Show(); form.Activate(); form.BringToFront(); });
+                else if (paths.Count > 0 && paths[0].StartsWith(LecturePlayer.Data.Moodle.Scheme + "://", StringComparison.OrdinalIgnoreCase))
                     form.BeginInvoke(() => form.MoodleSsoReceived(paths[0]));
                 else form.BeginInvoke(() => form.OpenExternalFiles(paths));
             }

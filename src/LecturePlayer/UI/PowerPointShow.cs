@@ -81,6 +81,17 @@ internal sealed class PowerPointShow : IDisposable
         ss.AdvanceMode = useTimings ? 2 : 1; // 2 = بالتوقيت المتسجّل، 1 = يدوي
         _win = ss.Run();
         Hwnd = FindShowWindow(_win);
+        if (Hwnd == IntPtr.Zero)
+        {
+            // العرض في «شباك» مالوش HWND على بعض نسخ Office (DISP_E_MEMBERNOTFOUND): نشغّله عرض كامل
+            // (من غير Presenter View) — ده شباكه معروف — ونحطه جوه «مسار» على طول
+            try { _win.View.Exit(); } catch { }
+            ss.ShowType = 1; // ppShowTypeSpeaker
+            try { ss.ShowPresenterView = MsoFalse; } catch { }
+            _win = ss.Run();
+            Hwnd = FindShowWindow(_win);
+            Data.Log.Info("powerpoint retried as full-screen show: hwnd " + (Hwnd != IntPtr.Zero ? "found" : "missing"));
+        }
         Embedded = Embed(host);
         if (fromSlide > 1) GoTo(fromSlide);
     }
@@ -91,6 +102,7 @@ internal sealed class PowerPointShow : IDisposable
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumProc cb, IntPtr l);
 
     /// <summary>
     /// شباك العرض: SlideShowWindow.HWND — وعلى بعض نسخ Office الـ late binding بيرجع «Error while invoking HWND»،
@@ -103,23 +115,29 @@ internal sealed class PowerPointShow : IDisposable
             try { var v = win.GetType().InvokeMember("HWND", flags, null, win, null); if (v != null) return new IntPtr(Convert.ToInt64(v)); }
             catch (Exception ex) { Data.Log.Info("powerpoint HWND (" + flags + "): " + (ex.InnerException ?? ex).Message); }
         var pids = System.Diagnostics.Process.GetProcessesByName("POWERPNT").Select(p => (uint)p.Id).ToHashSet();
+        string Cls(IntPtr h) { var sb = new System.Text.StringBuilder(64); GetClassName(h, sb, 64); return sb.ToString(); }
+        var seen = new HashSet<string>();
         for (int attempt = 0; attempt < 30; attempt++)
         {
             IntPtr found = IntPtr.Zero;
             EnumWindows((h, _) =>
             {
-                if (!IsWindowVisible(h)) return true;
                 GetWindowThreadProcessId(h, out uint pid);
                 if (pids.Count > 0 && !pids.Contains(pid)) return true;
-                var sb = new System.Text.StringBuilder(64);
-                GetClassName(h, sb, 64);
-                if (sb.ToString() == "screenClass") { found = h; return false; }
+                string c = Cls(h);
+                seen.Add(c + (IsWindowVisible(h) ? "" : "(hidden)"));
+                if (!IsWindowVisible(h)) return true;
+                if (c == "screenClass") { found = h; return false; }
+                // في وضع «الشباك» شاشة العرض ممكن تكون ابن جوه إطار PowerPoint: ناخد الإطار كله
+                IntPtr child = IntPtr.Zero;
+                EnumChildWindows(h, (ch, _) => { if (Cls(ch) == "screenClass") { child = ch; return false; } return true; }, IntPtr.Zero);
+                if (child != IntPtr.Zero) { found = h; return false; }
                 return true;
             }, IntPtr.Zero);
-            if (found != IntPtr.Zero) { Data.Log.Info("powerpoint show window found by class"); return found; }
+            if (found != IntPtr.Zero) { Data.Log.Info("powerpoint show window found by class (" + Cls(found) + ")"); return found; }
             Thread.Sleep(100);
         }
-        Data.Log.Info("powerpoint show window not found");
+        Data.Log.Info("powerpoint show window not found; PowerPoint windows: " + string.Join(", ", seen));
         return IntPtr.Zero;
     }
 
@@ -194,7 +212,12 @@ internal sealed class PowerPointShow : IDisposable
         for (int i = 1; i <= n; i++)
         {
             string f = Path.Combine(dir, $"{i}.png");
-            try { _pres!.Slides[i].Export(f, "PNG", width, height); } catch { }
+            try { _pres!.Slides.Item(i).Export(f, "PNG", width, height); }
+            catch (Exception ex)
+            {
+                try { _pres!.Slides[i].Export(f, "PNG", width, height); }
+                catch { if (i == 1) Data.Log.Info("powerpoint export slide: " + (ex.InnerException ?? ex).Message); }
+            }
             progress?.Report(i);
         }
     }
