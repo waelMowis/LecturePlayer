@@ -218,7 +218,7 @@ internal sealed partial class MainForm : Form
             while (DateTime.UtcNow < until && _updateCheck is { IsCompleted: false }) { Application.DoEvents(); Thread.Sleep(20); }
             Application.DoEvents();
             Check(fetches == 1 && UpdateChecksStarted - started == 1, $"one check for 3 clicks, got {fetches}");
-            Check(_bannerKey == "update-check", "failure shown as a bar with «حاول تاني», got banner " + _bannerKey);
+            Check(_bannerKey == "update-check", "failure shown as a bar with «حاول مرة أخرى», got banner " + _bannerKey);
 
             // ونت كويس: «إنت على آخر إصدار» في شريط مش رسالة
             UpdateChecker.TestFetch = (_, _) => Task.FromResult<UpdateChecker.Release?>(new UpdateChecker.Release(UpdateChecker.CurrentVersion, "v" + UpdateChecker.CurrentVersion.ToString(3), "u", "", null));

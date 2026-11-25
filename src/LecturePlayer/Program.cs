@@ -42,7 +42,7 @@ internal static class Program
         if (sso != null)
         {
             if (!instance.IsFirst) LecturePlayer.Data.SingleInstance.Send(new[] { sso });
-            else MessageBox.Show("افتح «مسار» أولًا وابدأ الاستيراد من «إنترنت ← Moodle / مهارة تك»، ثم أكمل الدخول في المتصفح.",
+            else MessageBox.Show("افتح «مسار» أولًا وابدأ الاستيراد من «المكتبة ← دورة من منصة ← مهارة تك أو أي موقع Moodle»، ثم أكمل الدخول في المتصفح.",
                 "«مسار»", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign);
             return 0;
         }

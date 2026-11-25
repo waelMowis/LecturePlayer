@@ -58,7 +58,7 @@ export const InkUI = {
       B("hl", "🖍", "قلم التظليل (H) — إن توقفت ثانية في آخر الخط يُعدَّل مستقيمًا", () => { if (Ink.tool === "pen" && Ink.pen === "hl") this.openPop("hl", this.penPop); else this.tool("pen", "hl"); }),
       B("eraser", "🧽", "الممحاة (E) — اضغط مرة أخرى لأنواعها", () => this.toolOrPop("eraser", this.eraserPop)),
       B("shape", "⬠", "الأشكال والأسهم (S)", () => this.toolOrPop("shape", this.shapePop, true)),
-      B("text", "T", "نص (T) — كليك واكتب، أو اسحب مربع", () => this.toolOrPop("text", this.textPop)),
+      B("text", "T", "نص (T) — انقر واكتب، أو اسحب مربعًا", () => this.toolOrPop("text", this.textPop)),
       B("note", "📝", "ملاحظة لاصقة", () => this.tool("note")),
       B("callout", "💬", "فقاعة كلام بسهم", () => this.tool("callout")),
       B("step", "①", "خطوات مرقّمة ①②③", () => this.tool("step")),

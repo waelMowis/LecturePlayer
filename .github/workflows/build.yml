@@ -18,6 +18,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: فحص لغة الواجهة (عربية فصحى مبسّطة)
+        run: python tools/lint/msa_lint.py
+
       - name: Build
         run: dotnet build src/LecturePlayer/LecturePlayer.csproj -c Release
 

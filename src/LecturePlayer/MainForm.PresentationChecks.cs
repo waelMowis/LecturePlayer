@@ -131,7 +131,7 @@ internal partial class MainForm
             Check(b.IsPresentation && b.PageCount == 4 && b.Chapters.Count == 4 && b.Chapters[1].Title == "المتغيرات" && b.Chapters[2].Title.StartsWith("(مخفية)"), "slides read without PowerPoint: " + string.Join(",", b.Chapters.Select(c => c.Title)));
             Check(BookText.Load(b).Pages[1].Contains("رحّب بالطلبة"), "slide text + notes for search/AI");
             var menu = new ContextMenuStrip(); BuildBookMenu(b, menu.Items);
-            Check(menu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.StartsWith("▶  اعرض")) && menu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("لفيديو")), "presentation menu");
+            Check(menu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.StartsWith("▶  اعرض")) && menu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("إلى فيديو")), "presentation menu");
 
             _settings.ReadSeconds = 1;
             OpenBook(b);
