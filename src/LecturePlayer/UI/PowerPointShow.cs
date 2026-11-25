@@ -19,6 +19,7 @@ internal sealed class PowerPointShow : IDisposable
     internal static Func<object>? TestFactory;
 
     private dynamic? _app, _pres, _win;
+    private string? _path;
     private bool _startedApp;
     public bool Embedded { get; private set; }
     public IntPtr Hwnd { get; private set; }
@@ -65,6 +66,7 @@ internal sealed class PowerPointShow : IDisposable
     {
         _app = CreateApp(out _startedApp);
         try { Version = (string)_app.Version; } catch { Version = "?"; }
+        _path = path;
         _pres = _app.Presentations.Open(path, MsoTrue, MsoFalse, MsoFalse);
     }
 
@@ -79,17 +81,26 @@ internal sealed class PowerPointShow : IDisposable
         ss.ShowWithAnimation = MsoTrue;
         ss.ShowWithNarration = MsoTrue;
         ss.AdvanceMode = useTimings ? 2 : 1; // 2 = بالتوقيت المتسجّل، 1 = يدوي
+        var before = Frames();
         _win = ss.Run();
-        Hwnd = FindShowWindow(_win);
+        Hwnd = FindShowWindow(_win, before);
         if (Hwnd == IntPtr.Zero)
         {
-            // العرض في «شباك» مالوش HWND على بعض نسخ Office (DISP_E_MEMBERNOTFOUND): نشغّله عرض كامل
-            // (من غير Presenter View) — ده شباكه معروف — ونحطه جوه «مسار» على طول
+            // مالقيناش شباك العرض: نشغّله عرض كامل (من غير Presenter View) — شباكه معروف — ونحطه جوه «مسار».
+            // (الخروج من العرض ممكن يقفل الملف لو كان مفتوح من غير شباك، فبنجيب الإعدادات من جديد/نفتحه تاني)
             try { _win.View.Exit(); } catch { }
-            ss.ShowType = 1; // ppShowTypeSpeaker
-            try { ss.ShowPresenterView = MsoFalse; } catch { }
-            _win = ss.Run();
-            Hwnd = FindShowWindow(_win);
+            try
+            {
+                dynamic ss2;
+                try { ss2 = _pres!.SlideShowSettings; } catch { _pres = _app!.Presentations.Open(_path!, MsoTrue, MsoFalse, MsoFalse); ss2 = _pres.SlideShowSettings; }
+                ss2.ShowType = 1; // ppShowTypeSpeaker
+                try { ss2.ShowPresenterView = MsoFalse; } catch { }
+                ss2.RangeType = PpShowAll; ss2.ShowWithAnimation = MsoTrue; ss2.AdvanceMode = useTimings ? 2 : 1;
+                before = Frames();
+                _win = ss2.Run();
+                Hwnd = FindShowWindow(_win, before);
+            }
+            catch (Exception ex) { Data.Log.Info("powerpoint full-screen retry: " + ex.Message); }
             Data.Log.Info("powerpoint retried as full-screen show: hwnd " + (Hwnd != IntPtr.Zero ? "found" : "missing"));
         }
         Embedded = Embed(host);
@@ -108,7 +119,21 @@ internal sealed class PowerPointShow : IDisposable
     /// شباك العرض: SlideShowWindow.HWND — وعلى بعض نسخ Office الـ late binding بيرجع «Error while invoking HWND»،
     /// فبنجرب InvokeMember، وبعدين بندوّر على شباك العرض نفسه (class «screenClass») في عملية PowerPoint.
     /// </summary>
-    private static IntPtr FindShowWindow(object win)
+    /// <summary>شبابيك PowerPoint الظاهرة (PPTFrameClass) قبل تشغيل العرض — عشان نعرف الجديد.</summary>
+    private static HashSet<IntPtr> Frames()
+    {
+        var set = new HashSet<IntPtr>();
+        var pids = System.Diagnostics.Process.GetProcessesByName("POWERPNT").Select(p => (uint)p.Id).ToHashSet();
+        EnumWindows((h, _) =>
+        {
+            GetWindowThreadProcessId(h, out uint pid);
+            if (pids.Contains(pid) && IsWindowVisible(h)) { var sb = new System.Text.StringBuilder(64); GetClassName(h, sb, 64); if (sb.ToString() == "PPTFrameClass") set.Add(h); }
+            return true;
+        }, IntPtr.Zero);
+        return set;
+    }
+
+    private static IntPtr FindShowWindow(object win, HashSet<IntPtr>? before = null)
     {
         try { return new IntPtr(Convert.ToInt64(((dynamic)win).HWND)); } catch (Exception ex) { Data.Log.Info("powerpoint HWND (dynamic): " + ex.Message); }
         foreach (var flags in new[] { System.Reflection.BindingFlags.GetProperty, System.Reflection.BindingFlags.GetProperty | System.Reflection.BindingFlags.InvokeMethod })
@@ -132,6 +157,8 @@ internal sealed class PowerPointShow : IDisposable
                 IntPtr child = IntPtr.Zero;
                 EnumChildWindows(h, (ch, _) => { if (Cls(ch) == "screenClass") { child = ch; return false; } return true; }, IntPtr.Zero);
                 if (child != IntPtr.Zero) { found = h; return false; }
+                // العرض «في شباك» على Office الجديد = شباك PPTFrameClass جديد ظهر مع Run (الملف نفسه مفتوح من غير شباك)
+                if (c == "PPTFrameClass" && before != null && !before.Contains(h)) { found = h; return false; }
                 return true;
             }, IntPtr.Zero);
             if (found != IntPtr.Zero) { Data.Log.Info("powerpoint show window found by class (" + Cls(found) + ")"); return found; }

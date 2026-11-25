@@ -145,10 +145,11 @@ internal sealed class PresentationPane : Panel
     {
         try
         {
-            try { show.StopShow(); } catch { }
+            // الصور الأول، وبعدين نقفل العرض (الخروج من العرض ممكن يقفل الملف لو كان مفتوح من غير شباك)
             _imagesDir = Path.Combine(Path.GetTempPath(), "masar-slides-" + Guid.NewGuid().ToString("N")[..8]);
             int w = Math.Clamp(Screen.FromControl(this).Bounds.Width, 1280, 2560);
             show.ExportThumbs(_imagesDir, w);
+            try { show.StopShow(); } catch { }
             var files = Enumerable.Range(1, Total).Select(i => Path.Combine(_imagesDir, $"{i}.png")).ToList();
             if (!files.Any(File.Exists)) return false;
             show.Dispose();   // PowerPoint يتقفل: مفيش أي شباك برّه «مسار»
