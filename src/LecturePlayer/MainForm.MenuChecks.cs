@@ -84,7 +84,7 @@ internal sealed partial class MainForm
                 BuildNodeMenu(t, m.Items);
                 var courseMenu = m.Items.OfType<ToolStripMenuItem>().First(i => i.Text!.StartsWith("➕  دورة"));
                 var subs = courseMenu.DropDownItems.OfType<ToolStripMenuItem>().Select(i => i.Text).ToList();
-                foreach (string src in new[] { "فولدر", "يوتيوب", "يوديمي", "مهارة تك", "IT Legend", "كورس فاضي" })
+                foreach (string src in new[] { "مجلد", "يوتيوب", "يوديمي", "مهارة تك", "IT Legend", "دورة فارغة" })
                     Check(subs.Any(s => s!.Contains(src)), "course sources include " + src);
             }
 
