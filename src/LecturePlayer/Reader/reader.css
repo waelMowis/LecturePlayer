@@ -102,3 +102,7 @@ body.night .masar-hl-layer > div { mix-blend-mode: screen; opacity: 0.55; }
 #epubArea[hidden], #viewerContainer[hidden] { display: none; }
 #epubArea[data-theme="night"] { background: #1e1f22; }
 #epubArea[data-theme="sepia"] { background: #f4ecd8; }
+
+/* زرار الإغلاق: واضح في أول الشريط */
+#toolbar .close-btn { width: auto; padding: 0 10px; font-weight: 600; color: #fff; background: rgba(224, 49, 49, .18); border: 1px solid rgba(224, 49, 49, .45); border-radius: 6px; }
+#toolbar .close-btn:hover { background: rgba(224, 49, 49, .4); }

@@ -71,7 +71,7 @@ internal partial class MainForm
         _videoView.Visible = false;
         ControlChromeVisible = false;
         int from = Math.Max(1, slide ?? b.LastPage);
-        ShowStatus($"بيفتح «{b.Title}» في PowerPoint…", 10);
+        ShowStatus($"بيفتح «{b.Title}»…", 10);
         var titles = b.Chapters.OrderBy(c => c.Page).Select(c => c.Title).ToList();
         _presBook = b; // قبل التشغيل: أول شريحة بتتبلّغ وهو بيبدأ
         _presSlideSince = DateTime.UtcNow;
@@ -90,9 +90,11 @@ internal partial class MainForm
         if (pane.Total > 0 && b.PageCount != pane.Total) { b.PageCount = pane.Total; b.TouchInfo(); }
         MarkPositionDirty();
         UpdateTitle();
-        HideBanner("pptx");
+        if (!pane.ImagesMode) HideBanner("pptx");
         if (_shelfMode) RefreshBookRows(b);
-        ShowStatus(pane.Embedded ? $"«{b.Title}» — المسافة/الأسهم للشرايح، Esc للإنهاء" : $"«{b.Title}» — العرض في شباك PowerPoint فوق «مسار»", 6);
+        if (pane.ImagesMode)
+            ShowBanner($"«{b.Title}» معروض جوه «مسار» كشرايح ثابتة (من غير الحركات) — PowerPoint على الجهاز ده مارضيش يتحط جوه النافذة. الأسهم/المسافة للشرايح، Esc للإنهاء.", BannerKind.Info, seconds: 12, key: "pptx");
+        else ShowStatus($"«{b.Title}» — المسافة/الأسهم للشرايح، Esc للإنهاء", 6);
     }
 
     /// <summary>شريحة جديدة: اللي قبلها تتحسب «اتشافت» لو قعدت قدامها وقت القراية.</summary>

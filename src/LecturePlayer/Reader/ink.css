@@ -206,3 +206,6 @@ body.pe-on #inkbar, body.pe-on #inksel { display: none; }
 body.present #boardArea { inset: 0; }
 body.present .bd-tools, body.present .bd-side { display: none; }
 body.present .bd-scroll { background: #000; }
+
+/* الشريط الرأسي على الشمال مايغطيش طرف الصفحة/السبورة */
+body.inkbar-left .bd-pages { padding-left: 80px; }

@@ -1300,6 +1300,7 @@ internal sealed partial class MainForm
         {
             case "mark": AddPageMark(b, page > 0 ? page : Math.Max(1, b.LastPage)); break;
             case "fullscreen": ToggleFullscreen(); break;
+            case "close": if (_fullscreen) ToggleFullscreen(); CloseReader(showHome: true); break;
             case "ai": ShowReaderAiMenu(); break;
             case "present-on": OnReaderPresent(true); break;
             case "present-off": OnReaderPresent(false); break;
@@ -1316,6 +1317,7 @@ internal sealed partial class MainForm
     {
         if (keyData == (Keys.Control | Keys.Shift | Keys.B)) { ToggleShelf(); return true; }
         if (keyData == (Keys.Control | Keys.Shift | Keys.D) && ReaderShown) { ToggleInkMode(); return true; }
+        if (keyData == (Keys.Control | Keys.W) && ReaderShown) { CloseReader(showHome: true); return true; }
         if (_shelfTree.Focused)
         {
             var tag = _shelfTree.SelectedNode?.Tag;

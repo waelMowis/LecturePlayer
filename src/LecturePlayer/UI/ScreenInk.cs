@@ -42,9 +42,11 @@ internal sealed class ScreenInk : LayeredWindow
     {
         base.OnShown(e);
         Render();
-        _bar = new ScreenInkBar(this);
+        // الشريط مملوك لشباك الرسم = دايمًا فوقه، وتحت في نص الشاشة (بعيد عن شريط التسجيل اللي فوق)
+        _bar = new ScreenInkBar(this) { Owner = this };
         _bar.Show();
-        _bar.Location = new Point(Bounds.Left + (Bounds.Width - _bar.Width) / 2, Bounds.Top + 8);
+        var wa = Screen.FromRectangle(Bounds).WorkingArea;
+        _bar.Location = new Point(wa.Left + (wa.Width - _bar.Width) / 2, wa.Bottom - _bar.Height - 16);
         ExcludeFromCapture(_bar);
         SetTool(Current);
     }
@@ -55,8 +57,31 @@ internal sealed class ScreenInk : LayeredWindow
         ClickThrough = t == Tool.Mouse;
         Cursor = t == Tool.Eraser ? Cursors.Hand : t == Tool.Laser ? Cursors.Default : Cursors.Cross;
         if (t == Tool.Laser) _laserTimer.Start();
+        // Esc من أي مكان بيرجّع الماوس وانت بترسم (الشباك ده مابياخدش الكيبورد عشان مايسرقش الفوكس)
+        if (t == Tool.Mouse) _esc.Off(); else _esc.On(() => BeginInvoke(() => SetTool(Tool.Mouse)));
         _bar?.Sync();
+        Render();
     }
+
+    /// <summary>Esc عام (RegisterHotKey) — شغال بس وقت الرسم، وبيتشال أول ما ترجع للماوس.</summary>
+    private sealed class EscKey : NativeWindow
+    {
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr h, int id, uint mods, uint vk);
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr h, int id);
+        private Action? _a;
+        private bool _on;
+        public void On(Action a)
+        {
+            _a = a;
+            if (_on) return;
+            if (Handle == IntPtr.Zero) CreateHandle(new CreateParams());
+            _on = RegisterHotKey(Handle, 77, 0x4000, (uint)Keys.Escape);
+        }
+        public void Off() { if (_on) { UnregisterHotKey(Handle, 77); _on = false; } }
+        public void Destroy() { Off(); if (Handle != IntPtr.Zero) DestroyHandle(); }
+        protected override void WndProc(ref Message m) { if (m.Msg == 0x0312 && m.WParam.ToInt32() == 77) _a?.Invoke(); base.WndProc(ref m); }
+    }
+    private readonly EscKey _esc = new();
 
     private void Snapshot() { _undo.Push(_items.Select(i => new Item { Tool = i.Tool, Color = i.Color, Width = i.Width, Pts = i.Pts.ToList() }).ToList()); if (_undo.Count > 100) { var keep = _undo.Take(100).Reverse().ToList(); _undo.Clear(); foreach (var k in keep) _undo.Push(k); } }
     public void Undo() { if (_undo.Count == 0) return; _items.Clear(); _items.AddRange(_undo.Pop()); Render(); Changed?.Invoke(); }
@@ -64,6 +89,7 @@ internal sealed class ScreenInk : LayeredWindow
 
     private void OnDown(object? s, MouseEventArgs e)
     {
+        if (e.Button == MouseButtons.Right) { SetTool(Tool.Mouse); return; }   // كليك يمين = ارجع للماوس
         if (e.Button != MouseButtons.Left) return;
         var p = new PointF(e.X, e.Y);
         if (Current == Tool.Laser) { _laser.Add((p, DateTime.Now)); return; }
@@ -180,6 +206,7 @@ internal sealed class ScreenInk : LayeredWindow
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _laserTimer.Stop();
+        _esc.Destroy();
         _bar?.Close();
         base.OnFormClosed(e);
     }
@@ -191,8 +218,6 @@ internal sealed class ScreenInkBar : Form
     private readonly ScreenInk _ink;
     private readonly FlowLayoutPanel _p = new() { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(4), BackColor = Color.FromArgb(43, 45, 49), WrapContents = false };
     private readonly List<(Button B, ScreenInk.Tool T)> _tools = new();
-    private Point _drag;
-
     public ScreenInkBar(ScreenInk ink)
     {
         _ink = ink;
@@ -200,11 +225,15 @@ internal sealed class ScreenInkBar : Form
         AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink; BackColor = Color.FromArgb(43, 45, 49);
         Controls.Add(_p);
         var grip = new Label { Text = "⠿", ForeColor = Color.Gray, AutoSize = false, Size = new Size(18, 32), TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.SizeAll };
-        grip.MouseDown += (_, e) => _drag = e.Location;
-        grip.MouseMove += (_, e) => { if (e.Button == MouseButtons.Left) Location = new Point(Left + e.X - _drag.X, Top + e.Y - _drag.Y); };
+        grip.MouseDown += (_, e) => { if (e.Button == MouseButtons.Left) { LayeredWindow.ReleaseCapture(); LayeredWindow.SendMessage(Handle, 0xA1, (IntPtr)2, IntPtr.Zero); } };
         _p.Controls.Add(grip);
         void T(string text, string tip, ScreenInk.Tool t) { var b = Btn(text, tip, () => _ink.SetTool(t)); _tools.Add((b, t)); }
-        T("🖱", "الماوس (تشتغل على البرامج والرسم ظاهر) — Esc", ScreenInk.Tool.Mouse);
+        // أهم زرارين أول حاجة وبكلام واضح: ترجع للماوس، أو تقفل الأقلام خالص
+        var close = Btn("✕  قفل الأقلام", "قفل أقلام الشاشة (Ctrl+Shift+F8)", () => _ink.Close());
+        close.Width = 118; close.BackColor = Color.FromArgb(200, 50, 50); close.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+        var mouse = Btn("🖱  ماوس", "ارجع للماوس وتشتغل على البرامج والرسم ظاهر — Esc أو كليك يمين", () => _ink.SetTool(ScreenInk.Tool.Mouse));
+        mouse.Width = 92; mouse.Font = new Font("Segoe UI Emoji", 10f);
+        _tools.Add((mouse, ScreenInk.Tool.Mouse));
         T("🖊", "قلم", ScreenInk.Tool.Pen);
         T("🖍", "تظليل", ScreenInk.Tool.Highlighter);
         T("╱", "خط (Shift = زاوية مظبوطة)", ScreenInk.Tool.Line);
@@ -222,12 +251,12 @@ internal sealed class ScreenInkBar : Form
         foreach (var w in new[] { 2f, 4f, 8f }) { var ww = w; Btn(w switch { 2 => "·", 4 => "•", _ => "●" }, "المقاس", () => _ink.PenWidth = ww); }
         Btn("↶", "تراجع (Ctrl+Z)", _ink.Undo);
         Btn("🗑", "امسح الرسم", _ink.ClearAll);
-        Btn("✕", "قفل أقلام الشاشة", () => _ink.Close());
+        _p.Controls.Add(new Label { Text = "Esc / كليك يمين = ماوس", ForeColor = Color.Gray, AutoSize = false, Size = new Size(150, 32), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8.5f) });
     }
 
     private Button Btn(string text, string tip, Action a)
     {
-        var b = new Button { Text = text, Size = new Size(34, 32), FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(54, 57, 63), Margin = new Padding(2), Font = new Font("Segoe UI Emoji", 11f) };
+        var b = new Button { Text = text, Size = new Size(38, 36), FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(54, 57, 63), Margin = new Padding(2), Font = new Font("Segoe UI Emoji", 11f) };
         b.FlatAppearance.BorderSize = 0;
         b.Click += (_, _) => a();
         new ToolTip().SetToolTip(b, tip);

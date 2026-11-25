@@ -70,6 +70,11 @@ internal sealed partial class MainForm
             var ink = _screenInk!;
             var o = ink.PointToClient(c0);
             ink.AddStroke(ScreenInk.Tool.Pen, Color.FromArgb(255, 0, 0), 28, new PointF(o.X - 120, o.Y), new PointF(o.X + 120, o.Y));
+            Check(ink.OwnedForms.Length == 1 && ink.OwnedForms[0].Visible, "screen-ink bar owned by the ink window (always on top of it)");
+            ink.SetTool(ScreenInk.Tool.Mouse);
+            Check(ink.ClickThrough, "mouse mode = clicks go through to the apps");
+            ink.SetTool(ScreenInk.Tool.Pen);
+            Check(!ink.ClickThrough, "back to pen");
             Pump(1500);
             SaveSmokeShot(this, "record-live");
             RecordingMark("علامة الفحص");

@@ -8,18 +8,17 @@ internal sealed class RecordBar : Form
     private readonly Button _pause, _cam, _scene;
     private readonly FlowLayoutPanel _p = new() { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(4), WrapContents = false, BackColor = Color.FromArgb(32, 33, 36) };
     private readonly System.Windows.Forms.Timer _blink = new() { Interval = 600 };
-    private Point _drag;
     public event Action<string>? Command;
 
-    public RecordBar(bool camera)
+    public RecordBar(bool camera, bool mic = false)
     {
         FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
         AutoSize = true; AutoSizeMode = AutoSizeMode.GrowAndShrink; BackColor = Color.FromArgb(32, 33, 36);
         Controls.Add(_p);
-        _dot.MouseDown += (_, e) => _drag = e.Location;
-        _dot.MouseMove += (_, e) => { if (e.Button == MouseButtons.Left) Location = new Point(Left + e.X - _drag.X, Top + e.Y - _drag.Y); };
-        _time.MouseDown += (_, e) => _drag = e.Location;
-        _time.MouseMove += (_, e) => { if (e.Button == MouseButtons.Left) Location = new Point(Left + e.X - _drag.X, Top + e.Y - _drag.Y); };
+        // السحب بالطريقة بتاعة ويندوز نفسها (مابيرعشش ولا يتنطط زي حساب الإزاحة يدوي)
+        void Drag(object? _, MouseEventArgs e) { if (e.Button == MouseButtons.Left) { LayeredWindow.ReleaseCapture(); LayeredWindow.SendMessage(Handle, 0xA1, (IntPtr)2, IntPtr.Zero); } }
+        _dot.MouseDown += Drag; _time.MouseDown += Drag; _p.MouseDown += Drag;
+        _dot.Cursor = _time.Cursor = Cursors.SizeAll;
         _p.Controls.Add(_dot);
         _p.Controls.Add(_time);
         _p.Controls.Add(_mic);
@@ -33,7 +32,10 @@ internal sealed class RecordBar : Form
         _scene = Btn("🎬", "المشهد", "scene");
         _scene.Visible = camera;
         Btn("✕", "إلغاء التسجيل (من غير حفظ)", "cancel");
-        _blink.Tick += (_, _) => _dot.Visible = !_dot.Visible || _paused;
+        // النقطة بتنور وتطفي باللون بس — لو اختفت (Visible) الشريط كله بيتحرك من مكانه
+        _mic.Visible = mic;
+        bool lit = true;
+        _blink.Tick += (_, _) => { lit = !lit || _paused; _dot.ForeColor = _paused ? Color.Orange : lit ? Color.FromArgb(240, 60, 60) : Color.FromArgb(90, 40, 40); };
         _blink.Start();
     }
 
@@ -43,7 +45,6 @@ internal sealed class RecordBar : Form
     /// <summary>مستوى المايك: أخضر بيتحرك مع الصوت، وأحمر لو المايك بيبعت سكوت تام.</summary>
     public void SetMic(float? level, bool silent)
     {
-        _mic.Visible = level != null;
         if (level is not { } l) return;
         _shown = Math.Max(l, _shown * 0.7f);
         _mic.BackColor = silent ? Color.FromArgb(150, 40, 40)
@@ -54,7 +55,7 @@ internal sealed class RecordBar : Form
     public void SetTime(TimeSpan t, bool paused)
     {
         _time.Text = (t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"mm\:ss"));
-        if (paused != _paused) { _paused = paused; _pause.Text = paused ? "⏺" : "⏸"; _dot.ForeColor = paused ? Color.Orange : Color.FromArgb(240, 60, 60); _dot.Visible = true; }
+        if (paused != _paused) { _paused = paused; _pause.Text = paused ? "⏺" : "⏸"; _dot.ForeColor = paused ? Color.Orange : Color.FromArgb(240, 60, 60); }
     }
 
     private Button Btn(string text, string tip, string cmd)

@@ -244,7 +244,7 @@ internal partial class MainForm
         string? force = SmokeScreenInput ?? (ddaIndex == null ? $"-f gdigrab -framerate 30 -draw_mouse 1 -offset_x {area.X} -offset_y {area.Y} -video_size {area.Width & ~1}x{area.Height & ~1} -i desktop" : null);
         if (ddaIndex is { } di) mon = di;
         var rec = new ScreenRecorder(ff, new ScreenRecorder.Options(new ScreenRecorder.Area(area.X, area.Y, area.Width, area.Height, Math.Max(0, mon), scr.Bounds.X, scr.Bounds.Y), 30, dir, ForceInput: force));
-        var bar = new RecordBar(c.Camera != null);
+        var bar = new RecordBar(c.Camera != null, c.Mic != null);
         var s = new RecSession { Rec = rec, Choice = c, Dir = dir, Area = area, Bar = bar, Scene = c.Scene };
         try
         {

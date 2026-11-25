@@ -112,6 +112,7 @@ export const InkUI = {
     if (!on) { this.closePop(); this.selbar.hidden = true; document.body.classList.remove("present"); }
     if (on && Ink.tool === "hand") Ink.setTool("pen");
     this.refresh();
+    this.dock();
     if (changed && this.opts.onToggle) this.opts.onToggle(on);
   },
   dragBar() {
@@ -121,7 +122,7 @@ export const InkUI = {
       if (!e.target.classList.contains("grip")) return;
       e.preventDefault();
       // دبل كليك على المقبض: أفقي ⇄ رأسي (بنحسبه إحنا عشان المقبض بيمسك الماوس)
-      if (Date.now() - last < 450) { last = 0; bar.classList.toggle("horizontal"); Ink.prefs.barH = bar.classList.contains("horizontal"); Ink.savePrefs(); return; }
+      if (Date.now() - last < 450) { last = 0; bar.classList.toggle("horizontal"); Ink.prefs.barH = bar.classList.contains("horizontal"); Ink.savePrefs(); this.dock(); return; }
       last = Date.now();
       d = { x: e.clientX - bar.offsetLeft, y: e.clientY - bar.offsetTop }; bar.setPointerCapture(e.pointerId);
     });
@@ -130,12 +131,19 @@ export const InkUI = {
       bar.style.left = Math.max(0, Math.min(innerWidth - 40, e.clientX - d.x)) + "px";
       bar.style.top = Math.max(0, Math.min(innerHeight - 40, e.clientY - d.y)) + "px";
     });
-    bar.addEventListener("pointerup", () => { if (d) { d = null; Ink.prefs.barPos = [bar.offsetLeft, bar.offsetTop]; Ink.savePrefs(); } });
+    bar.addEventListener("pointerup", () => { if (d) { d = null; Ink.prefs.barPos = [bar.offsetLeft, bar.offsetTop]; Ink.savePrefs(); this.dock(); } });
+  },
+  /** الشريط رأسي على الشمال: الصفحة/السبورة تتزق شوية عشان الشريط مايغطيش طرفها */
+  dock() {
+    const b = this.bar;
+    const docked = !b.hidden && !b.classList.contains("horizontal") && b.offsetLeft < 80;
+    document.body.classList.toggle("inkbar-left", docked);
   },
   applyBarPos() {
     const p = Ink.prefs.barPos;
     if (p) { this.bar.style.left = Math.min(p[0], innerWidth - 50) + "px"; this.bar.style.top = Math.min(p[1], innerHeight - 50) + "px"; }
     this.bar.classList.toggle("horizontal", !!Ink.prefs.barH);
+    this.dock();
   },
   say(text, ms = 2600) {
     this.toast.textContent = text; this.toast.hidden = false;

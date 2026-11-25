@@ -618,6 +618,7 @@ $("theme").onclick = () => setTheme(S.theme === "normal" ? "night" : S.theme ===
 $("findButton").onclick = () => ($("findbar").hidden ? findBarOpen() : findBarClose());
 $("mark").onclick = () => { if (hasDoc()) post({ t: "cmd", gen: S.opts.gen, name: "mark", page: curPage() }); };
 $("fullscreen").onclick = () => post({ t: "cmd", gen: S.opts.gen, name: "fullscreen" });
+$("closeReader").onclick = () => post({ t: "cmd", gen: S.opts.gen, name: "close" });
 $("ai").onclick = () => post({ t: "cmd", gen: S.opts.gen, name: "ai", page: curPage() });
 $("findInput").addEventListener("input", () => find(false, false));
 $("findInput").addEventListener("keydown", e => {
@@ -644,6 +645,7 @@ function onKeyDown(e) {
   if (k === "F5" && (S.kind === "board" || (S.kind === "pdf" && S.doc)) && !ctrl && !e.altKey) { e.preventDefault(); setPresent(); return; }
   if (k === "Escape" && document.body.classList.contains("present")) { e.preventDefault(); setPresent(false); return; }
   if (ctrl && e.shiftKey && (k === "d" || k === "D") && (S.kind === "board" || (S.kind === "pdf" && S.doc))) { e.preventDefault(); toggleInk(); return; }
+  if (ctrl && !e.altKey && !e.shiftKey && (k === "w" || k === "W" || e.code === "KeyW")) { e.preventDefault(); post({ t: "cmd", gen: S.opts.gen, name: "close" }); return; }
   if (ctrl && !e.altKey && (k === "f" || k === "F")) { e.preventDefault(); findBarOpen(); return; }
   if (ctrl && (k === "g" || k === "G")) { e.preventDefault(); pageInput.focus(); return; }
   if (ctrl && (k === "=" || k === "+")) { e.preventDefault(); zoom(1); return; }

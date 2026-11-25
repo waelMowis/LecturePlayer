@@ -14,37 +14,51 @@ internal sealed class PresentationPane : Panel
     private Form? _owner;
     private int _last;
     private readonly List<(PillButton Btn, int Type, Color? Color)> _penButtons = new();
+    private PillButton _erase = null!;
 
     public event Action<int>? SlideChanged;
     public event Action? Ended;
     public event Action<string>? Command;
     public PowerPointShow? Show => _show;
-    public bool Running => _show != null;
+    public bool Running => _show != null || _images != null;
     public int Total { get; private set; }
-    public bool Embedded => _show?.Embedded ?? false;
+    public bool Embedded => _show?.Embedded ?? _images != null;
 
     public PresentationPane()
     {
         BackColor = Color.Black;
         Visible = false;
         Controls.Add(_host);
+        _host.Controls.Add(_view);
         Controls.Add(_bar);
+        _view.Key += k =>
+        {
+            switch (k)
+            {
+                case Keys.Right or Keys.Up or Keys.PageUp or Keys.Back: Previous(); break;   // عربي: اليمين = اللي قبلها
+                case Keys.Left or Keys.Down or Keys.PageDown or Keys.Space or Keys.Enter: Next(); break;
+                case Keys.Home: GoTo(1); break;
+                case Keys.End: GoTo(Total); break;
+                case Keys.Escape: Command?.Invoke("end"); break;
+            }
+        };
+        _view.Clicked += Next;
         PillButton B(string text, string tip, Action click, PillStyle style = PillStyle.Ghost)
         {
             var b = new PillButton(text, style) { Height = 30, Margin = new Padding(3, 0, 3, 0) };
             b.Width = Math.Max(36, TextRenderer.MeasureText(text, Font).Width + 22);
-            b.Click += (_, _) => { click(); _show?.Focus(); };
+            b.Click += (_, _) => { click(); if (_images != null) _view.Focus(); else _show?.Focus(); };
             new ToolTip().SetToolTip(b, tip);
             _bar.Controls.Add(b);
             return b;
         }
-        B("⏹ إنهاء", "إنهاء العرض (Esc)", () => Command?.Invoke("end"), PillStyle.Subtle);
-        B("⏮", "أول شريحة (Home)", () => _show?.GoTo(1));
-        B("›", "الشريحة اللي قبلها", () => _show?.Previous());
+        B("✕  إغلاق العرض", "إنهاء العرض والرجوع (Esc)", () => Command?.Invoke("end"), PillStyle.Primary);
+        B("⏮", "أول شريحة (Home)", () => GoTo(1));
+        B("›", "الشريحة اللي قبلها", Previous);
         _bar.Controls.Add(_pos);
-        B("‹", "اللي بعدها (المسافة / السهم)", () => _show?.Next());
+        B("‹", "اللي بعدها (المسافة / السهم)", Next);
         _slides.Margin = new Padding(6, 1, 6, 0);
-        _slides.SelectedIndexChanged += (_, _) => { if (_slides.Focused && _slides.SelectedIndex >= 0) { _show?.GoTo(_slides.SelectedIndex + 1); _show?.Focus(); } };
+        _slides.SelectedIndexChanged += (_, _) => { if (_slides.Focused && _slides.SelectedIndex >= 0) { GoTo(_slides.SelectedIndex + 1); if (_images != null) _view.Focus(); else _show?.Focus(); } };
         _bar.Controls.Add(_slides);
         void Pen(string text, string tip, int type, Color? c) { var b = B(text, tip, () => SetPointer(type, c)); _penButtons.Add((b, type, c)); }
         Pen("➤", "الماوس العادي", PowerPointShow.PointerAutoArrow, null);
@@ -53,7 +67,7 @@ internal sealed class PresentationPane : Panel
         Pen("🟢", "قلم أخضر", PowerPointShow.PointerPen, Color.FromArgb(47, 158, 68));
         Pen("🟡", "قلم أصفر", PowerPointShow.PointerPen, Color.FromArgb(245, 159, 0));
         Pen("🧽", "ممحاة", PowerPointShow.PointerEraser, null);
-        B("🗑", "امسح الكتابة من الشريحة", () => _show?.EraseDrawing());
+        _erase = B("🗑", "امسح الكتابة من الشريحة", () => _show?.EraseDrawing());
         B("🎬", "حوّل العرض لفيديو", () => Command?.Invoke("video"));
         _host.Resize += (_, _) => Fit();
         _poll.Tick += (_, _) => Poll();
@@ -73,28 +87,36 @@ internal sealed class PresentationPane : Panel
         BringToFront();
         _host.CreateControl();
         var show = new PowerPointShow();
+        int from = 1;
         try
         {
             show.Open(path);
             Total = show.SlideCount;
-            show.Start(_host, Math.Clamp(fromSlide, 1, Math.Max(1, Total)), useTimings);
+            from = Math.Clamp(fromSlide, 1, Math.Max(1, Total));
+            show.Start(_host, from, useTimings);
         }
         catch (Exception ex)
         {
-            show.Dispose();
             Data.Log.Info("powerpoint start: " + ex);
+            // العرض نفسه مااشتغلش بس الملف اتفتح: نعرض الشرايح صور جوه «مسار» بدل ما نسيب المساحة سودا
+            if (Total > 0 && StartImages(show, titles, from)) return null;
+            show.Dispose();
+            Visible = false;
             return ex is System.Runtime.InteropServices.COMException ? "PowerPoint رفض يفتح الملف: " + ex.Message : ex.Message;
+        }
+        if (!show.Embedded)
+        {
+            // شباك PowerPoint مارضيش يتحط جوه «مسار»: مانسيبوش يفتح لوحده برّه — نعرض الشرايح صور هنا
+            Data.Log.Info("powerpoint not embedded → images inside Masar");
+            if (StartImages(show, titles, from)) return null;
+            show.Dispose();
+            Visible = false;
+            return "PowerPoint مارضيش يتعرض جوه «مسار»";
         }
         _show = show;
         _last = 0;
-        _slides.Items.Clear();
-        for (int i = 1; i <= Total; i++) _slides.Items.Add($"{i}. " + (i <= titles.Count && titles[i - 1].Length > 0 ? titles[i - 1] : "شريحة " + i));
-        if (!show.Embedded)
-        {
-            // ماقدرناش نحطه جوه: شباك PowerPoint فوق المساحة بالظبط ويتحرك معاها
-            _owner = FindForm();
-            if (_owner != null) { _owner.Move += OwnerMoved; _owner.Resize += OwnerMoved; }
-        }
+        FillSlides(titles);
+        SetPensEnabled(true);
         Fit();
         _poll.Start();
         Poll();
@@ -103,11 +125,71 @@ internal sealed class PresentationPane : Panel
         return null;
     }
 
+    private void FillSlides(IList<string> titles)
+    {
+        _slides.Items.Clear();
+        for (int i = 1; i <= Total; i++) _slides.Items.Add($"{i}. " + (i <= titles.Count && titles[i - 1].Length > 0 ? titles[i - 1] : "شريحة " + i));
+    }
+
+    private void SetPensEnabled(bool on) { foreach (var (b, _, _) in _penButtons) b.Visible = on; _erase.Visible = on; }
+
+    // ---------------- الشرايح كصور (لو PowerPoint مارضيش يتحط جوه) ----------------
+    private readonly SlideView _view = new() { Dock = DockStyle.Fill, Visible = false };
+    private List<string>? _images;
+    private string? _imagesDir;
+    private bool _imagesEnded;
+    /// <summary>العرض شغال كصور ثابتة (من غير حركات) جوه «مسار».</summary>
+    public bool ImagesMode => _images != null;
+
+    private bool StartImages(PowerPointShow show, IList<string> titles, int from)
+    {
+        try
+        {
+            try { show.StopShow(); } catch { }
+            _imagesDir = Path.Combine(Path.GetTempPath(), "masar-slides-" + Guid.NewGuid().ToString("N")[..8]);
+            int w = Math.Clamp(Screen.FromControl(this).Bounds.Width, 1280, 2560);
+            show.ExportThumbs(_imagesDir, w);
+            var files = Enumerable.Range(1, Total).Select(i => Path.Combine(_imagesDir, $"{i}.png")).ToList();
+            if (!files.Any(File.Exists)) return false;
+            show.Dispose();   // PowerPoint يتقفل: مفيش أي شباك برّه «مسار»
+            _images = files;
+            _imagesEnded = false;
+            FillSlides(titles);
+            SetPensEnabled(false);
+            _view.Visible = true;
+            _view.BringToFront();
+            _last = 0;
+            GoToImage(from);
+            _view.Focus();
+            _poll.Start();
+            return true;
+        }
+        catch (Exception ex) { Data.Log.Info("slides as images: " + ex.Message); return false; }
+    }
+
+    private int _imgIndex;
+    private void GoToImage(int n)
+    {
+        if (_images == null) return;
+        if (n > _images.Count) { _imagesEnded = true; return; }
+        n = Math.Clamp(n, 1, _images.Count);
+        _imgIndex = n;
+        _view.SetImage(File.Exists(_images[n - 1]) ? _images[n - 1] : null);
+        _pos.Text = $"شريحة {n} من {Total}";
+        if (!_slides.Focused && n - 1 < _slides.Items.Count) _slides.SelectedIndex = n - 1;
+        if (n != _last) { _last = n; SlideChanged?.Invoke(n); }
+    }
+
+    private void Next() { if (_images != null) GoToImage(_imgIndex + 1); else _show?.Next(); }
+    private void Previous() { if (_images != null) GoToImage(_imgIndex - 1); else _show?.Previous(); }
+    private void GoTo(int n) { if (_images != null) GoToImage(n); else _show?.GoTo(n); }
+
     private void OwnerMoved(object? s, EventArgs e) => Fit();
     public void Fit() { if (_show != null) _show.Fit(_host, _show.Embedded); }
 
     private void Poll()
     {
+        if (_images != null) { if (_imagesEnded) { _poll.Stop(); Ended?.Invoke(); } return; }
         if (_show == null) return;
         if (_show.Ended) { _poll.Stop(); Ended?.Invoke(); return; }
         int cur = _show.Current;
@@ -127,8 +209,51 @@ internal sealed class PresentationPane : Panel
         if (_owner != null) { _owner.Move -= OwnerMoved; _owner.Resize -= OwnerMoved; _owner = null; }
         var s = _show; _show = null;
         if (s != null) { try { s.Dispose(); } catch (Exception ex) { Data.Log.Info("powerpoint stop: " + ex.Message); } }
+        if (_images != null)
+        {
+            _images = null;
+            _view.SetImage(null);
+            _view.Visible = false;
+            var dir = _imagesDir; _imagesDir = null;
+            if (dir != null) try { Directory.Delete(dir, true); } catch { }
+        }
         Visible = false;
     }
 
     protected override void Dispose(bool disposing) { if (disposing) { Stop(); _poll.Dispose(); } base.Dispose(disposing); }
+}
+
+/// <summary>شريحة كصورة: بتتظبط على المساحة (من غير تشويه)، وبتاخد الكيبورد والكليك.</summary>
+internal sealed class SlideView : Control
+{
+    private Image? _img;
+    public event Action<Keys>? Key;
+    public event Action? Clicked;
+    public SlideView()
+    {
+        SetStyle(ControlStyles.Selectable | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        BackColor = Color.Black;
+        TabStop = true;
+    }
+    public void SetImage(string? file)
+    {
+        var old = _img;
+        _img = null;
+        if (file != null) try { using var fs = File.OpenRead(file); _img = Image.FromStream(fs); } catch { }
+        old?.Dispose();
+        Invalidate();
+    }
+    protected override bool IsInputKey(Keys k) => true;
+    protected override void OnKeyDown(KeyEventArgs e) { Key?.Invoke(e.KeyCode); e.Handled = true; }
+    protected override void OnMouseDown(MouseEventArgs e) { Focus(); if (e.Button == MouseButtons.Left) Clicked?.Invoke(); base.OnMouseDown(e); }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        e.Graphics.Clear(Color.Black);
+        if (_img == null) return;
+        float k = Math.Min((float)Width / _img.Width, (float)Height / _img.Height);
+        int w = (int)(_img.Width * k), h = (int)(_img.Height * k);
+        e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        e.Graphics.DrawImage(_img, (Width - w) / 2, (Height - h) / 2, w, h);
+    }
+    protected override void Dispose(bool disposing) { if (disposing) { _img?.Dispose(); _img = null; } base.Dispose(disposing); }
 }
