@@ -249,7 +249,7 @@ function renderSvg(it) {
     stickerElems(it, g);
   } else if (it.t === "step") {
     const r = it.r || 16;
-    el("circle", { cx: it.x, cy: it.y, r, fill: it.c || "#e03131", stroke: "#fff", "stroke-width": r * 0.12 }, g);
+    if (!it._numOnly) el("circle", { cx: it.x, cy: it.y, r, fill: it.c || "#e03131", stroke: "#fff", "stroke-width": r * 0.12 }, g);
     const t = el("text", { x: it.x, y: it.y + r * 0.36, "font-size": r * 1.05, "font-weight": 700, "text-anchor": "middle", fill: "#fff", "font-family": "Segoe UI, Tahoma" }, g);
     t.textContent = String(it.n);
   } else if (it.t === "callout") {
@@ -1143,6 +1143,7 @@ function rotateItem(i, c, deg) {
   if (i.t !== "step" && i.t !== "note") i.rot = r2(((i.rot || 0) + deg) % 360);
 }
 export const _test = { moveItem, scaleItem, rotateItem, hitDist, inPoly };
+export { renderSvg };
 
 // =====================================================================
 //  أدوات العرض: ليزر، كشاف، عدسة، مسطرة ومنقلة

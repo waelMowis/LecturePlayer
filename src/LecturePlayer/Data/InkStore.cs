@@ -172,6 +172,76 @@ public static class InkStore
         return File.GetLastWriteTimeUtc(file);
     }
 
+    // ---------------- النسخ (versions) ----------------
+
+    public sealed record Version(string File, string Name, DateTime Local, int Count);
+
+    public static string VersionsDir(string libraryPath, string bookId) => Path.Combine(DirFor(libraryPath), "versions", SafeName(bookId));
+
+    /// <summary>بيحفظ نسخة من الشرح الحالي باسم وتاريخ.</summary>
+    public static string SaveVersion(string libraryPath, string bookId, JsonObject doc, string name)
+    {
+        string dir = VersionsDir(libraryPath, bookId);
+        Directory.CreateDirectory(dir);
+        string clean = new string((name ?? "").Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) || c == '_' ? '-' : c).ToArray());
+        if (clean.Length > 60) clean = clean[..60];
+        string file = Path.Combine(dir, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "__" + (clean.Length > 0 ? clean : "نسخة") + ".json");
+        var copy = (JsonObject)doc.DeepClone();
+        copy["name"] = name;
+        File.WriteAllText(file, copy.ToJsonString(), new UTF8Encoding(false));
+        return file;
+    }
+
+    public static List<Version> Versions(string libraryPath, string bookId)
+    {
+        string dir = VersionsDir(libraryPath, bookId);
+        if (!Directory.Exists(dir)) return new();
+        var list = new List<Version>();
+        foreach (string f in Directory.GetFiles(dir, "*.json"))
+        {
+            string stem = Path.GetFileNameWithoutExtension(f);
+            int cut = stem.IndexOf("__", StringComparison.Ordinal);
+            DateTime when = cut > 0 && DateTime.TryParseExact(stem[..cut], "yyyyMMdd-HHmmss", null, System.Globalization.DateTimeStyles.None, out var d) ? d : File.GetLastWriteTime(f);
+            string name = cut > 0 ? stem[(cut + 2)..] : stem;
+            int count = 0;
+            try { var doc = Load(f); count = Count(doc); if (doc["name"]?.GetValue<string>() is { Length: > 0 } n) name = n; } catch { }
+            list.Add(new Version(f, name, when, count));
+        }
+        return list.OrderByDescending(v => v.Local).ToList();
+    }
+
+    /// <summary>
+    /// الرجوع لنسخة: كل اللي مش في النسخة بيتمسح (بوقت دلوقتي) وعناصر النسخة بتاخد وقت دلوقتي —
+    /// فالرجوع بيوصل للأجهزة التانية صح مع الدمج.
+    /// </summary>
+    public static void Restore(JsonObject doc, JsonObject version)
+    {
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var keep = new HashSet<string>(StringComparer.Ordinal);
+        var pages = new JsonObject();
+        foreach (var (key, arr) in Pages(version))
+        {
+            if (arr is not JsonArray a || a.Count == 0) continue;
+            var fresh = new JsonArray();
+            foreach (var it in a)
+            {
+                if (it is not JsonObject o) continue;
+                var c = (JsonObject)o.DeepClone();
+                c["u"] = now;
+                if (Id(c) is { } id) keep.Add(id);
+                fresh.Add(c);
+            }
+            pages[key] = fresh;
+        }
+        var del = Tombs(doc);
+        foreach (var (_, arr) in Pages(doc))
+            if (arr is JsonArray a)
+                foreach (var it in a)
+                    if (Id(it) is { } id && !keep.Contains(id)) del[id] = now;
+        foreach (var id in keep) del.Remove(id);
+        doc["pages"] = pages;
+    }
+
     public static DateTime Stamp(string file)
     {
         try { return File.Exists(file) ? File.GetLastWriteTimeUtc(file) : DateTime.MinValue; } catch { return DateTime.MinValue; }

@@ -231,7 +231,7 @@ public static class LibrarySync
             if (ls == null) { local.Shelves.Add(rs); result.UpdatedInfo++; }
             else if (rs.InfoUpdatedUtc > ls.InfoUpdatedUtc)
             {
-                ls.Name = rs.Name; ls.IconKey = rs.IconKey; ls.ColorHex = rs.ColorHex; ls.ParentId = rs.ParentId; ls.SourceFolder = rs.SourceFolder;
+                ls.Name = rs.Name; ls.IconKey = rs.IconKey; ls.ColorHex = rs.ColorHex; ls.ParentId = rs.ParentId; ls.SourceFolder = rs.SourceFolder; ls.Kind = rs.Kind;
                 ls.InfoUpdatedUtc = rs.InfoUpdatedUtc; result.UpdatedInfo++;
             }
         }

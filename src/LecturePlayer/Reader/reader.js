@@ -1,6 +1,7 @@
 import { Epub as E } from "./epub.js";
 import { Ink } from "./ink.js";
 import { InkUI } from "./ink-ui.js";
+import { buildAnnotated, pagePng } from "./ink-export.js";
 const host = window.chrome && window.chrome.webview;
 function post(msg) {
   const s = JSON.stringify(msg);
@@ -666,8 +667,32 @@ window.masar = {
   ink: on => { if (on == null) toggleInk(); else setInk(!!on); return "ok"; },
   inkState: () => JSON.stringify({ on: Ink.on, tool: Ink.tool, count: Ink.count(), layers: Ink.surfaces.size, json: Ink.doc.toJSON() }),
   inkTest: () => ({ Ink, InkUI }),
+  /** نسخة مشروحة: الأصل + الشرح ← PDF بيتبعت للبرنامج على save. النتيجة: رسالة job. */
+  annotate: (id, src, save, inkJson, title) => { runAnnotate(id, src, save, inkJson, title); return "ok"; },
+  /** صورة الصفحة بالشرح (PNG) ← save. */
+  pagePng: (id, page, save, scale) => { runPagePng(id, page, save, scale); return "ok"; },
   state: () => JSON.stringify({ kind: S.kind, page: hasDoc() ? curPage() : 0, pages: pageTotal(), scale: S.kind === "epub" ? "font:" + E.font : String(viewer.currentScaleValue), spread: S.spread, theme: S.theme, rtl: S.rtl, read: [...S.read], gen: S.opts.gen })
 };
+// ---------------------------------------------------------------- النسخة المشروحة وصورة الصفحة
+async function runAnnotate(id, src, save, inkJson, title) {
+  try {
+    const ink = typeof inkJson === "string" ? JSON.parse(inkJson) : inkJson;
+    const r = await buildAnnotated({ src, save, ink, title, pdfjsLib, docOpts: DOC_OPTS, onProgress: p => post({ t: "job", id, progress: p }) });
+    post({ t: "job", id, ok: true, size: r.size, pages: r.pages });
+  } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
+}
+async function runPagePng(id, page, save, scale) {
+  try {
+    if (!S.doc) throw new Error("مفيش كتاب مفتوح");
+    Ink.flush();
+    const pg = await S.doc.getPage(page);
+    const png = await pagePng({ pdfPage: pg, items: Ink.doc.items(String(page)), scale: scale || 2 });
+    const r = await fetch(save, { method: "POST", body: png, headers: { "Content-Type": "image/png" } });
+    if (!r.ok) throw new Error("الحفظ فشل");
+    post({ t: "job", id, ok: true, size: png.length });
+  } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
+}
+
 // ---------------------------------------------------------------- أدوات الشرح
 Ink.init({ post: m => post({ ...m, gen: S.opts.gen }), container });
 Ink.keepAlive($("viewer"));

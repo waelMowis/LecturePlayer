@@ -623,6 +623,7 @@ internal sealed partial class MainForm
         if (Due(ref _dueFolderSync, OnBattery ? 600_000 : 120_000)) _ = SyncLinkedFoldersAsync();
         NotionAutoTick();
         InkTick();
+        AnnotatedTick();
         if (_dirty && Due(ref _dueSave, 10_000)) SaveLibrary(); // حفظ تلقائي كل 10 ثواني لو في تغيير
         else if (_positionDirty && Due(ref _duePositionSave, 60_000)) SaveLibrary(); // مكان التشغيل بس: كل دقيقة
         else if (Due(ref _dueMerge, OnBattery ? 120_000 : 30_000)) MergeExternalChanges(); // هل جهاز تاني عدّل القائمة؟ (وبتتشيك كمان أول ما ترجع للبرنامج)

@@ -502,6 +502,7 @@ internal sealed partial class MainForm
         if (b.LastPage > 1) items.Add(MenuItem("⏮  افتحه من الأول", () => OpenBook(b, 1)));
         if (BookFiles.FormatOf(BookFile(b)) == "pdf")
             items.Add(MenuItem("🖊  اشرح عليه (أقلام وألوان وأشكال وملصقات)" + (b.InkCount > 0 ? $" — عليه {b.InkCount}" : ""), () => OpenBookForInk(b), "Ctrl+Shift+D"));
+        AddAnnotatedMenu(b, items, 0);
         if (b.IsOnline)
         {
             items.Add(Sep());
@@ -524,6 +525,8 @@ internal sealed partial class MainForm
             int pg = Math.Max(1, b.LastPage);
             items.Add(SubMenuOf("✨  الذكاء الاصطناعي", BookAiItems(b, pg, PartOf(b, pg)).ToArray()));
         }
+        AddAnnotatedMenu(b, items, 5);
+        AddAnnotatedMenu(b, items, 6);
         items.Add(MenuItem("📝  حفظ التظليلات والملاحظات (Markdown)…", () => ExportBookNotes(b)));
         if (BookFiles.FormatOf(BookFile(b)) == "pdf")
             items.Add(MenuItem("📝  حوّل الصفحات المتصوّرة لنص (OCR) — للبحث والذكاء", () => _ = OcrBookAsync(b)));
@@ -1200,6 +1203,7 @@ internal sealed partial class MainForm
             _reader.Visible = false;
             _ = _reader.CloseBookAsync();
         }
+        if (b != null) QueueAnnotated(b);
         _videoView.Visible = true;
         if (!_fullscreen) ControlChromeVisible = true;
         if (showHome) { _welcome.Visible = true; RefreshHome(); }

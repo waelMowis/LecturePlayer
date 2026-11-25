@@ -111,6 +111,39 @@ internal partial class MainForm
             Check(Until(() => Js("String(masar.inkTest().Ink.doc.items('1').some(i=>i.id==='remote-step') && !masar.inkTest().Ink.doc.items('1').some(i=>i.id===" + JsonSerializer.Serialize(victim) + ") && masar.inkTest().Ink.doc.items('2').length===1)") == "true", 25_000), "remote ink merged into the open book");
             Check(book.InkCount == 8, "count after merge: " + book.InkCount);
 
+            // ---------- النسخة المشروحة في «شروحاتي» ----------
+            Check(NeedsAnnotated(book), "needs annotated copy");
+            var built = BuildAnnotatedCopyAsync(book, quiet: true);
+            Check(Until(() => built.IsCompleted, 90_000) && built.Result, "annotated copy built");
+            var copy = AnnotatedCopyOf(book);
+            Check(copy != null && File.Exists(copy.LocalPath) && copy.LocalPath.Contains(AnnotatedFolderName) && _library.Shelves.First(x => x.Id == copy.ShelfId).Kind == AnnotatedShelfKind, "copy in «شروحاتي»: " + copy?.LocalPath);
+            Check(Until(() => copy!.PageCount == 6, 30_000), "copy probed: " + copy!.PageCount);
+            Check(!NeedsAnnotated(book), "copy up to date");
+            Check(File.ReadAllBytes(copy.LocalPath).Length > new FileInfo(pdf).Length, "copy bigger than the original (ink inside)");
+            var menuItems = new ContextMenuStrip(); BuildBookMenu(book, menuItems.Items);
+            Check(menuItems.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.StartsWith("🖊  افتح النسخة المشروحة")), "menu: open annotated copy");
+
+            // ---------- صورة الصفحة ----------
+            SmokeSavePath = Path.Combine(dir, "page.png");
+            ExportPagePng(book);
+            Check(Until(() => File.Exists(SmokeSavePath) && new FileInfo(SmokeSavePath).Length > 2000, 30_000), "page png saved");
+            var head = File.ReadAllBytes(SmokeSavePath).Take(4).ToArray();
+            Check(head.SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47 }), "png header");
+
+            // ---------- نسخ الشرح ----------
+            SmokeAskText = q => q.Length == 0 ? "نسخة الفحص" : q;
+            SaveInkVersion(book, "نسخة الفحص");
+            var vers = InkStore.Versions(_libraryPath, book.Id);
+            Check(vers.Count == 1 && vers[0].Name == "نسخة الفحص" && vers[0].Count == 8, "version saved: " + string.Join(",", vers.Select(v => v.Name + ":" + v.Count)));
+            Js("masar.inkTest().Ink.clearPage('1','all')");
+            Js("masar.inkFlush()");
+            Check(Until(() => book.InkCount == 1, 8000), "page cleared: " + book.InkCount);
+            RestoreInkVersion(book, vers[0]);
+            Check(book.InkCount == 8, "restored count: " + book.InkCount);
+            Check(Until(() => Js("String(masar.inkTest().Ink.count())") == "8", 8000), "reader shows the restored ink");
+            Check(InkStore.Versions(_libraryPath, book.Id).Count == 2, "auto version before restore");
+            Check(Until(() => !NeedsAnnotated(book), 60_000), "annotated copy rebuilt after restore");
+
             // ---------- وضع العرض ----------
             Js("window.dispatchEvent(new KeyboardEvent('keydown',{key:'F5',bubbles:true}))");
             Check(Until(() => _fullscreen && Js("String(document.body.classList.contains('present'))") == "true", 8000), "present mode → fullscreen");
@@ -127,9 +160,18 @@ internal partial class MainForm
         }
         finally
         {
+            SmokeAskText = null;
+            SmokeSavePath = null;
             if (_fullscreen != wasFull) ToggleFullscreen();
             if (ReaderShown) CloseReader(showHome: true);
             var ids = added.Select(x => x.Id).ToHashSet();
+            foreach (var c in _library.Books.Where(x => x.AnnotatedOf != null && ids.Contains(x.AnnotatedOf)).ToList())
+            {
+                try { File.Delete(c.LocalPath); } catch { }
+                _library.Books.Remove(c);
+            }
+            foreach (var id in ids) try { Directory.Delete(InkStore.VersionsDir(_libraryPath, id), true); } catch { }
+            _library.Shelves.RemoveAll(x => x.Kind == AnnotatedShelfKind && !_library.Books.Any(bk => bk.ShelfId == x.Id));
             _library.Books.RemoveAll(x => ids.Contains(x.Id));
             _library.Shelves.RemoveAll(s => s.Name == "أقلام الفحص");
             RebuildTree();

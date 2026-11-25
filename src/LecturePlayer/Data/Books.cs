@@ -15,6 +15,8 @@ public sealed class Shelf
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ParentId { get; set; }
     /// <summary>فولدر مربوط: الكتب الجديدة فيه بتتضاف لما تحدّث الرف.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? SourceFolder { get; set; }
+    /// <summary>رف خاص: "annotated" = «شروحاتي» (النسخ المشروحة اللي «مسار» بيعملها).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Kind { get; set; }
     public DateTime InfoUpdatedUtc { get; set; }
     public void TouchInfo() => InfoUpdatedUtc = DateTime.UtcNow;
 }
@@ -104,6 +106,8 @@ public sealed class Book
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Notes { get; set; }
     /// <summary>عدد عناصر الشرح (أقلام/أشكال/نصوص) على الكتاب — الشرح نفسه في فولدر ‹المكتبة›.annotations.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int InkCount { get; set; }
+    /// <summary>النسخة المشروحة: رقم الكتاب الأصلي (الملف ده «مسار» بيعيد كتابته لما الشرح يتغير).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? AnnotatedOf { get; set; }
 
     public DateTime AddedUtc { get; set; } = DateTime.UtcNow;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public DateTime? LastOpenedUtc { get; set; }

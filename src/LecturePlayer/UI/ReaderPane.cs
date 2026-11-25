@@ -56,6 +56,11 @@ internal sealed class ReaderPane : Panel
     private readonly Dictionary<string, (Dictionary<int, string> Pages, TaskCompletionSource<bool> Done, IProgress<(int Done, int Total)>? Progress)> _texts = new();
     private readonly Dictionary<string, TaskCompletionSource<byte[]?>> _images = new();
     private readonly SemaphoreSlim _probeGate = new(1, 1);
+    /// <summary>عناوين الحفظ (توكن ← الملف): الصفحة تقدر تكتب الملفات دي بس، كل توكن مرة واحدة.</summary>
+    private readonly Dictionary<string, string> _saves = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (TaskCompletionSource<JobResult> Done, IProgress<double>? Progress)> _jobs = new();
+
+    public sealed record JobResult(bool Ok, string? Error, long Size, int Pages);
 
     public ReaderPane()
     {
@@ -176,6 +181,11 @@ internal sealed class ReaderPane : Panel
             var env = Web.CoreWebView2.Environment;
             var uri = new Uri(e.Request.Uri);
             string path = Uri.UnescapeDataString(uri.AbsolutePath);
+            if (path.StartsWith("/save/", StringComparison.Ordinal) && e.Request.Method == "POST")
+            {
+                e.Response = SaveResponse(env, path[6..], e.Request.Content);
+                return;
+            }
             if (path.StartsWith("/book/", StringComparison.Ordinal))
             {
                 string[] parts = path.Split('/', 4, StringSplitOptions.RemoveEmptyEntries);
@@ -203,6 +213,70 @@ internal sealed class ReaderPane : Panel
             Data.Log.Info("reader resource: " + ex.Message);
             try { e.Response = Web.CoreWebView2.Environment.CreateWebResourceResponse(null, 500, "Error", "Content-Type: text/plain"); } catch { }
         }
+    }
+
+    /// <summary>الصفحة بتبعت ملف اتعمل (PDF/PNG): بيتكتب في ملف مؤقت وبعدين يستبدل الهدف (مايبوظش لو حصل حاجة في النص).</summary>
+    private CoreWebView2WebResourceResponse SaveResponse(CoreWebView2Environment env, string token, Stream? body)
+    {
+        if (!_saves.Remove(token, out var target) || body == null)
+            return env.CreateWebResourceResponse(null, 403, "Forbidden", "Content-Type: text/plain");
+        string tmp = target + ".masar-part";
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16))
+                body.CopyTo(fs);
+            if (new FileInfo(tmp).Length == 0) throw new IOException("الملف طلع فاضي");
+            File.Move(tmp, target, overwrite: true);
+            return env.CreateWebResourceResponse(new MemoryStream("ok"u8.ToArray()), 200, "OK", "Content-Type: text/plain");
+        }
+        catch (Exception ex)
+        {
+            try { File.Delete(tmp); } catch { }
+            Data.Log.Info("reader save: " + ex.Message);
+            var msg = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(ex is IOException or UnauthorizedAccessException ? "الملف مفتوح في برنامج تاني أو مفيش صلاحية: " + ex.Message : ex.Message));
+            return env.CreateWebResourceResponse(msg, 500, "Error", "Content-Type: text/plain; charset=utf-8");
+        }
+    }
+
+    private string SaveUrl(string target)
+    {
+        string token = Guid.NewGuid().ToString("N");
+        _saves[token] = Path.GetFullPath(target);
+        return $"https://{ReaderHost}/save/{token}";
+    }
+
+    /// <summary>شغلانة في الصفحة (نسخة مشروحة/صورة/تعديل صفحات) ← بتستنى رسالة job.</summary>
+    private async Task<JobResult> RunJobAsync(Func<string, string> script, IProgress<double>? progress, CancellationToken ct, int timeoutMs = 600_000)
+    {
+        await EnsureReadyAsync();
+        string id = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<JobResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _jobs[id] = (tcs, progress);
+        try
+        {
+            await Web.CoreWebView2.ExecuteScriptAsync(script(JsonSerializer.Serialize(id)));
+            using (ct.Register(() => tcs.TrySetCanceled()))
+            {
+                var done = await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs, CancellationToken.None));
+                return done == tcs.Task ? await tcs.Task : new JobResult(false, "الشغلانة خدت وقت أكتر من اللازم", 0, 0);
+            }
+        }
+        finally { _jobs.Remove(id); }
+    }
+
+    /// <summary>نسخة مشروحة من ملف: الأصل + الشرح ← target.</summary>
+    public Task<JobResult> BuildAnnotatedAsync(string srcFile, System.Text.Json.Nodes.JsonObject ink, string target, string title, IProgress<double>? progress, CancellationToken ct)
+    {
+        string src = Serve(srcFile), save = SaveUrl(target);
+        return RunJobAsync(id => $"masar.annotate({id}, {JsonSerializer.Serialize(src)}, {JsonSerializer.Serialize(save)}, {JsonSerializer.Serialize(ink.ToJsonString())}, {JsonSerializer.Serialize(title)})", progress, ct);
+    }
+
+    /// <summary>صورة صفحة من الكتاب المفتوح بالشرح اللي عليها.</summary>
+    public Task<JobResult> PagePngAsync(int page, string target, double scale = 2)
+    {
+        string save = SaveUrl(target);
+        return RunJobAsync(id => $"masar.pagePng({id}, {page}, {JsonSerializer.Serialize(save)}, {scale.ToString(System.Globalization.CultureInfo.InvariantCulture)})", null, CancellationToken.None, 120_000);
     }
 
     private static CoreWebView2WebResourceResponse FileResponse(CoreWebView2Environment env, string file, string? range)
@@ -360,6 +434,8 @@ internal sealed class ReaderPane : Panel
         [JsonPropertyName("error")] public string? Error { get; set; }
         [JsonPropertyName("tomb")] public JsonElement Tomb { get; set; }
         [JsonPropertyName("prefs")] public JsonElement Prefs { get; set; }
+        [JsonPropertyName("progress")] public double? Progress { get; set; }
+        [JsonPropertyName("size")] public long Size { get; set; }
     }
 
     private sealed class OutlineItem
@@ -434,6 +510,10 @@ internal sealed class ReaderPane : Panel
                     break;
                 case "error" when m.Gen == Generation:
                     Failed?.Invoke(m.Gen, m.Code ?? "error", m.Message ?? "");
+                    break;
+                case "job" when m.Id != null && _jobs.TryGetValue(m.Id, out var job):
+                    if (m.Progress is { } pr) job.Progress?.Report(pr);
+                    else job.Done.TrySetResult(new JobResult(m.Ok, m.Error, m.Size, m.Pages.ValueKind == JsonValueKind.Number ? m.Pages.GetInt32() : 0));
                     break;
                 case "ink":
                     InkChanged?.Invoke(m.Gen, m.Pages, m.Tomb);

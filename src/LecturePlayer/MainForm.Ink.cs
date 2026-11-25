@@ -32,6 +32,7 @@ internal partial class MainForm
     {
         if (!HasLibrary) return null;
         SaveAllInk();
+        if (_ink != null && _ink.Book != b) QueueAnnotated(_ink.Book); // الكتاب اللي اتقفل: نسخته المشروحة تتحدّث
         string file = InkStore.FileFor(_libraryPath, b.Id);
         var doc = InkStore.Load(file);
         _ink = new InkSession { Book = b, File = file, Doc = doc, Stamp = InkStore.Stamp(file) };
@@ -54,7 +55,7 @@ internal partial class MainForm
         if (!InkStore.Apply(s.Doc, pages, tombs)) return;
         s.Dirty = true;
         s.ChangedUtc = DateTime.UtcNow;
-        if (s != _ink) SaveInk(s);          // كتاب اتقفل: يتحفظ على طول
+        if (s != _ink || !ReaderShown) { SaveInk(s); QueueAnnotated(s.Book); }   // كتاب اتقفل: يتحفظ على طول ونسخته تتحدّث
         else ScheduleInkSave();
     }
 
