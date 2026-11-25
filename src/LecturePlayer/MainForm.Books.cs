@@ -1194,6 +1194,7 @@ internal sealed partial class MainForm
         }
 
         if (_currentVideo != null || _currentLive != null || UdemyActive) StopPlaybackCore(clearCurrent: true);
+        if (PresentationShown) SuspendPresentation();   // كتاب/سبورة أثناء العرض: العرض يُعلَّق ولا يبقى «معروضًا» خلف القارئ
         if (ReaderShown) FlushReading();
         if (_fullscreen && _miniMode) ToggleMiniMode();
 

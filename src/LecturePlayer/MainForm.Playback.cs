@@ -123,6 +123,8 @@ internal sealed partial class MainForm
             return;
         }
 
+        // فيديو أثناء عرض PowerPoint: العرض يُعلَّق (يختفي ويعود فورًا من الشريحة نفسها) — وإلا يبقى فوق الفيديو
+        if (PresentationShown) SuspendPresentation();
         CloseReader(showHome: false); // فيديو بعد كتاب: القارئ يتقفل ومكانك محفوظ
         // تشغيل جديد من المستخدم: محاولات الإنقاذ بتاعة فيديوهات النت تبدأ من الأول
         _onlineRetryFor = null;

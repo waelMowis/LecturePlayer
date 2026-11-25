@@ -164,6 +164,30 @@ internal partial class MainForm
             Check(!PresentationShown && _presPane.Running && !_presPane.Visible, "presentation suspended, PowerPoint still running");
             OpenBook(b);
             Check(PresentationShown && _presPane.Visible && fake.Presentations.Open_.Count == opens && b.LastPage == 2 && _presPane.Current == 2, "resumed instantly on the same slide (no reopen)");
+            Check(SlideInk.Load(_libraryPath, b.Id).TryGetValue(2, out var saved) && saved.Count == 1, "slide drawing saved with the library");
+            // فيديو أثناء العرض: العرض يُعلَّق والفيديو يظهر (لا يبقى العرض فوقه)، والتبويبان موجودان
+            string tone = Path.Combine(dir, "pres tone.wav");
+            WriteToneWav(tone, seconds: 20);
+            var pc = new Course { Name = "Pres Video Course" };
+            var pg = new LectureGroup { Name = "L" };
+            var pv = new VideoItem { Path = tone, Title = "Pres tone", DurationMs = 20_000 };
+            pg.Videos.Add(pv); pc.Groups.Add(pg); _library.Courses.Add(pc);
+            try
+            {
+                PlayVideo(pg, pv, 0);
+                Check(Until(() => _currentVideo == pv && _mp.State == LibVLCSharp.Shared.VLCState.Playing, 20_000), "video plays after the presentation");
+                Check(!PresentationShown && _presSuspended == b && !_presPane.Visible && _videoView.Visible, "presentation suspended under the video (not covering it)");
+                Check(_tabs.Any(t => t.Ref == b.Id) && _activeTab >= 0 && _tabs[_activeTab].Ref == pc.Id && Text.StartsWith(pv.Title), "video tab active, title is the video: " + Text);
+                OpenBook(b);
+                Check(PresentationShown && _presPane.Visible && _currentVideo == null && fake.Presentations.Open_.Count == opens && _presPane.Current == 2, "back to the presentation from the video, same slide");
+            }
+            finally
+            {
+                _library.Courses.Remove(pc);
+                _tabs.RemoveAll(t => t.Ref == pc.Id);
+                if (_activeTab >= _tabs.Count) _activeTab = -1;
+                SyncTabs();
+            }
             _presPane.Show!.Pointer(PowerPointShow.PointerPen, Color.Red);
             Check(win.View.PointerType == PowerPointShow.PointerPen && win.View.PointerColor.RGB == 0x0000FF, "PowerPoint pen + colour (BGR)");
             // كتابة اتحفظت في الشريحة 2 ← نسخة مشروحة
