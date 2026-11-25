@@ -312,6 +312,7 @@ internal sealed partial class MainForm
 
     private void StopPlaybackCore(bool clearCurrent)
     {
+        if (PresentationShown) EndPresentation(showHome: false);
         if (clearCurrent) CloseReader(showHome: false);
         SaveCurrentPosition();
         _playRequest++;            // يلغي أي فيديو نت لسه بيتجهّز
@@ -624,6 +625,7 @@ internal sealed partial class MainForm
         NotionAutoTick();
         InkTick();
         AnnotatedTick();
+        PresentationTick();
         if (_dirty && Due(ref _dueSave, 10_000)) SaveLibrary(); // حفظ تلقائي كل 10 ثواني لو في تغيير
         else if (_positionDirty && Due(ref _duePositionSave, 60_000)) SaveLibrary(); // مكان التشغيل بس: كل دقيقة
         else if (Due(ref _dueMerge, OnBattery ? 120_000 : 30_000)) MergeExternalChanges(); // هل جهاز تاني عدّل القائمة؟ (وبتتشيك كمان أول ما ترجع للبرنامج)

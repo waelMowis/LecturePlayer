@@ -139,6 +139,8 @@ internal sealed partial class MainForm
     {
         string file = BookFile(b);
         if (!File.Exists(file)) return null;
+        if (b.IsBoard) return null;
+        if (b.IsPresentation) { if (!BookText.Load(b).Complete) ApplyPresentationInfo(b); return BookText.Load(b); }
         var text = BookText.Load(b);
         if (b.PageCount > 0) to = Math.Min(to, b.PageCount);
         from = Math.Max(1, from);

@@ -128,6 +128,7 @@ public sealed class Book
 
     [JsonIgnore] public bool IsOnline => MediaFiles.IsUrl(Path);
     [JsonIgnore] public bool IsBoard => BookFiles.FormatOf(Path) == "board";
+    [JsonIgnore] public bool IsPresentation => BookFiles.FormatOf(Path) == "pptx";
     [JsonIgnore] public string Format => BookFiles.FormatOf(Path);
     [JsonIgnore] public PageSet Read => PageSet.Parse(ReadPages);
     [JsonIgnore] public int ReadCount => Read.Count(PageCount);
@@ -242,7 +243,7 @@ public sealed class PageSet
 /// <summary>ملفات الكتب: الأنواع المدعومة والبحث في الفولدرات.</summary>
 public static class BookFiles
 {
-    public static readonly string[] Extensions = { ".pdf", ".epub" };
+    public static readonly string[] Extensions = { ".pdf", ".epub", ".pptx", ".ppsx", ".pptm", ".ppt", ".pps" };
     /// <summary>سبورة «مسار»: ملف JSON فيه الصفحات (المقاس والخلفية) — الرسم نفسه في فولدر الشرح.</summary>
     public const string BoardExtension = ".masar-board";
 
@@ -252,7 +253,7 @@ public static class BookFiles
         int q = p.IndexOfAny(new[] { '?', '#' });
         if (MediaFiles.IsUrl(p) && q > 0) p = p[..q];
         string ext = System.IO.Path.GetExtension(p).ToLowerInvariant();
-        return ext == ".epub" ? "epub" : ext == BoardExtension ? "board" : "pdf";
+        return ext == ".epub" ? "epub" : ext == BoardExtension ? "board" : Pptx.IsPresentation(p) ? "pptx" : "pdf";
     }
 
     public static bool IsBookFile(string path) =>

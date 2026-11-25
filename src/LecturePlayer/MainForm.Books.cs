@@ -310,7 +310,7 @@ internal sealed partial class MainForm
         if (b.IsBoard) { _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, false, current, -1)); n.ImageKey = n.SelectedImageKey = ShelfImageKey("book", "whiteboard", b.IconKey, b.ColorHex, Theme.CourseColor, false); n.ForeColor = current ? Theme.Accent : CustomNameColor(b.ColorHex) ?? Theme.Text; n.NodeFont = null; n.Text = Modern.Bidi(b.Title); n.ToolTipText = $"{b.Title}\nسبورة: {Math.Max(1, b.PageCount)} صفحة" + (b.InkCount > 0 ? $" — عليها {b.InkCount} حاجة مرسومة" : "") + "\n" + b.LocalPath; return; }
         _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, b.IsDone, current, b.IsStarted && !b.IsDone ? b.Fraction : -1));
         bool missing = !b.IsOnline && !FileCache.Exists(b.LocalPath);
-        n.ImageKey = n.SelectedImageKey = missing ? "missing" : ShelfImageKey("book", "book_open", b.IconKey, b.ColorHex, Theme.CourseColor, b.IsDone);
+        n.ImageKey = n.SelectedImageKey = missing ? "missing" : ShelfImageKey("book", b.IsPresentation ? "slide_text" : "book_open", b.IconKey, b.ColorHex, Theme.CourseColor, b.IsDone);
         n.ForeColor = current ? Theme.Accent : b.IsDone ? Theme.Success : missing ? Theme.Muted : CustomNameColor(b.ColorHex) ?? Theme.Text;
         n.NodeFont = null;
         n.ToolTipText = BookTooltip(b, missing);
@@ -506,11 +506,13 @@ internal sealed partial class MainForm
     private void BuildBookMenu(Book b, ToolStripItemCollection items)
     {
         if (b.IsBoard) { BuildBoardMenu(b, items); return; }
-        items.Add(MenuItem(b.IsStarted && b.LastPage > 1 && !b.IsDone ? $"▶  كمّل من صفحة {b.LastPage}" : "▶  افتح الكتاب", () => OpenBook(b), "Enter"));
+        items.Add(MenuItem(b.IsPresentation ? (b.LastPage > 1 ? $"▶  اعرض من شريحة {b.LastPage}" : "▶  اعرض (بالأنيميشن)") : b.IsStarted && b.LastPage > 1 && !b.IsDone ? $"▶  كمّل من صفحة {b.LastPage}" : "▶  افتح الكتاب", () => OpenBook(b), "Enter"));
         if (b.LastPage > 1) items.Add(MenuItem("⏮  افتحه من الأول", () => OpenBook(b, 1)));
         if (BookFiles.FormatOf(BookFile(b)) == "pdf")
             items.Add(MenuItem("🖊  اشرح عليه (أقلام وألوان وأشكال وملصقات)" + (b.InkCount > 0 ? $" — عليه {b.InkCount}" : ""), () => OpenBookForInk(b), "Ctrl+Shift+D"));
         AddAnnotatedMenu(b, items, 0);
+        if (b.IsPresentation && AnnotatedCopyOf(b) is { } pcopy && File.Exists(pcopy.LocalPath))
+            items.Add(MenuItem("🖊  افتح النسخة المشروحة (بالكتابة)", () => OpenPresentation(pcopy)));
         if (b.IsOnline)
         {
             items.Add(Sep());
@@ -537,6 +539,7 @@ internal sealed partial class MainForm
         }
         AddAnnotatedMenu(b, items, 5);
         AddAnnotatedMenu(b, items, 6);
+        if (b.IsPresentation) items.Add(MenuItem("📤  حوّل العرض لفيديو MP4 (بالأنيميشن وعلامة لكل شريحة)…", () => ConvertPresentationToVideo(b)));
         items.Add(MenuItem("📝  حفظ التظليلات والملاحظات (Markdown)…", () => ExportBookNotes(b)));
         if (BookFiles.FormatOf(BookFile(b)) == "pdf")
             items.Add(MenuItem("📝  حوّل الصفحات المتصوّرة لنص (OCR) — للبحث والذكاء", () => _ = OcrBookAsync(b)));
@@ -631,7 +634,7 @@ internal sealed partial class MainForm
         using var dlg = new OpenFileDialog
         {
             Title = "اختار كتب (PDF)" + (shelf != null ? $" — هتتحط في «{shelf.Name}»" : ""),
-            Filter = "كتب (PDF و EPUB)|*.pdf;*.epub|كل الملفات|*.*", Multiselect = true, RestoreDirectory = true
+            Filter = "كتب وعروض (PDF و EPUB و PowerPoint)|*.pdf;*.epub;*.pptx;*.ppsx;*.pptm;*.ppt;*.pps|كل الملفات|*.*", Multiselect = true, RestoreDirectory = true
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         var added = AddBooks(dlg.FileNames.Where(BookFiles.IsBookFile), shelf);
@@ -1036,7 +1039,10 @@ internal sealed partial class MainForm
 
     private void QueueProbe(IEnumerable<Book> books)
     {
-        foreach (var b in books)
+        // العروض بتتقري على طول (من غير القارئ)
+        foreach (var b in books.Where(x => x.IsPresentation && x.PageCount <= 0).ToList())
+            if (ApplyPresentationInfo(b)) RefreshBookRowsOrTree(b);
+        foreach (var b in books.Where(x => !x.IsPresentation))
             if (b.PageCount <= 0 && !b.IsBoard && (b.IsOnline ? File.Exists(BookFile(b)) : !LibraryFiles.IsCloudPath(b.LocalPath)) && !_bookProbeQueue.Contains(b))
                 _bookProbeQueue.Enqueue(b);
         if (!_bookProbing && _bookProbeQueue.Count > 0 && ReaderPane.Available) _ = BookProbeLoopAsync();
@@ -1129,6 +1135,7 @@ internal sealed partial class MainForm
     internal async void OpenBook(Book b, int? page = null)
     {
         if (!EnsureLibrary()) return;
+        if (b.IsPresentation) { OpenPresentation(b, page); return; }
         if (!ReaderPane.Available)
         {
             ShowBanner(UdemyWeb.RuntimeVersion == null
