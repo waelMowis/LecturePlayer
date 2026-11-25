@@ -16,6 +16,8 @@ internal partial class MainForm
     private readonly HashSet<string> _annotQueue = new(StringComparer.Ordinal);
     private readonly HashSet<string> _annotBusy = new(StringComparer.Ordinal);
     private long _dueAnnot;
+    /// <summary>النسخة اتعملت من أنهي نسخة من ملف الشرح (وقته) — أدق من مقارنة الأوقات (ساعات الأجهزة ممكن تختلف مع المزامنة).</summary>
+    private readonly Dictionary<string, DateTime> _annotBuiltFrom = new(StringComparer.Ordinal);
 
     private string AnnotatedDir => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(_libraryPath)) ?? ".", AnnotatedFolderName);
 
@@ -54,6 +56,7 @@ internal partial class MainForm
         var ink = InkStore.Stamp(InkStore.FileFor(_libraryPath, b.Id));
         if (ink == DateTime.MinValue) return false;
         string target = AnnotatedTarget(b);
+        if (_annotBuiltFrom.TryGetValue(b.Id, out var from) && File.Exists(target)) return from != ink;
         return !File.Exists(target) || File.GetLastWriteTimeUtc(target) < ink;
     }
 
@@ -97,6 +100,7 @@ internal partial class MainForm
         {
             if (ReaderShown && _currentBook == b && _reader != null) { await _reader.FlushInkAsync(); await Task.Delay(150); }
             SaveAllInk();
+            var inkStamp = InkStore.Stamp(InkStore.FileFor(_libraryPath, b.Id));
             var doc = fromDoc ?? (_ink?.Book == b ? _ink.Doc : InkStore.Load(InkStore.FileFor(_libraryPath, b.Id)));
             if (InkStore.Count(doc) == 0) { if (!quiet) ShowStatus("مفيش شرح على الكتاب ده لسه — افتحه واضغط 🖊", 5); return false; }
             string src = BookFile(b);
@@ -122,6 +126,7 @@ internal partial class MainForm
             FileCache.Forget(target);
             Log.Info($"annotated copy: {b.Title} → {target} ({r.Size / 1024} KB, {r.Pages} pages)");
             if (exportTo != null) { ShowStatus("اتصدّرت النسخة المشروحة ✓", 5); return true; }
+            _annotBuiltFrom[b.Id] = inkStamp;
             if (copy == null)
             {
                 var shelf = AnnotatedShelf();
