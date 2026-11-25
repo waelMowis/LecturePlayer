@@ -21,6 +21,21 @@ internal sealed partial class MainForm
     private string? _notionLastError;
     /// <summary>للفحص التلقائي: صفحة «مسار» في نوشن الوهمي.</summary>
     internal static string? SmokeNotionParent;
+    /// <summary>للفحص التلقائي: الشبابيك بتظهر وتتصوّر وتتقفل بدل ما تستنى (الاسم = اسم الصورة).</summary>
+    internal static bool SmokeDialogShots;
+
+    /// <summary>في الفحص: الشباك يظهر ويتصوّر ويتقفل (من غير ما يستنى حد) ← true.</summary>
+    private bool SmokeShowDialog(FormKit kit, string shot)
+    {
+        if (!SmokeDialogShots) return false;
+        kit.Form.StartPosition = FormStartPosition.CenterParent;
+        kit.Form.Show(this);
+        var until = DateTime.UtcNow.AddMilliseconds(700);
+        while (DateTime.UtcNow < until) { Application.DoEvents(); Thread.Sleep(15); }
+        SaveSmokeShot(kit.Form, shot);
+        kit.Form.Close();
+        return true;
+    }
 
     private NotionState NotionStateLoaded => _notionState ??= NotionState.Load();
     private bool NotionReady => !string.IsNullOrWhiteSpace(_settings.NotionToken) && NotionClient.ParseId(_settings.NotionParentPage) != null;
@@ -52,6 +67,7 @@ internal sealed partial class MainForm
             var pageBox = kit.Row("رابط صفحة «مسار»", new TextBox { Text = parent, RightToLeft = RightToLeft.No });
             kit.Note("انسخ رابط الصفحة من نوشن (Share ← Copy link، أو ⋯ ← Copy link). المفتاح بيتحفظ متشفّر على الجهاز ده بس.", 40);
             kit.Buttons("اربط", "إلغاء", ("افتح صفحة الـ integrations", () => OpenInBrowser("https://www.notion.so/my-integrations")));
+            if (SmokeShowDialog(kit, "notion-setup")) return false;
             if (kit.Show(this) != DialogResult.OK) return false;
             token = tokenBox.Text.Trim();
             parent = pageBox.Text.Trim();
@@ -339,6 +355,7 @@ internal sealed partial class MainForm
         has.CheckedChanged += (_, _) => date.Enabled = has.Checked;
         kit.Note("− / + يوم بيوم، وShift معاهم = أسبوع.");
         kit.Buttons();
+        if (SmokeShowDialog(kit, "notion-date")) return;
         if (kit.Show(this) != DialogResult.OK) return;
         DateTime? value = has.Checked ? date.Value.Date : null;
         EditPlan(g, p => p.Date = value);
@@ -377,6 +394,7 @@ internal sealed partial class MainForm
         foreach (var (_, b) in boxes) b.CheckedChanged += (_, _) => Preview();
         Preview();
         kit.Buttons("وزّع");
+        if (SmokeShowDialog(kit, "notion-schedule")) return;
         if (kit.Show(this) != DialogResult.OK) return;
         var chosen = boxes.Where(x => x.Box.Checked).Select(x => x.Day).ToHashSet();
         if (chosen.Count == 0) return;

@@ -104,6 +104,26 @@ internal sealed partial class MainForm
             Check(due.Any(x => x.Group == g2 && x.Overdue && x.Left.Contains("TASK")), "home plan lists overdue lecture");
             RefreshHomePlan();
             Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.StartsWith("📓") && l.Text.Contains("Lecture 2")), "home shows notion row");
+            // صور: الشجرة بعلامات الخطة والرئيسية، وشبابيك الموعد والتوزيع والتجهيز
+            GoHome();
+            if (_groupNodes.TryGetValue(g2, out var g2n)) { g2n.EnsureVisible(); _tree.SelectedNode = g2n; }
+            Until(() => false, 600); SaveSmokeShot(this, "notion-home-tree");
+            SmokeDialogShots = true;
+            try
+            {
+                ScheduleNotion(c.Groups.ToList(), $"«{c.Name}»");
+                EditPlanDate(g2);
+                _ = EnsureNotionSetupAsync(force: true);
+                using var tm = new ContextMenuStrip();
+                BuildNodeMenu(g1, tm.Items);
+                var nm = tm.Items.OfType<ToolStripMenuItem>().First(x => x.Text!.StartsWith("📤  نوشن"));
+                tm.Show(this, new Point(300, 200));
+                nm.ShowDropDown();
+                Until(() => false, 500);
+                SaveSmokeShot(nm.DropDown, "notion-lecture-menu");
+                tm.Close();
+            }
+            finally { SmokeDialogShots = false; }
 
             // الملاحظات ← صفحة المحاضرة
             g1.Videos[0].Notes = "ملاحظة مهمة";
