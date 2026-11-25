@@ -10,7 +10,7 @@ namespace LecturePlayer.UI;
 internal sealed class ScreenInk : LayeredWindow
 {
     public enum Tool { Mouse, Pen, Highlighter, Line, Arrow, Rect, Ellipse, Eraser, Laser }
-    private sealed class Item
+    internal sealed class Item
     {
         public Tool Tool; public Color Color; public float Width;
         public List<PointF> Pts = new();
@@ -28,9 +28,16 @@ internal sealed class ScreenInk : LayeredWindow
     public event Action? Changed;
     private ScreenInkBar? _bar;
 
-    public ScreenInk(Screen screen) : base(clickThrough: false, noActivate: true)
+    /// <summary>فوق مساحة معينة بس (مثلًا الشريحة في عرض PowerPoint) — مش الشاشة كلها، والشريط تحت المساحة دي.</summary>
+    public bool Overlay { get; }
+
+    public ScreenInk(Screen screen) : this(screen.Bounds, overlay: false) { }
+
+    public ScreenInk(Rectangle area, bool overlay) : base(clickThrough: false, noActivate: true)
     {
-        Bounds = screen.Bounds;
+        Overlay = overlay;
+        if (overlay) TopMost = false;   // مملوك لـ «مسار»: فوقه بس، مش فوق البرامج التانية
+        Bounds = area;
         Cursor = Cursors.Cross;
         MouseDown += OnDown;
         MouseMove += OnMove;
@@ -45,11 +52,25 @@ internal sealed class ScreenInk : LayeredWindow
         // الشريط مملوك لشباك الرسم = دايمًا فوقه، وتحت في نص الشاشة (بعيد عن شريط التسجيل اللي فوق)
         _bar = new ScreenInkBar(this) { Owner = this };
         _bar.Show();
-        var wa = Screen.FromRectangle(Bounds).WorkingArea;
-        _bar.Location = new Point(wa.Left + (wa.Width - _bar.Width) / 2, wa.Bottom - _bar.Height - 16);
+        PlaceBar();
         ExcludeFromCapture(_bar);
         SetTool(Current);
     }
+
+    /// <summary>الشريط: تحت في نص الشاشة، أو تحت نص المساحة لو فوق شريحة.</summary>
+    public void PlaceBar()
+    {
+        if (_bar == null) return;
+        var r = Overlay ? Bounds : Screen.FromRectangle(Bounds).WorkingArea;
+        _bar.Location = new Point(r.Left + Math.Max(0, (r.Width - _bar.Width) / 2), r.Bottom - _bar.Height - (Overlay ? 8 : 16));
+    }
+
+    /// <summary>المساحة اتحركت/اتغير مقاسها (شباك «مسار»).</summary>
+    public void MoveTo(Rectangle area) { if (area == Bounds || area.Width < 50 || area.Height < 50) return; Bounds = area; Render(); PlaceBar(); }
+
+    /// <summary>رسم الصفحة الحالية (عشان كل شريحة ليها رسمها).</summary>
+    public List<Item> TakePage() { var l = _items.ToList(); _items.Clear(); _undo.Clear(); Render(); return l; }
+    public void LoadPage(List<Item>? items) { _items.Clear(); _undo.Clear(); if (items != null) _items.AddRange(items); Render(); }
 
     public void SetTool(Tool t)
     {

@@ -14,7 +14,37 @@ internal sealed class PresentationPane : Panel
     private Form? _owner;
     private int _last;
     private readonly List<(PillButton Btn, int Type, Color? Color)> _penButtons = new();
-    private PillButton _erase = null!;
+    private PillButton _erase = null!, _inkBtn = null!;
+    private ScreenInk? _ink;
+    internal ScreenInk? InkOverlay => _ink;
+    private readonly Dictionary<int, List<ScreenInk.Item>> _inkPages = new();
+    private int _inkPage;
+
+    /// <summary>أدوات الشرح فوق الشريحة (شباك شفاف مملوك لـ «مسار» فوق مساحة العرض بالظبط).</summary>
+    public void ToggleInk()
+    {
+        if (_ink is { IsDisposed: false }) { _ink.Close(); return; }   // FormClosed بيحفظ رسم الشريحة
+        if (!Running) return;
+        var form = FindForm();
+        _ink = new ScreenInk(_host.RectangleToScreen(_host.ClientRectangle), overlay: true);
+        if (form != null) _ink.Owner = form;
+        _ink.FormClosed += (_, _) => { if (_ink != null) { _inkPages[_inkPage] = _ink.TakePage(); _ink = null; } _inkBtn.Style = PillStyle.Primary; };
+        _inkPage = Math.Max(1, _last);
+        _ink.Show();
+        _ink.LoadPage(_inkPages.GetValueOrDefault(_inkPage));
+        _inkBtn.Style = PillStyle.Ghost;
+    }
+
+    /// <summary>الشريحة اتغيرت: الرسم بتاع القديمة يتحفظ، وبتاع الجديدة يرجع.</summary>
+    private void InkSlide(int n)
+    {
+        if (_ink == null || n == _inkPage) return;
+        _inkPages[_inkPage] = _ink.TakePage();
+        _inkPage = n;
+        _ink.LoadPage(_inkPages.GetValueOrDefault(n));
+    }
+
+    private void InkFollow() { if (_ink is { IsDisposed: false } && _host.IsHandleCreated && Visible) _ink.MoveTo(_host.RectangleToScreen(_host.ClientRectangle)); }
 
     public event Action<int>? SlideChanged;
     public event Action? Ended;
@@ -60,16 +90,29 @@ internal sealed class PresentationPane : Panel
         _slides.Margin = new Padding(6, 1, 6, 0);
         _slides.SelectedIndexChanged += (_, _) => { if (_slides.Focused && _slides.SelectedIndex >= 0) { GoTo(_slides.SelectedIndex + 1); if (_images != null) _view.Focus(); else _show?.Focus(); } };
         _bar.Controls.Add(_slides);
-        void Pen(string text, string tip, int type, Color? c) { var b = B(text, tip, () => SetPointer(type, c)); _penButtons.Add((b, type, c)); }
+        // أدوات الشرح الكاملة فوق الشريحة: أقلام وتظليل وخطوط وأسهم وأشكال وألوان ومقاسات (كل شريحة ليها رسمها)
+        _inkBtn = B("🖊  أقلام وأشكال", "أدوات الشرح فوق الشريحة: قلم، تظليل، خط، سهم، مستطيل، دايرة، ليزر، ممحاة، ألوان ومقاسات", ToggleInk, PillStyle.Primary);
+        // قلم PowerPoint نفسه (الكتابة دي بتتحفظ في نسخة مشروحة من العرض)
+        void Pen(string text, string tip, int type, Color? c)
+        {
+            var b = c is { } col ? new DotButton(col) { Height = 30, Width = 34, Margin = new Padding(3, 0, 3, 0) } : new PillButton(text, PillStyle.Ghost) { Height = 30, Margin = new Padding(3, 0, 3, 0) };
+            if (c == null) b.Width = Math.Max(36, TextRenderer.MeasureText(text, Font).Width + 22);
+            b.Click += (_, _) => { SetPointer(type, c); if (_images != null) _view.Focus(); else _show?.Focus(); };
+            new ToolTip().SetToolTip(b, tip);
+            _bar.Controls.Add(b);
+            _penButtons.Add((b, type, c));
+        }
         Pen("➤", "الماوس العادي", PowerPointShow.PointerAutoArrow, null);
-        Pen("🔴", "قلم أحمر", PowerPointShow.PointerPen, Color.FromArgb(224, 49, 49));
-        Pen("🔵", "قلم أزرق", PowerPointShow.PointerPen, Color.FromArgb(25, 113, 194));
-        Pen("🟢", "قلم أخضر", PowerPointShow.PointerPen, Color.FromArgb(47, 158, 68));
-        Pen("🟡", "قلم أصفر", PowerPointShow.PointerPen, Color.FromArgb(245, 159, 0));
-        Pen("🧽", "ممحاة", PowerPointShow.PointerEraser, null);
-        _erase = B("🗑", "امسح الكتابة من الشريحة", () => _show?.EraseDrawing());
+        Pen("", "قلم PowerPoint أحمر (بيتحفظ في نسخة مشروحة)", PowerPointShow.PointerPen, Color.FromArgb(224, 49, 49));
+        Pen("", "قلم PowerPoint أزرق", PowerPointShow.PointerPen, Color.FromArgb(25, 113, 194));
+        Pen("", "قلم PowerPoint أخضر", PowerPointShow.PointerPen, Color.FromArgb(47, 158, 68));
+        Pen("", "قلم PowerPoint أصفر", PowerPointShow.PointerPen, Color.FromArgb(245, 159, 0));
+        Pen("ممحاة", "ممحاة PowerPoint", PowerPointShow.PointerEraser, null);
+        _erase = B("امسح الكتابة", "امسح كتابة PowerPoint من الشريحة", () => _show?.EraseDrawing());
         B("🎬", "حوّل العرض لفيديو", () => Command?.Invoke("video"));
-        _host.Resize += (_, _) => Fit();
+        _host.Resize += (_, _) => { Fit(); InkFollow(); };
+        _host.LocationChanged += (_, _) => InkFollow();
+        _poll.Tick += (_, _) => InkFollow();   // الشباك نفسه اتحرك
         _poll.Tick += (_, _) => Poll();
     }
 
@@ -178,7 +221,7 @@ internal sealed class PresentationPane : Panel
         _view.SetImage(File.Exists(_images[n - 1]) ? _images[n - 1] : null);
         _pos.Text = $"شريحة {n} من {Total}";
         if (!_slides.Focused && n - 1 < _slides.Items.Count) _slides.SelectedIndex = n - 1;
-        if (n != _last) { _last = n; SlideChanged?.Invoke(n); }
+        if (n != _last) { _last = n; InkSlide(n); SlideChanged?.Invoke(n); }
     }
 
     private void Next() { if (_images != null) GoToImage(_imgIndex + 1); else _show?.Next(); }
@@ -198,6 +241,7 @@ internal sealed class PresentationPane : Panel
         _last = cur;
         _pos.Text = $"شريحة {cur} من {Total}";
         if (!_slides.Focused && cur - 1 < _slides.Items.Count) _slides.SelectedIndex = cur - 1;
+        InkSlide(cur);
         SlideChanged?.Invoke(cur);
     }
 
@@ -207,6 +251,9 @@ internal sealed class PresentationPane : Panel
     public void Stop()
     {
         _poll.Stop();
+        var ink = _ink; _ink = null;
+        if (ink != null) { try { ink.Close(); } catch { } }
+        _inkPages.Clear();
         if (_owner != null) { _owner.Move -= OwnerMoved; _owner.Resize -= OwnerMoved; _owner = null; }
         var s = _show; _show = null;
         if (s != null) { try { s.Dispose(); } catch (Exception ex) { Data.Log.Info("powerpoint stop: " + ex.Message); } }
@@ -257,4 +304,21 @@ internal sealed class SlideView : Control
         e.Graphics.DrawImage(_img, (Width - w) / 2, (Height - h) / 2, w, h);
     }
     protected override void Dispose(bool disposing) { if (disposing) { _img?.Dispose(); _img = null; } base.Dispose(disposing); }
+}
+
+/// <summary>زرار لون: دايرة ملونة بجد (الإيموجي الملون مابيترسمش في WinForms).</summary>
+internal sealed class DotButton : PillButton
+{
+    private readonly Color _dot;
+    public DotButton(Color dot) : base("", PillStyle.Ghost) { _dot = dot; }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        int d = Math.Min(Width, Height) - 12;
+        using var b = new SolidBrush(_dot);
+        e.Graphics.FillEllipse(b, (Width - d) / 2f, (Height - d) / 2f, d, d);
+        using var p = new Pen(Color.FromArgb(120, 255, 255, 255), 1.5f);
+        e.Graphics.DrawEllipse(p, (Width - d) / 2f, (Height - d) / 2f, d, d);
+    }
 }

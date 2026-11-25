@@ -142,8 +142,21 @@ internal partial class MainForm
             Check(Until(() => b.LastPage == 1 && b.Read.Contains(1), 4000), "slide 1 viewed after read time");
             win.View.Next();
             Check(Until(() => b.LastPage == 2, 3000), "next slide tracked");
+            // أدوات الشرح فوق الشريحة: فوق مساحة العرض بالظبط، وكل شريحة ليها رسمها
+            _presPane.ToggleInk();
+            var ov = _presPane.InkOverlay;
+            Check(ov != null && ov.Visible && ov.Overlay && ov.Owner == this, "ink overlay over the slide");
+            Until(() => false, 300);
+            ov!.AddStroke(ScreenInk.Tool.Pen, Color.Red, 6, new PointF(40, 40), new PointF(200, 120));
+            Check(ov.Count == 1, "stroke on slide 2");
+            win.View.Next();
+            Check(Until(() => b.LastPage == 3, 3000) && Until(() => ov.Count == 0, 1500), "slide 3 starts clean");
+            win.View.Previous();
+            Check(Until(() => b.LastPage == 2, 3000) && Until(() => ov.Count == 1, 1500), "slide 2 drawing comes back");
             Until(() => false, 400);
             SaveSmokeShot(this, "pptx");
+            _presPane.ToggleInk();
+            Check(_presPane.InkOverlay == null, "ink overlay closed");
             _presPane.Show!.Pointer(PowerPointShow.PointerPen, Color.Red);
             Check(win.View.PointerType == PowerPointShow.PointerPen && win.View.PointerColor.RGB == 0x0000FF, "PowerPoint pen + colour (BGR)");
             // كتابة اتحفظت في الشريحة 2 ← نسخة مشروحة
