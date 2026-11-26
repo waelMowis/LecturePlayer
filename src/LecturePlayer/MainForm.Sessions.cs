@@ -40,14 +40,15 @@ internal partial class MainForm
     private void ShowSessionMenu(Point screen)
     {
         var m = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
-        m.Items.AddRange(SessionMenuItems().ToArray());
+        // المعلم: زر «👥 الحصة» = حصص اليوم والمجموعات (والجلسات المحفوظة داخلها)
+        m.Items.AddRange((IsTeacher ? TeacherMenuItems() : SessionMenuItems()).ToArray());
         m.Closed += (_, _) => BeginInvoke(m.Dispose);
         m.Show(screen);
         LastSessionMenu = m;
     }
 
     /// <summary>عناصر قائمة الجلسة (زر الجلسة، و«الأدوات ← الجلسات»).</summary>
-    private List<ToolStripItem> SessionMenuItems()
+    private List<ToolStripItem> SessionMenuItems(bool teacherItems = true)
     {
         var items = new List<ToolStripItem>();
         if (!HasLibrary) { items.Add(new ToolStripMenuItem("افتح مكتبة أولًا") { Enabled = false }); return items; }
@@ -59,7 +60,8 @@ internal partial class MainForm
             items.Add(Item($"📝  الخطة والواجب…", () => SessionNotesDialog(s)));
             items.Add(Item($"📤  تصدير ال{w} (PDF للطالب، وحزمة «مسار»، والتسجيل بالفصول)…", () => ExportSessionDialog(s)));
             items.Add(Item("✏  إعادة التسمية…", () => RenameSession(s)));
-            items.Add(Item(s.ClassId != null ? $"⏹  إنهاء ال{w} (المرة القادمة تبدأ من هنا)" : $"⏹  إغلاق ال{w} (تبقى التبويبات مفتوحة)", () => EndSession(markDone: s.ClassId != null)));
+            items.Add(Item(s.ClassId != null ? "⏹  إنهاء الحصة (الواجب والتصدير، والقادمة تبدأ من هنا)…" : $"⏹  إغلاق ال{w} (تبقى التبويبات مفتوحة)",
+                () => { if (s.ClassId != null) EndLessonDialog(s); else EndSession(markDone: false); }));
             items.Add(new ToolStripSeparator());
         }
         items.Add(Item($"➕  {w} جديدة من التبويبات المفتوحة…", () => NewSessionDialog(fromTabs: true)));
@@ -77,6 +79,7 @@ internal partial class MainForm
         items.Add(open);
         if (s != null) items.Add(Item($"🗑  احذف ال{w}…", () => DeleteSession(s)));
 
+        if (!teacherItems) return items;
         items.Add(new ToolStripSeparator());
         if (IsTeacher) items.Add(ClassesMenu());
         items.Add(RoleMenu());
@@ -308,19 +311,25 @@ internal partial class MainForm
     internal StudySession? StartClass(ClassGroup c)
     {
         if (!EnsureLibrary()) return null;
-        var cur = c.CurrentSessionId == null ? null : _library.Sessions.FirstOrDefault(s => s.Id == c.CurrentSessionId);
-        if (cur != null && !cur.Done) { OpenSession(cur); return cur; }
-        int n = _library.Sessions.Count(s => s.ClassId == c.Id) + 1;
-        var next = new StudySession
+        // حصة مجموعة أخرى مفتوحة؟ تُنهى أولًا (موضعها يُحفظ لها) — فالمعلم ينتقل من فصل لفصل بضغطة
+        if (ActiveSession is { ClassId: not null } other && other.ClassId != c.Id)
         {
-            Name = $"{c.Name} — حصة {n}",
-            ClassId = c.Id,
-            Tabs = cur?.Tabs.Select(t => t.Copy()).ToList() ?? new()
-        };
-        _library.Sessions.Add(next);
-        c.CurrentSessionId = next.Id;
-        c.UpdatedUtc = DateTime.UtcNow;
-        MarkDirty();
+            EndSession(markDone: true);
+            ShowStatus($"✓ انتهت «{other.Name}» وحُفظ موضعها", 5);
+        }
+        var cur = c.CurrentSessionId == null ? null : _library.Sessions.FirstOrDefault(s => s.Id == c.CurrentSessionId);
+        if (cur is { Done: false })
+        {
+            // حصة حُضّرت مسبقًا بلا ملفات، والمعلم فتح ملفاته قبل «ابدأ»: تأخذها
+            if (cur.Tabs.Count == 0 && _tabs.Count > 0 && cur.Id != _sessionId)
+            {
+                cur.Tabs = FirstLessonTabs();
+                cur.StartTabs = cur.Tabs.Select(t => t.Copy()).ToList();
+            }
+            if (cur.Id != _sessionId) OpenSession(cur);
+            return cur;
+        }
+        var next = CreateNextLesson(c);
         OpenSession(next);
         return next;
     }
@@ -334,53 +343,6 @@ internal partial class MainForm
     }
 
     // ---------------- الرئيسية ----------------
-
-    /// <summary>
-    /// سطور الرئيسية حسب الدور: المعلم يرى حصص اليوم (أو الحصة القادمة، أو دعوة لإضافة أول مجموعة)،
-    /// والطالب يرى «تابع» لآخر جلسة (أو دعوة لبدء جلسة مذاكرة).
-    /// </summary>
-    private IEnumerable<Control> SessionHomeRows(int rowH)
-    {
-        if (!HasLibrary || _settings.Role == null) yield break;
-        Label Row(string text, Color color, Action click)
-        {
-            var row = new Label
-            {
-                Dock = DockStyle.Top, Height = rowH, Cursor = Cursors.Hand, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleRight,
-                ForeColor = color, Text = text
-            };
-            row.Click += (_, _) => click();
-            return row;
-        }
-        var now = DateTime.Now;
-        if (IsTeacher)
-        {
-            if (_library.Classes.Count == 0)
-                yield return Row("🧑‍🏫  أضف مجموعتك أو صفك الأول وجدوله — وبعدها «ابدأ الحصة» تكمل من حيث توقفتم  (اضغط)", Theme.Accent, () => NewClassDialog());
-            var today = TodaysClasses(now);
-            foreach (var (c, slot) in today.Take(4))
-            {
-                var start = now.Date + slot.StartTime;
-                bool live = now >= start && now <= start.AddMinutes(slot.Minutes);
-                bool past = now > start.AddMinutes(slot.Minutes);
-                var cur = c.CurrentSessionId == null ? null : _library.Sessions.FirstOrDefault(s => s.Id == c.CurrentSessionId);
-                string hw = cur?.Homework is { Length: > 0 } h ? "  ·  الواجب: " + FirstLine(h) : "";
-                var target = c;
-                yield return Row($"🧑‍🏫  {slot.Start} — {Modern.Bidi(c.Name)} ({slot.Minutes} د)" + (live ? "  ·  الآن" : "") + hw + "  (اضغط لبدء الحصة)",
-                    live ? Theme.Success : past ? Theme.Muted : Theme.Text, () => StartClass(target));
-            }
-            if (today.Count == 0 && NextClass(now) is var (nc, nslot, nday) && nc != null)
-                yield return Row($"🧑‍🏫  لا حصص اليوم — القادمة: {DayNames[nday]} {nslot!.Start} — {Modern.Bidi(nc.Name)}  (اضغط للتحضير)", Theme.Muted, () => StartClass(nc));
-            else if (today.Count == 0 && _library.Classes.Count > 0)
-                yield return Row("🧑‍🏫  لا مواعيد في جداول المجموعات بعد — أضفها من «📚 ← المجموعات والجدول»  (اضغط)", Theme.Muted, () => ClassScheduleDialog(_library.Classes[0]));
-        }
-        var last = _library.Sessions.Where(s => !s.Done && s.Id != _sessionId && s.Tabs.Count > 0 && s.ClassId == null).OrderByDescending(s => s.LastOpenedUtc).FirstOrDefault();
-        if (last != null)
-            yield return Row($"📚  تابع «{Modern.Bidi(last.Name)}» — {last.Tabs.Count} تبويب" + (last.Homework is { Length: > 0 } h ? "  ·  الواجب: " + FirstLine(h) : ""), Theme.Text, () => OpenSession(last));
-        else if (_settings.Role == "student" && !_library.Sessions.Any())
-            yield return Row("📚  افتح ما تذاكره (فيديو، كتاب) ثم احفظه «جلسة مذاكرة» من زر 📚 أعلى المساحة — تعود إليها بضغطة  (اضغط لإنشائها الآن)", Theme.Accent,
-                () => NewSessionDialog(fromTabs: _tabs.Count > 0));
-    }
 
     /// <summary>أقرب حصة قادمة بعد اليوم (خلال أسبوع).</summary>
     private (ClassGroup? Class, ClassSlot? Slot, int Day) NextClass(DateTime now)
@@ -399,9 +361,16 @@ internal partial class MainForm
     {
         _settings.Role = role;
         SaveSettings();
+        ApplyRoleRail();
         RefreshTabStrip();
         RefreshHome();
-        ShowStatus(role switch { "teacher" => "👤 وضع المعلم: «حصة» والمجموعات وجدولها", "both" => "👤 طالب ومعلم: الجلسات والمجموعات معًا", _ => "👤 وضع الطالب: جلسات المذاكرة" }, 4);
+        string what = role switch
+        {
+            "teacher" => "👤 وضع المعلم: زر «الحصص» في الشريط الجانبي، و«حصص اليوم» في الرئيسية",
+            "both" => "👤 طالب ومعلم: الحصص والمجموعات، وجلسات المذاكرة والمراجعة",
+            _ => "👤 وضع الطالب: «جلساتي» في الرئيسية، والمراجعة والإحصائيات في الشريط الجانبي"
+        };
+        ShowStatus(HasLibrary ? what : what + " — تظهر بعد فتح مكتبة (الحصص والجلسات محفوظة داخلها)", 7);
     }
 
     private ToolStripMenuItem RoleMenu()

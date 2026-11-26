@@ -529,6 +529,8 @@ internal sealed partial class MainForm : Form
     private GlyphButton _activityExplorer = null!;
     private GlyphButton _activityHome = null!;
     private GlyphButton _activityBoard = null!, _activityRecord = null!, _activityTools = null!;
+    private GlyphButton _activityClasses = null!, _activityReview = null!, _activityStats = null!;
+    private Action? _fitRail;
     private readonly Dictionary<GlyphButton, string?> _railCaptions = new();
     private bool _railCompact;
 
@@ -559,8 +561,11 @@ internal sealed partial class MainForm : Form
         _activityHome = Act(Glyphs.Home, "الرئيسية", "الشاشة الرئيسية: أكمل ما بدأته، وأضف محتوى (Alt+Home)", GoHome, top);
         _activityExplorer = Act(Glyphs.Library, "المكتبة", "المكتبة: الدورات والفيديوهات، والكتب والعروض والسبورات — اضغط لإخفائها أو إظهارها (F6)", OnExplorerActivity, top);
         UpdateActivityIndicators();
+        _activityClasses = Act(Glyphs.People, "الحصص", "حصص اليوم: ابدأ حصة مجموعة من حيث توقفت، وأنهِها بالواجب والتصدير — والمجموعات وجدولها", () => ShowClassesActivityMenu(_activityClasses), top);
         _activityBoard = Act(Glyphs.Board, "سبورة", "السبورة البيضاء: سبورة جديدة أو افتح إحدى سبوراتك", () => ShowBoardActivityMenu(_activityBoard), top);
         _activityRecord = Act(Glyphs.Record, "تسجيل", "سجّل شرح: الشاشة والكاميرا والصوت وأقلام على الشاشة (Ctrl+Shift+F9 من أي برنامج)", OnRecordActivity, top);
+        _activityReview = Act(Glyphs.History, "المراجعة", "مراجعة اليوم: العلامات التي حان وقت مراجعتها (F7)", ShowReview, top);
+        _activityStats = Act(Glyphs.Chart, "الإحصائيات", "إحصائيات المذاكرة: وقتك وتقدّمك وأيامك المتتالية (F8)", ShowStats, top);
         _activityTools = Act(Glyphs.Tools, "الأدوات", "كل الأدوات: عرض PowerPoint، أقلام الشاشة، المراجعة، الإحصائيات، التركيز، البث المباشر، التنزيل… — وابحث عن أي أمر (Ctrl+Shift+Space)", () => ShowToolsMenu(_activityTools), top);
 
         var bottom = new Panel { Dock = DockStyle.Bottom, Height = LogicalToDeviceUnits(112), BackColor = Theme.Panel };
@@ -588,6 +593,8 @@ internal sealed partial class MainForm : Form
         }
         top.Resize += (_, _) => FitRail();
         top.VisibleChanged += (_, _) => FitRail();
+        _fitRail = FitRail;
+        ApplyRoleRail();
     }
 
     private void BuildSidePanel()

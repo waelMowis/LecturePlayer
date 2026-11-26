@@ -30,6 +30,7 @@ internal partial class MainForm
         _tabStrip.TabClosed += i => CloseTab(i);
         _tabStrip.TabMenu += ShowTabMenu;
         _tabStrip.SessionClicked += p => ShowSessionMenu(p);
+        _tabStrip.ActionClicked += () => { if (ActiveSession is { } s) EndLessonDialog(s); };
         _tabStrip.MoreClicked += ShowMoreTabsMenu;
         _videoCard.Controls.Add(_tabStrip);
         _tabStrip.SendToBack(); // Dock=Top فوق _videoArea (Fill)
@@ -163,8 +164,15 @@ internal partial class MainForm
         }
         var s = ActiveSession;
         _tabStrip.SessionActive = s != null;
-        _tabStrip.SessionText = s != null ? $"📚  {s.Name}  ▾" : $"📚  {SessionWord}  ▾";
+        bool lesson = s?.ClassId != null;
+        _tabStrip.SessionText = s != null ? (lesson ? $"👥  {s.Name}{LessonRemainingText(s)}  ▾" : $"📚  {s.Name}  ▾")
+            : IsTeacher ? "👥  الحصة  ▾" : $"📚  {SessionWord}  ▾";
+        _tabStrip.SessionTip = IsTeacher ? "الحصة: ابدأ حصة إحدى مجموعاتك (تكمل من حيث توقفت)، أو الخطة والواجب والتصدير"
+            : "الجلسة: احفظ التبويبات المفتوحة باسم وارجع إليها لاحقًا";
+        _tabStrip.ActionText = lesson ? "⏹  إنهاء الحصة" : "";
+        _tabStrip.ActionTip = "إنهاء الحصة: اكتب الواجب وصدّر للطلاب إن أردت — والحصة القادمة لهذه المجموعة تبدأ من هنا";
         _tabStrip.SetItems(items);
+        UpdateLessonTimer();
         UpdateTabStripVisible();
     }
 

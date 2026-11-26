@@ -643,6 +643,8 @@ internal sealed partial class MainForm
         _welcome.Controls.Add(_homeTopics);
         _welcome.Controls.Add(_homeActions);
         _welcome.Controls.Add(_homeTitle);
+        BuildHomeRole();
+        _welcome.Controls.Add(_homeRole);   // أعلى الرئيسية: «حصص اليوم» للمعلم، و«جلساتي» للطالب
     }
 
     /// <summary>
@@ -711,6 +713,7 @@ internal sealed partial class MainForm
     private void RefreshHome()
     {
         if (!_welcome.Visible) return;
+        RefreshHomeRole();
         if (!HasLibrary) { RefreshHomeNoLibrary(); return; }
 
         RefreshHomeTopics();
@@ -766,9 +769,13 @@ internal sealed partial class MainForm
         foreach (var e in libs) _homeCards.Controls.Add(LibraryCard(e));
         _homeCards.ResumeLayout(true);
 
-        _homeTitle.Text = libs.Count > 0 ? "اختر المكتبة التي ستعمل عليها" : "مرحبًا بك في «مسار» 👋  ابدأ بمكتبة";
+        _homeTitle.Text = libs.Count > 0
+            ? (IsTeacher ? "افتح مكتبتك لتظهر حصص اليوم ومجموعاتك" : _settings.Role == "student" ? "افتح مكتبتك لتظهر جلساتك ودوراتك" : "اختر المكتبة التي ستعمل عليها")
+            : "مرحبًا بك في «مسار» 👋  ابدأ بمكتبة";
         _homeHint.Visible = true;
-        _homeHint.Text = "المكتبة ملف واحد فيه دوراتك وتقدّمك. يمكنك إنشاء أكثر من مكتبة (مثلًا للعمل وللمذاكرة)\n" +
+        _homeHint.Text = (_settings.Role != null
+                             ? (IsTeacher ? "حصصك ومجموعاتك" : "جلساتك") + " محفوظة داخل المكتبة، فتظهر بعد أن تفتحها.\n"
+                             : "المكتبة ملف واحد فيه دوراتك وتقدّمك. يمكنك إنشاء أكثر من مكتبة (مثلًا للعمل وللمذاكرة)\n") +
                          "وإن أردت أن يفتح البرنامج آخر مكتبة مباشرة: الإعدادات ← المكتبة.";
 
         _homeActionsBig = null;

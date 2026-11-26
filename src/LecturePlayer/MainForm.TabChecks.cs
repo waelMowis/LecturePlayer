@@ -111,31 +111,69 @@ internal sealed partial class MainForm
             EndSession(markDone: false);
             CloseAllTabs();
 
-            // الدور يغيّر ما يظهر فعلًا: الرئيسية وترتيب قائمة الأدوات وقائمة الجلسة
+            // الدور يغيّر ما يظهر فعلًا: الشريط الجانبي، وأعلى الرئيسية، وترتيب قائمة الأدوات، وزر الجلسة
+            string RoleText() => string.Join("|", _homeRole.Controls.Cast<Control>().SelectMany(c => new[] { c }.Concat(c.Controls.Cast<Control>()).Concat(c.Controls.Cast<Control>().SelectMany(x => x.Controls.Cast<Control>())))
+                .Select(c => c is ActionTile at ? at.Title + " " + at.Subtitle : c.Text + " " + c.AccessibleDescription));
             var savedSessions = _library.Sessions.ToList(); var savedClasses = _library.Classes.ToList();
             _library.Sessions.Clear(); _library.Classes.Clear();
             GoHome();
             SetRole("student");
             RefreshHome();
-            Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("جلسة مذاكرة")) && !_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("🧑‍🏫")), "student home invites a study session");
+            Check(_homeRole.Visible && RoleText().Contains("جلساتي") && RoleText().Contains("جلسة مذاكرة جديدة") && !RoleText().Contains("حصص"), "student home: «جلساتي»: " + RoleText());
+            Check(_activityReview.Visible && _activityStats.Visible && !_activityClasses.Visible && !_activityBoard.Visible && !_activityRecord.Visible, "student rail: review + stats, no board/record/classes");
             ShowToolsMenu(_activityTools);
             var heads = LastToolsMenu!.Items.OfType<ToolStripLabel>().Select(x => x.Text).ToList();
             LastToolsMenu.Close();
             Check(heads.IndexOf("المذاكرة") >= 0 && heads.IndexOf("المذاكرة") < heads.IndexOf("الشرح") && heads.Contains("الجلسات"), "student tools menu: study first: " + string.Join("|", heads));
             SetRole("teacher");
             RefreshHome();
-            Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("أضف مجموعتك")), "teacher home invites the first class");
+            Check(RoleText().Contains("أضف مجموعاتك") && !RoleText().Contains("جلساتي"), "teacher home invites the classes table");
+            Check(_activityClasses.Visible && _activityBoard.Visible && _activityRecord.Visible && !_activityReview.Visible && !_activityStats.Visible, "teacher rail: classes + board + record");
+            Check(_tabStrip!.SessionText.Contains("👥") && _tabStrip.SessionText.Contains("الحصة"), "teacher session button «👥 الحصة»");
             ShowToolsMenu(_activityTools);
             heads = LastToolsMenu!.Items.OfType<ToolStripLabel>().Select(x => x.Text).ToList();
             LastToolsMenu.Close();
             Check(heads.IndexOf("الشرح") < heads.IndexOf("المذاكرة") && heads.Contains("الحصص"), "teacher tools menu: teaching first");
-            Check(SessionMenuItems().OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("المجموعات والجدول")) && SessionMenuItems().OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("أستخدم البرنامج")), "teacher session menu: classes + role switch");
+            var tmenu = TeacherMenuItems();
+            Check(tmenu.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("المجموعات والجدول")) && tmenu.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("أستخدم البرنامج"))
+                  && tmenu.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("الحصص المحفوظة")), "teacher menu: classes table + saved lessons + role switch");
+            ShowClassesActivityMenu(_activityClasses);
+            Check(LastClassesMenu?.Visible == true, "rail «الحصص» opens the classes menu");
+            LastClassesMenu?.Close();
             var probe = new ClassGroup { Name = "مجموعة الغد", Schedule = { new ClassSlot { Day = ((int)DateTime.Now.DayOfWeek + 1) % 7, Start = "09:15", Minutes = 45 } } };
             _library.Classes.Add(probe);
             RefreshHome();
-            Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("لا حصص اليوم") && l.Text.Contains("09:15")), "teacher home shows the next class");
+            Check(RoleText().Contains("لا حصص اليوم") && RoleText().Contains("09:15") && RoleText().Contains("مجموعة الغد"), "teacher home shows the classes and the next one: " + RoleText());
+            SetRole("both");
+            Check(_activityClasses.Visible && _activityReview.Visible && !_activityStats.Visible, "both: classes + review");
+            SetRole("teacher");
             _library.Classes.Clear();
             _library.Sessions.AddRange(savedSessions); _library.Classes.AddRange(savedClasses);
+
+            // جدول المجموعات: الوقت بالأرقام العربية، وإعادة التسمية بالمعرّف، والحذف بالغياب
+            Check(TryParseTime("٨:٣٠", out var t1) && t1 == new TimeSpan(8, 30, 0) && TryParseTime("9.15", out var t2) && t2 == new TimeSpan(9, 15, 0) && !TryParseTime("25:00", out _), "time parsing");
+            var keepCls = _library.Classes.Select(c => (c.Name, Day: -1, Start: "", Minutes: 45, Id: (string?)c.Id)).ToList();
+            int today0 = (int)DateTime.Now.DayOfWeek;
+            var rows = keepCls.Concat(new (string, int, string, int, string?)[]
+            {
+                ("فحص ٣/أ", today0, "08:00", 45, null), ("فحص ٣/أ", (today0 + 2) % 7, "10:00", 45, null),
+                ("فحص ٣/ب", today0, "08:50", 45, null), ("فحص ٤/أ", today0, "09:40", 45, null),
+                ("فحص ٤/ب", today0, "10:30", 45, null), ("فحص ٥/أ", today0, "11:20", 45, null)
+            }).ToList();
+            ApplyClassRows(rows);
+            var a3 = _library.Classes.FirstOrDefault(c => c.Name == "فحص ٣/أ");
+            Check(a3 != null && a3.Schedule.Count == 2 && _library.Classes.Count(c => c.Name.StartsWith("فحص")) == 5, "classes table creates 5 classes (one with 2 slots)");
+            Check(TodaysClasses().Count(x => x.Class.Name.StartsWith("فحص")) == 5, "5 classes today");
+            rows = rows.Where(r => r.Item1 != "فحص ٥/أ").Select(r => r.Item1 == "فحص ٣/أ" ? ("فحص ٣/أ (معدّل)", r.Item2, r.Item3, r.Item4, (string?)a3!.Id) : r).ToList();
+            ApplyClassRows(rows);
+            Check(a3!.Name == "فحص ٣/أ (معدّل)" && _library.Classes.Contains(a3) && a3.Schedule.Count == 2 && !_library.Classes.Any(c => c.Name == "فحص ٥/أ"), "rename keeps the class; a missing class is removed");
+            GoHome();
+            RefreshHome();
+            Check(RoleText().Contains("حصص اليوم") && RoleText().Contains("فحص ٤/ب") && RoleText().Contains("ابدأ الحصة"), "teacher home: today's class cards");
+            SaveSmokeShot(_welcome, "teacher-home");
+            SmokeDialogShots = true;
+            try { ClassesManagerDialog(); } finally { SmokeDialogShots = false; }
+            _library.Classes.RemoveAll(c => c.Name.StartsWith("فحص"));
 
             // المعلم: مجموعة بجدول، والحصة التالية تبدأ من حيث توقفت المجموعة
             _settings.Role = "teacher";
@@ -146,27 +184,48 @@ internal sealed partial class MainForm
             Check(TodaysClasses().Any(x => x.Class == cls), "today's classes");
             var lesson1 = StartClass(cls)!;
             Check(ActiveSession == lesson1 && lesson1.ClassId == cls.Id && cls.CurrentSessionId == lesson1.Id && _tabs.Count == 0, "class session started");
+            Check(_tabStrip.ActionText.Contains("إنهاء الحصة") && _tabStrip.SessionText.Contains("👥") && (_tabStrip.SessionText.Contains("متبقٍ") || DateTime.Now.TimeOfDay > new TimeSpan(23, 58, 0)), "lesson strip: name, time left, «إنهاء الحصة»: " + _tabStrip.SessionText);
             OpenBook(classBook);
             Check(Until(() => ReaderShown && _currentBook == classBook && _reader!.Info != null, 20_000), "class book opens");
             _ = _reader!.GoToAsync(7);
             Check(Until(() => classBook.LastPage == 7, 10_000), "class book page 7");
             lesson1.Plan = "المتغيرات"; lesson1.Homework = "حل تمارين الصفحة 7";
             EndSession(markDone: true);
-            Check(lesson1.Done && lesson1.Tabs.Count == 1 && lesson1.Tabs[0].Page == 7, "lesson ends with its place");
+            Check(lesson1.Done && lesson1.Tabs.Count == 1 && lesson1.Tabs[0].Page == 7 && _tabStrip.ActionText == "", "lesson ends with its place");
             CloseAllTabs();
             // مجموعة أخرى قرأت الكتاب نفسه إلى صفحة 3 (الموضع العام يتغيّر)
             OpenBook(classBook, 3);
             Check(Until(() => ReaderShown && classBook.LastPage == 3, 20_000), "global place moved to 3");
             CloseAllTabs();
             var lesson2 = StartClass(cls)!;
-            Check(lesson2 != lesson1 && lesson2.Name.EndsWith("2") && lesson2.Tabs.Count == 1 && cls.CurrentSessionId == lesson2.Id, "next lesson continues the class files");
+            Check(lesson2 != lesson1 && lesson2.Name.EndsWith("2") && lesson2.Tabs.Count == 1 && cls.CurrentSessionId == lesson2.Id && lesson2.StartTabs?[0].Page == 7, "next lesson continues the class files");
             Check(Until(() => ReaderShown && _currentBook == classBook && classBook.LastPage == 7, 20_000), $"class continues from its own page (7), not the global one ({classBook.LastPage})");
             GoHome();
             Check(Until(() => _welcome.Visible, 5000), "home");
             RefreshHome();
-            Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("🧑‍🏫") && l.Text.Contains("00:00")), "home shows today's class");
+            Check(RoleText().Contains("الصف الأول — أ") && RoleText().Contains("جارية الآن") && RoleText().Contains("إنهاء الحصة"), "home card shows the running lesson: " + RoleText());
             SmokeDialogShots = true;
-            try { SessionNotesDialog(lesson1); ClassScheduleDialog(cls); } finally { SmokeDialogShots = false; }
+            try { SessionNotesDialog(lesson1); ClassScheduleDialog(cls); EndLessonDialog(lesson2); } finally { SmokeDialogShots = false; }
+            ActivateTab(0);
+            Check(Until(() => ReaderShown && _currentBook == classBook, 20_000), "back to the class book");
+            _ = _reader!.GoToAsync(9);
+            Check(Until(() => classBook.LastPage == 9, 10_000), "lesson 2 reaches page 9");
+            EndLesson(lesson2, "  تمارين الصفحة 9  ");
+            Check(lesson2.Done && lesson2.Homework == "تمارين الصفحة 9" && lesson2.Tabs[0].Page == 9 && _sessionId == null && _tabs.Count == 1, "end lesson: homework + place, tabs stay open");
+
+            // فصل آخر يأخذ الدرس نفسه لأول مرة: يبدأ من حيث بدأت الحصة السابقة (7)، لا من حيث انتهت (9)
+            var clsB = NewClassDialog("الصف الأول — ب")!;
+            var lessonB = StartClass(clsB)!;
+            Check(lessonB.ClassId == clsB.Id && lessonB.Tabs.Count == 1 && lessonB.Tabs[0].Page == 7, $"first lesson of another class starts where the lesson started (7): {lessonB.Tabs.FirstOrDefault()?.Page}");
+            Check(Until(() => ReaderShown && _currentBook == classBook && classBook.LastPage == 7, 20_000), "class B opens at page 7");
+            // الانتقال لفصل آخر ينهي الحصة المفتوحة ويحفظ موضعها
+            var lesson3 = StartClass(cls)!;
+            Check(lessonB.Done && lesson3.ClassId == cls.Id && lesson3.Tabs[0].Page == 9 && ActiveSession == lesson3, "switching class ends the open lesson; class A continues from 9");
+            Check(Until(() => ReaderShown && _currentBook == classBook && classBook.LastPage == 9, 20_000), "class A opens at page 9");
+            SmokeDialogShots = true;
+            try { PrepareClass(clsB); } finally { SmokeDialogShots = false; }
+            var prepared = _library.Sessions.FirstOrDefault(x => x.Id == clsB.CurrentSessionId);
+            Check(prepared != null && prepared != lessonB && !prepared.Done && prepared.Tabs.Count == 1 && prepared.Tabs[0].Page == 7 && ActiveSession == lesson3, "«حضّر» creates the next lesson of class B without opening it");
             EndSession(markDone: false);
             CloseAllTabs();
             Console.WriteLine("SMOKE tabs: ok");

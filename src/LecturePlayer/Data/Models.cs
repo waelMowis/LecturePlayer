@@ -693,6 +693,8 @@ public sealed class StudySession
     public string Name { get; set; } = "";
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ClassId { get; set; }
     public List<WorkTab> Tabs { get; set; } = new();
+    /// <summary>مواضع البداية (عند إنشاء الحصة) — أول حصة لفصل آخر بنفس الملفات تبدأ منها.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<WorkTab>? StartTabs { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Plan { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Homework { get; set; }
     /// <summary>التسجيلات التي صُوّرت أثناء الجلسة (مسارات الفيديو) — تُصدَّر بالفصول.</summary>

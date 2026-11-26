@@ -12,9 +12,9 @@ internal sealed class TabStrip : Control
 
     private List<Item> _items = new();
     private readonly List<(Rectangle Tab, Rectangle Close)> _rects = new();
-    private Rectangle _sessionRect, _moreRect;
+    private Rectangle _sessionRect, _moreRect, _actionRect;
     private int _hover = -1;
-    private bool _hoverClose, _hoverSession, _hoverMore;
+    private bool _hoverClose, _hoverSession, _hoverMore, _hoverAction;
     private int _visible;
     private readonly ToolTip _tip = new() { InitialDelay = 500 };
     private string _lastTip = "";
@@ -24,12 +24,20 @@ internal sealed class TabStrip : Control
     public string SessionText { get; set; } = "";
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool SessionActive { get; set; }
+    /// <summary>زر إجراء بجوار زر الجلسة (مثل «⏹ إنهاء الحصة») — فارغ = لا يظهر.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public string ActionText { get; set; } = "";
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public string ActionTip { get; set; } = "";
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public string SessionTip { get; set; } = "الجلسة: احفظ التبويبات المفتوحة باسم وارجع إليها لاحقًا";
 
     public event Action<int>? TabClicked;
     public event Action<int>? TabClosed;
     public event Action<int, Point>? TabMenu;
     public event Action<Point>? SessionClicked;
     public event Action<Point>? MoreClicked;
+    public event Action? ActionClicked;
 
     public TabStrip()
     {
@@ -65,8 +73,10 @@ internal sealed class TabStrip : Control
         // زر الجلسة على اليسار
         int sw = Math.Min(S(260), TextRenderer.MeasureText(SessionText, Font).Width + S(24));
         _sessionRect = new Rectangle(S(4), y, sw, h);
+        _actionRect = ActionText.Length == 0 ? Rectangle.Empty
+            : new Rectangle(_sessionRect.Right + S(6), y, Math.Min(S(180), TextRenderer.MeasureText(ActionText, Font).Width + S(22)), h);
         int right = Width - S(4);
-        int left = _sessionRect.Right + S(10);
+        int left = (_actionRect.IsEmpty ? _sessionRect.Right : _actionRect.Right) + S(10);
         int moreW = S(46);
         int avail = right - left;
         if (_items.Count == 0) { _visible = 0; _moreRect = Rectangle.Empty; return; }
@@ -120,6 +130,17 @@ internal sealed class TabStrip : Control
         }
         TextRenderer.DrawText(g, SessionText, Font, _sessionRect, SessionActive ? Color.White : Theme.Text,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.RightToLeft);
+
+        if (!_actionRect.IsEmpty)
+        {
+            using var path = Round(_actionRect, S(8));
+            using var fill = new SolidBrush(_hoverAction ? Theme.Danger : Theme.Panel);
+            using var pen = new Pen(Theme.Danger);
+            g.FillPath(fill, path);
+            g.DrawPath(pen, path);
+            TextRenderer.DrawText(g, ActionText, Font, _actionRect, _hoverAction ? Color.White : Theme.Text,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.RightToLeft);
+        }
 
         for (int i = 0; i < _rects.Count && i < _items.Count; i++)
         {
@@ -184,20 +205,21 @@ internal sealed class TabStrip : Control
         int h = HitTab(e.Location);
         bool hc = h >= 0 && _rects[h].Close.Contains(e.Location);
         bool hs = _sessionRect.Contains(e.Location), hm = !_moreRect.IsEmpty && _moreRect.Contains(e.Location);
-        if (h != _hover || hc != _hoverClose || hs != _hoverSession || hm != _hoverMore)
+        bool ha = !_actionRect.IsEmpty && _actionRect.Contains(e.Location);
+        if (h != _hover || hc != _hoverClose || hs != _hoverSession || hm != _hoverMore || ha != _hoverAction)
         {
-            _hover = h; _hoverClose = hc; _hoverSession = hs; _hoverMore = hm;
+            _hover = h; _hoverClose = hc; _hoverSession = hs; _hoverMore = hm; _hoverAction = ha;
             Invalidate();
         }
-        string tip = h >= 0 && h < _items.Count ? (hc ? "إغلاق التبويب (Ctrl+W)" : _items[h].Tip) : hs ? "الجلسة: احفظ التبويبات المفتوحة باسم وارجع إليها لاحقًا" : "";
+        string tip = h >= 0 && h < _items.Count ? (hc ? "إغلاق التبويب (Ctrl+W)" : _items[h].Tip) : hs ? SessionTip : ha ? ActionTip : "";
         if (tip != _lastTip) { _lastTip = tip; _tip.SetToolTip(this, tip); }
-        Cursor = h >= 0 || hs || hm ? Cursors.Hand : Cursors.Default;
+        Cursor = h >= 0 || hs || hm || ha ? Cursors.Hand : Cursors.Default;
     }
 
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
-        _hover = -1; _hoverClose = _hoverSession = _hoverMore = false;
+        _hover = -1; _hoverClose = _hoverSession = _hoverMore = _hoverAction = false;
         Invalidate();
     }
 
@@ -205,6 +227,7 @@ internal sealed class TabStrip : Control
     {
         base.OnMouseUp(e);
         if (_sessionRect.Contains(e.Location)) { SessionClicked?.Invoke(PointToScreen(new Point(_sessionRect.Left, _sessionRect.Bottom))); return; }
+        if (!_actionRect.IsEmpty && _actionRect.Contains(e.Location)) { if (e.Button == MouseButtons.Left) ActionClicked?.Invoke(); return; }
         if (!_moreRect.IsEmpty && _moreRect.Contains(e.Location)) { MoreClicked?.Invoke(PointToScreen(new Point(_moreRect.Left, _moreRect.Bottom))); return; }
         int h = HitTab(e.Location);
         if (h < 0) return;
