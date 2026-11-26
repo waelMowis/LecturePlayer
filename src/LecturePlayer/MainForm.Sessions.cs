@@ -77,11 +77,9 @@ internal partial class MainForm
         items.Add(open);
         if (s != null) items.Add(Item($"🗑  احذف ال{w}…", () => DeleteSession(s)));
 
-        if (IsTeacher)
-        {
-            items.Add(new ToolStripSeparator());
-            items.Add(ClassesMenu());
-        }
+        items.Add(new ToolStripSeparator());
+        if (IsTeacher) items.Add(ClassesMenu());
+        items.Add(RoleMenu());
         return items;
     }
 
@@ -337,40 +335,86 @@ internal partial class MainForm
 
     // ---------------- الرئيسية ----------------
 
-    /// <summary>سطور الرئيسية: حصص اليوم للمعلم، وآخر جلسة مفتوحة.</summary>
+    /// <summary>
+    /// سطور الرئيسية حسب الدور: المعلم يرى حصص اليوم (أو الحصة القادمة، أو دعوة لإضافة أول مجموعة)،
+    /// والطالب يرى «تابع» لآخر جلسة (أو دعوة لبدء جلسة مذاكرة).
+    /// </summary>
     private IEnumerable<Control> SessionHomeRows(int rowH)
     {
-        if (!HasLibrary) yield break;
+        if (!HasLibrary || _settings.Role == null) yield break;
+        Label Row(string text, Color color, Action click)
+        {
+            var row = new Label
+            {
+                Dock = DockStyle.Top, Height = rowH, Cursor = Cursors.Hand, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleRight,
+                ForeColor = color, Text = text
+            };
+            row.Click += (_, _) => click();
+            return row;
+        }
         var now = DateTime.Now;
-        foreach (var (c, slot) in TodaysClasses(now).Take(4))
+        if (IsTeacher)
         {
-            var start = now.Date + slot.StartTime;
-            bool live = now >= start && now <= start.AddMinutes(slot.Minutes);
-            bool past = now > start.AddMinutes(slot.Minutes);
-            var cur = c.CurrentSessionId == null ? null : _library.Sessions.FirstOrDefault(s => s.Id == c.CurrentSessionId);
-            string hw = cur?.Homework is { Length: > 0 } h ? "  ·  الواجب: " + FirstLine(h) : "";
-            var row = new Label
+            if (_library.Classes.Count == 0)
+                yield return Row("🧑‍🏫  أضف مجموعتك أو صفك الأول وجدوله — وبعدها «ابدأ الحصة» تكمل من حيث توقفتم  (اضغط)", Theme.Accent, () => NewClassDialog());
+            var today = TodaysClasses(now);
+            foreach (var (c, slot) in today.Take(4))
             {
-                Dock = DockStyle.Top, Height = rowH, Cursor = Cursors.Hand, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleRight,
-                ForeColor = live ? Theme.Success : past ? Theme.Muted : Theme.Text,
-                Text = $"🧑‍🏫  {slot.Start} — {Modern.Bidi(c.Name)} ({slot.Minutes} د)" + (live ? "  ·  الآن" : "") + hw + "  (اضغط لبدء الحصة)"
-            };
-            var target = c;
-            row.Click += (_, _) => StartClass(target);
-            yield return row;
+                var start = now.Date + slot.StartTime;
+                bool live = now >= start && now <= start.AddMinutes(slot.Minutes);
+                bool past = now > start.AddMinutes(slot.Minutes);
+                var cur = c.CurrentSessionId == null ? null : _library.Sessions.FirstOrDefault(s => s.Id == c.CurrentSessionId);
+                string hw = cur?.Homework is { Length: > 0 } h ? "  ·  الواجب: " + FirstLine(h) : "";
+                var target = c;
+                yield return Row($"🧑‍🏫  {slot.Start} — {Modern.Bidi(c.Name)} ({slot.Minutes} د)" + (live ? "  ·  الآن" : "") + hw + "  (اضغط لبدء الحصة)",
+                    live ? Theme.Success : past ? Theme.Muted : Theme.Text, () => StartClass(target));
+            }
+            if (today.Count == 0 && NextClass(now) is var (nc, nslot, nday) && nc != null)
+                yield return Row($"🧑‍🏫  لا حصص اليوم — القادمة: {DayNames[nday]} {nslot!.Start} — {Modern.Bidi(nc.Name)}  (اضغط للتحضير)", Theme.Muted, () => StartClass(nc));
+            else if (today.Count == 0 && _library.Classes.Count > 0)
+                yield return Row("🧑‍🏫  لا مواعيد في جداول المجموعات بعد — أضفها من «📚 ← المجموعات والجدول»  (اضغط)", Theme.Muted, () => ClassScheduleDialog(_library.Classes[0]));
         }
-        var last = _library.Sessions.Where(s => !s.Done && s.Id != _sessionId && s.Tabs.Count > 0).OrderByDescending(s => s.LastOpenedUtc).FirstOrDefault();
-        if (last != null && last.ClassId == null)
+        var last = _library.Sessions.Where(s => !s.Done && s.Id != _sessionId && s.Tabs.Count > 0 && s.ClassId == null).OrderByDescending(s => s.LastOpenedUtc).FirstOrDefault();
+        if (last != null)
+            yield return Row($"📚  تابع «{Modern.Bidi(last.Name)}» — {last.Tabs.Count} تبويب" + (last.Homework is { Length: > 0 } h ? "  ·  الواجب: " + FirstLine(h) : ""), Theme.Text, () => OpenSession(last));
+        else if (_settings.Role == "student" && !_library.Sessions.Any())
+            yield return Row("📚  افتح ما تذاكره (فيديو، كتاب) ثم احفظه «جلسة مذاكرة» من زر 📚 أعلى المساحة — تعود إليها بضغطة  (اضغط لإنشائها الآن)", Theme.Accent,
+                () => NewSessionDialog(fromTabs: _tabs.Count > 0));
+    }
+
+    /// <summary>أقرب حصة قادمة بعد اليوم (خلال أسبوع).</summary>
+    private (ClassGroup? Class, ClassSlot? Slot, int Day) NextClass(DateTime now)
+    {
+        for (int d = 1; d <= 7; d++)
         {
-            var row = new Label
-            {
-                Dock = DockStyle.Top, Height = rowH, Cursor = Cursors.Hand, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleRight,
-                ForeColor = Theme.Text,
-                Text = $"📚  تابع «{Modern.Bidi(last.Name)}» — {last.Tabs.Count} تبويب" + (last.Homework is { Length: > 0 } h ? "  ·  الواجب: " + FirstLine(h) : "")
-            };
-            row.Click += (_, _) => OpenSession(last);
-            yield return row;
+            int day = ((int)now.DayOfWeek + d) % 7;
+            var hit = _library.Classes.SelectMany(c => c.Schedule.Where(s => s.Day == day).Select(s => (c, s))).OrderBy(x => x.s.StartTime).FirstOrDefault();
+            if (hit.c != null) return (hit.c, hit.s, day);
         }
+        return (null, null, 0);
+    }
+
+    /// <summary>تغيير الدور من القائمة أو الإعدادات: التسميات والرئيسية وقائمة الأدوات تتبعه فورًا.</summary>
+    internal void SetRole(string role)
+    {
+        _settings.Role = role;
+        SaveSettings();
+        RefreshTabStrip();
+        RefreshHome();
+        ShowStatus(role switch { "teacher" => "👤 وضع المعلم: «حصة» والمجموعات وجدولها", "both" => "👤 طالب ومعلم: الجلسات والمجموعات معًا", _ => "👤 وضع الطالب: جلسات المذاكرة" }, 4);
+    }
+
+    private ToolStripMenuItem RoleMenu()
+    {
+        var m = SubMenu("👤  أستخدم البرنامج");
+        foreach (var (key, text) in new[] { ("student", "طالبًا (جلسات مذاكرة)"), ("teacher", "معلمًا (حصص ومجموعات)"), ("both", "طالبًا ومعلمًا") })
+        {
+            var k = key;
+            var it = Item(text, () => SetRole(k));
+            it.Checked = (_settings.Role ?? "student") == key;
+            m.DropDownItems.Add(it);
+        }
+        return m;
     }
 
     // ---------------- الدور (أول تشغيل) ----------------
@@ -380,14 +424,13 @@ internal partial class MainForm
     {
         if (_settings.Role != null || SmokeAskText != null) return;
         using var kit = new FormKit("كيف ستستخدم «مسار»؟", 520);
-        kit.Note("اختيارك يغيّر بعض التسميات فقط (جلسة مذاكرة أو حصة)، ويمكنك تغييره لاحقًا من الإعدادات.", 40, Theme.Text);
+        kit.Note("الطالب: جلسات مذاكرة يحفظ فيها ما يفتحه ويعود إليه.\nالمعلم: حصص ومجموعات بجدول أسبوعي، وكل مجموعة تكمل من حيث توقفت، وتصدير الحصة للطلاب.\n" +
+                 "يُسأل مرة واحدة، وتغيّره متى شئت من زر 📚 أعلى المساحة أو من الإعدادات ← شكل البرنامج.", 76, Theme.Text);
         var role = kit.Row("أنا", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList });
         role.Items.AddRange(new object[] { "طالب — أذاكر دوراتي وكتبي", "معلم — أشرح لطلابي ومجموعاتي", "الاثنان" });
         role.SelectedIndex = 0;
         kit.Buttons("متابعة");
         kit.Show(this);
-        _settings.Role = role.SelectedIndex switch { 1 => "teacher", 2 => "both", _ => "student" };
-        SaveSettings();
-        RefreshTabStrip();
+        SetRole(role.SelectedIndex switch { 1 => "teacher", 2 => "both", _ => "student" });
     }
 }

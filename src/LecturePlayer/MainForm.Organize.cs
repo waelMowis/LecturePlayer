@@ -46,11 +46,12 @@ internal sealed partial class MainForm
         void Head(string t) => m.Items.Add(new ToolStripLabel(t) { ForeColor = Theme.Muted, Font = new Font(m.Font, FontStyle.Bold) });
         m.Items.Add(Item("🔎  ابحث عن أمر…", ShowCommandPalette, display: "Ctrl+Shift+Space"));
         m.Items.Add(new ToolStripSeparator());
-        Head("الشرح");
-        m.Items.AddRange(TeachingToolItems().ToArray());
-        m.Items.Add(new ToolStripSeparator());
-        Head("المذاكرة");
-        m.Items.AddRange(StudyToolItems().ToArray());
+        // الأقرب لدورك أولًا: المذاكرة للطالب، والشرح للمعلم
+        void Teaching() { Head("الشرح"); m.Items.AddRange(TeachingToolItems().ToArray()); m.Items.Add(new ToolStripSeparator()); }
+        void Study() { Head("المذاكرة"); m.Items.AddRange(StudyToolItems().ToArray()); m.Items.Add(new ToolStripSeparator()); }
+        if (_settings.Role == "student") { Study(); Teaching(); } else { Teaching(); Study(); }
+        Head(SessionWord == "حصة" ? "الحصص" : "الجلسات");
+        m.Items.AddRange(SessionMenuItems().ToArray());
         m.Items.Add(new ToolStripSeparator());
         Head("الإنترنت");
         m.Items.AddRange(NetToolItems().ToArray());

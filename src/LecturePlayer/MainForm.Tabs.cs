@@ -171,7 +171,7 @@ internal partial class MainForm
     private void UpdateTabStripVisible()
     {
         if (_tabStrip == null) return;
-        bool show = HasLibrary && !_fullscreen && !_miniMode && (_tabs.Count > 0 || _sessionId != null);
+        bool show = HasLibrary && !_fullscreen && !_miniMode && (_tabs.Count > 0 || _sessionId != null || _settings.Role != null);
         if (_tabStrip.Visible != show) _tabStrip.Visible = show;
     }
 

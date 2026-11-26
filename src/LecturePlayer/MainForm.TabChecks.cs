@@ -93,7 +93,7 @@ internal sealed partial class MainForm
             EndSession(markDone: false);
             Check(_sessionId == null && _tabs.Count == 1 && !session.Done, "session closed, tabs stay");
             CloseAllTabs();
-            Check(_tabs.Count == 0 && !_tabStrip.Visible && _currentVideo == null, "all tabs closed");
+            Check(_tabs.Count == 0 && _tabStrip.Items.Count == 0 && _tabStrip.Visible && _currentVideo == null, "all tabs closed (the 📚 button stays reachable)");
             OpenSession(session);
             Check(Until(() => _currentVideo == tone, 20_000) && _tabs.Count == 1 && _activeTab == 0 && ActiveSession == session, "session reopens its tabs");
             ShowSessionMenu(PointToScreen(Point.Empty));
@@ -104,6 +104,32 @@ internal sealed partial class MainForm
             LastTabMenu?.Close();
             EndSession(markDone: false);
             CloseAllTabs();
+
+            // الدور يغيّر ما يظهر فعلًا: الرئيسية وترتيب قائمة الأدوات وقائمة الجلسة
+            var savedSessions = _library.Sessions.ToList(); var savedClasses = _library.Classes.ToList();
+            _library.Sessions.Clear(); _library.Classes.Clear();
+            GoHome();
+            SetRole("student");
+            RefreshHome();
+            Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("جلسة مذاكرة")) && !_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("🧑‍🏫")), "student home invites a study session");
+            ShowToolsMenu(_activityTools);
+            var heads = LastToolsMenu!.Items.OfType<ToolStripLabel>().Select(x => x.Text).ToList();
+            LastToolsMenu.Close();
+            Check(heads.IndexOf("المذاكرة") >= 0 && heads.IndexOf("المذاكرة") < heads.IndexOf("الشرح") && heads.Contains("الجلسات"), "student tools menu: study first: " + string.Join("|", heads));
+            SetRole("teacher");
+            RefreshHome();
+            Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("أضف مجموعتك")), "teacher home invites the first class");
+            ShowToolsMenu(_activityTools);
+            heads = LastToolsMenu!.Items.OfType<ToolStripLabel>().Select(x => x.Text).ToList();
+            LastToolsMenu.Close();
+            Check(heads.IndexOf("الشرح") < heads.IndexOf("المذاكرة") && heads.Contains("الحصص"), "teacher tools menu: teaching first");
+            Check(SessionMenuItems().OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("المجموعات والجدول")) && SessionMenuItems().OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("أستخدم البرنامج")), "teacher session menu: classes + role switch");
+            var probe = new ClassGroup { Name = "مجموعة الغد", Schedule = { new ClassSlot { Day = ((int)DateTime.Now.DayOfWeek + 1) % 7, Start = "09:15", Minutes = 45 } } };
+            _library.Classes.Add(probe);
+            RefreshHome();
+            Check(_homePlan.Controls.OfType<Label>().Any(l => l.Text.Contains("لا حصص اليوم") && l.Text.Contains("09:15")), "teacher home shows the next class");
+            _library.Classes.Clear();
+            _library.Sessions.AddRange(savedSessions); _library.Classes.AddRange(savedClasses);
 
             // المعلم: مجموعة بجدول، والحصة التالية تبدأ من حيث توقفت المجموعة
             _settings.Role = "teacher";
