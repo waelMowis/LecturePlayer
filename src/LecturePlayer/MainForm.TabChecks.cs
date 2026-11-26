@@ -71,12 +71,17 @@ internal sealed partial class MainForm
             Check(_tabs.Count == 2 && _activeTab == 1 && _tabs[1].Kind == WorkTab.CourseKind && _tabs[1].Ref == course.Id && _tabs[1].ItemPath == tone.Path && !ReaderShown, "video tab added");
             Check(_tabStrip!.Items.Count == 2 && _tabStrip.Items[1].Active && _tabStrip.Items[1].Glyph == "▶", "strip items");
 
-            // التبديل: الفيديو يتوقف ويُحفظ موضعه، والكتاب يعود
+            // التبديل: الفيديو يتوقف مؤقتًا (يبقى محمّلًا) ويُحفظ موضعه، والكتاب يعود
+            var toneMedia = _currentMedia;
             ActivateTab(0);
             Check(Until(() => ReaderShown && _currentBook == book, 20_000), "switch back to the book");
-            Check(_currentVideo == null && _activeTab == 0 && tone.LastPositionMs > 500 && _tabs[1].PositionMs > 500, $"video stopped and its place saved ({tone.LastPositionMs})");
-            // Ctrl+2 = التبويب الثاني
+            Check(_currentVideo == null && _activeTab == 0 && tone.LastPositionMs > 500 && _tabs[1].PositionMs > 500, $"video left and its place saved ({tone.LastPositionMs})");
+            Check(Until(() => _mp.State == VLCState.Paused, 5000) && _videoSuspended?.Video == tone && !PlayingNow, "video paused (not closed) behind the book: " + _mp.State);
+            long pausedAt = _mp.Time;
+            // Ctrl+2 = التبويب الثاني: يكمل من اللقطة نفسها، بنفس الملف المحمّل (بلا إعادة فتح ولا بحث)
             Check(HandleTabKeys(Keys.Control | Keys.D2) && Until(() => _currentVideo == tone && _mp.State == VLCState.Playing, 20_000) && _activeTab == 1, "Ctrl+2 switches tab");
+            Check(ReferenceEquals(_currentMedia, toneMedia) && _videoSuspended == null && Math.Abs(_mp.Time - pausedAt) < 3000 && _videoView.Visible && !ReaderShown,
+                $"video resumed from the same frame without reloading ({pausedAt} → {_mp.Time})");
             Check(HandleTabKeys(Keys.Control | Keys.Tab) && Until(() => ReaderShown && _currentBook == book, 20_000), "Ctrl+Tab cycles");
             SaveSmokeShot(this, "tabs-strip");
             // الفأرة فوق الشريط بعد إغلاق تبويب وقبل إعادة الرسم (كان يرمي Index out of range عند إغلاق سبورة)

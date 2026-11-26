@@ -104,7 +104,8 @@ internal partial class MainForm
         // نفس العرض كان متشال على جنب (فتحت سبورة/كتاب): يرجع فورًا من نفس الشريحة، من غير ما PowerPoint يفتح من الأول
         if (_presSuspended == b && _presPane is { Running: true } sp && slide == null)
         {
-            if (_currentVideo != null || _currentLive != null || UdemyActive || ReaderShown) StopPlaybackCore(clearCurrent: true);
+            if (_currentVideo != null || _currentLive != null || UdemyActive) LeaveVideoForPage();
+            if (ReaderShown) CloseReader(showHome: false);
             _presSuspended = null;
             _presBook = b;
             _welcome.Visible = false; _videoView.Visible = false; ControlChromeVisible = false;
@@ -116,7 +117,8 @@ internal partial class MainForm
         }
         FinishSuspendedPresentation();
         if (PresentationShown) EndPresentation(showHome: false);
-        if (_currentVideo != null || _currentLive != null || UdemyActive || ReaderShown) StopPlaybackCore(clearCurrent: true);
+        if (_currentVideo != null || _currentLive != null || UdemyActive) LeaveVideoForPage();
+        if (ReaderShown) CloseReader(showHome: false);
         if (_fullscreen && _miniMode) ToggleMiniMode();
         var pane = EnsurePresentationPane();
         _welcome.Visible = false;

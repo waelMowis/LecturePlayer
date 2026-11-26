@@ -1193,7 +1193,7 @@ internal sealed partial class MainForm
             return;
         }
 
-        if (_currentVideo != null || _currentLive != null || UdemyActive) StopPlaybackCore(clearCurrent: true);
+        if (_currentVideo != null || _currentLive != null || UdemyActive) LeaveVideoForPage();   // الفيديو يتوقف مؤقتًا ويعود من اللقطة نفسها
         if (PresentationShown) SuspendPresentation();   // كتاب/سبورة أثناء العرض: العرض يُعلَّق ولا يبقى «معروضًا» خلف القارئ
         if (ReaderShown) FlushReading();
         if (_fullscreen && _miniMode) ToggleMiniMode();

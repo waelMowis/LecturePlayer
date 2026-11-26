@@ -245,6 +245,7 @@ internal partial class MainForm
                 else StopPlaybackCore(clearCurrent: true);
             }
             else if (t.Kind == WorkTab.BookKind && _presSuspended?.Id == t.Ref) FinishSuspendedPresentation();
+            else if (t.Kind != WorkTab.BookKind && _videoSuspended?.Video.Path == t.ItemPath) DropSuspendedVideo();
         }
         finally { _tabsBusy = false; }
         // أثناء الإغلاق قد تتغيّر القائمة (رسالة إغلاق ثانية من القارئ مثلًا): نحذف التبويب نفسه لا رقمه القديم

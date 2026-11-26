@@ -123,6 +123,10 @@ internal sealed partial class MainForm
             return;
         }
 
+        // رجوع إلى فيديو كان يعمل قبل فتح كتاب/سبورة: يكمل من اللقطة نفسها بلا إعادة تحميل
+        if (ResumeSuspendedVideo(g, v, startAtMs)) return;
+        _videoSuspended = null; // فيديو آخر يأخذ المشغّل
+
         // فيديو أثناء عرض PowerPoint: العرض يُعلَّق (يختفي ويعود فورًا من الشريحة نفسها) — وإلا يبقى فوق الفيديو
         if (PresentationShown) SuspendPresentation();
         CloseReader(showHome: false); // فيديو بعد كتاب: القارئ يتقفل ومكانك محفوظ
@@ -312,8 +316,87 @@ internal sealed partial class MainForm
 
     private void StopPlayback() => StopPlaybackCore(clearCurrent: false);
 
+    /// <summary>فيديو متوقف مؤقتًا لأنك فتحت كتابًا أو سبورة أو عرضًا فوقه: يبقى محمّلًا، والرجوع إليه فوري من اللقطة نفسها.</summary>
+    private sealed record SuspendedVideo(LectureGroup Group, VideoItem Video, bool WasPlaying);
+    private SuspendedVideo? _videoSuspended;
+
+    /// <summary>
+    /// كتاب/سبورة/عرض يُفتح والفيديو يعمل: الفيديو يتوقف مؤقتًا (لا يُغلق) ويُحفظ مكانه، فإذا رجعت إليه
+    /// (تبويبه، أو الشجرة، أو Ctrl+رقم) يكمل فورًا من اللقطة نفسها — بلا إعادة تحميل ولا بحث في الملف
+    /// (إعادة الفتح من منتصف تسجيلات الشاشة كانت تُظهر صورة مشوّهة حتى أول إطار كامل).
+    /// </summary>
+    private void LeaveVideoForPage()
+    {
+        var v = _currentVideo;
+        var g = _currentGroup;
+        if (v != null && g != null && _currentLive == null && !v.IsWebLesson && !UdemyActive && _currentMedia != null
+            && _mp.State is VLCState.Playing or VLCState.Paused)
+        {
+            bool wasPlaying = _mp.State == VLCState.Playing;
+            SaveCurrentPosition();
+            if (wasPlaying) _mp.SetPause(true);
+            ClearAbLoop();
+            _videoSuspended = new SuspendedVideo(g, v, wasPlaying);
+            _currentVideo = null;
+            _currentGroup = null;
+            _seekBar.Value = 0;
+            _timeLabel.Reset();
+            RefreshVideo(v);
+            RefreshGroup(g);
+            _nowPlayingLabel.Text = "";
+            RefreshNotesPane();
+            UpdatePlayButton();
+            UpdateTitle();
+            return;
+        }
+        StopPlaybackCore(clearCurrent: true);
+    }
+
+    /// <summary>الرجوع إلى الفيديو المتوقف مؤقتًا: من اللقطة نفسها (ويكمل التشغيل إن كان يعمل).</summary>
+    private bool ResumeSuspendedVideo(LectureGroup g, VideoItem v, long? startAtMs)
+    {
+        if (_videoSuspended is not { } s || s.Video != v || _currentMedia == null || _mp.State is not (VLCState.Paused or VLCState.Playing)) return false;
+        _videoSuspended = null;
+        if (PresentationShown) SuspendPresentation();
+        CloseReader(showHome: false);
+        HideUdemyPane();
+        _welcome.Visible = false;
+        _videoView.Visible = true;
+        _currentGroup = g;
+        _currentVideo = v;
+        if (startAtMs is long ms && Math.Abs(ms - _mp.Time) > 2000) _mp.Time = ms;
+        if (s.WasPlaying) _mp.SetPause(false);
+        _library.LastGroupId = g.Id;
+        _library.LastVideoPath = v.Path;
+        MarkDirty();
+        long len = _mp.Length > 0 ? _mp.Length : v.DurationMs, t = Math.Max(0, _mp.Time);
+        _seekBar.Value = len > 0 ? (double)t / len : 0;
+        _timeLabel.Set(t, len);
+        RefreshVideo(v);
+        RefreshGroup(g);
+        if (_videoNodes.TryGetValue(v, out var vn)) { _tree.SelectedNode = vn; vn.EnsureVisible(); }
+        UpdateNowPlaying();
+        UpdateTitle();
+        RefreshNotesPane();
+        UpdatePlayButton();
+        ShowStatus(s.WasPlaying ? "▶ يكمل الفيديو من حيث توقف" : "الفيديو متوقف عند " + TimeFormat.Format(t), 3);
+        return true;
+    }
+
+    /// <summary>الفيديو المتوقف مؤقتًا لم يعد مطلوبًا (أُغلق تبويبه مثلًا): يُفرَّغ المشغّل.</summary>
+    private void DropSuspendedVideo()
+    {
+        if (_videoSuspended == null) return;
+        _videoSuspended = null;
+        if (_currentVideo != null) return;
+        if (_mp.State is not (VLCState.NothingSpecial or VLCState.Stopped)) _mp.Stop();
+        _currentMedia?.Dispose();
+        _currentMedia = null;
+    }
+
     private void StopPlaybackCore(bool clearCurrent)
     {
+        _videoSuspended = null;
         if (PresentationShown) SuspendPresentation();   // بيستخبى بس — الرجوع له فوري ومن نفس الشريحة
         if (clearCurrent) CloseReader(showHome: false);
         SaveCurrentPosition();
