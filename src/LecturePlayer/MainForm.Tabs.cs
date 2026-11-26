@@ -239,12 +239,16 @@ internal partial class MainForm
             else if (t.Kind == WorkTab.BookKind && _presSuspended?.Id == t.Ref) FinishSuspendedPresentation();
         }
         finally { _tabsBusy = false; }
-        _tabs.RemoveAt(i);
-        if (shown || _activeTab == i) _activeTab = -1;
-        else if (_activeTab > i) _activeTab--;
+        // أثناء الإغلاق قد تتغيّر القائمة (رسالة إغلاق ثانية من القارئ مثلًا): نحذف التبويب نفسه لا رقمه القديم
+        var active = _activeTab >= 0 && _activeTab < _tabs.Count ? _tabs[_activeTab] : null;
+        _tabs.Remove(t);
+        _activeTab = shown || active == null || active == t ? -1 : _tabs.IndexOf(active);
         TabsChanged();
         if (shown) RefreshHome();
     }
+
+    private void CloseTab(WorkTab t) { int i = _tabs.IndexOf(t); if (i >= 0) CloseTab(i); }
+    private void ActivateTab(WorkTab t) { int i = _tabs.IndexOf(t); if (i >= 0) ActivateTab(i); }
 
     /// <summary>Ctrl+W و«✕ إغلاق»: يغلق التبويب المعروض (وإن لم يكن له تبويب يغلق المعروض فقط).</summary>
     internal void CloseActiveTab()
@@ -256,14 +260,14 @@ internal partial class MainForm
         else if (_currentVideo != null || _currentLive != null) GoHome();
     }
 
-    private void CloseOtherTabs(int keep)
+    private void CloseOtherTabs(WorkTab keep)
     {
-        for (int i = _tabs.Count - 1; i >= 0; i--) if (i != keep) CloseTab(i);
+        foreach (var t in _tabs.Where(x => x != keep).ToList()) CloseTab(t);
     }
 
     private void CloseAllTabs()
     {
-        for (int i = _tabs.Count - 1; i >= 0; i--) CloseTab(i);
+        foreach (var t in _tabs.ToList()) CloseTab(t);
     }
 
     private void StepTab(int delta)
@@ -311,13 +315,14 @@ internal partial class MainForm
     private void ShowTabMenu(int i, Point screen)
     {
         if (i < 0 || i >= _tabs.Count) return;
+        var tab = _tabs[i];
         var m = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
-        m.Items.Add(Item("إغلاق التبويب", () => CloseTab(i), display: "Ctrl+W"));
-        m.Items.Add(Item("إغلاق التبويبات الأخرى", () => CloseOtherTabs(i)));
+        m.Items.Add(Item("إغلاق التبويب", () => CloseTab(tab), display: "Ctrl+W"));
+        m.Items.Add(Item("إغلاق التبويبات الأخرى", () => CloseOtherTabs(tab)));
         m.Items.Add(Item("إغلاق كل التبويبات", CloseAllTabs));
         m.Items.Add(new ToolStripSeparator());
-        var right = Item("انقل إلى اليمين", () => MoveTab(i, -1)); right.Enabled = i > 0; m.Items.Add(right);
-        var left = Item("انقل إلى اليسار", () => MoveTab(i, 1)); left.Enabled = i < _tabs.Count - 1; m.Items.Add(left);
+        var right = Item("انقل إلى اليمين", () => MoveTab(_tabs.IndexOf(tab), -1)); right.Enabled = i > 0; m.Items.Add(right);
+        var left = Item("انقل إلى اليسار", () => MoveTab(_tabs.IndexOf(tab), 1)); left.Enabled = i < _tabs.Count - 1; m.Items.Add(left);
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add(Item(ActiveSession == null ? $"📚  احفظ التبويبات كـ{SessionWord}…" : $"📚  احفظ نسخة باسم آخر…", () => NewSessionDialog(fromTabs: true)));
         m.Closed += (_, _) => BeginInvoke(m.Dispose);
@@ -332,8 +337,8 @@ internal partial class MainForm
         var m = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
         for (int i = _tabStrip.VisibleCount; i < _tabs.Count; i++)
         {
-            int idx = i;
-            m.Items.Add(Item(TabGlyph(_tabs[i]) + "  " + _tabs[i].Title, () => ActivateTab(idx)));
+            var tab = _tabs[i];
+            m.Items.Add(Item(TabGlyph(tab) + "  " + tab.Title, () => ActivateTab(tab)));
         }
         m.Closed += (_, _) => BeginInvoke(m.Dispose);
         m.Show(screen);
@@ -354,8 +359,8 @@ internal partial class MainForm
             if (_tabs.Count > 0) menu.DropDownItems.Add(new ToolStripSeparator());
             for (int i = 0; i < _tabs.Count; i++)
             {
-                int idx = i;
-                var it = Item(TabGlyph(_tabs[i]) + "  " + _tabs[i].Title, () => ActivateTab(idx), display: i < 9 ? $"Ctrl+{i + 1}" : null);
+                var tab = _tabs[i];
+                var it = Item(TabGlyph(tab) + "  " + tab.Title, () => ActivateTab(tab), display: i < 9 ? $"Ctrl+{i + 1}" : null);
                 it.Checked = i == _activeTab;
                 menu.DropDownItems.Add(it);
             }

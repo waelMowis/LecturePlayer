@@ -79,6 +79,12 @@ internal sealed partial class MainForm
             Check(HandleTabKeys(Keys.Control | Keys.D2) && Until(() => _currentVideo == tone && _mp.State == VLCState.Playing, 20_000) && _activeTab == 1, "Ctrl+2 switches tab");
             Check(HandleTabKeys(Keys.Control | Keys.Tab) && Until(() => ReaderShown && _currentBook == book, 20_000), "Ctrl+Tab cycles");
             SaveSmokeShot(this, "tabs-strip");
+            // الفأرة فوق الشريط بعد إغلاق تبويب وقبل إعادة الرسم (كان يرمي Index out of range عند إغلاق سبورة)
+            var move = typeof(Control).GetMethod("OnMouseMove", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            _tabStrip.SetItems(new() { new TabStrip.Item("📖", "a", "", true), new TabStrip.Item("▶", "b", "", false), new TabStrip.Item("🧑‍🏫", "c", "", false) });
+            _tabStrip.SetItems(new() { new TabStrip.Item("📖", "a", "", true) });
+            for (int x = 0; x < _tabStrip.Width; x += 8) move.Invoke(_tabStrip, new object[] { new MouseEventArgs(MouseButtons.None, 0, x, _tabStrip.Height / 2, 0) });
+            RefreshTabStrip();
 
             // جلسة من التبويبات المفتوحة
             var session = NewSessionDialog(fromTabs: true, name: "جلسة الفحص");

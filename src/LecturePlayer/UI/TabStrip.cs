@@ -49,6 +49,9 @@ internal sealed class TabStrip : Control
     {
         _items = items;
         _hover = -1;
+        _hoverClose = false;
+        // المستطيلات تُحسب الآن (لا عند الرسم): حركة الفأرة قد تسبق الرسم، وبمستطيلات قديمة يشير رقم التبويب إلى عنصر لم يعد موجودًا
+        Layout2();
         Invalidate();
     }
 
@@ -118,7 +121,7 @@ internal sealed class TabStrip : Control
         TextRenderer.DrawText(g, SessionText, Font, _sessionRect, SessionActive ? Color.White : Theme.Text,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.RightToLeft);
 
-        for (int i = 0; i < _rects.Count; i++)
+        for (int i = 0; i < _rects.Count && i < _items.Count; i++)
         {
             var (r, c) = _rects[i];
             var it = _items[i];
@@ -169,9 +172,11 @@ internal sealed class TabStrip : Control
 
     private int HitTab(Point p)
     {
-        for (int i = 0; i < _rects.Count; i++) if (_rects[i].Tab.Contains(p)) return i;
+        for (int i = 0; i < _rects.Count && i < _items.Count; i++) if (_rects[i].Tab.Contains(p)) return i;
         return -1;
     }
+
+    protected override void OnResize(EventArgs e) { base.OnResize(e); Layout2(); }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
@@ -184,7 +189,7 @@ internal sealed class TabStrip : Control
             _hover = h; _hoverClose = hc; _hoverSession = hs; _hoverMore = hm;
             Invalidate();
         }
-        string tip = h >= 0 ? (hc ? "إغلاق التبويب (Ctrl+W)" : _items[h].Tip) : hs ? "الجلسة: احفظ التبويبات المفتوحة باسم وارجع إليها لاحقًا" : "";
+        string tip = h >= 0 && h < _items.Count ? (hc ? "إغلاق التبويب (Ctrl+W)" : _items[h].Tip) : hs ? "الجلسة: احفظ التبويبات المفتوحة باسم وارجع إليها لاحقًا" : "";
         if (tip != _lastTip) { _lastTip = tip; _tip.SetToolTip(this, tip); }
         Cursor = h >= 0 || hs || hm ? Cursors.Hand : Cursors.Default;
     }
