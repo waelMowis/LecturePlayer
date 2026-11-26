@@ -14,7 +14,7 @@ internal static class SettingsDialog
         var role = kit.Row("أستخدم البرنامج", new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList });
         role.Items.AddRange(new object[] { "طالبًا", "معلمًا", "طالبًا ومعلمًا" });
         role.SelectedIndex = s.Role switch { "teacher" => 1, "both" => 2, _ => 0 };
-        kit.Note("يغيّر التسميات فقط (جلسة مذاكرة أو حصة)، ويُظهر للمعلم المجموعات وجدولها.", 22);
+        kit.Note("يغيّر الشريط الجانبي وأعلى الرئيسية: للمعلم «الحصص» وحصص اليوم ومجموعاته، وللطالب «جلساتي» والمراجعة والإحصائيات.", 40);
         var advanced = kit.Row("الوضع المتقدم", new ToggleSwitch { Text = "اعرض شريط الحالة", Checked = adv });
         kit.Note("شريط الحالة في الأسفل: رسائل البرنامج، واسم ملف المكتبة، ومذاكرة اليوم والسلسلة. والأوامر كلها موجودة في القوائم في الحالتين.", 40);
 
