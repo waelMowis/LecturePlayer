@@ -207,7 +207,8 @@ internal sealed partial class MainForm
             SmokeDialogShots = true;
             try { SessionNotesDialog(lesson1); ClassScheduleDialog(cls); EndLessonDialog(lesson2); } finally { SmokeDialogShots = false; }
             ActivateTab(0);
-            Check(Until(() => ReaderShown && _currentBook == classBook, 20_000), "back to the class book");
+            Check(Until(() => ReaderShown && _currentBook == classBook && _reader!.Info != null && classBook.LastPage == 7, 20_000), "back to the class book (page 7)");
+            Thread.Sleep(400); Application.DoEvents();
             _ = _reader!.GoToAsync(9);
             Check(Until(() => classBook.LastPage == 9, 10_000), "lesson 2 reaches page 9");
             EndLesson(lesson2, "  تمارين الصفحة 9  ");
