@@ -47,11 +47,13 @@ internal sealed partial class MainForm
             ProcessCmdKey(ref msg, key);
         };
         pane.ApiRequested += OnItLegendApiRequest;
+        pane.WatchResponses(Classera.IsApi);
+        pane.ApiResponse += OnClasseraResponse;
         pane.FullscreenChanged += fs => { if (fs != _fullscreen && !IsDisposed) ToggleFullscreen(); };
         pane.Navigated += (ok, url) =>
         {
             if (!ok && UdemyActive && url != "about:blank")
-                ShowBanner("لم تُفتح صفحة يوديمي — تأكد من الإنترنت", BannerKind.Warning, "↻  حاول مرة أخرى", () => pane.Web.CoreWebView2?.Reload(), seconds: 0, key: "udemy");
+                ShowBanner(_currentVideo?.IsClassera == true ? "لم تُفتح صفحة المنصة — تأكد من الإنترنت" : "لم تُفتح صفحة يوديمي — تأكد من الإنترنت", BannerKind.Warning, "↻  حاول مرة أخرى", () => pane.Web.CoreWebView2?.Reload(), seconds: 0, key: "udemy");
         };
         _udemyPane = pane;
         return pane;
@@ -72,7 +74,7 @@ internal sealed partial class MainForm
         HideBanner("udemy");
         try
         {
-            string platform = v.IsItLegend ? "IT Legend" : "يوديمي";
+            string platform = v.IsItLegend ? "IT Legend" : v.IsClassera ? Classera.Platform : "يوديمي";
             if (v.IsItLegend) { await pane.EnsureReadyAsync(); pane.WatchApi(ItLegendClient.TestApi ?? ItLegend.Api); }
             if (v.IsItLegend && ItLegend.ParseLesson(v.Path) is { } l && ItLegend.CourseIdOf(pane.Web.CoreWebView2?.Source) == l.CourseId)
                 pane.Retarget(startMs, _activeRate, _muted ? 0 : _settings.Volume); // نفس الكورس مفتوح: نختار الدرس بس من غير تحميل الصفحة
@@ -80,6 +82,7 @@ internal sealed partial class MainForm
                 await pane.OpenAsync(v.IsItLegend ? ItLegend.CourseUrl(ItLegend.ParseLesson(v.Path)!.CourseId) : v.Path, startMs, _activeRate, _muted ? 0 : _settings.Volume);
             if (request != _playRequest) return;
             if (v.IsItLegend) BeginItLegendSelect(v);
+            if (v.IsClassera) BeginClasseraItem(v);
             if (_muted) pane.SetMuted(true);
             ShowStatus(startMs > 3000 ? $"{platform} — المتابعة من {TimeFormat.Format(startMs)}" : $"{platform} — جارٍ فتح الدرس…", 4);
         }
@@ -152,6 +155,11 @@ internal sealed partial class MainForm
             if (FollowUdemyLecture(v, pageKey)) return;
         }
 
+        if (v.IsClassera)
+        {
+            if (pane.MsSinceOpen > 3000 && FollowClasseraPage(v, s.Href)) return;
+            ClasseraTick(v, s.HasVideo);
+        }
         if (!s.HasVideo) return;
         long len = s.DurationMs > 0 ? s.DurationMs : v.DurationMs, t = s.TimeMs;
         if (len <= 0) return;

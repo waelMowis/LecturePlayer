@@ -684,12 +684,13 @@ internal sealed partial class MainForm
             "فيديو أو قائمة تشغيل كاملة من يوتيوب", Theme.Danger, () => AddUrlsDialog(null)));
         ActionTile? platformTile = null;
         platformTile = Tile(Glyphs.Education, empty ? "دورة من منصة" : "من منصة",
-            "دوراتك على يوديمي أو مهارة تك أو IT Legend بحسابك", Theme.Accent, () =>
+            "دوراتك على يوديمي أو مهارة تك أو IT Legend أو منصة الإبداع بحسابك", Theme.Accent, () =>
             {
                 var m = new ContextMenuStrip { Renderer = new DarkRenderer(), RightToLeft = RightToLeft.Yes, ShowImageMargin = false };
                 m.Items.Add(MenuItem("🎓  يوديمي (بحسابك)…", () => UdemyImport()));
                 m.Items.Add(MenuItem("🎓  مهارة تك أو أي موقع Moodle…", () => MoodleImport()));
                 m.Items.Add(MenuItem("🎓  IT Legend…", () => ItLegendImport()));
+                m.Items.Add(MenuItem("🎓  منصة الإبداع (كلاسيرا)…", () => ClasseraImport()));
                 m.Closed += (_, _) => BeginInvoke(m.Dispose);
                 m.Show(platformTile!, new Point(0, platformTile!.Height));
             });

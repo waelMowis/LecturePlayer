@@ -332,6 +332,7 @@ internal sealed partial class MainForm
             }, 8000), "iframe player fills the pane: " + fit3);
             SaveSmokeShot(this, "lesson-iframe-player");
             RunItLegendFlowCheck(Until);
+            RunClasseraFlowCheck(Until);
 
             // فيديو عادي بعد يوديمي: الشاشة ترجع لـ VLC والصفحة تتقفل
             StopPlayback();

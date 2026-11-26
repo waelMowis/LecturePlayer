@@ -52,6 +52,7 @@ internal sealed partial class MainForm
             Item("يوديمي — استيراد بحسابك…", () => UdemyImport()),
             Item("مهارة تك أو أي موقع Moodle…", () => MoodleImport()),
             Item("IT Legend…", () => ItLegendImport()),
+            Item("منصة الإبداع (كلاسيرا)…", () => ClasseraImport()),
             new ToolStripSeparator(),
             Item("الخروج من حساب يوديمي", UdemySignOut),
             Item("إزالة دخول Moodle المحفوظ", MoodleSignOut));

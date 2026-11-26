@@ -762,6 +762,7 @@ internal sealed partial class MainForm
         node.ToolTipText = v.IsOnline ? (IsDownloaded(v) ? "منزّل للمشاهدة دون إنترنت:\n" : "من الإنترنت:\n") + v.Path
             : exists ? v.LocalPath
             : "الملف غير موجود على هذا الجهاز:\n" + v.Path;
+        if (v.IsClassera) node.ToolTipText = Classera.Platform + (v.PlatformInfo != null ? "\n" + v.PlatformInfo : "") + (v.Watched ? "\n✓ أُنجز" : "");
         if (time.Length > 0) node.ToolTipText = time + "\n" + node.ToolTipText;
         if (v.Bookmarks.Count > 0 || !string.IsNullOrWhiteSpace(v.Notes))
             node.ToolTipText += $"\n\n{v.Bookmarks.Count} علامة" + (string.IsNullOrWhiteSpace(v.Notes) ? "" : " · فيه ملاحظات");

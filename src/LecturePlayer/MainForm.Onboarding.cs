@@ -166,6 +166,7 @@ internal sealed partial class MainForm
         RunUdemyChecks();
         RunMoodleChecks();
         RunItLegendChecks();
+        RunClasseraChecks();
         RunTopicSeparatorCheck();
         RunMenuChecks();
         RunBookChecks();

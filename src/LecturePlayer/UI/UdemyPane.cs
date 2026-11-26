@@ -34,6 +34,12 @@ internal sealed class UdemyPane : Panel
     public event Action<string>? ApiRequested;
     /// <summary>الصفحة اتفتحت/فشلت (للرسايل).</summary>
     public event Action<bool, string>? Navigated;
+    /// <summary>رد وصل للصفحة من سيرفر منصة (نفس ما تراه الصفحة) — لمن طلبه بـ WatchResponses.</summary>
+    public event Action<string, string>? ApiResponse;
+    private Func<string, bool>? _responseFilter;
+
+    /// <summary>«مسار» يقرأ الردود التي تصل للصفحة من سيرفر المنصة (المنهج، والتقدّم، ونتيجة الاختبار) — بدل أن يطلبها بنفسه.</summary>
+    public void WatchResponses(Func<string, bool> filter) => _responseFilter = filter;
 
     private bool _ready;
     private string? _cleanScriptId;
@@ -84,6 +90,19 @@ internal sealed class UdemyPane : Panel
         core.WebResourceRequested += (_, e) => { try { ApiRequested?.Invoke(e.Request.Uri); } catch (Exception) { } };
         core.ContainsFullScreenElementChanged += (_, _) => FullscreenChanged?.Invoke(core.ContainsFullScreenElement);
         core.NavigationCompleted += (_, e) => Navigated?.Invoke(e.IsSuccess, core.Source);
+        core.WebResourceResponseReceived += async (_, e) =>
+        {
+            try
+            {
+                string uri = e.Request.Uri;
+                if (_responseFilter == null || ApiResponse == null || !_responseFilter(uri) || e.Response.StatusCode != 200) return;
+                using var stream = await e.Response.GetContentAsync();
+                if (stream == null) return;
+                using var reader = new StreamReader(stream);
+                ApiResponse?.Invoke(uri, await reader.ReadToEndAsync());
+            }
+            catch (Exception ex) { Data.Log.Info("lesson response: " + ex.Message); }
+        };
         core.NewWindowRequested += (_, e) => { e.Handled = true; core.Navigate(e.Uri); }; // روابط «شباك جديد» تفتح هنا
         await core.AddScriptToExecuteOnDocumentCreatedAsync(KeyScript);
         _ready = true;

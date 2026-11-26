@@ -80,6 +80,7 @@ internal sealed partial class MainForm
             MenuItem("🎓  من يوديمي (بحسابك)…", () => UdemyImport(null, target)),
             MenuItem("🎓  من مهارة تك أو أي موقع Moodle…", () => MoodleImport(target: target)),
             MenuItem("🎓  من IT Legend…", () => ItLegendImport(null, target)),
+            MenuItem("🎓  من منصة الإبداع (كلاسيرا)…", () => ClasseraImport(null, target)),
             Sep(),
             MenuItem("📄  دورة فارغة (تملؤها يدويًا)…", () =>
             {
@@ -108,6 +109,7 @@ internal sealed partial class MainForm
     {
         if (c.UdemyId != null) return MenuItem("🔄  اجلب الجديد من يوديمي (والدروس التي أكملتها)", () => UdemyImport(c));
         if (ItLegend.CourseIdOf(c.SourceUrl) != null) return MenuItem("🔄  اجلب الجديد من IT Legend (والدروس التي أكملتها)", () => ItLegendImport(c));
+        if (Classera.CourseLectureOf(c.SourceUrl) != null) return MenuItem($"🔄  اجلب الجديد من {Classera.Platform} (وما أكملته: فيديوهات وملفات واختبارات)", () => ClasseraImport(c));
         if (Moodle.ParseCourseUrl(c.SourceUrl) is { } m)
         {
             string site = SiteLabel(MoodleAccountFor(m.Site), m.Site);
@@ -287,7 +289,7 @@ internal sealed partial class MainForm
     private void BuildGroupMenu(LectureGroup g, ToolStripItemCollection items)
     {
         var course = _library.FindCourseOf(g);
-        bool platform = g.IsUdemySection || g.IsMoodleSection || g.IsItLegendSection;
+        bool platform = g.IsUdemySection || g.IsMoodleSection || g.IsItLegendSection || g.IsClasseraSection;
         items.Add(MenuItem("▶  تشغيل المحاضرة", () => PlayGroup(g)));
         items.Add(MenuItem("⏮  تشغيل من أول فيديو", () => { if (g.Videos.Count > 0) PlayVideo(g, g.Videos[0], 0); }));
         if (g.Attachments.Count > 0) items.Add(AttachmentsMenu(g));
