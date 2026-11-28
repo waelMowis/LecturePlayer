@@ -314,7 +314,7 @@ internal partial class MainForm
         Js("""
             window.__onl=null;(async()=>{const r={};try{const W=await import('./sci-web.js');const c=await W.pubchemCompound('aspirin');r.pc=c.formula+' '+c.cid;
             const A=masar.sciTest().Sci.apps;const a=await A.insert({app:'pubchem',cid:c.cid,title:c.title},await W.pubchemSvg(c),null,360);window.__sci.ids.push(a.id);r.pcimg=atob(a.img.split(',')[1]).includes('PubChem CID');
-            const list=await W.commonsSearch('بركان');r.cm=list.length;if(!list.length){const raw=await fetch('/scipack/wiki/api?action=query&format=json&list=search&srsearch=volcano&srnamespace=6&srlimit=3');r.raw=raw.status+' '+(await raw.text()).slice(0,300)}const b=await A.insert({app:'commons',title:list[0].title,lic:list[0].lic},await W.commonsSvg(list[0]),null,480);window.__sci.ids.push(b.id);
+            const list=await W.commonsSearch('بركان');r.cm=list.length;if(!list.length)r.raw=list.debug;const b=await A.insert({app:'commons',title:list[0].title,lic:list[0].lic},await W.commonsSvg(list[0]),null,480);window.__sci.ids.push(b.id);
             r.cmimg=atob(b.img.split(',')[1]).includes('Wikimedia Commons');r.lic=list[0].lic}catch(e){r.err=String(e&&e.message||e)}window.__onl=r})();'ok'
             """);
         Check(Until(() => Js("String(!!window.__onl)") == "true", 90_000), "PubChem + Commons finished");

@@ -103,6 +103,7 @@ export async function commonsSearch(q) {
     if (!thumb || !big) continue;
     out.push({ title: strip(m.ObjectName?.value) || p.title.replace(/^File:/, "").replace(/\.[a-z]+$/i, ""), author: strip(m.Artist?.value).slice(0, 80) || "—", lic, thumb, big: ii.width > 1200 ? big : imgPath(ii.url) || big, page: ii.descriptionurl, w: ii.width, h: ii.height });
   }
+  out.debug = JSON.stringify(d).slice(0, 600);
   return out;
 }
 export async function commonsSvg(it) {
