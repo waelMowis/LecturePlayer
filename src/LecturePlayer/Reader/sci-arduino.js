@@ -4,6 +4,8 @@
 // المرحلة دي: المحرك + الشاشة التسلسلية. محرر الدوائر والكتل جايين في المراحل الجاية.
 import { Apps } from "./sci-apps.js";
 import { Uno, parseHex } from "./ardu-sim.js";
+import { Circuit, partThumb } from "./ardu-circuit.js";
+import { PARTS, PALETTE, WIRE_COLORS } from "./ardu-parts.js";
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -94,7 +96,17 @@ export const Ardu = {
     const hl = h("pre", { cls: "ard-hl", dir: "ltr", "aria-hidden": "true" });
     const gut = h("div", { cls: "ard-gut", dir: "ltr", "aria-hidden": "true" });
     const probs = h("div", { cls: "ard-probs", "aria-live": "polite" });
-    const board = h("wokwi-arduino-uno", { cls: "ard-uno" });
+    const circ = this.circuit = new Circuit({
+      onChange: j => { store.set("circuit", JSON.stringify(j)); this.ctlBar(); },
+      onSel: sel => this.selBar(sel),
+      onWarn: list => this.showWarn(list),
+      onReset: () => this.reset(),
+      now: () => this.uno?.simMs ?? 0,
+    });
+    const bar = h("div", { cls: "ard-bar" });
+    const pal = h("div", { cls: "ard-pal", role: "list", "aria-label": "القطع" });
+    const ctl = h("div", { cls: "ard-ctl" });
+    const warnBox = h("div", { cls: "ard-warn", "aria-live": "polite" });
     const stat = h("div", { cls: "ard-stat" });
     const ser = h("pre", { cls: "ard-ser", "aria-label": "الشاشة التسلسلية", tabindex: "0" });
     const sin = h("input", { cls: "ard-sin", dir: "auto", placeholder: "نص يُرسل إلى اللوحة…", "aria-label": "نص يُرسل إلى اللوحة",
@@ -111,7 +123,9 @@ export const Ardu = {
     const body = h("div", { cls: "ard-wrap" },
       h("div", { cls: "ard-left" }, ed, probs),
       h("div", { cls: "ard-right" },
-        h("div", { cls: "ard-board" }, board),
+        bar,
+        h("div", { cls: "ard-mid" }, pal, circ.root),
+        ctl, warnBox,
         stat,
         h("div", { cls: "ard-serh" }, h("b", {}, "الشاشة التسلسلية"), baud,
           h("label", {}, auto, " تمرير تلقائي"),
@@ -122,7 +136,8 @@ export const Ardu = {
       "المحاكاة: avr8js (MIT) — رسوم اللوحة: wokwi-elements (MIT) — الترجمة بدون إنترنت: arduino-cli و avr-gcc (GPL) ونواة أردوينو (LGPL)");
     win.classList.add("ard-win");
 
-    const ui = this.ui = { win, ta, hl, gut, probs, board, stat, ser, auto, baud, btnRun, btnStop, btnReset, marks: new Map() };
+    const ui = this.ui = { win, ta, hl, gut, probs, circ, bar, pal, ctl, warnBox, stat, ser, auto, baud, btnRun, btnStop, btnReset, marks: new Map() };
+    Object.defineProperty(ui, "board", { get: () => circ.parts.get("uno")?.w });
     const sync = () => {
       hl.innerHTML = highlight(ta.value);
       const n = ta.value.split("\n").length;
@@ -152,10 +167,21 @@ export const Ardu = {
       }
     });
     sync();
-    // اللوحة على قد المساحة المتاحة
-    const fit = () => { const w = ui.board.parentElement.clientWidth - 16; ui.board.style.setProperty("--z", Math.max(0.6, Math.min(1.6, w / 280)).toFixed(2)); };
-    const ro = new ResizeObserver(fit); ro.observe(ui.board.parentElement); fit();
-    Apps.cleanup = () => { ro.disconnect(); this.stop(true); this.ui = null; };
+    // الدائرة: المحفوظة (أو أردوينو لوحده) + قائمة القطع
+    let saved = state.circuit; if (!saved) try { saved = JSON.parse(store.get("circuit") || "null"); } catch { saved = null; }
+    await circ.load(saved);
+    let fitted = false;
+    const ro = new ResizeObserver(() => { if (!fitted && circ.root.clientWidth > 50) { fitted = true; if (!saved?.view) circ.fit(); } });
+    ro.observe(circ.root);
+    for (const t of PALETTE) {
+      const b = h("button", { cls: "ard-pal-it", role: "listitem", title: PARTS[t].name, "data-type": t,
+        onclick: async () => { if (this.uno?.running) { this.say("أوقف المحاكاة أولًا لتعديل الدائرة.", "warn"); return; } const [x, y] = circ.freeSpot(); await circ.addPart(t, { x, y }); circ.root.focus(); } },
+        h("img", { alt: "" }), h("span", {}, PARTS[t].name));
+      pal.append(b);
+      partThumb(t).then(u => { b.querySelector("img").src = u; }).catch(() => { });
+    }
+    this.selBar(null); this.ctlBar();
+    Apps.cleanup = () => { ro.disconnect(); this.stop(true); this.ui = null; this.circuit = null; };
     this.say("اكتب الكود ثم اضغط «تشغيل». الترجمة تتم على هذا الجهاز بدون إنترنت.");
     setTimeout(() => ta.focus(), 0);
     return win;
@@ -183,6 +209,63 @@ export const Ardu = {
     const end = pos + (ls[line - 1]?.length ?? 0);
     ta.focus(); ta.setSelectionRange(pos + Math.max(0, Math.min(col - 1, end - pos)), end);
     ta.scrollTop = Math.max(0, (line - 4) * parseFloat(getComputedStyle(ta).lineHeight || "20"));
+  },
+
+  /** شريط فوق الدائرة: خصائص القطعة/السلك المختار، أو التلميحات */
+  selBar(sel) {
+    const ui = this.ui; if (!ui) return;
+    const c = ui.circ, bar = ui.bar; bar.textContent = "";
+    const btn = (t, title, f, cls) => h("button", { title, onclick: f, cls }, t);
+    const tools = h("span", { cls: "ard-bar-tools" },
+      btn("↶", "تراجع (Ctrl+Z)", () => c.undo()), btn("↷", "إعادة (Ctrl+Y)", () => c.redo()),
+      btn("−", "تصغير", () => c.zoom(1 / 1.25)), btn("+", "تكبير", () => c.zoom(1.25)), btn("⤢", "ملاءمة الدائرة للمساحة", () => c.fit()));
+    if (c.running) { bar.append(h("span", { cls: "ard-hint" }, "اللوحة تعمل: اضغط الأزرار وحرّك المقاومة المتغيرة والحساسات. أوقف المحاكاة لتعديل الدائرة."), tools); return; }
+    if (sel?.wiring) { bar.append(h("span", { cls: "ard-hint" }, "اضغط على الطرف الثاني لإكمال السلك، أو على مكان فارغ لإضافة انحناءة. Esc للإلغاء."), tools); return; }
+    if (sel?.wire) {
+      const w = c.wires.find(x => x.id === sel.wire);
+      bar.append(h("b", {}, "سلك"), h("span", { cls: "ard-swatches" }, WIRE_COLORS.map(([col, name]) =>
+        h("button", { cls: "ard-sw" + (w?.color === col ? " on" : ""), title: name, style: { background: col }, onclick: () => { c.setWireColor(sel.wire, col); this.selBar(sel); } }))),
+        btn("🗑 حذف", "حذف السلك (Delete)", () => c.deleteSel()), tools);
+      return;
+    }
+    const p = sel?.part && c.parts.get(sel.part);
+    if (p) {
+      const def = PARTS[p.type];
+      bar.append(h("b", {}, def.name));
+      for (const [k, [label, list]] of Object.entries(def.opts || {})) {
+        const s = h("select", { title: label, "aria-label": label, onchange: () => c.setProp(p.id, k, s.value) }, list.map(([v, t]) => h("option", { value: v, selected: String(p.props[k]) === v }, t)));
+        bar.append(h("label", { cls: "ard-opt" }, label + " ", s));
+      }
+      if (!def.fixed) bar.append(btn("⟳ تدوير", "تدوير 90° (R)", () => c.rotate(p.id)), btn("🗑 حذف", "حذف القطعة (Delete)", () => c.deleteSel()));
+      bar.append(tools);
+      return;
+    }
+    bar.append(h("span", { cls: "ard-hint" }, "أضف قطعة من القائمة واسحبها لمكانها. لتوصيل سلك: اضغط على طرف ثم على طرف آخر. ضع أرجل القطعة على ثقوب لوحة التوصيل لتتصل تلقائيًا."), tools);
+  },
+  /** أدوات التحكم في الحساسات */
+  ctlBar() {
+    const ui = this.ui; if (!ui) return;
+    const list = [...ui.circ.parts.values()].filter(p => PARTS[p.type].ctl);
+    const key = list.map(p => p.id).join(",");
+    if (ui.ctl.dataset.key === key) return;
+    ui.ctl.dataset.key = key; ui.ctl.textContent = "";
+    for (const p of list) {
+      const c = PARTS[p.type].ctl;
+      if (c.button) { ui.ctl.append(h("div", { cls: "ard-ctl-row" }, h("b", {}, PARTS[p.type].name + " " + p.id.replace(/\D/g, "")), h("button", { onclick: () => ui.circ.motion(p.id) }, "🚶 " + c.label))); continue; }
+      const toPos = v => c.log ? Math.round(Math.log10(v / c.min) / Math.log10(c.max / c.min) * 1000) : v;
+      const fromPos = x => c.log ? Math.round(c.min * Math.pow(c.max / c.min, x / 1000)) : +x;
+      const out = h("output", {});
+      const show = v => { out.textContent = arNum(v) + " " + c.unit; };
+      const r = h("input", { type: "range", min: c.log ? 0 : c.min, max: c.log ? 1000 : c.max, step: c.log ? 1 : c.step, value: toPos(p.st[c.k] ?? c.def), "aria-label": c.label,
+        oninput: () => { const v = fromPos(r.value); ui.circ.setCtl(p.id, v); show(v); } });
+      show(p.st[c.k] ?? c.def);
+      ui.ctl.append(h("div", { cls: "ard-ctl-row" }, h("b", {}, PARTS[p.type].name + " " + p.id.replace(/\D/g, "")), h("span", {}, c.label), r, out));
+    }
+  },
+  showWarn(list) {
+    const ui = this.ui; if (!ui) return;
+    ui.warnBox.textContent = "";
+    for (const t of list) ui.warnBox.append(h("div", {}, "⚠ " + t));
   },
 
   async run() {
@@ -220,12 +303,15 @@ export const Ardu = {
       this.serDirty = true;
     };
     this.uno.start();
+    ui.circ.attach(this.uno);
+    this.selBar(null);
     ui.btnStop.disabled = false; ui.btnReset.disabled = false;
     ui.board.ledPower = true;
     this.say("اللوحة تعمل. " + (this.info || ""), "ok");
     const frame = () => {
       if (!this.uno?.running || !this.ui) return;
       const s = this.uno.sample(), now = performance.now();
+      try { ui.circ.frame(s, this.uno.simMs); } catch (e) { console.error(e); }
       ui.board.led13 = s[13].duty > 0.4;
       ui.board.ledTX = now - this.uno.txAt < 60;
       ui.board.ledRX = now - (this.rxAt || 0) < 60;
@@ -246,6 +332,7 @@ export const Ardu = {
     if (this.uno) { this.uno.stop(); }
     const ui = this.ui;
     if (ui) {
+      if (ui.circ.running) { ui.circ.detach(); this.selBar(null); }
       ui.board.ledPower = false; ui.board.led13 = false; ui.board.ledTX = false; ui.board.ledRX = false;
       ui.btnStop.disabled = true;
       if (!quiet) this.say("توقفت اللوحة.");

@@ -74,10 +74,14 @@ export class Uno {
   }
 
   _scan(pi) {
-    const port = this.ports[pi], c = this.cpu.cycles, base = [0, 8, 14][pi], n = pi === 1 ? 6 : 8;
+    const port = this.ports[pi], c = this.cpu.cycles, base = [0, 8, 14][pi], n = pi === 0 ? 8 : 6;
+    let fix = null;
     for (let b = 0; b < n; b++) {
       const st = port.pinState(b), p = this.pin[base + b];
-      p.mode = st === PinState.High || st === PinState.Low ? "out" : st === PinState.InputPullUp ? "pullup" : "in";
+      const mode = st === PinState.High || st === PinState.Low ? "out" : st === PinState.InputPullUp ? "pullup" : "in";
+      // avr8js مابيطبّقش مقاومة السحب الداخلية على سجل PIN: الطرف الحر بنقرّاه 1 مع INPUT_PULLUP و 0 من غيرها
+      if (mode !== p.mode && mode !== "out" && p.ext === undefined) (fix ||= []).push([b, mode === "pullup"]);
+      p.mode = mode;
       const lv = st === PinState.High ? 1 : st === PinState.Low ? 0 : p.mode === "pullup" ? (p.ext ?? 1) : (p.ext ?? 0);
       if (lv === p.level) continue;
       if (p.level) { p.high += c - p.since; p.pulse = (c - p.rise) / (FREQ / 1e6); p.pulseAt = c; }
@@ -85,6 +89,7 @@ export class Uno {
       p.level = lv; p.since = c;
       for (const w of this.watchers) w(base + b, lv, c);
     }
+    if (fix) for (const [b, v] of fix) port.setPin(b, v);
   }
 
   /** مستوى الطرف الآن (0/1) */

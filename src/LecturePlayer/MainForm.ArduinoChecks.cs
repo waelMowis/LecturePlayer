@@ -23,6 +23,48 @@ internal partial class MainForm
         }
         """;
 
+
+    private const string SmokeArduLcd = """
+        #include <LiquidCrystal.h>
+        LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+        void setup() { lcd.begin(16, 2); pinMode(7, INPUT_PULLUP); pinMode(9, OUTPUT); Serial.begin(9600); }
+        void loop() {
+          int v = analogRead(A0);
+          analogWrite(9, v / 4);
+          lcd.setCursor(0, 0); lcd.print("A0="); lcd.print(v); lcd.print("   ");
+          lcd.setCursor(0, 1); lcd.print(digitalRead(7) ? "UP  " : "DOWN");
+          Serial.println(v);
+          delay(100);
+        }
+        """;
+    private const string SmokeArduServo = """
+        #include <Servo.h>
+        Servo s;
+        void setup() { s.attach(9); pinMode(12, OUTPUT); Serial.begin(9600); }
+        void loop() {
+          digitalWrite(12, LOW); delayMicroseconds(2); digitalWrite(12, HIGH); delayMicroseconds(10); digitalWrite(12, LOW);
+          long cm = pulseIn(11, HIGH, 30000) / 58;
+          s.write(constrain(cm, 0, 180));
+          tone(8, 1000, 60);
+          Serial.print("D="); Serial.println(cm);
+          delay(150);
+        }
+        """;
+    private const string SmokeArduSensors = """
+        const float BETA = 3950;
+        void setup() { pinMode(7, INPUT); pinMode(4, INPUT); Serial.begin(9600); }
+        void loop() {
+          int l = analogRead(A0), t = analogRead(A1);
+          float c = 1 / (log(1 / (1023. / t - 1)) / BETA + 1.0 / 298.15) - 273.15;
+          analogWrite(3, digitalRead(7) ? 255 : 0);
+          analogWrite(5, digitalRead(4) ? 255 : 0);
+          analogWrite(6, 0);
+          Serial.print("L="); Serial.print(l); Serial.print(" T="); Serial.print(c, 0);
+          Serial.print(" M="); Serial.print(digitalRead(7)); Serial.print(" S="); Serial.println(digitalRead(4));
+          delay(100);
+        }
+        """;
+
     /// <summary>
     /// محاكي أردوينو (المرحلة الأولى): الأدوات جنب البرنامج ← ترجمة كود فيه أخطاء (أرقام السطور + شرح عربي) ←
     /// ترجمة كود سليم ← المحاكي نفسه (لمبة 13 + الشاشة التسلسلية بالعربي) ← التشغيل من النافذة + إرسال نص للوحة.
@@ -75,5 +117,82 @@ internal partial class MainForm
         Js("masar.sciTest().Sci.apps.close();'ok'");
         Check(Until(() => Js("String(!document.querySelector('.ard-win'))") == "true", 3000), "window closed");
         Console.WriteLine("SMOKE arduino: ok");
+        RunArduinoCircuitChecks(Js, Until);
+    }
+
+    /// <summary>
+    /// محاكي أردوينو (المرحلة الثانية): محرر الدوائر — لوحة توصيل بشبكاتها، ليد بمقاومة، زر، مقاومة متغيرة، شاشة LCD،
+    /// سيرفو، جرس، حساس مسافة، حساسات الضوء والحرارة والحركة، مفتاح انزلاقي، ليد RGB — والتحذيرات.
+    /// </summary>
+    private void RunArduinoCircuitChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("arduino circuit: " + what); }
+        // كود + دائرة ← ترجمة ← تشغيل ← انتظار أول سطر على الشاشة التسلسلية
+        void Run(string code, string circuitJs, string what)
+        {
+            Js("window.__arr=null;(async()=>{try{const A=masar.sciTest().Sci.ardu;A.stop(true);await A.open({code:" + JsonSerializer.Serialize(code) + ",circuit:{parts:[{id:'uno',type:'uno',x:0,y:0}],wires:[]}});" +
+               "const C=A.circuit,W=(a,b)=>C.wires.push({id:'w'+(++C.seq),a:{p:a.split(':')[0],pin:a.split(':')[1]},b:{p:b.split(':')[0],pin:b.split(':')[1]},pts:[],color:'#1971c2'});" +
+               circuitJs + ";C.changed(false);C.fit();await A.run();window.__arr=A.uno?.running?'ok':'not running: '+document.querySelector('.sci-win-msg').textContent}catch(e){window.__arr='err: '+e.message}})();'ok'");
+            Check(Until(() => Js("String(window.__arr)") != "null", 240_000), what + ": started");
+            Check(Js("String(window.__arr)") == "ok", what + ": " + Js("String(window.__arr)"));
+            Check(Until(() => Js("String(document.querySelector('.ard-ser').textContent.split('\\n').length>2)") == "true", 60_000), what + ": serial output");
+        }
+        string Last() => Js("(()=>{const l=document.querySelector('.ard-ser').textContent.trim().split('\\n');return l[l.length-1].trim()})()");
+        string Lcd() => Js("String.fromCharCode(...masar.sciTest().Sci.ardu.circuit.parts.get('lcd1').w.characters)");
+
+        // 1) لوحة توصيل + ليد بمقاومة (PWM من المقاومة المتغيرة) + زر + LCD
+        Run(SmokeArduLcd, """
+            await C.addPart('breadboard',{id:'bb1',x:-20,y:250},true);await C.addPart('resistor',{id:'r1',x:0,y:0},true);await C.addPart('led',{id:'led1',x:0,y:0,props:{color:'green'}},true);
+            await C.addPart('potentiometer',{id:'pot1',x:330,y:120},true);await C.addPart('pushbutton',{id:'btn1',x:330,y:20},true);await C.addPart('lcd1602',{id:'lcd1',x:-40,y:-190},true);
+            C.topology();C.moveTo('r1','1',...C.holeAt('bb1','c5'));C.moveTo('led1','A',...C.holeAt('bb1','e11'));
+            W('uno:9','bb1:a5');W('uno:GND.1','bb1:a10');
+            W('pot1:SIG','uno:A0');W('pot1:VCC','uno:5V');W('pot1:GND','uno:GND.2');W('btn1:1.l','uno:7');W('btn1:2.r','uno:GND.3');
+            W('lcd1:VSS','uno:GND.2');W('lcd1:VDD','uno:5V');W('lcd1:RW','uno:GND.2');W('lcd1:RS','uno:12');W('lcd1:E','uno:11');W('lcd1:D4','uno:5');W('lcd1:D5','uno:4');W('lcd1:D6','uno:3');W('lcd1:D7','uno:2')
+            """, "lcd circuit");
+        Check(Js("[...masar.sciTest().Sci.ardu.circuit.topo.plugged].filter(n=>/^(r1|led1):/.test(n)).sort().join(',')") == "led1:A,led1:C,r1:1,r1:2", "parts plugged into breadboard: " + Js("[...masar.sciTest().Sci.ardu.circuit.topo.plugged].join(',')"));
+        Check(Until(() => Lcd().StartsWith("A0=512") && Lcd().Substring(16).StartsWith("UP"), 20_000), "lcd shows A0=512 / UP: [" + Lcd() + "]");
+        string led = Js("String(masar.sciTest().Sci.ardu.circuit.parts.get('led1').w.brightness)");
+        Check(double.TryParse(led, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double b1) && b1 > 0.4 && b1 < 0.85, "led dimmed by PWM: " + led);
+        Check(Js("String(masar.sciTest().Sci.ardu.circuit.warn.length)") == "0", "no warnings: " + Js("JSON.stringify(masar.sciTest().Sci.ardu.circuit.warn)"));
+        Js("masar.sciTest().Sci.ardu.circuit.parts.get('btn1').w.dispatchEvent(new Event('button-press'));'ok'");
+        Check(Until(() => Lcd().Substring(16).StartsWith("DOWN"), 10_000), "button pressed → DOWN: [" + Lcd() + "]");
+        Js("masar.sciTest().Sci.ardu.circuit.parts.get('btn1').w.dispatchEvent(new Event('button-release'));(()=>{const p=masar.sciTest().Sci.ardu.circuit.parts.get('pot1');p.w.value=1023;p.w.dispatchEvent(new InputEvent('input'));return 'ok'})()");
+        Check(Until(() => Lcd().StartsWith("A0=1023") && Js("String(masar.sciTest().Sci.ardu.circuit.parts.get('led1').w.brightness>0.95)") == "true", 10_000), "pot → 1023: [" + Lcd() + "]");
+        SaveSmokeShot(this, "arduino-circuit");
+
+        // 2) سيرفو + جرس + حساس مسافة
+        Run(SmokeArduServo, """
+            await C.addPart('servo',{id:'sv1',x:330,y:20},true);await C.addPart('buzzer',{id:'bz1',x:330,y:150},true);await C.addPart('hc-sr04',{id:'us1',x:-20,y:-150},true);
+            W('sv1:GND','uno:GND.1');W('sv1:V+','uno:5V');W('sv1:PWM','uno:9');W('bz1:2','uno:8');W('bz1:1','uno:GND.3');
+            W('us1:VCC','uno:5V');W('us1:GND','uno:GND.2');W('us1:TRIG','uno:12');W('us1:ECHO','uno:11');C.setCtl('us1',120)
+            """, "servo circuit");
+        Check(Until(() => Last().StartsWith("D=11") || Last().StartsWith("D=12"), 20_000), "distance 120 cm: " + Last());
+        Check(Until(() => Js("String(Math.abs(masar.sciTest().Sci.ardu.circuit.parts.get('sv1').w.angle-120)<4)") == "true", 10_000), "servo at 120°: " + Js("String(masar.sciTest().Sci.ardu.circuit.parts.get('sv1').w.angle)"));
+        Check(Until(() => Js("String(masar.sciTest().Sci.ardu.circuit.parts.get('bz1').w.hasSignal)") == "true", 10_000), "buzzer sounds");
+        Js("masar.sciTest().Sci.ardu.circuit.setCtl('us1',40);'ok'");
+        Check(Until(() => Last() is "D=39" or "D=40" or "D=41", 10_000), "distance 40 cm: " + Last());
+
+        // 3) حساسات + مفتاح + RGB (بدون مقاومة ← تحذير)
+        Run(SmokeArduSensors, """
+            await C.addPart('photoresistor-sensor',{id:'ldr1',x:-200,y:-90},true);await C.addPart('ntc-temperature-sensor',{id:'ntc1',x:-200,y:20},true);
+            await C.addPart('pir-motion-sensor',{id:'pir1',x:330,y:-60},true);await C.addPart('slide-switch',{id:'sw1',x:330,y:80},true);await C.addPart('rgb-led',{id:'rgb1',x:330,y:170},true);
+            W('ldr1:VCC','uno:5V');W('ldr1:GND','uno:GND.2');W('ldr1:AO','uno:A0');W('ntc1:VCC','uno:5V');W('ntc1:GND','uno:GND.2');W('ntc1:OUT','uno:A1');
+            W('pir1:VCC','uno:5V');W('pir1:GND','uno:GND.1');W('pir1:OUT','uno:7');W('sw1:1','uno:GND.1');W('sw1:2','uno:4');W('sw1:3','uno:5V');
+            W('rgb1:R','uno:3');W('rgb1:G','uno:5');W('rgb1:B','uno:6');W('rgb1:COM','uno:GND.3');C.setCtl('ntc1',40);C.setCtl('ldr1',20)
+            """, "sensors circuit");
+        Check(Until(() => Last().Contains("T=40") && Last().EndsWith("M=0 S=0"), 20_000), "temp 40 / no motion / switch off: " + Last());
+        int L1 = int.Parse(System.Text.RegularExpressions.Regex.Match(Last(), @"L=(\d+)").Groups[1].Value);
+        Js("(()=>{const C=masar.sciTest().Sci.ardu.circuit;C.setCtl('ldr1',800);C.motion('pir1');const s=C.parts.get('sw1');s.w.value=1;s.w.dispatchEvent(new InputEvent('input'));return 'ok'})()");
+        Check(Until(() => Last().EndsWith("M=1 S=1"), 10_000), "motion + switch on: " + Last());
+        int L2 = int.Parse(System.Text.RegularExpressions.Regex.Match(Last(), @"L=(\d+)").Groups[1].Value);
+        Check(L2 < L1 - 200, $"more light → lower LDR reading ({L1} → {L2})");
+        Check(Until(() => Js("(()=>{const w=masar.sciTest().Sci.ardu.circuit.parts.get('rgb1').w;return w.ledRed>0.9&&w.ledGreen>0.9&&w.ledBlue<0.1})()") == "true", 5000), "rgb red+green");
+        SaveSmokeShot(this, "arduino-sensors");
+
+        // التحذير: ليد بدون مقاومة
+        Js("(async()=>{const A=masar.sciTest().Sci.ardu;A.stop(true);const C=A.circuit;await C.addPart('led',{id:'led9',x:0,y:0},true);C.topology();C.moveTo('led9','A',...C.holeAt('uno','5'));C.changed(false);A.start(A.hex)})();'ok'");
+        Check(Until(() => Js("String(masar.sciTest().Sci.ardu.circuit.warn.some(w=>w.includes('بدون مقاومة')))") == "true", 10_000), "warning: LED without resistor: " + Js("JSON.stringify(masar.sciTest().Sci.ardu.circuit.warn)"));
+        Js("masar.sciTest().Sci.ardu.stop(true);masar.sciTest().Sci.apps.close();'ok'");
+        Console.WriteLine("SMOKE arduino circuit: ok");
     }
 }
