@@ -179,7 +179,8 @@ internal sealed partial class ReaderPane : Panel
         [".html"] = "text/html; charset=utf-8", [".js"] = "text/javascript; charset=utf-8", [".mjs"] = "text/javascript; charset=utf-8",
         [".css"] = "text/css; charset=utf-8", [".wasm"] = "application/wasm", [".svg"] = "image/svg+xml", [".png"] = "image/png",
         [".gif"] = "image/gif", [".json"] = "application/json", [".pdf"] = "application/pdf", [".epub"] = "application/epub+zip",
-        [".txt"] = "text/plain; charset=utf-8", [".webp"] = "image/webp", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg"
+        [".txt"] = "text/plain; charset=utf-8", [".webp"] = "image/webp", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg",
+        [".wav"] = "audio/wav", [".mp3"] = "audio/mpeg", [".ttf"] = "font/ttf", [".woff"] = "font/woff", [".woff2"] = "font/woff2", [".otf"] = "font/otf"
     };
 
     /// <summary>بيرد على طلبات القارئ: ملفات القارئ من فولدره، والكتب من مكانها (مع Range).</summary>
@@ -211,7 +212,19 @@ internal sealed partial class ReaderPane : Panel
                 e.Response = FileResponse(env, file, e.Request.Headers.Contains("Range") ? e.Request.Headers.GetHeader("Range") : null);
                 return;
             }
-            string root = Path.GetFullPath(ReaderDir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            // البرمجة بالكتل (مبنية على Scratch 3): فولدر scratch جنب البرنامج
+            string baseDir = ReaderDir;
+            if (path.StartsWith("/scratch/", StringComparison.Ordinal))
+            {
+                string? sd = Data.Arduino.ScratchDir();
+                if (sd == null)
+                {
+                    e.Response = env.CreateWebResourceResponse(null, 404, "Not Found", "Content-Type: text/plain");
+                    return;
+                }
+                baseDir = sd; path = path[8..];
+            }
+            string root = Path.GetFullPath(baseDir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
             string local = Path.GetFullPath(Path.Combine(root, path.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
             if (!local.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !File.Exists(local))
             {

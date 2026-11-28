@@ -13,6 +13,7 @@ import { loadLib, search, thumbEl, displayName, drawPic, needsCredit, licName, p
 import { CAT_AR, TAB_CATS } from "./sci-lib-ar.js";
 import { Apps } from "./sci-apps.js";
 import { Ardu } from "./sci-arduino.js";
+import { ScratchApp } from "./sci-scratch.js";
 import { PHET, SITES, phetUrl, CREDIT, captionedShot, pubchemCompound, pubchemSvg, commonsSearch, commonsSvg } from "./sci-web.js";
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -169,6 +170,7 @@ export const Sci = {
     this.board = board;
     Apps.init(this);
     Ardu.init(this);
+    ScratchApp.sciToast = m => this.toast(m);
     Ink.onSciEdit = (s, it) => this.editItem(s, it);
     Ink.onSciRecolor = (key, ids, c) => this.recolor(key, ids, c);
   },
@@ -223,6 +225,7 @@ export const Sci = {
   close() { Apps.close(); if (this.panel) this.panel.hidden = true; this.board?.onSciPanel?.(false); },
   apps: Apps,
   ardu: Ardu,
+  scratch: ScratchApp,
   appTiles(list) {
     return this.section("أدوات تفاعلية (نافذة كبيرة، والنتيجة تنزل على الصفحة)", list.map(([id, icon, name, sub]) => this.tile(icon, name, sub, () => { const r = Apps[id](); if (r?.catch) r.catch(e => this.toast(e.message)); }, { "data-app": id })));
   },
@@ -296,6 +299,8 @@ export const Sci = {
         this.section("محاكي أردوينو (يعمل على الجهاز بدون إنترنت)",
           this.tile("💻", "محاكي أردوينو", "اكتب الكود، وصّل الدائرة (ليد، زر، حساسات، شاشة…) وشغّلها", () => go(Ardu.open({ mode: "code" })), { "data-ardu": "code" }),
           this.tile("🧩", "أردوينو بالكتل", "كتل عربية تتحول إلى كود أردوينو وتعمل في المحاكي نفسه", () => go(Ardu.open({ mode: "blocks" })), { "data-ardu": "blocks" })),
+        this.section("البرمجة بالكتل (بدون إنترنت)",
+          this.tile("🤖", "البرمجة بالكتل (مبنية على Scratch 3)", "قصص وألعاب ورسوم متحركة بالكتل، بالعربية، مع مكتبة الكائنات والخلفيات والأصوات", () => go(ScratchApp.open({})), { "data-scratch": "1" })),
         this.section("مشاريع جاهزة (الكود والدائرة)", h("div", { cls: "sci-ardu-prj" }, Ardu.PROJECTS.map(p =>
           this.tile(p.icon, p.name, p.sub, () => go(Ardu.openProject(p.id)), { "data-project": p.id })))),
       ];

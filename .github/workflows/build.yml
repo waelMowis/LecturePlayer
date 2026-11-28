@@ -34,11 +34,21 @@ jobs:
         shell: pwsh
         run: ./tools/arduino/fetch-arduino.ps1 -Dest Releases/_tools/arduino -SampleOut smoke-shots/arduino
 
+      - name: البرمجة بالكتل (ذاكرة مؤقتة)
+        uses: actions/cache@v4
+        with:
+          path: Releases/_tools/scratch
+          key: scratch-${{ hashFiles('tools/scratch/fetch-scratch.py') }}
+
+      - name: البرمجة بالكتل (مبنية على Scratch 3، بدون نت)
+        run: python tools/scratch/fetch-scratch.py Releases/_tools/scratch
+
       - name: فحص إن البرنامج بيفتح (smoke test)
         shell: pwsh
         run: |
           dotnet build src/LecturePlayer/LecturePlayer.csproj -c Release -o smoke
           Copy-Item Releases/_tools/arduino smoke/arduino -Recurse -Force
+          Copy-Item Releases/_tools/scratch smoke/scratch -Recurse -Force
           $p = Start-Process -FilePath smoke\LecturePlayer.exe -ArgumentList '--smoke-test' -PassThru -RedirectStandardError smoke-err.txt -RedirectStandardOutput smoke-out.txt
           if (-not $p.WaitForExit(1200000)) { $p.Kill(); throw 'البرنامج علّق في فحص الفتح' }
           Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue

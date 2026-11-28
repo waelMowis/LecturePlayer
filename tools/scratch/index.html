@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<!-- البرمجة بالكتل (مبنية على Scratch 3) داخل «مسار»: كل الملفات محلية، والصفحة ممنوعة من الاتصال بأي موقع -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' data: blob:; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; frame-src 'none'; form-action 'none'">
+<title>البرمجة بالكتل</title>
+<style>
+  html, body, #app { margin: 0; height: 100%; overflow: hidden; background: #fff; }
+  /* بدون شعار Scratch، ومن غير الأجزاء اللي محتاجة إنترنت (الدروس، المشاركة، الحساب) */
+  [class*="menu-bar_scratch-logo"], .tutorials-button, [class*="menu-bar_tutorials"], [class*="menu-bar_community-button"], [class*="menu-bar_share-button"],
+  [class*="menu-bar_coming-soon"], [class*="menu-bar_account-info"], [class*="menu-bar_mystuff"], [class*="menu-bar_feedback"],
+  [class*="menu-bar_divider"]:first-of-type { display: none !important; }
+  /* زر «اختر كائنًا» بأيقونة «مسار» بدل رأس القطة */
+  [class*="sprite-selector_add-button"] > [class*="action-menu_button"] > img[class*="action-menu_main-icon"] { content: url(icon-sprite.svg); }
+  #masar-loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font: 16px "Segoe UI", Tahoma, sans-serif; color: #495057; }
+</style>
+</head>
+<body>
+<div id="masar-loading">جارٍ تحميل البرمجة بالكتل…</div>
+<div id="app"></div>
+<script src="react.production.min.js"></script>
+<script src="react-dom.production.min.js"></script>
+<script src="scratch-gui.js"></script>
+<script src="host.js"></script>
+</body>
+</html>

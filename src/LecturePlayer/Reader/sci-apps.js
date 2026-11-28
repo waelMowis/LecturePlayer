@@ -303,5 +303,6 @@ export const Apps = {
     if (sci.app === "motion") return this.motion(sci, edit);
     if (sci.app === "web") return this.sci.web(sci.source, sci.url, sci.title, edit);
     if (sci.app === "arduino") return this.sci.ardu.open(sci, edit);
+    if (sci.app === "scratch") return this.sci.scratch.open(sci, edit);
   }
 };

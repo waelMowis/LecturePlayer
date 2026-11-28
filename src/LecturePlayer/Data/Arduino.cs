@@ -16,17 +16,23 @@ public static class Arduino
     public static string WorkDir => Path.Combine(Storage.AppDataDir, "arduino");
 
     /// <summary>فولدر الأدوات: جنب البرنامج (المثبّت)، أو (للمطورين) Releases\_tools\arduino فوق فولدر البناء.</summary>
-    public static string? ToolsDir()
+    public static string? ToolsDir() => BundledDir("arduino", "arduino-cli.exe");
+
+    /// <summary>فولدر مدمج مع البرنامج (arduino، scratch…): جنب البرنامج، أو (للمطورين) Releases\_tools\الاسم.</summary>
+    public static string? BundledDir(string name, string marker)
     {
-        string d = Path.Combine(AppContext.BaseDirectory, "arduino");
-        if (File.Exists(Path.Combine(d, "arduino-cli.exe"))) return d;
+        string d = Path.Combine(AppContext.BaseDirectory, name);
+        if (File.Exists(Path.Combine(d, marker))) return d;
         for (var p = new DirectoryInfo(AppContext.BaseDirectory); p != null; p = p.Parent)
         {
-            string c = Path.Combine(p.FullName, "Releases", "_tools", "arduino");
-            if (File.Exists(Path.Combine(c, "arduino-cli.exe"))) return c;
+            string c = Path.Combine(p.FullName, "Releases", "_tools", name);
+            if (File.Exists(Path.Combine(c, marker))) return c;
         }
         return null;
     }
+
+    /// <summary>البرمجة بالكتل (مبنية على Scratch 3): الواجهة المجمّدة + مكتبة الوسائط.</summary>
+    public static string? ScratchDir() => BundledDir("scratch", "scratch-gui.js");
 
     public static async Task<Result> CompileAsync(string code, CancellationToken ct = default)
     {

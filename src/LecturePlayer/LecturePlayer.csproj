@@ -170,6 +170,15 @@
     <Error Condition="!Exists('$(LpStaging)\arduino\arduino-cli.exe')" Text="أدوات أردوينو (arduino-cli) ماتضافتش للمثبّت" />
     <Message Importance="high" Text="✓ أدوات أردوينو (المحاكي بدون نت) اتضافت للمثبّت" />
 
+    <!-- البرمجة بالكتل (مبنية على Scratch 3): scratch-gui 4.1.7 المجمّد (BSD-3) + React + مكتبة الوسائط، بدون نت -->
+    <Exec Command="python &quot;$(LpRoot)\tools\scratch\fetch-scratch.py&quot; &quot;$(LpToolsCache)\scratch&quot;" />
+    <ItemGroup>
+      <LpScratchFiles Include="$(LpToolsCache)\scratch\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LpScratchFiles)" DestinationFiles="@(LpScratchFiles->'$(LpStaging)\scratch\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Error Condition="!Exists('$(LpStaging)\scratch\scratch-gui.js') or !Exists('$(LpStaging)\scratch\assets')" Text="البرمجة بالكتل (scratch) ماتضافتش للمثبّت" />
+    <Message Importance="high" Text="✓ البرمجة بالكتل (مبنية على Scratch 3) اتضافت للمثبّت" />
+
     <Copy Condition="Exists('$(LpToolsCache)\yt-dlp.exe')" SourceFiles="$(LpToolsCache)\yt-dlp.exe" DestinationFolder="$(LpStaging)" />
     <Copy Condition="Exists('$(LpToolsCache)\deno.exe')" SourceFiles="$(LpToolsCache)\deno.exe" DestinationFolder="$(LpStaging)" />
     <Copy SourceFiles="$(LpRoot)\installer\THIRD-PARTY-NOTICES.txt" DestinationFolder="$(LpStaging)" Condition="Exists('$(LpRoot)\installer\THIRD-PARTY-NOTICES.txt')" />

@@ -131,3 +131,21 @@ https://github.com/wokwi/wokwi-elements — License: MIT — Copyright (c) 2020 
 Blockly 13.5.0 (البرمجة بالكتل في محاكي أردوينو) — Reader\lib\sci\blockly
 https://github.com/google/blockly — License: Apache License 2.0 — Copyright 2011 Google LLC — النص الكامل: Reader\lib\sci\blockly\LICENSE.txt
 (الكتل العربية الخاصة بأردوينو ومولّد كود أردوينو من كتابة «مسار».)
+
+------------------------------------------------------------
+البرمجة بالكتل (مبنية على Scratch 3) — فولدر scratch
+
+scratch-gui 4.1.7 (نسخة مجمّدة، نوفمبر 2024) — scratch\scratch-gui.js و scratch\static و scratch\chunks
+https://github.com/scratchfoundation/scratch-gui — License: BSD-3-Clause — Copyright (c) 2016, Massachusetts Institute of Technology
+النص الكامل: scratch\SCRATCH-LICENSE.txt (ومعها المكتبات المدمجة في الملف بتراخيصها: scratch\scratch-gui.js.LICENSE.txt)
+العلامات التجارية: اسم Scratch وشعاره والقطة وجوبو وبيكو ونانو وتيرا وجيجا علامات لمعهد MIT (scratch\SCRATCH-TRADEMARK.txt).
+«مسار» غير تابع لمؤسسة Scratch ولا لمعهد MIT؛ لذلك حذفنا الشعار والقطة والشخصيات السابقة من النسخة المدمجة،
+واستبدلنا كائن المشروع الجديد بشخصية «مسار»، وتُعرض باسم «البرمجة بالكتل (مبنية على Scratch 3)» فقط.
+تعديلاتنا: روابط الوسائط إلى الملفات المحلية، وترجمة بعض الرسائل العربية الناقصة، وحذف صور الدروس بغير العربية والإنجليزية.
+
+React 16.14.0 و React DOM 16.14.0 — scratch\react.production.min.js و scratch\react-dom.production.min.js
+https://github.com/facebook/react — License: MIT — Copyright (c) Facebook, Inc. and its affiliates — النص الكامل: scratch\REACT-LICENSE.txt
+
+مكتبة الوسائط (الكائنات والأزياء والخلفيات والأصوات) — scratch\assets
+من Scratch (https://scratch.mit.edu) — License: Creative Commons Attribution-ShareAlike 2.0 (CC BY-SA 2.0)
+https://creativecommons.org/licenses/by-sa/2.0/ — الملفات كما هي بدون تعديل.

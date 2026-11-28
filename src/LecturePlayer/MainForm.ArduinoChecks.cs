@@ -290,5 +290,59 @@ internal partial class MainForm
         SaveSmokeShot(this, "arduino-reopen");
         Js("masar.sciTest().Sci.apps.close();'ok'");
         Console.WriteLine("SMOKE arduino projects: ok");
+        RunScratchChecks(Js, Until);
+    }
+
+    /// <summary>
+    /// البرمجة بالكتل (مبنية على Scratch 3) — المرحلة الخامسة: النسخة المجمّدة بتفتح بالعربي من غير نت،
+    /// بشخصية «مسار» بدل القطة، والمكتبة من الجهاز ومن غير العلامات التجارية، والصفحة ممنوعة من الإنترنت،
+    /// و«التقط إلى السبورة» بيحفظ المشروع والنقر المزدوج بيفتحه.
+    /// </summary>
+    private void RunScratchChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("scratch: " + what); }
+        Check(Arduino.ScratchDir() != null, "scratch folder next to the app");
+        Js("masar.sciTest().Sci.open('comp');window.__scr=null;document.querySelector('.sci-tile[data-scratch]').click();'ok'");
+        Check(Until(() => Js("String(!!masar.sciTest().Sci.scratch.api)") == "true", 120_000), "scratch loaded: " + Js("document.querySelector('.sci-win-msg')?.textContent||''"));
+        Js("""
+            window.__scr=null;(async()=>{try{const S=masar.sciTest().Sci,api=S.scratch.api,w=S.scratch.frame.contentWindow,d=w.document,vm=api.vm;
+            const sp=vm.runtime.targets.find(t=>!t.isStage);const svg=new TextDecoder().decode(sp.getCostumes()[0].asset.data);
+            const ok=async u=>{try{return (await w.fetch(u)).ok}catch(e){return false}};
+            let net='blocked';try{await w.fetch('https://example.com/');net='open'}catch(e){}
+            const r={title:document.querySelector('.sci-win-h b').textContent.includes('مبنية على Scratch 3'),lang:d.documentElement.lang,rtl:!!d.querySelector('[dir=rtl]'),
+              costumes:sp.getCostumes().length,character:svg.includes('#4dabf7'),
+              backdrop:await ok('assets/67e0db3305b3c8bac3a363b1c428892e.png'),sprite:await ok('assets/809d9b47347a6af2860e7a3a35bce057.svg'),cat:await ok('assets/bcf454acf82e4504149f7ffe07081dbc.svg'),
+              net,tutorials:w.getComputedStyle(d.querySelector('.tutorials-button')||d.body).display};
+            d.querySelector('[class*="sprite-selector_add-button"] [class*="action-menu_button"]').click();
+            await new Promise(r=>setTimeout(r,2500));
+            const names=[...d.querySelectorAll('[class*="library-item_library-item-name"]')].map(e=>e.textContent.trim());
+            const imgs=[...d.querySelectorAll('[class*="library-item_library-item-image"]')];
+            await new Promise(r=>setTimeout(r,2500));
+            r.library=names.length;r.marks=names.filter(n=>/^(Cat|Cat 2|Cat Flying|Gobo|Pico|Pico Walking|Nano|Tera|Giga|Giga Walking)$/.test(n)).join(',');
+            r.thumbs=imgs.filter(i=>i.complete&&i.naturalWidth>0).length;
+            window.__scr=r}catch(e){window.__scr={err:String(e&&e.message||e)}}})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__scr)") == "true", 30_000), "scratch probe finished");
+        string probe = Js("JSON.stringify(window.__scr)");
+        Console.WriteLine("SMOKE scratch: " + probe);
+        SaveSmokeShot(this, "scratch-library");
+        Check(Js("(()=>{const r=window.__scr;return r.title&&r.lang==='ar'&&r.rtl&&r.costumes===2&&r.character&&r.backdrop&&r.sprite&&!r.cat&&r.net==='blocked'&&r.tutorials==='none'&&r.library>200&&r.marks===''&&r.thumbs>20})()") == "true", "scratch: " + probe);
+        // إغلاق المكتبة ← تعديل ← التقاط ← النقر المزدوج
+        Js("""
+            window.__scc=null;(async()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,api=S.scratch.api,d=S.scratch.frame.contentWindow.document,vm=api.vm;
+            (d.querySelector('[class*="modal_back-button"],[class*="library_library-close"],[aria-label="رجوع"]'))?.click();await new Promise(r=>setTimeout(r,800));
+            const sp=vm.runtime.targets.find(t=>!t.isStage);vm.setEditingTarget(sp.id);vm.renameSprite(sp.id,'روبوت');sp.setXY(90,30);
+            const n0=I.count();await S.scratch.capture();await new Promise(r=>setTimeout(r,1500));
+            const key=S.board.curPage().id,it=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='scratch').at(-1);window.__sci.ids.push(it.id);
+            const r={n:I.count()-n0,closed:!document.querySelector('.sci-win'),sb3:!!it.sci.sb3,img:it.img.startsWith('data:image/jpeg')};
+            S.editItem({key},it);
+            for(let i=0;i<300;i++){await new Promise(x=>setTimeout(x,200));if(S.scratch.api&&S.scratch.api.vm.runtime.targets.some(t=>t.getName()==='روبوت'&&Math.round(t.x)===90))break}
+            r.reopen=!!S.scratch.api&&S.scratch.api.vm.runtime.targets.some(t=>t.getName()==='روبوت'&&Math.round(t.x)===90);window.__scc=r})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__scc)") == "true", 120_000), "scratch capture/reopen finished");
+        Check(Js("JSON.stringify(window.__scc)") == "{\"n\":1,\"closed\":true,\"sb3\":true,\"img\":true,\"reopen\":true}", "capture/reopen: " + Js("JSON.stringify(window.__scc)"));
+        SaveSmokeShot(this, "scratch-reopen");
+        Js("masar.sciTest().Sci.apps.close();'ok'");
+        Console.WriteLine("SMOKE scratch: ok");
     }
 }
