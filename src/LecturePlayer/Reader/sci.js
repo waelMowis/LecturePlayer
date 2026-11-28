@@ -248,7 +248,7 @@ export const Sci = {
       h("div", { cls: "sci-tabs", role: "tablist" }, TABS.map(([id, label, ic]) => h("button", {
         role: "tab", "aria-selected": String(this.tab === id), cls: this.tab === id ? "on" : "", "data-tab": id, title: label,
         onclick: () => { this.tab = id; setPref("tab", id); this.renderPanel(); }
-      }, ic + " " + label))),
+      }, h("span", { cls: "ic", "aria-hidden": "true" }, ic), h("span", { cls: "tx" }, label)))),
       h("div", { cls: "sci-body" }, this.tabBody(this.tab))
     );
   },
