@@ -44,7 +44,7 @@ internal static class SciPacks
         if (parts.Length == 2 && parts[0] == "wiki" && parts[1] == "api")
             return ("https://commons.wikimedia.org/w/api.php" + SafeQuery(query), null);
         if (parts.Length >= 4 && parts[0] == "wiki" && parts[1] == "img" && parts.Skip(2).All(p => p.Length is > 0 and < 260))
-            return ("https://upload.wikimedia.org/wikipedia/commons/" + string.Join('/', parts.Skip(2).Select(Uri.EscapeDataString)), Path.Combine(new[] { CacheDir, "wiki" }.Concat(parts.Skip(2).Select(SafeName)).ToArray()));
+            return ((parts[2] == "thumb" ? "https://thumb.wikimedia.org" : "https://upload.wikimedia.org") + "/wikipedia/commons/" + string.Join('/', parts.Skip(2).Select(Uri.EscapeDataString)), Path.Combine(new[] { CacheDir, "wiki" }.Concat(parts.Skip(2).Select(SafeName)).ToArray()));
         // PhyloPic: البحث (من غير حفظ) والصور (بتتحفظ)
         if (parts.Length >= 2 && parts[0] == "phylo" && parts[1] == "api" && parts.Length <= 4 && parts.Skip(2).All(p => p.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')))
             return ("https://api.phylopic.org/" + string.Join('/', parts.Skip(2)) + SafeQuery(query), null);

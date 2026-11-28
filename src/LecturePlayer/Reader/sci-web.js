@@ -80,7 +80,8 @@ export async function pubchemSvg(c) {
 
 // ---------------------------------------------------------------- Wikimedia Commons
 const strip = s => String(s || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
-const imgPath = url => { const m = String(url || "").match(/upload\.wikimedia\.org\/wikipedia\/commons\/(.+)$/); return m ? "/scipack/wiki/img/" + m[1] : null; };
+/** رابط صورة ويكيميديا (upload أو thumb، ومن غير متغيرات التتبع) ← طريق البرنامج. */
+const imgPath = url => { const m = String(url || "").split("?")[0].match(/(?:upload|thumb)\.wikimedia\.org\/wikipedia\/commons\/(.+)$/); return m ? "/scipack/wiki/img/" + m[1] : null; };
 /** بحث صور (رسم أو صورة) بالعربي أو الإنجليزي. */
 export async function commonsSearch(q) {
   q = String(q || "").trim();
@@ -99,9 +100,9 @@ export async function commonsSearch(q) {
     const m = ii.extmetadata || {};
     const lic = strip(m.LicenseShortName?.value) || "غير محدد";
     if (/\bNC\b|non-?commercial|fair use/i.test(lic)) continue;
-    const thumb = imgPath(ii.thumburl), big = imgPath(ii.thumburl?.replace(/\/\d+px-/, "/1200px-"));
+    const thumb = imgPath(ii.thumburl), big = imgPath(String(ii.thumburl || "").split("?")[0].replace(/\/\d+px-/, "/1280px-"));
     if (!thumb || !big) continue;
-    out.push({ title: strip(m.ObjectName?.value) || p.title.replace(/^File:/, "").replace(/\.[a-z]+$/i, ""), author: strip(m.Artist?.value).slice(0, 80) || "—", lic, thumb, big: ii.width > 1200 ? big : imgPath(ii.url) || big, page: ii.descriptionurl, w: ii.width, h: ii.height });
+    out.push({ title: strip(m.ObjectName?.value) || p.title.replace(/^File:/, "").replace(/\.[a-z]+$/i, ""), author: strip(m.Artist?.value).slice(0, 80) || "—", lic, thumb, big: ii.width > 1280 ? big : imgPath(ii.url) || big, page: ii.descriptionurl, w: ii.width, h: ii.height });
   }
   out.debug = JSON.stringify(d).slice(0, 600);
   return out;
