@@ -24,10 +24,21 @@ jobs:
       - name: Build
         run: dotnet build src/LecturePlayer/LecturePlayer.csproj -c Release
 
+      - name: أدوات أردوينو (ذاكرة مؤقتة)
+        uses: actions/cache@v4
+        with:
+          path: Releases/_tools/arduino
+          key: arduino-${{ hashFiles('tools/arduino/fetch-arduino.ps1') }}
+
+      - name: أدوات أردوينو (محاكي بدون نت)
+        shell: pwsh
+        run: ./tools/arduino/fetch-arduino.ps1 -Dest Releases/_tools/arduino
+
       - name: فحص إن البرنامج بيفتح (smoke test)
         shell: pwsh
         run: |
           dotnet build src/LecturePlayer/LecturePlayer.csproj -c Release -o smoke
+          Copy-Item Releases/_tools/arduino smoke/arduino -Recurse -Force
           $p = Start-Process -FilePath smoke\LecturePlayer.exe -ArgumentList '--smoke-test' -PassThru -RedirectStandardError smoke-err.txt -RedirectStandardOutput smoke-out.txt
           if (-not $p.WaitForExit(1200000)) { $p.Kill(); throw 'البرنامج علّق في فحص الفتح' }
           Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue

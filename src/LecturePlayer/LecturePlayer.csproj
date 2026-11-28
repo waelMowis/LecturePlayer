@@ -160,6 +160,16 @@
            Text="أداة تحويل الكلام لنص (whisper-cli.exe) ماتضافتش للمثبّت — الرابط: $(LpWhisperUrl)" />
     <Message Importance="high" Text="✓ أداة تحويل الكلام لنص (whisper) اتضافت للمثبّت" />
 
+    <!-- محاكي أردوينو بدون نت: arduino-cli + نواة arduino:avr + Servo و LiquidCrystal (إصدارات مثبّتة، من المصادر الرسمية).
+         السكريبت مابيعيدش التنزيل لو الفولدر جاهز بنفس الإصدارات. -->
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(LpRoot)\tools\arduino\fetch-arduino.ps1&quot; -Dest &quot;$(LpToolsCache)\arduino&quot;" />
+    <ItemGroup>
+      <LpArduinoFiles Include="$(LpToolsCache)\arduino\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LpArduinoFiles)" DestinationFiles="@(LpArduinoFiles->'$(LpStaging)\arduino\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Error Condition="!Exists('$(LpStaging)\arduino\arduino-cli.exe')" Text="أدوات أردوينو (arduino-cli) ماتضافتش للمثبّت" />
+    <Message Importance="high" Text="✓ أدوات أردوينو (المحاكي بدون نت) اتضافت للمثبّت" />
+
     <Copy Condition="Exists('$(LpToolsCache)\yt-dlp.exe')" SourceFiles="$(LpToolsCache)\yt-dlp.exe" DestinationFolder="$(LpStaging)" />
     <Copy Condition="Exists('$(LpToolsCache)\deno.exe')" SourceFiles="$(LpToolsCache)\deno.exe" DestinationFolder="$(LpStaging)" />
     <Copy SourceFiles="$(LpRoot)\installer\THIRD-PARTY-NOTICES.txt" DestinationFolder="$(LpStaging)" Condition="Exists('$(LpRoot)\installer\THIRD-PARTY-NOTICES.txt')" />
