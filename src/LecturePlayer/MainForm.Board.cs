@@ -63,6 +63,14 @@ internal partial class MainForm
             name = string.IsNullOrWhiteSpace(nameBox.Text) ? name : nameBox.Text.Trim();
             size = sizeBox.SelectedIndex; bg = bgBox.SelectedIndex; pat = patBox.SelectedIndex;
         }
+        var b = CreateBoardBook(name, size, bg, pat, lecture, shelf);
+        OpenBook(b);
+        return b;
+    }
+
+    /// <summary>ملف سبورة جديد في «سبوراتي» وعنصره في الرف (من غير ما يتفتح).</summary>
+    private Book CreateBoardBook(string name, int size, int bg, int pat, LectureGroup? lecture, Shelf? shelf)
+    {
         var (_, w, h, _) = BoardSizes[Math.Clamp(size, 0, BoardSizes.Length - 1)];
         var meta = new JsonObject
         {
@@ -87,7 +95,6 @@ internal partial class MainForm
         MarkDirty();
         RebuildShelf();
         if (lecture != null && _groupNodes.TryGetValue(lecture, out var gn)) UpdateGroupNode(gn, lecture);
-        OpenBook(b);
         return b;
     }
 
@@ -247,6 +254,14 @@ internal partial class MainForm
             if (!string.IsNullOrWhiteSpace(secBox.Text)) section = secBox.Text.Trim();
             paper = paperBox.SelectedIndex;
         }
+        var b = CreateNotebookBook(name, section, paper);
+        OpenBook(b);
+        return b;
+    }
+
+    /// <summary>ملف دفتر جديد (مقطع أول وصفحة A4) في «دفاتري» وعنصره في الرف (من غير ما يتفتح).</summary>
+    private Book CreateNotebookBook(string name, string section, int paper)
+    {
         var (bg, pat, _) = NotebookPapers[Math.Clamp(paper, 0, NotebookPapers.Length - 1)];
         string sid = "s" + Guid.NewGuid().ToString("N")[..8];
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -271,8 +286,40 @@ internal partial class MainForm
         _library.Books.Add(b);
         MarkDirty();
         RebuildShelf();
-        OpenBook(b);
         return b;
+    }
+
+    /// <summary>
+    /// مقطع جديد في دفتر موجود (بصفحته الأولى، بنفس ورق آخر صفحة) ويصير المقطع المفتوح — يرجّع رقمه.
+    /// الدفتر مقفول هنا (الملف نفسه)؛ لو مفتوح في القارئ يتضاف من جوّه (عشان ما يكتبش القارئ فوقه).
+    /// </summary>
+    private string? AddNotebookSectionToFile(Book nb, string name)
+    {
+        try
+        {
+            if (JsonNode.Parse(File.ReadAllText(nb.LocalPath)) is not JsonObject meta || meta["pages"] is not JsonArray pages) return null;
+            if (meta["sections"] is not JsonArray sections) { sections = new JsonArray(); meta["sections"] = sections; }
+            var last = pages.OfType<JsonObject>().LastOrDefault();
+            string sid = "s" + Guid.NewGuid().ToString("N")[..8];
+            long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            sections.Add(new JsonObject { ["id"] = sid, ["name"] = name, ["color"] = SectionColors[sections.Count % SectionColors.Length] });
+            pages.Add(new JsonObject
+            {
+                ["id"] = "p" + Guid.NewGuid().ToString("N")[..10], ["w"] = last?["w"]?.DeepClone() ?? 595, ["h"] = last?["h"]?.DeepClone() ?? 842,
+                ["bg"] = last?["bg"]?.DeepClone() ?? "white", ["pat"] = last?["pat"]?.DeepClone() ?? "lines", ["name"] = "", ["sec"] = sid, ["d"] = now
+            });
+            meta["sec"] = sid;
+            meta["u"] = now;
+            string tmp = nb.LocalPath + ".tmp";
+            File.WriteAllText(tmp, meta.ToJsonString(), new UTF8Encoding(false));
+            File.Replace(tmp, nb.LocalPath, null, ignoreMetadataErrors: true);
+            nb.PageCount = pages.Count;
+            nb.LastPage = 1;
+            nb.TouchInfo();
+            MarkPositionDirty();
+            return sid;
+        }
+        catch (Exception ex) { Log.Error("notebook section", ex); return null; }
     }
 
     private IEnumerable<Book> RecentBoards(bool notebooks, int n = 8) =>

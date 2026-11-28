@@ -735,6 +735,7 @@ window.masar = {
   sciCaptured: d => { Sci.webCaptured(d); return "ok"; },
   boardExport: (which, send) => { if (S.kind === "board") Board.exportPdf(which || "all", !!send); return "ok"; },
   /** لقطة شاشة جاية من البرنامج ← صفحة جديدة في السبورة. */
+  boardSection: (name) => { if (S.kind !== "board" || !Board.nb()) return ""; const sec = Board.addSection(String(name || "")); Board.flush(); return sec ? sec.id : ""; },
   boardImage: (dataUrl, name) => { if (S.kind === "board") Board.addImagePage(dataUrl, name); return "ok"; },
   /** صورة الصفحة بالشرح (PNG) ← save. */
   pagePng: (id, page, save, scale) => { runPagePng(id, page, save, scale); return "ok"; },

@@ -971,11 +971,16 @@ internal sealed partial class MainForm : Form
         tools.DropDownItems.Add(smart);
         tools.DropDownItems.Add(online);
 
-        // ملف · تحرير · المكتبة · السبورة · التشغيل · عرض · الأدوات · مساعدة — وبعدها زرار «سبورة» السريع
+        // ملف · تحرير · المكتبة · السبورة · شرح حصة · التشغيل · عرض · الأدوات · مساعدة — وبعدها زرارا «سبورة» و«شرح حصة» السريعان
         _boardMenu = BuildBoardMenu();
         _boardQuick = new ToolStripMenuItem("🧑‍🏫  سبورة") { ForeColor = Theme.Text, ToolTipText = "افتح آخر سبورة (أو سبورة جديدة إن لم توجد) — وكل أوامر السبورات والدفاتر في قائمة «السبورة»", Margin = new Padding(14, 0, 0, 0) };
         _boardQuick.Click += (_, _) => OpenLastBoardOrNew();
-        _menu.Items.AddRange(new ToolStripItem[] { file, edit, library, _boardMenu, play, view, tools, help, _boardQuick });
+        // «شرح حصة» بعد «السبورة»، وزرارها السريع بعد زرار السبورة
+        _lessonMenu = BuildLessonMenu();
+        _lessonQuick = new ToolStripMenuItem("📘  شرح حصة") { ForeColor = Theme.Text, Margin = new Padding(4, 0, 0, 0) };
+        _lessonQuick.Click += (_, _) => { if (_settings.Role == "student") OpenLessonFileDialog(); else NewLessonDialog(); };
+        ApplyLessonQuick();
+        _menu.Items.AddRange(new ToolStripItem[] { file, edit, library, _boardMenu, _lessonMenu, play, view, tools, help, _boardQuick, _lessonQuick });
     }
 
     private static ToolStripMenuItem SubMenu(string text, params ToolStripItem[] items)

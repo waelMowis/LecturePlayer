@@ -33,6 +33,7 @@ internal partial class MainForm
         if (_activityClasses != null) _activityClasses.Visible = teacher;
         if (_activityBoard != null) _activityBoard.Visible = r != "student";
         if (_boardQuick != null) _boardQuick.Available = r != "student";
+        ApplyLessonQuick();
         if (_activityRecord != null) _activityRecord.Visible = r != "student";
         if (_activityReview != null) _activityReview.Visible = student;
         if (_activityStats != null) _activityStats.Visible = r == "student";
@@ -75,7 +76,8 @@ internal partial class MainForm
             return items;
         }
         var now = DateTime.Now;
-        if (ActiveSession is { ClassId: not null } live)
+        if (ActiveSession is { Lesson: true } open) items.AddRange(LessonLiveItems(open));
+        else if (ActiveSession is { ClassId: not null } live)
         {
             items.Add(new ToolStripLabel($"الآن: {live.Name}{LessonRemainingText(live)}") { ForeColor = Theme.Success });
             items.Add(Item("⏹  إنهاء الحصة (الواجب والتصدير)…", () => EndLessonDialog(live)));
@@ -221,14 +223,18 @@ internal partial class MainForm
         MirrorSession();
         using var kit = new FormKit($"إنهاء الحصة — {s.Name}", 580);
         kit.Header("أين توقفتم");
-        var places = s.Tabs.Select(TabPlaceText).ToList();
+        var places = (s.Lesson ? s.Items ?? s.Tabs : s.Tabs).Select(TabPlaceText).ToList();
         kit.Note(places.Count == 0 ? "لم يُفتح ملف في هذه الحصة." : string.Join("\n", places), 22, Theme.Text);
-        kit.Note("الحصة القادمة لهذه المجموعة تبدأ من هنا تلقائيًا.");
+        if (s.ClassId != null) kit.Note("الحصة القادمة لهذه المجموعة تبدأ من هنا تلقائيًا.");
         kit.Header("الواجب");
         var hw = kit.Full(new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, AcceptsReturn = true, Text = s.Homework ?? "" }, 84);
         kit.Note("يظهر في بطاقة المجموعة في الرئيسية وعند بدء حصتها القادمة.");
         kit.Header("للطلاب");
-        var export = kit.Full(new ToggleSwitch { Text = "صدّر الحصة الآن: PDF بصفحات الشرح والسبورة والشرائح والواجب", Checked = false }, 32);
+        var export = kit.Full(new ToggleSwitch
+        {
+            Text = s.Lesson ? "صدّر الحصة الآن: PDF كامل، وملف «مسار» يفتحه الطالب بكل محتوياتها" : "صدّر الحصة الآن: PDF بصفحات الشرح والسبورة والشرائح والواجب",
+            Checked = s.Lesson
+        }, 32);
         kit.Buttons("⏹  إنهاء الحصة");
         if (SmokeShowDialog(kit, "end-lesson")) return;
         if (kit.Show(this) != DialogResult.OK) return;

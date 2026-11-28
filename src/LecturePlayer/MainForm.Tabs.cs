@@ -177,8 +177,8 @@ internal partial class MainForm
         }
         var s = ActiveSession;
         _tabStrip.SessionActive = s != null;
-        bool lesson = s?.ClassId != null;
-        _tabStrip.SessionText = s != null ? (lesson ? $"👥  {s.Name}{LessonRemainingText(s)}  ▾" : $"📚  {s.Name}  ▾")
+        bool lesson = s?.ClassId != null || s?.Lesson == true;
+        _tabStrip.SessionText = s != null ? (lesson ? $"{(s!.Lesson ? "📘" : "👥")}  {s.Name}{LessonRemainingText(s)}  ▾" : $"📚  {s.Name}  ▾")
             : IsTeacher ? "👥  الحصة  ▾" : $"📚  {SessionWord}  ▾";
         _tabStrip.SessionTip = IsTeacher ? "الحصة: ابدأ حصة إحدى مجموعاتك (تكمل من حيث توقفت)، أو الخطة والواجب والتصدير"
             : "الجلسة: احفظ التبويبات المفتوحة باسم وارجع إليها لاحقًا";

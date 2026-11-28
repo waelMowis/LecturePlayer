@@ -682,6 +682,8 @@ public sealed class WorkTab
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Stream { get; set; }
 
     public bool Same(WorkTab o) => Kind == o.Kind && Ref == o.Ref;
+    /// <summary>نفس العنصر في محتويات الحصة: الكتاب بنفسه، والفيديو بملفه (دورة واحدة فيها فيديوهات كثيرة).</summary>
+    public bool SameItem(WorkTab o) => Same(o) && (Kind != CourseKind || string.Equals(ItemPath, o.ItemPath, StringComparison.OrdinalIgnoreCase));
     public WorkTab Copy() => (WorkTab)MemberwiseClone();
 }
 
@@ -706,6 +708,19 @@ public sealed class StudySession
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Homework { get; set; }
     /// <summary>التسجيلات التي صُوّرت أثناء الجلسة (مسارات الفيديو) — تُصدَّر بالفصول.</summary>
     public List<string> Recordings { get; set; } = new();
+    /// <summary>«شرح حصة»: حزمة جاهزة (سبورة ودفتر وعروض وكتب وفيديوهات) وقائمة محتويات ثابتة.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool Lesson { get; set; }
+    /// <summary>محتويات الحصة: كل ما فُتح أو أُضيف أثناءها — يبقى حتى لو أُغلق تبويبه (ويُصدَّر كله).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<WorkTab>? Items { get; set; }
+    /// <summary>سبورة الحصة الأساسية، ودفترها ومقطعها فيه (مقطع جديد لكل حصة في دفتر الفصل).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? BoardId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? NotebookId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? NotebookSection { get; set; }
+    /// <summary>محاضرة الحصة داخل دورة «حصصي»: فيديوهات المعلم وروابط يوتيوب وتسجيلات الشاشة.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? GroupId { get; set; }
+    /// <summary>حصة مستلَمة من ملف: رقمها عند المعلم (لإعادة الفتح: تحديث أو نسخة جديدة).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? LessonId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? ImportedFrom { get; set; }
     public bool Done { get; set; }
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastOpenedUtc { get; set; } = DateTime.UtcNow;
@@ -730,6 +745,8 @@ public sealed class ClassGroup
     public List<ClassSlot> Schedule { get; set; } = new();
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? CurrentSessionId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Note { get; set; }
+    /// <summary>دفتر الفصل: مقطع جديد فيه لكل «شرح حصة».</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? NotebookId { get; set; }
     public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
 }
 

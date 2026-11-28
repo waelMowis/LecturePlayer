@@ -28,6 +28,7 @@ internal partial class MainForm
     {
         if (ActiveSession is not { } s) return;
         var tabs = SessionTabs();
+        if (MirrorLessonItems(s, tabs)) { s.UpdatedUtc = DateTime.UtcNow; MarkPositionDirty(); }
         bool same = tabs.Count == s.Tabs.Count && tabs.Zip(s.Tabs).All(p => p.First.Same(p.Second) && p.First.Page == p.Second.Page
             && p.First.PositionMs == p.Second.PositionMs && p.First.ItemPath == p.Second.ItemPath);
         if (same) return;
@@ -57,7 +58,8 @@ internal partial class MainForm
         if (!HasLibrary) { items.Add(new ToolStripMenuItem("افتح مكتبة أولًا") { Enabled = false }); return items; }
         string w = SessionWord;
         var s = ActiveSession;
-        if (s != null)
+        if (s is { Lesson: true }) items.AddRange(LessonLiveItems(s));
+        else if (s != null)
         {
             items.Add(new ToolStripLabel($"{w} مفتوحة: {s.Name}") { ForeColor = Theme.Muted });
             items.Add(Item($"📝  الخطة والواجب…", () => SessionNotesDialog(s)));

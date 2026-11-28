@@ -163,6 +163,8 @@ internal partial class MainForm
     {
         if (Recording) return;
         if (!EnsureLibrary()) return;
+        // أثناء «شرح حصة»: التسجيل يدخل محاضرة الحصة (ويُصدَّر معها)
+        if (ActiveSession is { Lesson: true } lesson) target = LessonGroup(lesson, create: true);
         var c = SmokeRecChoice;
         if (c == null)
         {
@@ -464,6 +466,7 @@ internal partial class MainForm
     {
         Checkpoint("تسجيل شرح");
         var g = target;
+        if ((g == null || !_library.AllGroups.Contains(g)) && ActiveSession is { Lesson: true } lesson) g = LessonGroup(lesson, create: true);
         if (g == null || !_library.AllGroups.Contains(g))
         {
             var course = _library.Courses.FirstOrDefault(c => c.Name == "تسجيلاتي");

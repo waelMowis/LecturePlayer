@@ -19,9 +19,11 @@ internal partial class MainForm
 
         // ---------- القوائم ----------
         var top = _menu.Items.OfType<ToolStripMenuItem>().Select(i => i.Text).ToList();
-        Check(top.Take(8).SequenceEqual(new[] { "ملف", "تحرير", "المكتبة", "السبورة", "التشغيل", "عرض", "الأدوات", "مساعدة" }), "menu bar order: " + string.Join(" | ", top));
-        Check(_boardQuick.Text!.Contains("سبورة") && _menu.Items.IndexOf(_boardQuick) == _menu.Items.Count - 1, "quick board button after the menus");
-        var others = _menu.Items.OfType<ToolStripMenuItem>().Where(i => i != _boardMenu && i != _boardQuick).ToList();
+        Check(top.Take(9).SequenceEqual(new[] { "ملف", "تحرير", "المكتبة", "السبورة", "شرح حصة", "التشغيل", "عرض", "الأدوات", "مساعدة" }), "menu bar order: " + string.Join(" | ", top));
+        Check(_boardQuick.Text!.Contains("سبورة") && _menu.Items.IndexOf(_boardQuick) == _menu.Items.Count - 2 && _menu.Items.IndexOf(_lessonQuick) == _menu.Items.Count - 1,
+            "quick board and lesson buttons after the menus");
+        // «شرح حصة» فيها «سبورة أخرى للحصة» (أمر حصة لا أمر سبورات)
+        var others = _menu.Items.OfType<ToolStripMenuItem>().Where(i => i != _boardMenu && i != _boardQuick && i != _lessonMenu && i != _lessonQuick).ToList();
         foreach (var m in others) m.ShowDropDown();
         foreach (var m in others) m.HideDropDown();
         var stray = others.SelectMany(m => All(m.DropDownItems)).Where(i => (i.Text!.Contains("سبورة") || i.Text.Contains("دفتر")) && !i.Text.StartsWith("تراجع") && !i.Text.StartsWith("إعادة")).Select(i => i.Text).ToList();

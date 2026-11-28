@@ -133,7 +133,7 @@ public static class Storage
         lib.Books ??= new List<Book>();
         lib.Sessions ??= new List<StudySession>();
         lib.Classes ??= new List<ClassGroup>();
-        foreach (var x in lib.Sessions) { x.Recordings ??= new List<string>(); x.Tabs ??= new List<WorkTab>(); x.Tabs.RemoveAll(t => t == null || string.IsNullOrEmpty(t.Ref)); }
+        foreach (var x in lib.Sessions) { x.Recordings ??= new List<string>(); x.Tabs ??= new List<WorkTab>(); x.Tabs.RemoveAll(t => t == null || string.IsNullOrEmpty(t.Ref)); x.Items?.RemoveAll(t => t == null || string.IsNullOrEmpty(t.Ref)); }
         foreach (var x in lib.Classes) x.Schedule ??= new List<ClassSlot>();
         foreach (var b in lib.Books)
         {

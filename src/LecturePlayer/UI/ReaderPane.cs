@@ -364,6 +364,12 @@ internal sealed partial class ReaderPane : Panel
     /// <summary>رابط قراية لملف من الجهاز.</summary>
     public string ServeUrl(string file) => Serve(file);
     public Task OpenPageEditorAsync() => Run("masar.pageEditor()");
+    /// <summary>مقطع جديد في الدفتر المفتوح (ويصير المفتوح) — يرجّع رقمه، أو null لو المفتوح مش دفتر.</summary>
+    public async Task<string?> BoardSectionAsync(string name)
+    {
+        var r = await EvalAsync($"masar.boardSection({JsonSerializer.Serialize(name)})");
+        try { return r == null ? null : JsonSerializer.Deserialize<string>(r) is { Length: > 0 } id ? id : null; } catch { return null; }
+    }
     public Task BoardImageAsync(string dataUrl, string name) => Run($"masar.boardImage({JsonSerializer.Serialize(dataUrl)}, {JsonSerializer.Serialize(name)})");
     public Task BoardExportAsync(string which, bool send) => Run($"masar.boardExport({JsonSerializer.Serialize(which)}, {(send ? "true" : "false")})");
 
