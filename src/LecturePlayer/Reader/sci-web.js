@@ -89,9 +89,9 @@ export async function commonsSearch(q) {
   if (/[؀-ۿ]/.test(q)) { const g = queryTerms(q).filter(x => !x[0].startsWith("\u0000")); if (g.length) en = g.map(x => x[0]).join(" "); }
   const params = new URLSearchParams({ action: "query", format: "json", generator: "search", gsrnamespace: "6", gsrlimit: "30", gsrsearch: `${en} filetype:bitmap|drawing`,
     prop: "imageinfo", iiprop: "url|extmetadata|size|mime", iiurlwidth: "320", iiextmetadatafilter: "LicenseShortName|Artist|ObjectName|UsageTerms" });
-  const r = await fetch("/scipack/wiki/api?" + params);
-  if (!r.ok) throw new Error("تعذّر الاتصال بـ Wikimedia Commons");
-  const d = await r.json();
+  const ask = async () => { const r = await fetch("/scipack/wiki/api?" + params); if (!r.ok) throw new Error("تعذّر الاتصال بـ Wikimedia Commons"); return r.json(); };
+  let d = await ask();
+  if (!Object.keys(d?.query?.pages || {}).length) { params.set("gsrsearch", en); d = await ask(); }   // بلا شرط نوع الملف
   const pages = Object.values(d?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
   const out = [];
   for (const p of pages) {
