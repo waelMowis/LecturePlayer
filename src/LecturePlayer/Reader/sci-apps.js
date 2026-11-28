@@ -56,7 +56,7 @@ export const Apps = {
     win.addEventListener("keydown", e => { if (e.key === "Escape" && !e.defaultPrevented) { e.preventDefault(); this.close(); } });
     document.body.appendChild(win);
     this.win = win;
-    this.say = (t, kind) => { msg.textContent = t || ""; msg.className = "sci-win-msg " + (kind || ""); };
+    this.say = (t, kind) => { msg.textContent = t || ""; msg.title = t || ""; msg.className = "sci-win-msg " + (kind || ""); };
     return win;
   },
   close() {

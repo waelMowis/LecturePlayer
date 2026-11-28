@@ -91,7 +91,7 @@ body.sci-busy, body.sci-busy * { cursor: progress !important; }
 .sci-win { position: fixed; inset: 12px; z-index: 62; display: flex; flex-direction: column; background: #2b2d31; color: #e6e6e6; border-radius: 14px; box-shadow: 0 20px 60px #000e; direction: rtl; font: 13px "Segoe UI", Tahoma, sans-serif; overflow: hidden; }
 .sci-win-h { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #ffffff14; }
 .sci-win-h b { font-size: 15px; white-space: nowrap; }
-.sci-win-msg { flex: 1; font-size: 12.5px; color: #adb5bd; }
+.sci-win-msg { flex: 1; min-width: 0; font-size: 12.5px; color: #adb5bd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sci-win-msg.err { color: #ff8787; } .sci-win-msg.ok { color: #69db7c; } .sci-win-msg.warn { color: #ffd43b; }
 .sci-win-act { display: flex; gap: 8px; align-items: center; }
 .sci-win-act button { height: 32px; padding: 0 14px; border-radius: 9px; white-space: nowrap; }
