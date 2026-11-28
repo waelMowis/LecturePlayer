@@ -25,7 +25,18 @@ const unoIndex = name => { const i = UNO_PINS.indexOf(name); return i >= 0 ? i :
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const num = id => arNum(id.replace(/\D/g, ""));
 
-// ---------------------------------------------------------------- رسوم القطع للقائمة
+// ---------------------------------------------------------------- رسوم القطع (للقائمة وللالتقاط على السبورة)
+/** SVG القطعة بحالتها الحالية (من جوه عنصر wokwi) كنص */
+export function elementSvg(el) {
+  const svg = el.shadowRoot?.querySelector("svg"); if (!svg) return "";
+  const c = svg.cloneNode(true);
+  c.setAttribute("xmlns", SVGNS);
+  let css = "";
+  for (const sh of el.shadowRoot.adoptedStyleSheets || []) for (const r of sh.cssRules) if (!/^:host/.test(r.cssText)) css += r.cssText + "\n";
+  for (const st of el.shadowRoot.querySelectorAll("style")) css += st.textContent;
+  if (css) { const st = document.createElementNS(SVGNS, "style"); st.textContent = css; c.insertBefore(st, c.firstChild); }
+  return new XMLSerializer().serializeToString(c);
+}
 const thumbs = new Map();
 export async function partThumb(type) {
   if (thumbs.has(type)) return thumbs.get(type);
@@ -37,13 +48,7 @@ export async function partThumb(type) {
     const el = document.createElement(PARTS[type].tag);
     host.append(el);
     await el.updateComplete;
-    const svg = el.shadowRoot.querySelector("svg"), c = svg.cloneNode(true);
-    c.setAttribute("xmlns", SVGNS);
-    let css = "";
-    for (const sh of el.shadowRoot.adoptedStyleSheets || []) for (const r of sh.cssRules) if (!/^:host/.test(r.cssText)) css += r.cssText + "\n";
-    for (const st of el.shadowRoot.querySelectorAll("style")) css += st.textContent;
-    if (css) { const st = document.createElementNS(SVGNS, "style"); st.textContent = css; c.insertBefore(st, c.firstChild); }
-    url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(c));
+    url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(elementSvg(el));
     host.remove();
   }
   thumbs.set(type, url);
@@ -608,6 +613,26 @@ export class Circuit {
       const a = this.endPos(this.wiring.a);
       if (a) line([a, ...this.wiring.pts, this.wiring.mouse], wireColor(this.wiring.a.pin) || "#2f9e44", null, false);
     }
+  }
+
+  /** الدائرة كصورة SVG (القطع بحالتها الحالية + الأسلاك) ← { svg, w, h } */
+  toSVG(pad = 12) {
+    const [x0, y0, x1, y1] = this.bounds(), w = x1 - x0 + pad * 2, hh = y1 - y0 + pad * 2;
+    let s = `<g transform="translate(${(pad - x0).toFixed(1)} ${(pad - y0).toFixed(1)})">`;
+    const order = [...this.parts.values()].sort((a, b) => (a.type === "breadboard" ? -1 : 0) - (b.type === "breadboard" ? -1 : 0));
+    for (const p of order) {
+      const p0 = p.local[0] || { x: 0, y: 0 };
+      // كل قطعة صورة مستقلة: تنسيقات عناصر wokwi (CSS) ماتأثرش على باقي الرسم
+      const inner = p.type === "breadboard" ? bbSvg()
+        : `<image width="${p.size[0]}" height="${p.size[1]}" href="data:image/svg+xml;charset=utf-8,${encodeURIComponent(elementSvg(p.w))}"/>`;
+      s += `<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${p.rot ? ` rotate(${p.rot} ${p0.x} ${p0.y})` : ""}">${inner}</g>`;
+    }
+    for (const wr of this.wires) {
+      const a = this.endPos(wr.a), b = this.endPos(wr.b); if (!a || !b) continue;
+      const d = [a, ...wr.pts, b].map((q, i) => (i ? "L" : "M") + q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" ");
+      s += `<path d="${d}" fill="none" stroke="#0006" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${wr.color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    return { svg: s + "</g>", w, h: hh };
   }
 
   applyView() { this.world.style.transform = `translate(${this.view.x}px, ${this.view.y}px) scale(${this.view.k})`; }

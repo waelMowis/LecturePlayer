@@ -7,6 +7,7 @@ import { Uno, parseHex } from "./ardu-sim.js";
 import { Circuit, partThumb } from "./ardu-circuit.js";
 import { PARTS, PALETTE, WIRE_COLORS } from "./ardu-parts.js";
 import { createBlocks } from "./ardu-blocks.js";
+import { PROJECTS, projectState } from "./ardu-projects.js";
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -70,9 +71,24 @@ export function highlight(code) {
   return out + esc(code.slice(last)) + "\n";
 }
 
+/** الكود كـ SVG ملوّن (لصورة السبورة) */
+const HL_FILL = { c: "#6a9955", s: "#ce9178", p: "#c586c0", n: "#b5cea8", k: "#569cd6", f: "#dcdcaa" };
+function codeSvg(code, maxLines = 44) {
+  let lines = code.replace(/\t/g, "  ").replace(/\s+$/, "").split("\n");
+  if (lines.length > maxLines) lines = [...lines.slice(0, maxLines - 1), "…"];
+  const LH = 17, CW = 7.3, w = Math.min(600, Math.max(260, Math.max(...lines.map(l => l.length)) * CW + 56)), hh = lines.length * LH + 20;
+  let s = `<rect width="${w}" height="${hh}" rx="10" fill="#1e1f22"/>`;
+  lines.forEach((l, i) => {
+    const body = highlight(l).replace(/\n$/, "").replace(/<i class="(\w)">/g, (m, k) => `<tspan style="fill:${HL_FILL[k] || "#d4d4d4"}">`).replace(/<\/i>/g, "</tspan>");
+    s += `<text x="34" y="${16 + i * LH}" style="font: 12.5px Consolas, 'Cascadia Mono', monospace; fill: #d4d4d4; white-space: pre" xml:space="preserve" direction="ltr">${body}</text>`;
+    s += `<text x="26" y="${16 + i * LH}" style="font: 11px Consolas, monospace; fill: #6c727a" text-anchor="end">${i + 1}</text>`;
+  });
+  return { svg: s, w, h: hh };
+}
+
 export const Ardu = {
   sci: null, pending: new Map(), seq: 0, uno: null, ui: null, hex: null,
-  Uno, parseHex,
+  Uno, parseHex, PROJECTS,
   init(sci) { this.sci = sci; },
 
   /** ترجمة الكود في البرنامج (من غير نت) ← { ok, hex, problems[{line,col,kind,msg,orig}], flash, flashMax, ram, ramMax, error, ms } */
@@ -89,7 +105,10 @@ export const Ardu = {
 
   isOpen() { return !!this.ui && Apps.win === this.ui.win; },
 
-  async open(state = {}) {
+  /** مشروع جاهز (من تبويب «حاسب») */
+  openProject(id) { const p = PROJECTS.find(x => x.id === id); return p ? this.open(projectState(p)) : null; },
+
+  async open(state = {}, edit = null) {
     await loadScript("lib/sci/wokwi/wokwi-elements.bundle.min.js", "elements");
     const code0 = state.code ?? store.get("code") ?? BLINK;
     const ta = h("textarea", { cls: "ard-ta", dir: "ltr", spellcheck: "false", wrap: "off", "aria-label": "كود أردوينو", autocomplete: "off", autocapitalize: "off" });
@@ -127,6 +146,7 @@ export const Ardu = {
     const btnRun = h("button", { cls: "pri", title: "ترجمة وتشغيل (Ctrl+Enter)", onclick: () => this.run() }, "▶ تشغيل");
     const btnStop = h("button", { title: "إيقاف المحاكاة", onclick: () => this.stop(), disabled: true }, "⏹ إيقاف");
     const btnReset = h("button", { title: "إعادة تشغيل اللوحة من البداية", onclick: () => this.reset(), disabled: true }, "↺ إعادة التشغيل");
+    const btnCap = h("button", { title: "ضع صورة الدائرة والكود على صفحة السبورة (انقر عليها مرتين لاحقًا لفتح المشروع من جديد)", onclick: () => this.capture() }, edit ? "⤓ حدّث الصورة على السبورة" : "⤓ التقط إلى السبورة");
 
     const send = () => { if (!this.uno || !sin.value) return; this.uno.serialWrite(sin.value + "\n"); this.rxAt = performance.now(); sin.value = ""; };
     const body = h("div", { cls: "ard-wrap" },
@@ -141,7 +161,7 @@ export const Ardu = {
           h("button", { onclick: () => { ser.textContent = ""; this.serText = ""; } }, "مسح")),
         ser,
         h("div", { cls: "ard-sinrow" }, sin, h("button", { onclick: send }, "إرسال"))));
-    const win = Apps.frame("محاكي أردوينو", "💻", [btnRun, btnStop, btnReset], body,
+    const win = Apps.frame(state.title ? "محاكي أردوينو — " + state.title : "محاكي أردوينو", "💻", [btnRun, btnStop, btnReset, btnCap], body,
       "المحاكاة: avr8js (MIT) — رسوم اللوحة: wokwi-elements (MIT) — الترجمة بدون إنترنت: arduino-cli و avr-gcc (GPL) ونواة أردوينو (LGPL)");
     win.classList.add("ard-win");
 
@@ -179,6 +199,12 @@ export const Ardu = {
     // الدائرة: المحفوظة (أو أردوينو لوحده) + قائمة القطع
     let saved = state.circuit; if (!saved) try { saved = JSON.parse(store.get("circuit") || "null"); } catch { saved = null; }
     await circ.load(saved);
+    this.edit = edit; this.title = state.title || "";
+    // مشروع جاهز: القطع الصغيرة على ثقوب لوحة التوصيل
+    if (state.plug?.length) {
+      for (const [id, pin, hole] of state.plug) { const at = circ.holeAt("bb1", hole); if (at) circ.moveTo(id, pin, ...at); }
+      circ.changed(false);
+    }
     let fitted = false;
     const ro = new ResizeObserver(() => { if (!fitted && circ.root.clientWidth > 50) { fitted = true; if (!saved?.view) circ.fit(); } });
     ro.observe(circ.root);
@@ -309,6 +335,20 @@ export const Ardu = {
     const ui = this.ui; if (!ui) return;
     ui.warnBox.textContent = "";
     for (const t of list) ui.warnBox.append(h("div", {}, "⚠ " + t));
+  },
+
+  /** صورة (الكود + الدائرة بحالتها الحالية) على صفحة السبورة، ومعاها المشروع كله لإعادة فتحه بالنقر المزدوج */
+  async capture() {
+    const ui = this.ui; if (!ui) return;
+    const code = this.source(), c = codeSvg(code), k = ui.circ.toSVG(), gap = 14;
+    const W = c.w + gap + k.w, H = Math.max(c.h, k.h);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+      `<g>${c.svg}</g><rect x="${c.w + gap}" width="${k.w}" height="${k.h}" rx="10" fill="#f4f6f8"/><g transform="translate(${c.w + gap} 0)">${k.svg}</g></svg>`;
+    const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    const src = { app: "arduino", title: this.title, mode: this.mode, code: ui.ta.value, circuit: ui.circ.toJSON() };
+    if (this.blocks) src.blocks = this.blocks.save(); else if (this.blockState) src.blocks = this.blockState;
+    try { await Apps.insert(src, url, this.edit, (w, hh) => Math.min(940, w * 0.85, 620 * w / hh)); }
+    catch (e) { this.say(e.message || String(e), "err"); }
   },
 
   async run() {

@@ -239,7 +239,7 @@ export const Sci = {
   },
   renderPanel() {
     const P = this.panel; P.textContent = "";
-    const TABS = [["math", "رياضيات", "∑"], ["chem", "كيمياء", "⚗"], ["phys", "فيزياء", "⚛"], ["bio", "أحياء", "🧬"]];
+    const TABS = [["math", "رياضيات", "∑"], ["chem", "كيمياء", "⚗"], ["phys", "فيزياء", "⚛"], ["bio", "أحياء", "🧬"], ["comp", "حاسب", "💻"]];
     P.append(
       h("div", { cls: "sci-head" }, h("b", {}, "🧪 أدوات علمية"), h("button", { cls: "sci-x", title: "إغلاق", onclick: () => this.close() }, "✕")),
       h("div", { cls: "sci-tabs", role: "tablist" }, TABS.map(([id, label, ic]) => h("button", {
@@ -290,6 +290,16 @@ export const Sci = {
       this.libSection("phys"),
       this.section("قوانين جاهزة", this.templates(PHYS_T, "eq"))
     ];
+    if (tab === "comp") {
+      const go = r => { if (r?.catch) r.catch(e => this.toast(e.message)); };
+      return [
+        this.section("محاكي أردوينو (يعمل على الجهاز بدون إنترنت)",
+          this.tile("💻", "محاكي أردوينو", "اكتب الكود، وصّل الدائرة (ليد، زر، حساسات، شاشة…) وشغّلها", () => go(Ardu.open({ mode: "code" })), { "data-ardu": "code" }),
+          this.tile("🧩", "أردوينو بالكتل", "كتل عربية تتحول إلى كود أردوينو وتعمل في المحاكي نفسه", () => go(Ardu.open({ mode: "blocks" })), { "data-ardu": "blocks" })),
+        this.section("مشاريع جاهزة (الكود والدائرة)", h("div", { cls: "sci-ardu-prj" }, Ardu.PROJECTS.map(p =>
+          this.tile(p.icon, p.name, p.sub, () => go(Ardu.openProject(p.id)), { "data-project": p.id })))),
+      ];
+    }
     return [
       this.libSection("bio"),
       this.appTiles([["mol3d", "🧬", "الجزيئات ثلاثية الأبعاد", "الجلوكوز والأحماض الأمينية وقواعد DNA، وبحث في PubChem"]]),

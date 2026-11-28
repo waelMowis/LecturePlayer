@@ -302,5 +302,6 @@ export const Apps = {
     if (sci.app === "optics") return this.optics(sci, edit);
     if (sci.app === "motion") return this.motion(sci, edit);
     if (sci.app === "web") return this.sci.web(sci.source, sci.url, sci.title, edit);
+    if (sci.app === "arduino") return this.sci.ardu.open(sci, edit);
   }
 };

@@ -236,5 +236,59 @@ internal partial class MainForm
         Check(Until(() => Last() == "100" && Js("String(masar.sciTest().Sci.ardu.ui.board.led13)") == "false", 10_000), "pot 100 → LED off: " + Last());
         Js("masar.sciTest().Sci.ardu.stop(true);masar.sciTest().Sci.ardu.setMode('code');masar.sciTest().Sci.apps.close();'ok'");
         Console.WriteLine("SMOKE arduino blocks: ok");
+        RunArduinoProjectChecks(Js, Until);
+    }
+
+    /// <summary>
+    /// محاكي أردوينو (المرحلة الرابعة): تبويب «حاسب» في الأدوات العلمية + المشاريع العشرة (كلها بتترجم) ←
+    /// إشارة المرور تشتغل ← «التقط إلى السبورة» (صورة + المشروع) ← النقر المزدوج يفتح المشروع نفسه.
+    /// </summary>
+    private void RunArduinoProjectChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("arduino projects: " + what); }
+        Js("masar.sciTest().Sci.open('comp'); 'ok'");
+        Check(Until(() => Js("document.querySelectorAll('.sci-panel .sci-tile[data-ardu]').length+':'+document.querySelectorAll('.sci-panel .sci-tile[data-project]').length") == "2:10", 5000), "comp tab tiles: " + Js("document.querySelectorAll('.sci-panel .sci-tile').length"));
+        SaveSmokeShot(this, "arduino-tab");
+
+        // كل المشاريع بتترجم
+        Js("""
+            window.__apc=null;(async()=>{const A=masar.sciTest().Sci.ardu,r=[];
+            for(const p of A.PROJECTS){const c=await A.compile(p.code);r.push(p.id+':'+(c.ok?'ok':(c.error||c.problems.map(x=>x.line+' '+x.orig).join('; '))))}
+            window.__apc=r.join(' | ')})();'ok'
+            """);
+        Check(Until(() => Js("String(window.__apc)") != "null", 300_000), "projects compiled");
+        string all = Js("String(window.__apc)");
+        Console.WriteLine("SMOKE arduino projects: " + all);
+        Check(all.Split(" | ").All(x => x.EndsWith(":ok")), "all projects compile: " + all);
+
+        // إشارة المرور: الدائرة على لوحة التوصيل + التشغيل
+        Js("document.querySelector('.sci-tile[data-project=\"traffic\"]').click();'ok'");
+        Check(Until(() => Js("String(!!document.querySelector('.ard-win')&&masar.sciTest().Sci.ardu.circuit?.parts.size===8)") == "true", 15_000), "traffic project opened");
+        string nets = Js("""
+            (()=>{const C=masar.sciTest().Sci.ardu.circuit,t=C.topo,F=(id,pin)=>t.uf.find(C.node(id,pin));
+            return [1,2,3].map(i=>[F('r'+i,'2')===F('led'+i,'A'),F('led'+i,'C')===F('uno','GND.2'),F('r'+i,'1')===F('uno',['10','9','8'][i-1])].join(',')).join(' ')})()
+            """);
+        Check(nets == "true,true,true true,true,true true,true,true", "traffic nets: " + nets);
+        Js("window.__apr=null;masar.sciTest().Sci.ardu.run().then(()=>window.__apr=String(masar.sciTest().Sci.ardu.uno?.running));'ok'");
+        Check(Until(() => Js("String(window.__apr)") == "true", 240_000), "traffic running: " + Js("document.querySelector('.sci-win-msg').textContent"));
+        Check(Until(() => Js("(()=>{const C=masar.sciTest().Sci.ardu.circuit;return [1,2,3].map(i=>C.parts.get('led'+i).w.value?1:0).join('')})()") == "100" && Js("String(document.querySelector('.ard-ser').textContent.includes('قف'))") == "true", 20_000), "red light first");
+        Check(Until(() => Js("(()=>{const C=masar.sciTest().Sci.ardu.circuit;return [1,2,3].map(i=>C.parts.get('led'+i).w.value?1:0).join('')})()") == "001", 20_000), "then green");
+        SaveSmokeShot(this, "arduino-traffic");
+
+        // التقط إلى السبورة ← عنصر فيه الصورة والمشروع ← النقر المزدوج يفتحه
+        Js("""
+            window.__acp=null;(async()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,n0=I.count();
+            await S.ardu.capture();await new Promise(r=>setTimeout(r,1500));
+            const key=S.board.curPage().id,it=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='arduino').at(-1);
+            window.__sci.ids.push(it.id);
+            window.__acp={n:I.count()-n0,closed:!document.querySelector('.ard-win'),svg:it.img.startsWith('data:image/svg+xml'),title:it.sci.title,parts:it.sci.circuit.parts.length,code:it.sci.code.includes('light(RED'),w:it.w>300};
+            S.editItem({key},it);await new Promise(r=>setTimeout(r,1200));
+            window.__acp.reopen=!!document.querySelector('.ard-win')&&S.ardu.circuit.parts.size===8&&S.ardu.ui.ta.value.includes('light(RED')&&document.querySelector('.ard-win .sci-win-act').textContent.includes('حدّث')})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__acp&&'reopen' in window.__acp)") == "true", 20_000), "capture finished");
+        Check(Js("JSON.stringify(window.__acp)") == "{\"n\":1,\"closed\":true,\"svg\":true,\"title\":\"إشارة المرور\",\"parts\":8,\"code\":true,\"w\":true,\"reopen\":true}", "capture/reopen: " + Js("JSON.stringify(window.__acp)"));
+        SaveSmokeShot(this, "arduino-reopen");
+        Js("masar.sciTest().Sci.apps.close();'ok'");
+        Console.WriteLine("SMOKE arduino projects: ok");
     }
 }
