@@ -70,6 +70,7 @@ internal partial class MainForm
 
         RunScienceShapeChecks(Js, Until);
         RunScienceLibraryChecks(Js, Until);
+        RunScienceAppChecks(Js, Until);
 
         // محفوظة في ملف الشرح، وبعدين بنشيلها
         Js("masar.inkFlush()");
@@ -201,5 +202,79 @@ internal partial class MainForm
             """);
         Until(() => Js("String(!!window.__phy)") == "true", 45_000);
         Console.WriteLine("SMOKE phylopic: " + Js("String(window.__phy)"));
+    }
+
+    /// <summary>
+    /// المرحلة الرابعة: الأدوات التفاعلية الكبيرة — الجدول الدوري، الجزيئات ثلاثية الأبعاد، مشهد الحركة،
+    /// محرر الجزيئات (Ketcher بيتنزل أول مرة)، محاكي البصريات (بيتنزل أول مرة). كل واحدة بتنزل نتيجتها على الصفحة
+    /// ومعاها مصدرها، والنقر المزدوج بيفتحها تاني.
+    /// </summary>
+    private void RunScienceAppChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("science apps: " + what); }
+        // الجدول الدوري
+        Js("window.__ap=null;masar.sciTest().Sci.apps.ptable({z:26}).then(()=>window.__ap='ok',e=>window.__ap=String(e.message)); 'ok'");
+        Check(Until(() => Js("String(window.__ap)") != "null", 15_000), "periodic table opened");
+        Check(Js("document.querySelectorAll('.sci-win .pt-el').length+':'+document.querySelector('.pt-big b').textContent") == "118:Fe", "periodic table: " + Js("String(window.__ap)"));
+        Until(() => false, 400);
+        SaveSmokeShot(this, "board-science-ptable");
+        Js("""
+            window.__pt=null;(async()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,n0=I.count();
+            [...document.querySelectorAll('.pt-ins button')][0].click();await new Promise(r=>setTimeout(r,1500));
+            await S.apps.ptable({});[...document.querySelectorAll('.pt-ins button')].at(-1).click();await new Promise(r=>setTimeout(r,2000));
+            const its=I.doc.items(key).filter(i=>i.sci&&i.sci.k==='shape'&&(i.sci.type==='element'||i.sci.type==='ptable'));window.__sci.ids.push(...its.map(i=>i.id));
+            window.__pt=(I.count()-n0)+':'+its.map(i=>i.sci.type+(i.sci.p.z||'')).join(',')+':'+!document.querySelector('.sci-win')})();'ok'
+            """);
+        Check(Until(() => Js("String(window.__pt)") != "null", 15_000), "periodic inserts");
+        Check(Js("String(window.__pt)") == "2:element26,ptable:true", "periodic inserts: " + Js("String(window.__pt)"));
+
+        // الجزيئات ثلاثية الأبعاد (WebGL) ومشهد الحركة
+        Js("""
+            window.__m3r=null;(async()=>{try{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id;
+            await S.apps.mol3d({});await new Promise(r=>setTimeout(r,800));
+            const n=document.querySelectorAll('.m3-list button').length;document.querySelector('.m3-list button[data-name="جلوكوز"]').click();await new Promise(r=>setTimeout(r,800));
+            document.querySelector('.sci-win .sci-win-act .pri').click();await new Promise(r=>setTimeout(r,2500));
+            const it=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='mol3d').at(-1);window.__sci.ids.push(it.id);
+            await S.apps.motion({});await new Promise(r=>setTimeout(r,300));for(const b of [...document.querySelectorAll('.mo-bar button')].slice(0,5))b.click();await new Promise(r=>setTimeout(r,1500));
+            const bodies=window.__motion.engine.world.bodies.length;document.querySelector('.sci-win .sci-win-act .pri').click();await new Promise(r=>setTimeout(r,2000));
+            const mo=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='motion').at(-1);window.__sci.ids.push(mo.id);
+            window.__m3r=[n,it.sci.name,!it.sci.__img,it.img.startsWith('data:image/jpeg'),it.img.length>8000,bodies>=8,mo.img.length>3000].join(',')}catch(e){window.__m3r='err '+(e&&e.message||e)}})();'ok'
+            """);
+        Check(Until(() => Js("String(window.__m3r)") != "null", 30_000), "3D + motion");
+        Check(Js("String(window.__m3r)") == "52,جلوكوز,true,true,true,true,true", "3D + motion: " + Js("String(window.__m3r)"));
+
+        // محرر الجزيئات (Ketcher): بيتنزل من حزم «مسار» أول مرة
+        Js("window.__kt=null;masar.sciTest().Sci.apps.ketcher({}); 'ok'");
+        bool ktReady = Until(() => Js("String(!!window.__ketcherCall && document.querySelector('.sci-win-msg') && document.querySelector('.sci-win-msg').textContent==='')") == "true", 180_000);
+        Check(ktReady, "Ketcher downloaded and loaded: " + Js("document.querySelector('.sci-win-msg')?.textContent||''"));
+        Js("""
+            (async()=>{try{await window.__ketcherCall('set','c1ccccc1O');await new Promise(r=>setTimeout(r,600));const g=await window.__ketcherCall('get');
+            document.querySelector('.sci-win .sci-win-act .pri').click();await new Promise(r=>setTimeout(r,2500));
+            const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,it=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='ketcher').at(-1);window.__sci.ids.push(it.id);
+            window.__kt=[g.smiles.length>4,it.sci.mol.includes('V2000')||it.sci.mol.includes('V3000'),it.img.startsWith('data:image/svg+xml')].join(',')}catch(e){window.__kt='err '+(e&&e.message||e)}})();'ok'
+            """);
+        Check(Until(() => Js("String(window.__kt)") != "null", 30_000), "Ketcher insert");
+        Check(Js("String(window.__kt)") == "true,true,true", "Ketcher insert: " + Js("String(window.__kt)"));
+        Until(() => false, 500);
+        SaveSmokeShot(this, "board-science-apps");
+
+        // محاكي البصريات: مثال جاهز ← لقطة على الصفحة ومعاها المشهد
+        Js("window.__op=null;masar.sciTest().Sci.apps.optics({hash:'convex-lens'}); 'ok'");
+        Check(Until(() => Js("(()=>{try{const f=document.querySelector('.sci-iframe');return String(f.contentWindow.location.hash.length>40)}catch(e){return 'false'}})()") == "true", 180_000), "optics simulator downloaded, example loaded");
+        Until(() => false, 1500);
+        SaveSmokeShot(this, "board-science-optics");
+        Js("""
+            (async()=>{document.querySelector('.sci-win .sci-win-act .pri').click();await new Promise(r=>setTimeout(r,2500));
+            const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,it=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='optics').at(-1);
+            if(it)window.__sci.ids.push(it.id);window.__op=it?[it.sci.hash.length>40,it.img.length>5000].join(','):'none'})();'ok'
+            """);
+        Check(Until(() => Js("String(window.__op)") != "null", 15_000), "optics capture");
+        Check(Js("String(window.__op)") == "true,true", "optics capture: " + Js("String(window.__op)"));
+
+        // PubChem (أونلاين، مصدر خارجي): بنسجل النتيجة بس
+        Js("window.__pc=null;fetch('/scipack/pubchem/compound/name/caffeine/SDF?record_type=3d').then(async r=>window.__pc=r.status+' '+(await r.text()).length,e=>window.__pc='error '+e); 'ok'");
+        Until(() => Js("String(window.__pc)") != "null", 30_000);
+        Console.WriteLine("SMOKE pubchem: " + Js("String(window.__pc)"));
+        Js("masar.sciTest().Sci.close(); 'ok'");
     }
 }

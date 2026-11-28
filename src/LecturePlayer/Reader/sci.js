@@ -11,6 +11,7 @@ import { LAB, LAB_GROUPS } from "./sci-lab.js";
 import { wrap } from "./sci-svg.js";
 import { loadLib, search, thumbEl, displayName, drawPic, needsCredit, licName, phyloSearch } from "./sci-lib.js";
 import { CAT_AR, TAB_CATS } from "./sci-lib-ar.js";
+import { Apps } from "./sci-apps.js";
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -164,6 +165,7 @@ export const Sci = {
 
   init(board) {
     this.board = board;
+    Apps.init(this);
     Ink.onSciEdit = (s, it) => this.editItem(s, it);
     Ink.onSciRecolor = (key, ids, c) => this.recolor(key, ids, c);
   },
@@ -171,15 +173,20 @@ export const Sci = {
   async recolor(key, ids, c) {
     for (const id of ids) {
       const it = Ink.doc.items(key).find(i => i.id === id);
-      if (!it?.sci || !this.canRender(it.sci) || it.sci.k === "pic") continue;
+      if (!it?.sci || !this.canRender(it.sci) || it.sci.k === "pic" || it.sci.k === "app") continue;
       try { await this.place({ ...it.sci, c }, { key, id }); } catch (e) { }
     }
   },
-  canRender(sci) { return sci.k === "eq" || sci.k === "chem" || sci.k === "pic" || (sci.k === "shape" && !!TOOLS[sci.type]); },
+  canRender(sci) { return sci.k === "eq" || sci.k === "chem" || sci.k === "pic" || sci.k === "app" || (sci.k === "shape" && !!TOOLS[sci.type]); },
   /** القيم الافتراضية لحقول أداة. */
   defaults(type) { const o = {}; for (const f of TOOLS[type]?.f || []) o[f[0]] = f[3]; return o; },
   /** يرسم أي مصدر علمي ← {url, w, h} بوحدات الصفحة. */
   async render(src, color) {
+    if (src.k === "app") {
+      if (!src.__img) throw new Error("افتح الأداة لتحديث هذا العنصر");
+      const sc = src.sc || 1;
+      return { url: src.__img, w: src.__w * sc, h: src.__h * sc };
+    }
     if (src.k !== "shape" && src.k !== "pic") return renderTex(texOf(src), color, src.fs || 34, !!src.rtl);
     let r;
     if (src.k === "pic") r = await drawPic(src);
@@ -210,7 +217,11 @@ export const Sci = {
   },
   isOn() { return !!(this.panel && !this.panel.hidden); },
   toggle() { if (this.isOn()) this.close(); else this.open(); },
-  close() { if (this.panel) this.panel.hidden = true; this.board?.onSciPanel?.(false); },
+  close() { Apps.close(); if (this.panel) this.panel.hidden = true; this.board?.onSciPanel?.(false); },
+  apps: Apps,
+  appTiles(list) {
+    return this.section("أدوات تفاعلية (نافذة كبيرة، والنتيجة تنزل على الصفحة)", list.map(([id, icon, name, sub]) => this.tile(icon, name, sub, () => { const r = Apps[id](); if (r?.catch) r.catch(e => this.toast(e.message)); }, { "data-app": id })));
+  },
   open(tab) {
     if (tab) { this.tab = tab; setPref("tab", tab); }
     if (!this.panel) {
@@ -255,6 +266,9 @@ export const Sci = {
       this.section("المعادلات الكيميائية",
         this.tile("⚗", "معادلة كيميائية", "اكتب 2H2 + O2 -> 2H2O فتظهر بالأرقام السفلية والأسهم", () => this.editor({ k: "chem", ce: "" })),
         this.tile("⚖", "وازن معادلة", "اكتبها بلا معاملات واضغط «وازن»، أو أخفِ المعاملات للتمرين", () => this.editor({ k: "chem", ce: "", balance: 1 }))),
+      this.appTiles([["ptable", "▦", "الجدول الدوري", "118 عنصرًا بالعربية: الكتلة والتوزيع والسالبية والحالة، وبطاقة العنصر أو الجدول كاملًا على الصفحة"],
+        ["ketcher", "⌬", "محرر الجزيئات", "ارسم الصيغ البنائية والحلقات والروابط (Ketcher) — يُنزَّل أول مرة"],
+        ["mol3d", "🧬", "الجزيئات ثلاثية الأبعاد", "52 جزيئًا جاهزًا، وبحث في PubChem، بنماذج الكرات والعصي والنموذج الفراغي"]]),
       this.section("نماذج الذرة", ...this.toolTiles("chem")),
       ...LAB_GROUPS.map(([g, title]) => this.section("أدوات المعمل — " + title, this.grid(LAB.filter(x => x[2] === g).map(([id, name]) => ["lab", { type: id }, name])))),
       this.libSection("chem"),
@@ -262,6 +276,8 @@ export const Sci = {
     ];
     if (tab === "phys") return [
       this.section("القوانين والمعادلات", this.tile("✎", "قانون أو معادلة", "متجهات، دلتا، وحدات، كسور", () => this.editor({ k: "eq", tex: "" }))),
+      this.appTiles([["optics", "🔦", "محاكي البصريات", "مرايا وعدسات ومناشير وأشعة تتحرك مباشرة (Ray Optics) — يُنزَّل أول مرة"],
+        ["motion", "⚽", "مشهد الحركة", "كرات وصناديق ومستوى مائل وبندول ونابض وتصادم بالجاذبية، ومتجهات السرعة"]]),
       this.section("الرسوم الفيزيائية", ...this.toolTiles("phys")),
       this.section("رموز الدوائر الكهربائية (وصّلها بأداة الخط)", this.grid(SYMBOLS.map(([id, name]) => ["symbol", { s: id }, name]))),
       this.libSection("phys"),
@@ -269,6 +285,7 @@ export const Sci = {
     ];
     return [
       this.libSection("bio"),
+      this.appTiles([["mol3d", "🧬", "الجزيئات ثلاثية الأبعاد", "الجلوكوز والأحماض الأمينية وقواعد DNA، وبحث في PubChem"]]),
       this.section("المعادلات الحيوية", this.tile("⚗", "معادلة حيوية", "البناء الضوئي، التنفس، الإنزيمات", () => this.editor({ k: "chem", ce: "" }))),
       this.section("صيغ جاهزة", h("div", { cls: "sci-tpl" }, BIO_T.map(([name, src, k]) => h("button", {
         onclick: () => this.editor(k === "eq" ? { k: "eq", tex: src } : { k: "chem", ce: src })
@@ -617,6 +634,8 @@ export const Sci = {
     if (!s) throw new Error("افتح صفحة من السبورة أولًا");
     const base = src.c || Ink.currentColor() || "#111111";
     const r = await this.render(src, s.dark ? onDark(base) : base);
+    // المصدر اللي بيتحفظ مع العنصر (من غير صورة الأداة المؤقتة)
+    src = { ...src }; delete src.__img; delete src.__w; delete src.__h;
     src.nw = r.w;
     if (edit) {
       const old = Ink.doc.items(s.key).find(i => i.id === edit.id);
@@ -647,5 +666,6 @@ export const Sci = {
     if (it.sci.k === "eq" || it.sci.k === "chem") this.editor(it.sci, { key: s.key, id: it.id });
     else if (it.sci.k === "shape" && TOOLS[it.sci.type]) this.shapeEditor(it.sci, { key: s.key, id: it.id });
     else if (it.sci.k === "pic") this.picEditor(it.sci, { key: s.key, id: it.id });
+    else if (it.sci.k === "app") Apps.reopen(it.sci, { key: s.key, id: it.id });
   }
 };

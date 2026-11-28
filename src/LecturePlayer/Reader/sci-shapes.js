@@ -3,6 +3,7 @@
 //  الشكل بيتحط على السبورة صورة SVG فيكتور، والنقر المزدوج بيفتح نفس الحقول للتعديل.
 // =====================================================================
 import { drawLab, LAB, LIQUIDS, labHas } from "./sci-lab.js";
+import { drawElement, drawTable } from "./sci-ptable.js";
 import { text, line, path, circle, rect, poly, arrow, arc, sector, rightMark, angOf, norm } from "./sci-svg.js";
 
 const D2R = Math.PI / 180;
@@ -479,5 +480,9 @@ export const TOOLS = {
     f: [["type", "الأداة", "sel", "beaker", LAB.map(x => [x[0], x[1]])], ["level", "مستوى السائل (٪)", "num", 50, null, p => labHas(p.type, "l")], ["liq", "لون السائل", "sel", "#74c0fc", LIQUIDS, p => labHas(p.type, "l")],
       ["liq2", "لون سائل الوعاء الآخر", "sel", "#e7f5ff", LIQUIDS, p => p.type === "titration" || p.type === "distill"], ["grad", "تدريج", "chk", 1, null, p => labHas(p.type, "g")], ["bubbles", "فقاعات", "chk", 0, null, p => labHas(p.type, "b")],
       ["ppt", "راسب", "chk", 0, null, p => labHas(p.type, "p")], ["flame", "اللهب", "chk", 1, null, p => labHas(p.type, "f")], ["reading", "القراءة", "text", "25.00", null, p => p.type === "balance"], ["label", "تسمية تحتها", "text", ""]] },
+  element: { tab: "chem", icon: "🟦", name: "بطاقة عنصر", hidden: true, async: true, draw: drawElement,
+    f: [["z", "العدد الذري (1–118)", "num", 6], ["mass", "الكتلة الذرية", "chk", 1], ["en", "الاسم الإنجليزي", "chk", 1], ["conf", "التوزيع الإلكتروني", "chk", 0], ["color", "لون السلسلة", "chk", 1], ["ar", "أرقام عربية", "chk", 0]] },
+  ptable: { tab: "chem", icon: "▦", name: "الجدول الدوري", hidden: true, async: true, draw: drawTable,
+    f: [["color", "التلوين", "sel", "series", [["series", "حسب السلسلة (فلزات، لافلزات…)"], ["block", "حسب الفئة s/p/d/f"]]], ["names", "الأسماء العربية", "chk", 1], ["nums", "أرقام المجموعات والدورات", "chk", 1], ["legend", "مفتاح الألوان", "chk", 1], ["title", "العنوان", "chk", 1], ["ar", "أرقام عربية", "chk", 0]] },
   symbol: { tab: "phys", icon: "⏚", name: "رمز", hidden: true, draw: p => symbol(p.s, p.label), f: [["s", "الرمز", "sel", "resistor", SYMBOLS], ["label", "التسمية", "text", ""]] }
 };
