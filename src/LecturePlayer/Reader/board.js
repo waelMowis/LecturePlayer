@@ -27,6 +27,10 @@ export const SIZES = { a4p: [595, 842, "A4 طولي"], a4l: [842, 595, "A4 عر�
 export const BGS = { white: ["#ffffff", "أبيض"], cream: ["#fdf6e3", "ورق"], black: ["#1e1e1e", "أسود"], green: ["#1f3d2b", "أخضر (طباشير)"] };
 export const PATS = { none: "فارغ", grid: "مربعات", lines: "سطور", dots: "نقاط" };
 export const isDark = bg => bg === "black" || bg === "green";
+/** ألوان مقاطع الدفتر. */
+export const SEC_COLORS = [["#1971c2", "أزرق"], ["#e03131", "أحمر"], ["#2f9e44", "أخضر"], ["#f08c00", "برتقالي"], ["#7048e8", "بنفسجي"], ["#0c8599", "فيروزي"], ["#d6336c", "وردي"], ["#5c940d", "زيتي"]];
+const sid = () => "s" + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
+const fmtDate = d => { try { return d ? new Date(d).toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : ""; } catch (e) { return ""; } };
 
 export const Board = {
   ready: false, meta: null, area: null, scroller: null, pagesEl: null, side: null, k: 1, post: () => { }, onMoved: null, pick: null, docOpts: null, pdfjsLib: null,
@@ -66,6 +70,14 @@ export const Board = {
   open(o) {
     const m = typeof o.board === "string" ? JSON.parse(o.board) : (o.board || {});
     if (!Array.isArray(m.pages) || !m.pages.length) m.pages = [{ id: pid(), w: 842, h: 595, bg: "white", pat: "none", name: "" }];
+    if (m.kind === "notebook") {
+      // الدفتر: كل صفحة في مقطع، وكل مقطع فيه صفحة على الأقل
+      if (!Array.isArray(m.sections) || !m.sections.length) m.sections = [{ id: sid(), name: "المقطع الأول", color: SEC_COLORS[0][0] }];
+      const ids = new Set(m.sections.map(x => x.id));
+      for (const p of m.pages) if (!ids.has(p.sec)) p.sec = m.sections[0].id;
+      for (const sec of m.sections) if (!m.pages.some(p => p.sec === sec.id)) m.pages.push({ id: pid(), w: 595, h: 842, bg: "white", pat: "lines", name: "", sec: sec.id, d: Date.now() });
+      if (!ids.has(m.sec)) m.sec = m.sections[0].id;
+    }
     this.meta = m;
     this.k = o.zoom || 1;
     this.cur = Math.min(Math.max(1, o.page || 1), m.pages.length);
@@ -82,22 +94,41 @@ export const Board = {
   /** سطح الصفحة الحالية (للأدوات العلمية). */
   curSurface() { const p = this.curPage(); return p ? Ink.surfaces.get(p.id) || Ink.visibleSurface() : Ink.visibleSurface(); },
   onSciPanel(on) { this.tools.querySelector('[title^="معادلات رياضية"]')?.classList.toggle("on", on); },
-  get total() { return this.meta ? this.meta.pages.length : 0; },
+  /** دفتر (مقاطع وصفحات A4) ولا سبورة عادية. */
+  nb() { return this.meta?.kind === "notebook"; },
+  /** الصفحات الظاهرة: كل صفحات السبورة، أو صفحات المقطع الحالي في الدفتر. */
+  vis() { return !this.meta ? [] : this.nb() ? this.meta.pages.filter(p => p.sec === this.meta.sec) : this.meta.pages; },
+  section() { return this.nb() ? this.meta.sections.find(x => x.id === this.meta.sec) : null; },
+  get total() { return this.meta ? this.vis().length : 0; },
   page() { return this.cur || 1; },
-  pageOf(id) { return this.meta.pages.findIndex(p => p.id === id); },
-  curPage() { return this.meta.pages[this.cur - 1]; },
+  pageOf(id) { return this.vis().findIndex(p => p.id === id); },
+  curPage() { return this.vis()[this.cur - 1]; },
+  /** إدراج صفحة قبل الصفحة الظاهرة رقم i (أو في آخر المقطع). */
+  insertVis(i, p) {
+    const V = this.vis(), all = this.meta.pages;
+    const fi = i < V.length ? all.indexOf(V[i]) : V.length ? all.indexOf(V[V.length - 1]) + 1 : all.length;
+    all.splice(fi, 0, p);
+  },
 
   // ---------------------------------------------------------------- الرسم
-  fitW() { return Math.max(200, this.scroller.clientWidth - 48); },
+  // الدفتر: صفحة A4 بعرض مريح (زي الكراسة) مش بعرض الشاشة كلها
+  fitW() { const w = Math.max(200, this.scroller.clientWidth - 48); return this.nb() ? Math.min(w, 880) : w; },
   pageWidthPx(p) {
     // كل الصفحات بنفس مقياس النقط (صفحة عرضية أعرض من الطولية) — والتكبير k فوقها
-    const maxW = Math.max(...this.meta.pages.map(x => x.w));
+    const maxW = Math.max(...this.vis().map(x => x.w));
     return this.fitW() * (p.w / maxW) * this.k;
   },
   render() {
     this.pagesEl.textContent = "";
-    this.meta.pages.forEach((p, i) => {
-      const div = h("div", { cls: "bd-page", "data-id": p.id, "data-n": i + 1 });
+    const V = this.vis();
+    if (this.nb()) {
+      // صفحات المقاطع التانية مش معروضة: نفك طبقات رسمها
+      const ids = new Set(V.map(p => p.id));
+      for (const k of [...Ink.surfaces.keys()]) if (!ids.has(k)) Ink.detach(k);
+    }
+    V.forEach((p, i) => {
+      const div = h("div", { cls: "bd-page" + (this.nb() ? " nb" : ""), "data-id": p.id, "data-n": i + 1 });
+      if (this.nb()) { div.dataset.title = p.name || ""; div.dataset.date = fmtDate(p.d); }
       this.pagesEl.appendChild(div);
       this.style(div, p);
     });
@@ -114,7 +145,14 @@ export const Board = {
       lines: [`linear-gradient(transparent calc(100% - 1px), ${line} 1px)`, `100% ${row}`],
       dots: [`radial-gradient(circle, ${dark ? "rgba(255,255,255,.35)" : "rgba(110,120,140,.55)"} 1.2px, transparent 1.6px)`, `${cell} ${cell}`]
     };
-    const [img, size] = pats[p.pat] || ["none", "auto"];
+    let [img, size] = pats[p.pat] || ["none", "auto"];
+    if (this.nb && this.nb()) {
+      // هامش الكراسة: خط أحمر على اليمين، والعنوان فوق من غير سطور
+      const mg = `calc(var(--bw) * 0.085)`, red = dark ? "rgba(255,135,135,.5)" : "rgba(224,49,49,.45)";
+      const margin = `linear-gradient(90deg, transparent calc(100% - ${mg} - 1px), ${red} calc(100% - ${mg} - 1px), ${red} calc(100% - ${mg} + 1px), transparent calc(100% - ${mg} + 1px))`;
+      img = img === "none" ? margin : `${margin}, ${img}`;
+      size = img.includes(",") && size !== "auto" ? `100% 100%, ${size}` : "100% 100%";
+    }
     div.style.backgroundColor = color;
     div.style.backgroundImage = img;
     div.style.backgroundSize = size;
@@ -123,7 +161,7 @@ export const Board = {
   layout() {
     if (!this.meta) return;
     for (const div of this.pagesEl.children) {
-      const p = this.meta.pages[this.pageOf(div.dataset.id)];
+      const p = this.meta.pages.find(x => x.id === div.dataset.id);
       if (!p) continue;
       const w = this.pageWidthPx(p);
       div.style.width = w + "px"; div.style.height = (w * p.h / p.w) + "px";
@@ -162,6 +200,8 @@ export const Board = {
   // ---------------------------------------------------------------- شريط الصفحات
   renderSide() {
     this.side.textContent = "";
+    this.side.classList.toggle("nb", this.nb());
+    if (this.nb()) return this.renderNbSide();
     this.side.appendChild(h("div", { cls: "bd-side-h" }, "الصفحات", h("button", { title: "صفحة جديدة بعد الحالية", onclick: () => this.addPage() }, "＋")));
     this.meta.pages.forEach((p, i) => {
       const thumb = h("div", { cls: "bd-thumb" + (isDark(p.bg) ? " dark" : ""), style: { aspectRatio: `${p.w} / ${p.h}`, background: (BGS[p.bg] || BGS.white)[0] } });
@@ -190,6 +230,7 @@ export const Board = {
   buildTools() {
     const B = (label, title, fn) => h("button", { title, onclick: e => { e.stopPropagation(); fn(e); } }, label);
     this.tools.textContent = "";
+    if (this.nb()) return this.buildNbTools(B);
     this.tools.append(
       B("➕ صفحة", "صفحة جديدة بعد الحالية (المقاس والخلفية نفسها)", () => this.addPage()),
       B("⧉", "كرّر الصفحة (بالرسم الذي عليها)", () => this.duplicate()),
@@ -221,6 +262,133 @@ export const Board = {
     );
     if (Ink.snap) this.tools.querySelector('[title="الالتصاق بالشبكة"]').classList.add("on");
   },
+  /** شريط الدفتر: الصفحات والمقاطع وأدوات الكتابة بس. */
+  buildNbTools(B) {
+    this.tools.append(
+      B("➕ صفحة", "صفحة جديدة بعد الحالية في هذا المقطع", () => this.addPage()),
+      B("➕ مقطع", "مقطع جديد (مادة أو فصل أو وحدة) بصفحته الأولى", () => this.addSection()),
+      B("✎ العنوان", "عنوان الصفحة (يظهر أعلاها وفي قائمة الصفحات)", () => this.rename()),
+      B("⧉", "كرّر الصفحة (بالكتابة التي عليها)", () => this.duplicate()),
+      B("🗑", "امسح الصفحة", () => this.removePage()),
+      B("▲", "الصفحة إلى الأعلى", () => this.movePage(this.cur - 1, this.cur - 2)),
+      B("▼", "الصفحة إلى الأسفل", () => this.movePage(this.cur - 1, this.cur)),
+      h("span", { cls: "sep" }),
+      B("🎨 الورق ▾", "لون الورق ونقشته", e => this.menu(e.currentTarget, [
+        ...Object.entries(BGS).map(([k, [, l]]) => [(this.curPage().bg === k ? "✓ " : "") + l, () => this.setBg(k)]),
+        null, ...Object.entries(PATS).map(([k, l]) => [(this.curPage().pat === k ? "✓ " : "") + l, () => this.setPat(k)]),
+        null, ["على كل صفحات المقطع", () => this.bgAll(true)], ["على كل صفحات الدفتر", () => this.bgAll()]])),
+      B("🖼", "صورة على الصفحة (أو Ctrl+V)", () => this.pickImage()),
+      h("span", { cls: "sep" }),
+      B("−", "تصغير (Ctrl+العجلة)", () => this.zoom(-1)),
+      B("⟲", "مقاس الشاشة", () => this.zoom(0)),
+      B("+", "تكبير", () => this.zoom(1)),
+      h("span", { cls: "sep" }),
+      B("📤 PDF ▾", "تصدير", e => this.menu(e.currentTarget, [["هذه الصفحة", () => this.exportPdf("cur")], ["هذا المقطع", () => this.exportPdf("sec")], ["الدفتر كله", () => this.exportPdf("all")],
+        ["هذه الصفحة كصورة PNG", () => this.exportPng()], null, ["📨 أرسل المقطع للطلبة (PDF جاهز للإرسال)", () => this.exportPdf("sec", true)]]))
+    );
+  },
+  /** عمود الدفتر: المقاطع فوق، وصفحات المقطع الحالي تحتها. */
+  renderNbSide() {
+    const m = this.meta, cur = this.section();
+    let dragPage = null;
+    this.side.appendChild(h("div", { cls: "bd-side-h" }, "المقاطع", h("button", { title: "مقطع جديد", onclick: () => this.addSection() }, "＋")));
+    m.sections.forEach((sec, i) => {
+      const n = m.pages.filter(p => p.sec === sec.id).length;
+      const row = h("div", { cls: "nb-sec" + (sec.id === m.sec ? " on" : ""), "data-sec": sec.id, draggable: "true", style: { "--sc": sec.color || SEC_COLORS[0][0] },
+        title: "اضغط لفتح المقطع — نقر مزدوج لإعادة التسمية — الزر الأيمن للخيارات — اسحب للترتيب، أو أفلت عليه صفحة لنقلها إليه" },
+        h("span", { cls: "nb-dot" }), h("b", {}, sec.name || "بدون اسم"), h("small", {}, n));
+      row.onclick = () => this.selectSection(sec.id);
+      row.ondblclick = () => this.renameSection(sec.id);
+      row.oncontextmenu = e => { e.preventDefault(); this.sectionMenu(sec.id, e.clientX, e.clientY); };
+      row.ondragstart = e => { e.dataTransfer.setData("text/plain", "sec:" + i); };
+      row.ondragover = e => { e.preventDefault(); row.classList.add("drop"); };
+      row.ondragleave = () => row.classList.remove("drop");
+      row.ondrop = e => {
+        e.preventDefault(); row.classList.remove("drop");
+        const d = e.dataTransfer.getData("text/plain");
+        if (d.startsWith("sec:")) this.moveSection(+d.slice(4), i);
+        else if (d.startsWith("page:")) this.movePageToSection(d.slice(5), sec.id);
+      };
+      this.side.appendChild(row);
+    });
+    this.side.appendChild(h("div", { cls: "bd-side-h nb-pages-h" }, `صفحات «${cur?.name || ""}»`, h("button", { title: "صفحة جديدة في آخر المقطع", onclick: () => this.addPage({}, this.total) }, "＋")));
+    this.vis().forEach((p, i) => {
+      const row = h("div", { cls: "bd-card nb-page", draggable: "true", "data-n": i + 1, "data-id": p.id, title: "اضغط للانتقال — نقر مزدوج لتغيير العنوان — الزر الأيمن للخيارات — اسحب للترتيب أو إلى مقطع آخر" },
+        h("b", {}, p.name || "بدون عنوان"), h("small", {}, fmtDate(p.d)));
+      row.onclick = () => this.goTo(i + 1);
+      row.ondblclick = () => { this.goTo(i + 1, true); this.rename(); };
+      row.oncontextmenu = e => { e.preventDefault(); this.goTo(i + 1, true); this.pageMenu(e.clientX, e.clientY); };
+      row.ondragstart = e => { dragPage = i; e.dataTransfer.setData("text/plain", "page:" + p.id); };
+      row.ondragover = e => e.preventDefault();
+      row.ondrop = e => { e.preventDefault(); const d = e.dataTransfer.getData("text/plain"); if (d.startsWith("page:")) { const from = this.pageOf(d.slice(5)); if (from >= 0 && from !== i) this.movePage(from, i); } };
+      this.side.appendChild(row);
+    });
+    this.markSide();
+  },
+  selectSection(id) {
+    if (!this.nb() || this.meta.sec === id) return;
+    Ink.flush();
+    this.meta.sec = id; this.cur = 1;
+    this.changed();
+    this.goTo(1, true);
+  },
+  addSection(name) {
+    const m = this.meta, c = this.curPage() || { w: 595, h: 842, bg: "white", pat: "lines" };
+    name = name ?? prompt("اسم المقطع:", "مقطع " + (m.sections.length + 1));
+    if (name == null) return null;
+    const sec = { id: sid(), name: name.trim() || "مقطع " + (m.sections.length + 1), color: SEC_COLORS[m.sections.length % SEC_COLORS.length][0] };
+    const at = m.sections.indexOf(this.section()) + 1;
+    m.sections.splice(at, 0, sec);
+    m.pages.push({ id: pid(), w: c.w, h: c.h, bg: c.bg, pat: c.pat, name: "", sec: sec.id, d: Date.now() });
+    m.sec = sec.id; this.cur = 1;
+    this.changed();
+    this.goTo(1, true);
+    return sec;
+  },
+  renameSection(id) {
+    const sec = this.meta.sections.find(x => x.id === id); if (!sec) return;
+    const n = prompt("اسم المقطع:", sec.name || "");
+    if (n != null && n.trim()) { sec.name = n.trim(); this.changed(); }
+  },
+  sectionMenu(id, x, y) {
+    const m = this.meta, i = m.sections.findIndex(s2 => s2.id === id), sec = m.sections[i];
+    this.menu({ x, y }, [["✎ إعادة التسمية…", () => this.renameSection(id)],
+      ...SEC_COLORS.map(([c, l]) => [(sec.color === c ? "✓ " : "● ") + "لون " + l, () => { sec.color = c; this.changed(); }]),
+      null, ["▲ إلى الأعلى", () => this.moveSection(i, i - 1)], ["▼ إلى الأسفل", () => this.moveSection(i, i + 1)],
+      null, ["🗑 احذف المقطع بصفحاته", () => this.removeSection(id)]]);
+  },
+  moveSection(from, to) {
+    const L = this.meta.sections;
+    if (to < 0 || to >= L.length || from === to) return;
+    const [x] = L.splice(from, 1); L.splice(to, 0, x);
+    this.changed();
+  },
+  removeSection(id) {
+    const m = this.meta;
+    if (m.sections.length <= 1) { alert("يجب أن يبقى مقطع واحد على الأقل"); return; }
+    const sec = m.sections.find(x => x.id === id), pages = m.pages.filter(p => p.sec === id);
+    if (!confirm(`هل تريد حذف المقطع «${sec.name}» بكل صفحاته (${pages.length})؟ لا يمكن التراجع عن ذلك.`)) return;
+    for (const p of pages) Ink.clearPage(p.id, "all");
+    m.pages = m.pages.filter(p => p.sec !== id);
+    const i = m.sections.indexOf(sec);
+    m.sections.splice(i, 1);
+    if (m.sec === id) { m.sec = m.sections[Math.max(0, i - 1)].id; this.cur = 1; }
+    this.changed();
+    this.goTo(this.cur, true);
+  },
+  /** نقل صفحة لمقطع تاني (بتروح آخره). */
+  movePageToSection(pageId, secId) {
+    const m = this.meta, p = m.pages.find(x => x.id === pageId);
+    if (!p || p.sec === secId) return;
+    if (m.pages.filter(x => x.sec === p.sec).length <= 1) { alert("هذه آخر صفحة في مقطعها — أضف صفحة أخرى أولًا أو احذف المقطع"); return; }
+    m.pages.splice(m.pages.indexOf(p), 1);
+    const last = m.pages.map(x => x.sec).lastIndexOf(secId);
+    p.sec = secId;
+    m.pages.splice(last + 1, 0, p);
+    this.cur = Math.min(this.cur, this.total);
+    this.changed();
+  },
+
   menu(anchor, items) {
     document.querySelector(".pe-menu")?.remove();
     const m = h("div", { cls: "pe-menu" }, items.map(x => x ? h("button", { onclick: () => { m.remove(); x[1](); } }, x[0]) : h("hr")));
@@ -230,7 +398,8 @@ export const Board = {
     setTimeout(() => document.addEventListener("pointerdown", function off(e) { if (!m.contains(e.target)) { m.remove(); document.removeEventListener("pointerdown", off, true); } }, true), 0);
   },
   pageMenu(x, y) {
-    this.menu({ x, y }, [["✎ اسم الصفحة…", () => this.rename()], ["⧉ كرر", () => this.duplicate()], ["▲ إلى الأعلى", () => this.movePage(this.cur - 1, this.cur - 2)], ["▼ إلى الأسفل", () => this.movePage(this.cur - 1, this.cur)],
+    const moves = this.nb() ? this.meta.sections.filter(sc => sc.id !== this.meta.sec).map(sc => ["↪ انقلها إلى «" + sc.name + "»", () => this.movePageToSection(this.curPage().id, sc.id)]) : [];
+    this.menu({ x, y }, [[this.nb() ? "✎ عنوان الصفحة…" : "✎ اسم الصفحة…", () => this.rename()], ...moves, ["⧉ كرر", () => this.duplicate()], ["▲ إلى الأعلى", () => this.movePage(this.cur - 1, this.cur - 2)], ["▼ إلى الأسفل", () => this.movePage(this.cur - 1, this.cur)],
       null, ["🗑 امسح الصفحة", () => this.removePage()]]);
   },
 
@@ -245,8 +414,9 @@ export const Board = {
   addPage(opts = {}, at) {
     const c = this.curPage() || { w: 842, h: 595, bg: "white", pat: "none" };
     const p = { id: pid(), w: opts.w || c.w, h: opts.h || c.h, bg: opts.bg || c.bg, pat: opts.pat ?? c.pat, name: opts.name || "" };
+    if (this.nb()) { p.sec = this.meta.sec; p.d = Date.now(); }
     const i = at ?? this.cur;
-    this.meta.pages.splice(i, 0, p);
+    this.insertVis(i, p);
     this.changed();
     this.goTo(i + 1, true);
     return p;
@@ -259,27 +429,29 @@ export const Board = {
     this.refreshSoon();
   },
   removePage() {
-    if (this.total <= 1) { alert("يجب أن تبقى صفحة واحدة على الأقل"); return; }
+    if (this.total <= 1) { alert(this.nb() ? "يجب أن تبقى صفحة واحدة في المقطع على الأقل — لحذف المقطع كله انقر عليه بالزر الأيمن" : "يجب أن تبقى صفحة واحدة على الأقل"); return; }
     const c = this.curPage();
     if (Ink.doc.items(c.id).length && !confirm("هل تريد مسح هذه الصفحة بما عليها؟")) return;
     Ink.clearPage(c.id, "all");
-    this.meta.pages.splice(this.cur - 1, 1);
+    this.meta.pages.splice(this.meta.pages.indexOf(c), 1);
     this.cur = Math.min(this.cur, this.total);
     this.changed();
     this.goTo(this.cur, true);
   },
   movePage(from, to) {
     if (to < 0 || to >= this.total || from === to) return;
-    const [p] = this.meta.pages.splice(from, 1);
-    this.meta.pages.splice(to, 0, p);
+    const V = this.vis(), a = V[from], b = V[to], all = this.meta.pages;
+    all.splice(all.indexOf(a), 1);
+    const ib = all.indexOf(b);
+    all.splice(to > from ? ib + 1 : ib, 0, a);
     this.changed();
     this.goTo(to + 1, true);
   },
   setBg(bg) { this.curPage().bg = bg; this.changed(); this.goTo(this.cur, true); },
   setPat(pat) { this.curPage().pat = pat; this.changed(); this.goTo(this.cur, true); },
-  bgAll() { const c = this.curPage(); for (const p of this.meta.pages) { p.bg = c.bg; p.pat = c.pat; } this.changed(); this.goTo(this.cur, true); },
+  bgAll(sec) { const c = this.curPage(); for (const p of sec ? this.vis() : this.meta.pages) { p.bg = c.bg; p.pat = c.pat; } this.changed(); this.goTo(this.cur, true); },
   setSize(w, hh) { const c = this.curPage(); c.w = w; c.h = hh; this.changed(); this.goTo(this.cur, true); },
-  rename() { const c = this.curPage(); const n = prompt("اسم الصفحة:", c.name || ""); if (n != null) { c.name = n.trim(); this.changed(); } },
+  rename() { const c = this.curPage(); const n = prompt(this.nb() ? "عنوان الصفحة:" : "اسم الصفحة:", c.name || ""); if (n != null) { c.name = n.trim(); this.changed(); this.goTo(this.cur, true); } },
 
   /** قوالب: عناصر شرح عادية (تتحرك وتتعدل وتتمسح). */
   template(kind) {
@@ -343,7 +515,8 @@ export const Board = {
         const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
         await pg.render({ canvasContext: x, viewport: vp }).promise;
         const p = { id: pid(), w: Math.round(v.width), h: Math.round(v.height), bg: "white", pat: "none", name: "ص " + n };
-        this.meta.pages.splice(at + n - 1, 0, p);
+        if (this.nb()) { p.sec = this.meta.sec; p.d = Date.now(); }
+        this.insertVis(at + n - 1, p);
         Ink.edit(p.id, () => [{ id: iid(), t: "image", img: c.toDataURL("image/jpeg", 0.85), x: 0, y: 0, w: W, h: W * v.height / v.width, ly: "p", lock: 1, u: Date.now() }]);
         pg.cleanup();
       }
@@ -355,18 +528,19 @@ export const Board = {
   // ---------------------------------------------------------------- التصدير
   async exportPdf(which, send) {
     Ink.flush();
-    const pages = which === "cur" ? [this.curPage()] : this.meta.pages;
-    const save = await this.pick("save-pdf", (this.meta.title || "سبورة") + (which === "cur" ? ` — صفحة ${this.cur}` : "") + ".pdf");
+    const pages = which === "cur" ? [this.curPage()] : which === "sec" ? this.vis() : this.meta.pages;
+    const base = this.meta.title || (this.nb() ? "دفتر" : "سبورة");
+    const save = await this.pick("save-pdf", base + (which === "cur" ? ` — ${this.nb() && this.curPage().name ? this.curPage().name : "صفحة " + this.cur}` : which === "sec" ? ` — ${this.section()?.name || ""}` : "") + ".pdf");
     if (!save) return null;
     this.post({ t: "cmd", name: "board-busy", page: this.cur });
     try {
       const plans = [];
       for (const p of pages) {
         const vp = { width: p.w, height: p.h, transform: [1, 0, 0, -1, 0, p.h] };
-        const items = Ink.doc.items(p.id).map(it => darkItem(it, p));
+        const items = Ink.doc.items(p.id).map(it => darkItem(it, p)).concat(this.nb() ? nbHeader(p) : []);
         plans.push({ w: p.w, h: p.h, bg: (BGS[p.bg] || BGS.white)[0], pat: p.pat, dark: isDark(p.bg), ...(await pagePlan(items, vp)) });
       }
-      const r = await runJob({ job: "board", save, plans, title: this.meta.title || "سبورة" });
+      const r = await runJob({ job: "board", save, plans, title: base });
       this.post({ t: "cmd", name: send ? "board-send" : "board-exported", page: r.pages });
       return r;
     } catch (e) { this.post({ t: "log", message: "board export: " + e.message }); alert("فشل التصدير: " + e.message); return null; }
@@ -397,6 +571,15 @@ export async function boardPlans(meta, inkJson) {
     plans.push({ w: p.w, h: p.h, bg: (BGS[p.bg] || BGS.white)[0], pat: p.pat, dark: isDark(p.bg), ...(await pagePlan(items, vp)) });
   }
   return plans;
+}
+
+/** رأس صفحة الدفتر في الـ PDF: العنوان والتاريخ والهامش الأحمر (على الشاشة بيترسموا بـ CSS). */
+function nbHeader(p) {
+  const H = W * p.h / p.w, dark = isDark(p.bg), t = Date.now(), mx = W * (1 - 0.085);
+  const out = [{ id: "nbm", t: "shape", k: "line", x1: mx, y1: 0, x2: mx, y2: H, c: dark ? "#ff8787" : "#e8868a", sw: 1.2, ly: "p", u: t }];
+  if (p.name) out.push({ id: "nbt", t: "text", x: W * 0.32, y: W * 0.022, w: W * 0.58, h: 60, text: p.name, size: 38, bold: true, font: "Segoe UI", c: dark ? "#a5d8ff" : "#1c3d6e", align: "start", dir: "rtl", ly: "p", u: t });
+  if (p.d) out.push({ id: "nbd", t: "text", x: W * 0.04, y: W * 0.034, w: W * 0.3, h: 36, text: fmtDate(p.d), size: 20, font: "Segoe UI", c: dark ? "#ced4da" : "#868e96", align: "end", dir: "rtl", ly: "p", u: t });
+  return out;
 }
 
 /** على سبورة غامقة: ألوان العنصر الغامقة تبقى فاتحة (زي ما بتبان على الشاشة). */

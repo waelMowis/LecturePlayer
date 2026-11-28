@@ -403,7 +403,7 @@ internal sealed partial class MainForm
     /// «＋ إضافة» (وInsert): أول حاجة دايمًا «موضوع جديد»، وبعدها المستويات اللي تحت الحاجة المحددة بالترتيب —
     /// موضوع ← مصدر ← كورس ← محاضرة ← فيديوهات.
     /// </summary>
-    internal void BuildAddMenu(object? selection, ToolStripItemCollection items)
+    internal void BuildAddMenu(object? selection, ToolStripItemCollection items, bool boards = true)
     {
         // السياق: الموضوع والمصدر والكورس والمحاضرة اللي إنت جواهم
         var group = selection switch { LectureGroup g => g, VideoItem v => _library.FindGroupOf(v), _ => null };
@@ -422,7 +422,7 @@ internal sealed partial class MainForm
         if (topic == null)
         {
             items.Add(CourseSourcesMenu("➕  دورة (بلا موضوع)", null, null));
-            AddShelfItems(items);
+            AddShelfItems(items, boards);
             return;
         }
         items.Add(Sep());
@@ -445,15 +445,15 @@ internal sealed partial class MainForm
             items.Add(MenuItem($"➕  فيديوهات من يوتيوب في «{group.Name}»…", () => AddUrlsDialog(null, group)));
             items.Add(MenuItem($"➕  مرفقات في «{group.Name}»…", () => AddAttachmentFiles(group)));
         }
-        AddShelfItems(items);
+        AddShelfItems(items, boards);
     }
 
     /// <summary>كتاب واحد أو عرض أو سبورة من أي مكان (مش لازم فولدر كامل) — بيروحوا لرف الكتب.</summary>
-    private void AddShelfItems(ToolStripItemCollection items)
+    private void AddShelfItems(ToolStripItemCollection items, bool boards = true)
     {
         items.Add(Sep());
         items.Add(MenuItem("➕  كتاب (PDF / EPUB) — ملف واحد أو أكثر…", () => AddBooksDialog(SelectedShelfContext())));
         items.Add(MenuItem("➕  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), "Ctrl+Shift+P"));
-        items.Add(MenuItem("➕  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())));
+        if (boards) items.Add(MenuItem("➕  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())));
     }
 }

@@ -120,7 +120,7 @@ internal partial class MainForm
         var g = SelectedGroup();
         Add("➕  سبورة جديدة…", () => NewBoardDialog());
         if (g != null) Add($"➕  سبورة للمحاضرة «{(g.Name.Length > 30 ? g.Name[..30] + "…" : g.Name)}»…", () => OpenLectureBoard(g));
-        var recent = _library.Books.Where(b => b.IsBoard).OrderByDescending(b => b.LastOpenedUtc ?? b.AddedUtc).Take(8).ToList();
+        var recent = _library.Books.Where(b => b.IsBoard && !b.IsNotebook).OrderByDescending(b => b.LastOpenedUtc ?? b.AddedUtc).Take(8).ToList();
         if (recent.Count > 0)
         {
             m.Items.Add(new ToolStripSeparator());
@@ -128,6 +128,9 @@ internal partial class MainForm
         }
         m.Items.Add(new ToolStripSeparator());
         Add("📂  كل السبورات (رف «سبوراتي»)", ShowBoardsShelf);
+        m.Items.Add(new ToolStripSeparator());
+        Add("➕  دفتر جديد…", () => NewNotebookDialog());
+        Add("📓  كل الدفاتر (رف «دفاتري»)", ShowNotebooksShelf);
         Add("📽  افتح عرض PowerPoint…", () => AddPresentationsDialog(null));
         Add("🖊  أقلام على الشاشة (Ctrl+Shift+F8)", ToggleScreenInk);
         m.Show(anchor, new Point(-4, 0), ToolStripDropDownDirection.Left);   // جنب الزرار ناحية الشاشة (الشريط على اليمين)

@@ -194,3 +194,146 @@ internal partial class MainForm
         OpenBook(b);
     }
 }
+
+/// <summary>
+/// الدفاتر وقائمة «السبورة»: الدفتر سبورة بمقاطع ملونة وصفحات A4 (نفس القارئ والشرح والتصدير والمزامنة)
+/// في رف «دفاتري». وقائمة «السبورة» في الشريط العلوي هي المكان الوحيد لأوامر السبورات والدفاتر فيه.
+/// </summary>
+internal partial class MainForm
+{
+    private const string NotebooksShelfKind = "notebooks";
+    private const string NotebooksFolderName = "دفاتري";
+    private string NotebooksDir => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(_libraryPath)) ?? ".", NotebooksFolderName);
+    private ToolStripMenuItem _boardMenu = null!, _boardQuick = null!;
+    private static readonly string[] SectionColors = { "#1971c2", "#e03131", "#2f9e44", "#f08c00", "#7048e8", "#0c8599", "#d6336c", "#5c940d" };
+
+    private Shelf NotebooksShelf()
+    {
+        var s = _library.Shelves.FirstOrDefault(x => x.Kind == NotebooksShelfKind);
+        if (s != null) return s;
+        s = AddShelf(NotebooksFolderName, null, checkpoint: false);
+        s.Kind = NotebooksShelfKind;
+        s.IconKey = "notebook";
+        s.TouchInfo();
+        return s;
+    }
+
+    /// <summary>للفحص: اسم الدفتر وخلفيته من غير شباك.</summary>
+    internal (string Name, int Paper)? SmokeNotebookChoice;
+    private static readonly (string Bg, string Pat, string Name)[] NotebookPapers =
+        { ("white", "lines", "أبيض بسطور"), ("cream", "lines", "ورق كريمي بسطور"), ("white", "grid", "مربعات (رياضيات)"), ("white", "none", "أبيض فارغ") };
+
+    /// <summary>دفتر جديد: مقطع أول وصفحة A4 أولى.</summary>
+    internal Book? NewNotebookDialog()
+    {
+        if (!EnsureLibrary()) return null;
+        string name = "دفتر " + DateTime.Now.ToString("d MMMM");
+        int paper = 0;
+        string section = "المقطع الأول";
+        if (SmokeNotebookChoice is { } sc) (name, paper) = sc;
+        else
+        {
+            using var kit = new FormKit("دفتر جديد", 520);
+            var nameBox = kit.Row("اسم الدفتر", FormKit.Style(new TextBox { Text = name, RightToLeft = RightToLeft.Yes }));
+            var secBox = kit.Row("أول مقطع", FormKit.Style(new TextBox { Text = section, RightToLeft = RightToLeft.Yes }));
+            var paperBox = kit.Row("الورق", FormKit.Style(new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
+            foreach (var x in NotebookPapers) paperBox.Items.Add(x.Name);
+            paperBox.SelectedIndex = 0;
+            kit.Note("الدفتر صفحات A4 مثل الكراسة، مقسّمة إلى مقاطع (مادة أو فصل أو وحدة). تضيف المقاطع والصفحات وتسمّيها وترتّبها من العمود الجانبي.", 40, Theme.Muted);
+            kit.Buttons("افتح الدفتر");
+            if (SmokeShowDialog(kit, "notebook-new")) return null;
+            if (kit.Show(this) != DialogResult.OK) return null;
+            name = string.IsNullOrWhiteSpace(nameBox.Text) ? name : nameBox.Text.Trim();
+            if (!string.IsNullOrWhiteSpace(secBox.Text)) section = secBox.Text.Trim();
+            paper = paperBox.SelectedIndex;
+        }
+        var (bg, pat, _) = NotebookPapers[Math.Clamp(paper, 0, NotebookPapers.Length - 1)];
+        string sid = "s" + Guid.NewGuid().ToString("N")[..8];
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var meta = new JsonObject
+        {
+            ["v"] = 1, ["kind"] = "notebook", ["title"] = name, ["u"] = now, ["sec"] = sid,
+            ["sections"] = new JsonArray(new JsonObject { ["id"] = sid, ["name"] = section, ["color"] = SectionColors[0] }),
+            ["pages"] = new JsonArray(new JsonObject
+            {
+                ["id"] = "p" + Guid.NewGuid().ToString("N")[..10], ["w"] = 595, ["h"] = 842, ["bg"] = bg, ["pat"] = pat, ["name"] = "", ["sec"] = sid, ["d"] = now
+            })
+        };
+        string safe = new string(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c).ToArray()).Trim();
+        if (safe.Length > 80) safe = safe[..80];
+        Directory.CreateDirectory(NotebooksDir);
+        string file = Path.Combine(NotebooksDir, (safe.Length > 0 ? safe : "دفتر") + BookFiles.NotebookExtension);
+        for (int i = 2; File.Exists(file); i++) file = Path.Combine(NotebooksDir, $"{safe} ({i}){BookFiles.NotebookExtension}");
+        File.WriteAllText(file, meta.ToJsonString(), new UTF8Encoding(false));
+        Checkpoint("دفتر جديد");
+        var b = new Book { Title = name, Path = file, LocalPath = file, ShelfId = NotebooksShelf().Id, IconKey = "notebook", PageCount = 1 };
+        b.TouchInfo();
+        _library.Books.Add(b);
+        MarkDirty();
+        RebuildShelf();
+        OpenBook(b);
+        return b;
+    }
+
+    private IEnumerable<Book> RecentBoards(bool notebooks, int n = 8) =>
+        _library.Books.Where(b => b.IsBoard && b.IsNotebook == notebooks && File.Exists(b.LocalPath))
+            .OrderByDescending(b => b.LastOpenedUtc ?? b.AddedUtc).Take(n);
+
+    /// <summary>زرار «سبورة» في الشريط العلوي: آخر سبورة، أو سبورة جديدة لو مفيش.</summary>
+    internal void OpenLastBoardOrNew()
+    {
+        if (!EnsureLibrary()) return;
+        if (RecentBoards(false, 1).FirstOrDefault() is { } b) OpenBook(b); else NewBoardDialog(SelectedGroup());
+    }
+
+    private void ShowNotebooksShelf()
+    {
+        var shelf = NotebooksShelf();
+        RebuildTree();
+        if (_split.Panel2Collapsed) ToggleSidePanel();
+        ShowShelf(true);
+        if (ShelfNodeOf(shelf) is { } n) { n.Expand(); SelectShelfItem(shelf); }
+    }
+
+    /// <summary>قائمة «السبورة»: السبورات والدفاتر (والآخر منها بيتحدّث كل ما تتفتح).</summary>
+    private ToolStripMenuItem BuildBoardMenu()
+    {
+        var m = new ToolStripMenuItem("السبورة") { ForeColor = Theme.Text };
+        var lecture = Item("➕  سبورة للمحاضرة المحددة…", () => { if (SelectedGroup() is { } g) OpenLectureBoard(g); });
+        var recentBoards = new ToolStripMenuItem("🕘  آخر السبورات") { ForeColor = Theme.Text };
+        var recentBooks = new ToolStripMenuItem("🕘  آخر الدفاتر") { ForeColor = Theme.Text };
+        recentBoards.DropDownItems.Add(new ToolStripMenuItem("…"));
+        recentBooks.DropDownItems.Add(new ToolStripMenuItem("…"));
+        m.DropDownItems.AddRange(new ToolStripItem[]
+        {
+            Item("➕  سبورة جديدة…", () => NewBoardDialog(SelectedGroup()), Keys.Control | Keys.Alt | Keys.B),
+            lecture,
+            recentBoards,
+            Item("📂  كل السبورات (رف «سبوراتي»)", () => { if (EnsureLibrary()) ShowBoardsShelf(); }),
+            new ToolStripSeparator(),
+            Item("➕  دفتر جديد…", () => NewNotebookDialog(), Keys.Control | Keys.Alt | Keys.N),
+            recentBooks,
+            Item("📂  كل الدفاتر (رف «دفاتري»)", () => { if (EnsureLibrary()) ShowNotebooksShelf(); }),
+            new ToolStripSeparator(),
+            Item("📽  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), display: "Ctrl+Shift+P"),
+            Item("🖊  أقلام على الشاشة (فوق أي برنامج)", ToggleScreenInk, display: "Ctrl+Shift+F8")
+        });
+        void Fill(ToolStripMenuItem host, bool notebooks)
+        {
+            foreach (var old in host.DropDownItems.Cast<ToolStripItem>().ToList()) old.Dispose();
+            host.DropDownItems.Clear();
+            var list = _library == null ? new List<Book>() : RecentBoards(notebooks).ToList();
+            if (list.Count == 0) host.DropDownItems.Add(new ToolStripMenuItem("(لا يوجد بعد)") { Enabled = false, ForeColor = Theme.Muted });
+            foreach (var b in list) { var bb = b; host.DropDownItems.Add(Item((notebooks ? "📓  " : "🧑‍🏫  ") + (b.Title.Length > 45 ? b.Title[..45] + "…" : b.Title), () => OpenBook(bb))); }
+        }
+        m.DropDownOpening += (_, _) =>
+        {
+            var g = _library == null ? null : SelectedGroup();
+            lecture.Enabled = g != null;
+            lecture.Text = g != null ? $"➕  سبورة للمحاضرة «{(g.Name.Length > 30 ? g.Name[..30] + "…" : g.Name)}»…" : "➕  سبورة للمحاضرة المحددة… (اختر محاضرة أولًا)";
+            Fill(recentBoards, false);
+            Fill(recentBooks, true);
+        };
+        return m;
+    }
+}

@@ -32,6 +32,7 @@ internal partial class MainForm
         bool teacher = r is "teacher" or "both", student = r is "student" or "both";
         if (_activityClasses != null) _activityClasses.Visible = teacher;
         if (_activityBoard != null) _activityBoard.Visible = r != "student";
+        if (_boardQuick != null) _boardQuick.Available = r != "student";
         if (_activityRecord != null) _activityRecord.Visible = r != "student";
         if (_activityReview != null) _activityReview.Visible = student;
         if (_activityStats != null) _activityStats.Visible = r == "student";

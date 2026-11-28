@@ -778,7 +778,7 @@ internal sealed partial class MainForm : Form
         {
             foreach (var old in addHere.DropDownItems.Cast<ToolStripItem>().ToList()) old.Dispose();
             addHere.DropDownItems.Clear();
-            BuildAddMenu(_tree.SelectedNode?.Tag, addHere.DropDownItems);
+            BuildAddMenu(_tree.SelectedNode?.Tag, addHere.DropDownItems, boards: false);   // السبورات في قائمة «السبورة» بس
         };
         addHere.DropDownItems.Add(new ToolStripMenuItem("…"));
         var sepAll = Item("فواصل بين كل الموضوعات", ToggleAllTopicSeparators);
@@ -801,13 +801,12 @@ internal sealed partial class MainForm : Form
                 Item("دورة فارغة…", () => AddCourse(), Keys.Control | Keys.Shift | Keys.G),
                 Item("محاضرة فارغة في الدورة المحددة…", () => AddGroup(), Keys.Control | Keys.G),
                 Item("فيديوهات للمحاضرة المحددة…", () => AddVideosDialog(SelectedGroup()), Keys.Control | Keys.Shift | Keys.A)),
-            SubMenu("📚  الكتب والعروض والسبورات",
+            SubMenu("📚  الكتب والعروض",
                 Item("📖  كتاب (PDF / EPUB) — ملف واحد أو أكثر…", () => AddBooksDialog(SelectedShelfContext())),
                 Item("📁  مجلد كتب كامل (يصبح رفًا)…", () => AddBooksFromFolderDialog(SelectedShelfContext())),
                 Item("🔗  كتاب من رابط (Google Drive / Dropbox / OneDrive)…", () => AddBookLinksDialog(SelectedShelfContext())),
                 new ToolStripSeparator(),
                 Item("📽  عرض PowerPoint…", () => AddPresentationsDialog(SelectedShelfContext()), display: "Ctrl+Shift+P"),
-                Item("🧑‍🏫  سبورة جديدة…", () => NewBoardDialog(SelectedGroup())),
                 new ToolStripSeparator(),
                 Item("رف جديد…", () => AddShelfDialog(null)),
                 Item("رف مشترك من شخص آخر (ملف ZIP من «مسار»)…", () => ReceiveSharedShelfDialog(SelectedShelfContext())),
@@ -959,7 +958,7 @@ internal sealed partial class MainForm : Form
         var tools = SubMenu("الأدوات",
             Item("🔎  ابحث عن أمر…", ShowCommandPalette, display: "Ctrl+Shift+Space"),
             new ToolStripSeparator());
-        foreach (var it in TeachingToolItems()) tools.DropDownItems.Add(it);
+        foreach (var it in TeachingToolItems()) if (!it.Text!.Contains("سبورة")) tools.DropDownItems.Add(it);   // السبورة لها قائمتها
         // معمل الكود هنا بالاختصار الحقيقي (Ctrl+L)
         var lab = tools.DropDownItems.OfType<ToolStripMenuItem>().Last();
         lab.ShortcutKeyDisplayString = null; lab.ShortcutKeys = Keys.Control | Keys.L;
@@ -972,8 +971,11 @@ internal sealed partial class MainForm : Form
         tools.DropDownItems.Add(smart);
         tools.DropDownItems.Add(online);
 
-        // 7 قوايم بدل 9: ملف · تحرير · المكتبة · التشغيل · عرض · الأدوات · مساعدة
-        _menu.Items.AddRange(new ToolStripItem[] { file, edit, library, play, view, tools, help });
+        // ملف · تحرير · المكتبة · السبورة · التشغيل · عرض · الأدوات · مساعدة — وبعدها زرار «سبورة» السريع
+        _boardMenu = BuildBoardMenu();
+        _boardQuick = new ToolStripMenuItem("🧑‍🏫  سبورة") { ForeColor = Theme.Text, ToolTipText = "افتح آخر سبورة (أو سبورة جديدة إن لم توجد) — وكل أوامر السبورات والدفاتر في قائمة «السبورة»", Margin = new Padding(14, 0, 0, 0) };
+        _boardQuick.Click += (_, _) => OpenLastBoardOrNew();
+        _menu.Items.AddRange(new ToolStripItem[] { file, edit, library, _boardMenu, play, view, tools, help, _boardQuick });
     }
 
     private static ToolStripMenuItem SubMenu(string text, params ToolStripItem[] items)

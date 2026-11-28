@@ -209,3 +209,21 @@ body.present .bd-scroll { background: #000; }
 
 /* الشريط الرأسي على الشمال مايغطيش طرف الصفحة/السبورة */
 body.inkbar-left .bd-pages { padding-left: 80px; }
+
+/* ===================== الدفتر: مقاطع وصفحات A4 ===================== */
+.bd-side.nb { width: 190px; gap: 4px; }
+.nb-sec { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 7px; cursor: pointer; color: #dee2e6; font-size: 13px; border-inline-start: 4px solid var(--sc); background: #2b2d31; }
+.nb-sec:hover { background: #34373c; }
+.nb-sec.on { background: color-mix(in srgb, var(--sc) 35%, #2b2d31); color: #fff; }
+.nb-sec.drop { outline: 2px dashed var(--sc); }
+.nb-sec .nb-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sc); flex: none; }
+.nb-sec b { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb-sec small { color: #a0a6ac; font-size: 11px; }
+.nb-pages-h { margin-top: 10px; }
+.bd-card.nb-page { display: flex; flex-direction: column; gap: 1px; padding: 5px 8px; border-radius: 6px; background: #26282c; }
+.bd-card.nb-page b { font-size: 12.5px; color: #e9ecef; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-card.nb-page small { font-size: 10.5px; color: #868e96; }
+.bd-page.nb::before { content: attr(data-title); position: absolute; top: calc(var(--bw) * 0.022); right: calc(var(--bw) * 0.1); left: calc(var(--bw) * 0.33); font: 700 calc(var(--bw) * 0.038) "Segoe UI", Tahoma, sans-serif; color: #1c3d6e; direction: rtl; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.bd-page.nb::after { content: attr(data-date); position: absolute; top: calc(var(--bw) * 0.036); left: calc(var(--bw) * 0.04); font: calc(var(--bw) * 0.02) "Segoe UI", Tahoma, sans-serif; color: #868e96; direction: rtl; pointer-events: none; }
+.bd-page.nb.dark::before { color: #a5d8ff; }
+.bd-page.nb.dark::after { color: #ced4da; }

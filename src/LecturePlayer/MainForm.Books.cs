@@ -326,7 +326,7 @@ internal sealed partial class MainForm
         bool current = b == _currentBook && ReaderShown;
         n.Text = Modern.Bidi(b.Title);
         string meta = b.IsBoard ? $"{Math.Max(1, b.PageCount)} ص" + InkMeta(b) : (b.IsDone && b.PageCount > 0 ? $"{b.PageCount} ص" : b.PageCount > 0 ? $"{Math.Max(1, b.LastPage)}/{b.PageCount}" : b.IsOnline ? "🌐" : "جديد") + InkMeta(b);
-        if (b.IsBoard) { _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, false, current, -1)); n.ImageKey = n.SelectedImageKey = ShelfImageKey("book", "whiteboard", b.IconKey, b.ColorHex, Theme.CourseColor, false); n.ForeColor = current ? Theme.Accent : CustomNameColor(b.ColorHex) ?? Theme.Text; n.NodeFont = null; n.Text = Modern.Bidi(b.Title); n.ToolTipText = $"{b.Title}\nسبورة · {Math.Max(1, b.PageCount)} صفحة"; return; }
+        if (b.IsBoard) { _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, false, current, -1)); n.ImageKey = n.SelectedImageKey = ShelfImageKey("book", b.IsNotebook ? "notebook" : "whiteboard", b.IconKey, b.ColorHex, Theme.CourseColor, false); n.ForeColor = current ? Theme.Accent : CustomNameColor(b.ColorHex) ?? Theme.Text; n.NodeFont = null; n.Text = Modern.Bidi(b.Title); n.ToolTipText = $"{b.Title}\n{(b.IsNotebook ? "دفتر" : "سبورة")} · {Math.Max(1, b.PageCount)} صفحة"; return; }
         _shelfTree.SetRow(n, new LectureTreeView.RowInfo(meta, null, b.IsDone, current, b.IsStarted && !b.IsDone ? b.Fraction : -1));
         bool missing = !b.IsOnline && !FileCache.Exists(b.LocalPath);
         n.ImageKey = n.SelectedImageKey = missing ? "missing" : ShelfImageKey("book", b.IsPresentation ? "slide_text" : "book_open", b.IconKey, b.ColorHex, Theme.CourseColor, b.IsDone);
