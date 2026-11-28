@@ -69,6 +69,7 @@ internal partial class MainForm
         Check(Js("String(document.body.classList.contains('sci-on'))") == "false", "editor closed");
 
         RunScienceShapeChecks(Js, Until);
+        RunScienceLibraryChecks(Js, Until);
 
         // محفوظة في ملف الشرح، وبعدين بنشيلها
         Js("masar.inkFlush()");
@@ -140,5 +141,65 @@ internal partial class MainForm
             (()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,it=I.doc.items(key).find(i=>i.id===window.__sci.ids.at(-6));return String(!document.querySelector('.sci-dlg')&&it.sci.p.level==='85')})()
             """) == "true", 8000), "lab item edited in place");
         Js("masar.sciTest().Sci.close(); 'ok'");
+    }
+
+    /// <summary>
+    /// المرحلة الثالثة: مكتبة الرسوم — الفهرس والبحث بالعربي، والصور المصغرة والرسوم بتتنزل عن طريق البرنامج
+    /// من مصادرها المسموحة بس وتتحفظ، وذكر المصدر لـ CC BY، وأسهم التسمية الفارغة. PhyloPic أونلاين: بنسجل النتيجة بس.
+    /// </summary>
+    private void RunScienceLibraryChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("science library: " + what); }
+        Js("""
+            window.__lib=null;(async()=>{try{const L=await import('./sci-lib.js');
+            const n=async q=>(await L.search(q)).items.length;
+            const r={heart:await n('قلب'),plant:await n('خلية نباتية'),bact:await n('بكتير'),flask:await n('دورق'),en:await n('mitochondria')};
+            const d=await L.loadLib();r.total=d.list.length;
+            const t=await fetch('/scipack/gh/waelMowis/LecturePlayer/master/packs/thumbs/v1/'+encodeURIComponent(d.sheets[0]));r.thumb=t.status+':'+(await t.blob()).size;
+            r.forbid=(await fetch('/scipack/gh/evil/repo/main/x.svg')).status+','+(await fetch('/scipack/gh/duerrsimon/bioicons/../../x')).status;
+            window.__lib=r}catch(e){window.__lib={err:String(e&&e.message||e)}}})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__lib)") == "true", 60_000), "index + thumbs");
+        string lib = Js("JSON.stringify(window.__lib)");
+        Console.WriteLine("SMOKE science library: " + lib);
+        Check(Js("""(()=>{const r=window.__lib;return String(!r.err&&r.total>3000&&r.heart>5&&r.plant>0&&r.bact>5&&r.flask>3&&r.en>0&&/^200:\d{4,}/.test(r.thumb)&&/^40\d,40\d$/.test(r.forbid))})()""") == "true", "library: " + lib);
+
+        // الإدراج من اللوحة: رسم CC BY (بذكر المصدر) ورسم CC0، وأسهم تسمية
+        Js("masar.sciTest().Sci.open('bio'); 'ok'");
+        Check(Until(() => Js("String(document.querySelectorAll('.sci-panel .sci-lib-it').length>=10)") == "true", 20_000), "library grid in the biology tab");
+        Js("""
+            window.__pic=null;(async()=>{try{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,L=await import('./sci-lib.js');
+            const key=S.board.curPage().id,n0=I.count();
+            const by=(await L.search('heart')).items.find(i=>i.lic.startsWith('cc-by')),c0=(await L.search('قلب')).items.find(i=>i.lic==='cc-0');
+            const a=await S.placePic({k:'pic',src:by.src,path:by.path,name:by.name,lic:by.lic,author:by.author});
+            const b=await S.placePic({k:'pic',src:c0.src,path:c0.path,name:c0.name,lic:c0.lic,author:c0.author});
+            const labels=S.addLabels(key,a.id,3);
+            window.__sci.ids.push(a.id,b.id,...labels.map(x=>x.id));
+            const svgA=atob(a.img.split(',')[1]);
+            window.__pic={n:I.count()-n0,credit:svgA.includes(by.author)&&svgA.includes('CC BY'),noCredit:!atob(b.img.split(',')[1]).includes('CC0'),labels:labels.map(x=>x.t+(x.k?':'+x.k:'')).join(','),img:a.img.length>2000&&b.img.length>500};
+            }catch(e){window.__pic={err:String(e&&e.message||e)}}})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__pic)") == "true", 90_000), "pictures downloaded and placed");
+        Check(Js("JSON.stringify(window.__pic)") == "{\"n\":8,\"credit\":true,\"noCredit\":true,\"labels\":\"text,shape:arrow,text,shape:arrow,text,shape:arrow\",\"img\":true}", "pictures: " + Js("JSON.stringify(window.__pic)"));
+        Until(() => false, 600);
+        SaveSmokeShot(this, "board-science-library");
+
+        // محرر الرسم بالنقر المزدوج
+        Js("""
+            (()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,id=window.__sci.ids.at(-8);
+            S.editItem(I.surfaces.get(key),I.doc.items(key).find(i=>i.id===id));return 'ok'})()
+            """);
+        Check(Until(() => Js("String(!!document.querySelector('.sci-dlg[data-pic-dlg] .sci-prev img'))") == "true", 15_000), "picture editor");
+        Check(Js("String(document.querySelector('.sci-dlg[data-pic-dlg] input[type=checkbox]').disabled)") == "true", "CC BY credit can't be removed");
+        Js("masar.sciTest().Sci.closeEditor(); masar.sciTest().Sci.close(); 'ok'");
+
+        // PhyloPic (أونلاين، مصدر خارجي): بنسجل النتيجة من غير ما نوقف الفحص
+        Js("""
+            window.__phy=null;(async()=>{try{const L=await import('./sci-lib.js');const r=await L.phyloSearch('نحلة');
+            let img='';if(r[0]){const x=await fetch('/scipack/phylo/img/'+r[0].path);img=x.status+':'+(await x.text()).slice(0,40)}
+            window.__phy=r.length+' images; first: '+(r[0]?r[0].name+' / '+r[0].author+' / '+r[0].path+' / '+img:'-')}catch(e){window.__phy='error: '+(e&&e.message||e)}})();'ok'
+            """);
+        Until(() => Js("String(!!window.__phy)") == "true", 45_000);
+        Console.WriteLine("SMOKE phylopic: " + Js("String(window.__phy)"));
     }
 }

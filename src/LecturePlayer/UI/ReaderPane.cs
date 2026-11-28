@@ -9,7 +9,7 @@ namespace LecturePlayer.UI;
 /// قارئ الكتب جوه مساحة الفيديو: PDF.js جوه WebView2 (من غير نت)، وبيبلّغ «مسار» بالصفحة والمكان
 /// والصفحات اللي اتقرت فعلًا. الملفات بتتقري من مكانها على الجهاز (مفيش نسخ).
 /// </summary>
-internal sealed class ReaderPane : Panel
+internal sealed partial class ReaderPane : Panel
 {
     /// <summary>
     /// كل حاجة (صفحة القارئ وPDF.js والكتب نفسها) بتتقدّم من البرنامج على عنوان واحد وهمي (نفس المصدر = مفيش مشاكل CORS):
@@ -177,7 +177,7 @@ internal sealed class ReaderPane : Panel
         [".html"] = "text/html; charset=utf-8", [".js"] = "text/javascript; charset=utf-8", [".mjs"] = "text/javascript; charset=utf-8",
         [".css"] = "text/css; charset=utf-8", [".wasm"] = "application/wasm", [".svg"] = "image/svg+xml", [".png"] = "image/png",
         [".gif"] = "image/gif", [".json"] = "application/json", [".pdf"] = "application/pdf", [".epub"] = "application/epub+zip",
-        [".txt"] = "text/plain; charset=utf-8"
+        [".txt"] = "text/plain; charset=utf-8", [".webp"] = "image/webp", [".jpg"] = "image/jpeg"
     };
 
     /// <summary>بيرد على طلبات القارئ: ملفات القارئ من فولدره، والكتب من مكانها (مع Range).</summary>
@@ -191,6 +191,11 @@ internal sealed class ReaderPane : Panel
             if (path.StartsWith("/save/", StringComparison.Ordinal) && e.Request.Method == "POST")
             {
                 SaveRequest(e, env, path[6..]);
+                return;
+            }
+            if (path.StartsWith("/scipack/", StringComparison.Ordinal))
+            {
+                SciPackRequest(e, env, path[9..], uri.Query);
                 return;
             }
             if (path.StartsWith("/book/", StringComparison.Ordinal))

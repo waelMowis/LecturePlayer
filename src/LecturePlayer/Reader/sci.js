@@ -9,6 +9,8 @@ import { MATH_T, PHYS_T, CHEM_T, BIO_T, ARABIC_KEYS } from "./sci-data.js";
 import { TOOLS, SYMBOLS } from "./sci-shapes.js";
 import { LAB, LAB_GROUPS } from "./sci-lab.js";
 import { wrap } from "./sci-svg.js";
+import { loadLib, search, thumbEl, displayName, drawPic, needsCredit, licName, phyloSearch } from "./sci-lib.js";
+import { CAT_AR, TAB_CATS } from "./sci-lib-ar.js";
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -169,19 +171,23 @@ export const Sci = {
   async recolor(key, ids, c) {
     for (const id of ids) {
       const it = Ink.doc.items(key).find(i => i.id === id);
-      if (!it?.sci || !this.canRender(it.sci)) continue;
+      if (!it?.sci || !this.canRender(it.sci) || it.sci.k === "pic") continue;
       try { await this.place({ ...it.sci, c }, { key, id }); } catch (e) { }
     }
   },
-  canRender(sci) { return sci.k === "eq" || sci.k === "chem" || (sci.k === "shape" && !!TOOLS[sci.type]); },
+  canRender(sci) { return sci.k === "eq" || sci.k === "chem" || sci.k === "pic" || (sci.k === "shape" && !!TOOLS[sci.type]); },
   /** القيم الافتراضية لحقول أداة. */
   defaults(type) { const o = {}; for (const f of TOOLS[type]?.f || []) o[f[0]] = f[3]; return o; },
   /** يرسم أي مصدر علمي ← {url, w, h} بوحدات الصفحة. */
   async render(src, color) {
-    if (src.k !== "shape") return renderTex(texOf(src), color, src.fs || 34, !!src.rtl);
-    const tool = TOOLS[src.type];
-    if (!tool) throw new Error("أداة غير معروفة");
-    const r = await tool.draw({ ...this.defaults(src.type), ...(src.p || {}) }, color);
+    if (src.k !== "shape" && src.k !== "pic") return renderTex(texOf(src), color, src.fs || 34, !!src.rtl);
+    let r;
+    if (src.k === "pic") r = await drawPic(src);
+    else {
+      const tool = TOOLS[src.type];
+      if (!tool) throw new Error("أداة غير معروفة");
+      r = await tool.draw({ ...this.defaults(src.type), ...(src.p || {}) }, color);
+    }
     const out = wrap(r.inner, r.w, r.h, color), sc = src.sc || SHAPE_SC.m[0];
     return { url: out.url, w: out.w * sc, h: out.h * sc };
   },
@@ -240,6 +246,7 @@ export const Sci = {
   },
   tabBody(tab) {
     if (tab === "math") return [
+      this.libSection("math"),
       this.section("المعادلات", this.tile("✎", "معادلة جديدة", "كسور، جذور، أسس، مصفوفات، تكامل — ولوحة رموز عربية", () => this.editor({ k: "eq", tex: "" }))),
       this.section("الرسوم والأشكال", ...this.toolTiles("math")),
       this.section("صيغ جاهزة", this.templates(MATH_T, "eq"))
@@ -250,15 +257,18 @@ export const Sci = {
         this.tile("⚖", "وازن معادلة", "اكتبها بلا معاملات واضغط «وازن»، أو أخفِ المعاملات للتمرين", () => this.editor({ k: "chem", ce: "", balance: 1 }))),
       this.section("نماذج الذرة", ...this.toolTiles("chem")),
       ...LAB_GROUPS.map(([g, title]) => this.section("أدوات المعمل — " + title, this.grid(LAB.filter(x => x[2] === g).map(([id, name]) => ["lab", { type: id }, name])))),
+      this.libSection("chem"),
       this.section("تفاعلات جاهزة", this.templates(CHEM_T, "chem"))
     ];
     if (tab === "phys") return [
       this.section("القوانين والمعادلات", this.tile("✎", "قانون أو معادلة", "متجهات، دلتا، وحدات، كسور", () => this.editor({ k: "eq", tex: "" }))),
       this.section("الرسوم الفيزيائية", ...this.toolTiles("phys")),
       this.section("رموز الدوائر الكهربائية (وصّلها بأداة الخط)", this.grid(SYMBOLS.map(([id, name]) => ["symbol", { s: id }, name]))),
+      this.libSection("phys"),
       this.section("قوانين جاهزة", this.templates(PHYS_T, "eq"))
     ];
     return [
+      this.libSection("bio"),
       this.section("المعادلات الحيوية", this.tile("⚗", "معادلة حيوية", "البناء الضوئي، التنفس، الإنزيمات", () => this.editor({ k: "chem", ce: "" }))),
       this.section("صيغ جاهزة", h("div", { cls: "sci-tpl" }, BIO_T.map(([name, src, k]) => h("button", {
         onclick: () => this.editor(k === "eq" ? { k: "eq", tex: src } : { k: "chem", ce: src })
@@ -395,6 +405,129 @@ export const Sci = {
     );
     build();
   },
+  // ---------------------------------------------------------------- مكتبة الرسوم
+  /** قسم المكتبة في كل مادة: بحث بالعربي والإنجليزي، وفئات المادة، ونتائج بصور مصغرة. */
+  libSection(tab) {
+    const cats = TAB_CATS[tab] || [];
+    const st = this.libState ||= {};
+    const s = st[tab] ||= { q: "", cat: tab === "bio" ? cats[0] : "", n: 30 };
+    const res = h("div", { cls: "sci-lib-res" }), more = h("div", { cls: "sci-lib-more" });
+    const input = h("input", { type: "search", cls: "sci-lib-q", placeholder: "ابحث: قلب، خلية، بكتيريا، دورق، heart…", value: s.q, "aria-label": "ابحث في مكتبة الرسوم" });
+    let timer = 0;
+    const run = async () => {
+      res.textContent = ""; more.textContent = "";
+      let r;
+      try { r = await search(s.q, s.q ? "" : s.cat || (tab === "bio" ? "" : cats[0])); }
+      catch (e) { res.append(h("div", { cls: "sci-lib-msg" }, e.message)); return; }
+      if (!r.items.length) {
+        res.append(h("div", { cls: "sci-lib-msg" }, r.unknown?.length ? `لا أعرف كلمة «${r.unknown.join("، ")}» بعد — جرّب مرادفًا أو اكتبها بالإنجليزية` : "لا توجد نتائج"));
+      }
+      const show = r.items.slice(0, s.n);
+      res.append(...show.map(it => h("button", {
+        cls: "sci-lib-it", "data-lib": it.i, title: `${it.name} — ${it.author} (${licName(it.lic)})${needsCredit(it.lic) ? " — يُكتب المصدر تحت الرسم" : ""}`,
+        onclick: () => this.placePic({ k: "pic", src: it.src, path: it.path, name: it.name, lic: it.lic, author: it.author }, it.ar)
+      }, thumbEl(it, 84), h("small", {}, displayName(it)))));
+      if (r.items.length > s.n) more.append(h("button", { onclick: () => { s.n += 30; run(); } }, `المزيد (${r.items.length - s.n})`));
+      if (tab === "bio" && s.q) more.append(h("button", { cls: "sci-lib-phylo", title: "صور ظلية لآلاف الكائنات من PhyloPic (الملكية العامة فقط) — تحتاج اتصالًا بالإنترنت", onclick: () => this.phylo(s.q, res, more) }, "🦋 ابحث عن الكائن في PhyloPic"));
+    };
+    input.oninput = () => { s.q = input.value.trim(); s.n = 30; clearTimeout(timer); timer = setTimeout(run, 220); };
+    const chips = h("div", { cls: "sci-lib-cats" }, [...(tab === "bio" ? [["", "الكل"]] : []), ...cats.map(c => [c, CAT_AR[c] || c])].map(([c, l]) => h("button", {
+      cls: s.cat === c ? "on" : "", "data-cat": c,
+      onclick: e => { s.cat = c; s.q = ""; input.value = ""; s.n = 30; for (const b of chips.children) b.classList.toggle("on", b === e.currentTarget); run(); }
+    }, l)));
+    run();
+    return this.section(tab === "bio" ? "مكتبة الرسوم العلمية" : "رسوم من المكتبة", input, chips, res, more);
+  },
+  async phylo(q, res, more) {
+    res.textContent = ""; more.textContent = "";
+    res.append(h("div", { cls: "sci-lib-msg" }, "جارٍ البحث في PhyloPic…"));
+    try {
+      const list = await phyloSearch(q);
+      res.textContent = "";
+      if (!list.length) { res.append(h("div", { cls: "sci-lib-msg" }, "لا توجد صور بالملكية العامة لهذا الكائن")); return; }
+      res.append(...list.slice(0, 30).map(it => h("button", {
+        cls: "sci-lib-it", title: `${it.name} — ${it.author} (ملكية عامة)`, onclick: () => this.placePic({ k: "pic", ...it, thumb: undefined }, 0)
+      }, it.thumb ? h("img", { src: it.thumb, alt: "", loading: "lazy" }) : h("span", { cls: "sci-th" }), h("small", {}, it.name))));
+    } catch (e) { res.textContent = ""; res.append(h("div", { cls: "sci-lib-msg" }, "تعذّر البحث في PhyloPic: " + e.message)); }
+  },
+  /** إدراج رسم من المكتبة (بيتنزل أول مرة). */
+  async placePic(src, ar) {
+    src.sc = SHAPE_SC[pref("ssize", "m")]?.[0] || 0.75;
+    document.body.classList.add("sci-busy");
+    try { return await this.place(src); }
+    catch (e) { this.toast(e.message); }
+    finally { document.body.classList.remove("sci-busy"); }
+  },
+  toast(msg) {
+    const t = h("div", { cls: "sci-toast", role: "status" }, msg);
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 5000);
+  },
+  /** أسهم تسمية فارغة حوالين الرسم (تمرين «سمِّ الأجزاء»): كل سهم وخانته عناصر عادية تتحرك وتتعدل. */
+  addLabels(key, id, n) {
+    const it = Ink.doc.items(key).find(i => i.id === id);
+    if (!it || n < 1) return [];
+    const T = Ink.prefs.text || {}, size = 20, made = [];
+    const rows = Math.ceil(n / 2), dig = k => String(k).replace(/\d/g, d => AR_DIG[d]);
+    const leftOk = it.x > 190, rightOk = it.x + it.w < W - 190;
+    for (let i = 0; i < n; i++) {
+      let right = i % 2 === 1;
+      if (right && !rightOk) right = false; else if (!right && !leftOk) right = true;
+      const row = Math.floor(i / 2), y = it.y + it.h * (row + 0.5) / rows;
+      const tx = right ? it.x + it.w + 24 : it.x - 174;
+      made.push(Ink.add(key, { t: "text", x: tx, y: y - size * 0.75, w: 150, h: size * 1.5, text: dig(i + 1) + " ـــــــــــــ", font: T.font || "Segoe UI", size, c: "#111111", bg: null, align: right ? "end" : "start", dir: "rtl" }));
+      const px = it.x + it.w * (right ? 0.68 : 0.32), py = it.y + it.h * (row + 0.5) / rows + (i % 3 - 1) * it.h * 0.06;
+      made.push(Ink.add(key, { t: "shape", k: "arrow", x1: right ? tx - 6 : tx + 156, y1: y, x2: px, y2: py, c: "#e03131", sw: 2.5, fill: null, ly: "p" }));
+    }
+    Ink.setTool("select");
+    Ink.setSel({ key, ids: new Set([id, ...made.map(m => m.id)]) });
+    return made;
+  },
+  /** محرر رسم المكتبة: عنوان تحته، الحجم، وأسهم تسمية فارغة. */
+  picEditor(sci, edit) {
+    this.closeEditor();
+    const st = { cap: sci.cap || "", sc: sci.sc || 0.75, credit: needsCredit(sci.lic) ? 1 : (sci.credit ? 1 : 0), labels: 4 };
+    document.body.classList.add("sci-on");
+    const prev = h("div", { cls: "sci-prev big" }), msg = h("div", { cls: "sci-msg" });
+    const box = h("div", { cls: "sci-dlg", role: "dialog", "aria-modal": "true", "aria-label": "رسم من المكتبة", "data-pic-dlg": "1" });
+    const wrapEl = h("div", { cls: "sci-cover", onpointerdown: e => { if (e.target === wrapEl) this.closeEditor(); } }, box);
+    this.dlg = wrapEl; document.body.appendChild(wrapEl);
+    const say = (t, kind) => { msg.textContent = t; msg.className = "sci-msg " + (kind || ""); };
+    let timer = 0;
+    const refresh = () => { clearTimeout(timer); timer = setTimeout(async () => {
+      try { const r = await this.render({ ...sci, cap: st.cap, credit: st.credit, sc: 1 }, "#111"); if (!this.dlg) return; prev.textContent = ""; prev.append(h("img", { src: r.url, alt: "معاينة", style: { maxWidth: "100%", maxHeight: "300px" } })); }
+      catch (e) { say(e.message, "err"); }
+    }, 150); };
+    const cap = h("input", { type: "text", cls: "wide", value: st.cap, placeholder: "مثال: تركيب الخلية النباتية", oninput: e => { st.cap = e.target.value; refresh(); } });
+    const credit = h("input", { type: "checkbox", checked: st.credit ? true : null, disabled: needsCredit(sci.lic) ? true : null, onchange: e => { st.credit = e.target.checked ? 1 : 0; refresh(); } });
+    const sizeSel = h("select", { onchange: e => { st.sc = +e.target.value; } }, Object.values(SHAPE_SC).map(([v, l]) => h("option", { value: v, selected: Math.abs(v - st.sc) < 1e-6 ? true : null }, l)));
+    const nSel = h("select", { "aria-label": "عدد الأسهم", onchange: e => { st.labels = +e.target.value; } }, [2, 3, 4, 5, 6, 7, 8].map(v => h("option", { value: v, selected: v === 4 ? true : null }, String(v))));
+    const done = async (labels) => {
+      const src = { ...sci, cap: st.cap.trim() || undefined, credit: st.credit || undefined, sc: st.sc };
+      try {
+        const it = await this.place(src, edit);
+        if (!it) return;
+        this.closeEditor();
+        if (labels) this.addLabels(edit ? edit.key : (this.board?.curSurface?.() || Ink.visibleSurface()).key, it.id, st.labels);
+      } catch (e) { say(e.message, "err"); }
+    };
+    box.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); this.closeEditor(); } });
+    box.append(
+      h("div", { cls: "sci-dlg-h" }, h("b", {}, "🖼 " + (sci.name || "رسم من المكتبة")), h("button", { cls: "sci-x", title: "إغلاق (Esc)", onclick: () => this.closeEditor() }, "✕")),
+      h("div", { cls: "sci-form" },
+        h("label", { cls: "sci-row wide" }, h("span", {}, "عنوان تحت الرسم"), cap),
+        h("label", { cls: "sci-row" }, h("span", {}, "الحجم"), sizeSel),
+        h("label", { cls: "sci-row chk", title: needsCredit(sci.lic) ? "ترخيص هذا الرسم يشترط ذكر المصدر" : "" }, credit, h("span", {}, "اذكر المصدر تحت الرسم")),
+        h("div", { cls: "sci-row wide sci-credit" }, `المصدر: ${sci.author || "—"} · الترخيص: ${licName(sci.lic)}`)),
+      prev, msg,
+      h("div", { cls: "sci-foot" },
+        h("button", { cls: "pri", onclick: () => done(false) }, edit ? "احفظ التعديل" : "أدرج على الصفحة"),
+        h("button", { title: "يضيف أسهمًا حمراء وخانات مرقمة فارغة حول الرسم يكتب فيها الطالب أسماء الأجزاء — اسحب رأس كل سهم إلى الجزء المطلوب", onclick: () => done(true) }, "✍ أضف أسهم تسمية فارغة"), nSel,
+        h("button", { onclick: () => this.closeEditor() }, "إلغاء"))
+    );
+    refresh();
+  },
+
   // ---------------------------------------------------------------- محرر الأشكال (حقول عامة)
   shapeEditor(sci, edit) {
     this.closeEditor();
@@ -513,5 +646,6 @@ export const Sci = {
     if (!it?.sci) return;
     if (it.sci.k === "eq" || it.sci.k === "chem") this.editor(it.sci, { key: s.key, id: it.id });
     else if (it.sci.k === "shape" && TOOLS[it.sci.type]) this.shapeEditor(it.sci, { key: s.key, id: it.id });
+    else if (it.sci.k === "pic") this.picEditor(it.sci, { key: s.key, id: it.id });
   }
 };
