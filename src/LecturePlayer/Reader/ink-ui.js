@@ -320,6 +320,10 @@ export const InkUI = {
     if (!sel) { this.selbar.hidden = true; return; }
     const b = this.selbar; b.textContent = "";
     const its = Ink.selItems();
+    if (its.length === 1 && its[0].sci && Ink.onSciEdit) {
+      const s = Ink.surfaces.get(sel.key);
+      b.append(h("button", { title: "تعديل (أو انقر نقرًا مزدوجًا)", onclick: () => { const it = Ink.selItems()[0]; Ink.setSel(null); Ink.onSciEdit(s, it); } }, "✎"));
+    }
     b.append(...Ink.prefs.fav.slice(0, 6).map(c => h("button", { cls: "sw", style: { "--c": c }, title: "لوّن", onclick: () => Ink.recolorSel(c) })),
       h("button", { title: "لون آخر", onclick: () => { this.popFor = null; this.openPop("color", this.colorPop); } }, "🎨"),
       h("button", { title: "أسمك/أكبر", onclick: () => Ink.resizeSel(Math.min(40, (its[0].size || its[0].sw || 3) * 1.4)) }, "＋"),

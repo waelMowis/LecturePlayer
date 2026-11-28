@@ -75,6 +75,7 @@ internal partial class MainForm
             Check(Until(() => ReaderShown && _currentBook == b && _reader!.Info?.Pages == 3, 20_000), "board reopens with 3 pages");
             Check(Until(() => Js("String(masar.inkTest().Ink.count())") == "13", 8000), "board ink back");
             Check(Js("masar.boardTest().meta.pages[1].bg") == "green", "background back");
+            RunScienceChecks(Js, Until, b);
             var menu = new ContextMenuStrip(); BuildBookMenu(b, menu.Items);
             Check(menu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("صدّر")) && !menu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text.Contains("الذكاء")), "board menu");
             GoHome();

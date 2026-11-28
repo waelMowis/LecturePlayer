@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="lib/pdf_viewer.css">
 <link rel="stylesheet" href="reader.css">
 <link rel="stylesheet" href="ink.css">
+<link rel="stylesheet" href="sci.css">
 <script>
   // أي خطأ قبل ما القارئ يشتغل يتسجّل في سجل البرنامج
   window.addEventListener("error", e => { try { chrome.webview.postMessage(JSON.stringify({ t: "log", message: "early error: " + e.message + " @" + e.filename + ":" + e.lineno })); } catch (x) { } });

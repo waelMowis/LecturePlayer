@@ -4,6 +4,8 @@ import { InkUI } from "./ink-ui.js";
 import { buildAnnotated, pagePng } from "./ink-export.js";
 import { PageEditor } from "./page-editor.js";
 import { Board, boardPlans } from "./board.js";
+import { Sci } from "./sci.js";
+import * as SciChem from "./sci-chem.js";
 import { runJob } from "./ink-export.js";
 const host = window.chrome && window.chrome.webview;
 function post(msg) {
@@ -642,6 +644,7 @@ function typing(el) { return el && (el.tagName === "INPUT" || el.tagName === "SE
 function onKeyDown(e) {
   const k = e.key, ctrl = e.ctrlKey || e.metaKey;
   if (document.body.classList.contains("pe-on")) return; // محرر الصفحات بيتعامل مع الكيبورد بتاعه
+  if (document.body.classList.contains("sci-on") || (e.target && e.target.closest && e.target.closest(".sci-panel, .sci-dlg, .ML__keyboard"))) return; // محرر المعادلات
   if (InkUI.key(e)) return;
   if (k === "F5" && (S.kind === "board" || (S.kind === "pdf" && S.doc)) && !ctrl && !e.altKey) { e.preventDefault(); setPresent(); return; }
   if (k === "Escape" && document.body.classList.contains("present")) { e.preventDefault(); setPresent(false); return; }
@@ -717,6 +720,7 @@ window.masar = {
   pickResult: (id, url) => { const r = picks.get(id); if (r) { picks.delete(id); r(url || null); } return "ok"; },
   peTest: () => PageEditor,
   boardTest: () => Board,
+  sciTest: () => ({ Sci, Chem: SciChem }),
   boardExport: (which, send) => { if (S.kind === "board") Board.exportPdf(which || "all", !!send); return "ok"; },
   /** لقطة شاشة جاية من البرنامج ← صفحة جديدة في السبورة. */
   boardImage: (dataUrl, name) => { if (S.kind === "board") Board.addImagePage(dataUrl, name); return "ok"; },

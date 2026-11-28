@@ -5,6 +5,7 @@
 // =====================================================================
 import { Ink, InkDoc, renderSvg, W, onDark, adaptDark } from "./ink.js";
 import { runJob, pagePlan, pagePng } from "./ink-export.js";
+import { Sci } from "./sci.js";
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -69,6 +70,7 @@ export const Board = {
     this.k = o.zoom || 1;
     this.cur = Math.min(Math.max(1, o.page || 1), m.pages.length);
     this.ready = true;
+    Sci.init(this);
     this.buildTools();
     this.render();
     requestAnimationFrame(() => this.goTo(this.cur, true));
@@ -76,7 +78,10 @@ export const Board = {
   },
   /** يبعت التغييرات للبرنامج دلوقتي (قبل القفل). */
   flush() { if (this._save) { clearTimeout(this._save); this._save = 0; this.post({ t: "board", board: this.meta }); } },
-  close() { this.flush(); this.ready = false; this.pagesEl.textContent = ""; this.side.textContent = ""; },
+  close() { this.flush(); this.ready = false; this.pagesEl.textContent = ""; this.side.textContent = ""; Sci.closeEditor(); Sci.close(); },
+  /** سطح الصفحة الحالية (للأدوات العلمية). */
+  curSurface() { const p = this.curPage(); return p ? Ink.surfaces.get(p.id) || Ink.visibleSurface() : Ink.visibleSurface(); },
+  onSciPanel(on) { this.tools.querySelector('[title^="معادلات رياضية"]')?.classList.toggle("on", on); },
   get total() { return this.meta ? this.meta.pages.length : 0; },
   page() { return this.cur || 1; },
   pageOf(id) { return this.meta.pages.findIndex(p => p.id === id); },
@@ -199,6 +204,8 @@ export const Board = {
       B("📐 المقاس ▾", "مقاس الصفحة", e => this.menu(e.currentTarget, Object.entries(SIZES).map(([k, [w, hh, l]]) => [l, () => this.setSize(w, hh)]))),
       B("🧩 قالب ▾", "قوالب جاهزة على الصفحة", e => this.menu(e.currentTarget, [["محاور س/ص", () => this.template("axes")], ["جدول", () => this.template("table")], ["صفحة كود", () => this.template("code")],
         ["مخطط (Flowchart)", () => this.template("flow")], ["عنوان", () => this.template("title")]])),
+      h("span", { cls: "sep" }),
+      B("🧪 أدوات علمية", "معادلات رياضية وكيميائية وفيزيائية وأدوات المواد العلمية", () => Sci.toggle()),
       h("span", { cls: "sep" }),
       B("🖼", "صورة على الصفحة (أو Ctrl+V)", () => this.pickImage()),
       B("📄 صفحات PDF", "ضع صفحات من ملف PDF كخلفية تشرح عليها", () => this.insertPdf()),

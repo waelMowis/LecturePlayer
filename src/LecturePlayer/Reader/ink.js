@@ -698,6 +698,9 @@ export const Ink = {
     const ids = this.sel.ids;
     this.edit(this.sel.key, items => items.map(i => { if (ids.has(i.id)) { i.c = c; i.u = now(); } return i; }));
     this.renderSel();
+    // العناصر العلمية لونها مرسوم جوه الصورة: بتترسم تاني باللون الجديد
+    const sci = this.doc.items(this.sel.key).filter(i => ids.has(i.id) && i.sci);
+    if (sci.length && this.onSciRecolor) this.onSciRecolor(this.sel.key, sci.map(i => i.id), c);
   },
   resizeSel(v) {
     if (!this.sel) return;
@@ -819,6 +822,7 @@ export const Ink = {
         // دبل كليك على نص: نلغي اللي عملته الدوسة الأولى (نص فاضي جديد مثلًا) ونعدّل النص
         e.preventDefault(); e.stopPropagation();
         this.setSel(null);
+        if (dbl.sci) { setTimeout(() => this.onSciEdit(s, dbl), 0); return; }
         setTimeout(() => this.editText(s, dbl.id), 0);
         return;
       }
@@ -867,7 +871,7 @@ export const Ink = {
     if (!last || last.key !== s.key || t - last.t > 450 || Math.hypot(e.clientX - last.x, e.clientY - last.y) > 8) return null;
     if (!["select", "text", "callout", "pen", "shape"].includes(this.tool)) return null;
     this._lastDown = null;
-    return [...this.doc.items(s.key)].reverse().find(i => (i.t === "text" || i.t === "callout") && hitDist(i, p) <= 4) || null;
+    return [...this.doc.items(s.key)].reverse().find(i => (i.t === "text" || i.t === "callout" || (i.t === "image" && i.sci && this.onSciEdit)) && hitDist(i, p) <= 4) || null;
   },
   hover(s, e) {
     if (this.tool === "laser") this.laser.point(e.clientX, e.clientY);
