@@ -12,6 +12,7 @@ import { wrap } from "./sci-svg.js";
 import { loadLib, search, thumbEl, displayName, drawPic, needsCredit, licName, phyloSearch } from "./sci-lib.js";
 import { CAT_AR, TAB_CATS } from "./sci-lib-ar.js";
 import { Apps } from "./sci-apps.js";
+import { Ardu } from "./sci-arduino.js";
 import { PHET, SITES, phetUrl, CREDIT, captionedShot, pubchemCompound, pubchemSvg, commonsSearch, commonsSvg } from "./sci-web.js";
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -167,6 +168,7 @@ export const Sci = {
   init(board) {
     this.board = board;
     Apps.init(this);
+    Ardu.init(this);
     Ink.onSciEdit = (s, it) => this.editItem(s, it);
     Ink.onSciRecolor = (key, ids, c) => this.recolor(key, ids, c);
   },
@@ -220,6 +222,7 @@ export const Sci = {
   toggle() { if (this.isOn()) this.close(); else this.open(); },
   close() { Apps.close(); if (this.panel) this.panel.hidden = true; this.board?.onSciPanel?.(false); },
   apps: Apps,
+  ardu: Ardu,
   appTiles(list) {
     return this.section("أدوات تفاعلية (نافذة كبيرة، والنتيجة تنزل على الصفحة)", list.map(([id, icon, name, sub]) => this.tile(icon, name, sub, () => { const r = Apps[id](); if (r?.catch) r.catch(e => this.toast(e.message)); }, { "data-app": id })));
   },

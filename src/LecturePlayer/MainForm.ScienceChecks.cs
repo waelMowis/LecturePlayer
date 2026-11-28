@@ -73,6 +73,7 @@ internal partial class MainForm
         RunScienceLibraryChecks(Js, Until);
         RunScienceAppChecks(Js, Until);
         RunScienceOnlineChecks(Js, Until);
+        RunArduinoChecks(Js, Until);
 
         // محفوظة في ملف الشرح، وبعدين بنشيلها
         Js("masar.inkFlush()");

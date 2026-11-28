@@ -601,6 +601,9 @@ internal sealed partial class ReaderPane : Panel
                 case "sciweb" when m.Message != null && SciWebForm.Allowed(m.Message):
                     SciWebRequested?.Invoke(m.Message, m.Name ?? "", m.Code ?? "");
                     break;
+                case "ardu" when m.Id != null && m.Code != null:
+                    _ = CompileArduinoAsync(m.Id, m.Code);
+                    break;
                 case "text" when m.Id != null && _texts.TryGetValue(m.Id, out var tx):
                     if (m.Pages.ValueKind == JsonValueKind.Array)
                         foreach (var pair in m.Pages.EnumerateArray())

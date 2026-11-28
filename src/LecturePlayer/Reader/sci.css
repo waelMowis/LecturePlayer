@@ -141,3 +141,36 @@ body.sci-busy, body.sci-busy * { cursor: progress !important; }
 .sci-pc img { width: 100%; max-height: 220px; object-fit: contain; background: #fff; border-radius: 8px; }
 .sci-pc small { color: #adb5bd; word-break: break-word; }
 .sci-pc button { height: 30px; border-radius: 8px; } .sci-pc button.pri { background: #1971c2; color: #fff; }
+/* محاكي أردوينو */
+.ard-wrap { display: flex; gap: 10px; padding: 10px; min-height: 0; }
+.ard-left { flex: 1.25; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ard-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ard-ed { flex: 1; min-height: 0; display: flex; background: #1e1f22; border: 1px solid #ffffff1a; border-radius: 10px; overflow: hidden; direction: ltr; }
+.ard-gut { width: 44px; flex: none; overflow: hidden; padding: 10px 0; background: #191a1d; color: #6c727a; text-align: right; font: 14px/21px Consolas, "Cascadia Mono", monospace; user-select: none; }
+.ard-gut div { padding-right: 8px; }
+.ard-gut div.err { background: #e0313140; color: #ff8787; font-weight: 700; }
+.ard-gut div.warn { background: #f59f0035; color: #ffd43b; }
+.ard-code { position: relative; flex: 1; min-width: 0; }
+.ard-ta, .ard-hl { direction: ltr; unicode-bidi: normal; position: absolute; inset: 0; margin: 0; padding: 10px 12px; border: 0; font: 14px/21px Consolas, "Cascadia Mono", monospace; tab-size: 2; white-space: pre; overflow: auto; text-align: left; }
+.ard-hl { color: #d4d4d4; pointer-events: none; overflow: hidden; }
+.ard-ta { background: transparent; color: transparent; caret-color: #fff; resize: none; outline: none; }
+.ard-ta::selection { background: #3a7bd566; color: transparent; }
+.ard-hl i { font-style: normal; }
+.ard-hl .c { color: #6a9955; } .ard-hl .s { color: #ce9178; } .ard-hl .p { color: #c586c0; } .ard-hl .n { color: #b5cea8; } .ard-hl .k { color: #569cd6; } .ard-hl .f { color: #dcdcaa; }
+.ard-probs { max-height: 32%; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.ard-probs:empty { display: none; }
+.ard-prob { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; text-align: right; padding: 7px 10px; border-radius: 8px; height: auto; background: #e0313122; border: 1px solid #e0313155; color: #ffc9c9; }
+.ard-prob.warn { background: #f59f0018; border-color: #f59f0050; color: #ffec99; }
+.ard-prob b { white-space: nowrap; }
+.ard-prob small { flex-basis: 100%; color: #868e96; font: 11.5px Consolas, monospace; text-align: left; }
+.ard-board { display: flex; justify-content: center; align-items: center; padding: 6px; background: #f1f3f5; border-radius: 10px; min-height: 0; }
+.ard-uno { zoom: 1.45; }
+.ard-stat { font-size: 12px; color: #adb5bd; min-height: 16px; }
+.ard-serh { display: flex; align-items: center; gap: 10px; }
+.ard-serh b { flex: 1; }
+.ard-serh button { height: 26px; padding: 0 10px; border-radius: 7px; }
+.ard-baud { color: #868e96; font-size: 12px; direction: ltr; }
+.ard-ser { flex: 1; min-height: 90px; margin: 0; overflow: auto; padding: 8px 10px; background: #111214; color: #c3fae8; border-radius: 10px; border: 1px solid #ffffff14; font: 13px/19px Consolas, "Cascadia Mono", monospace; white-space: pre-wrap; word-break: break-word; unicode-bidi: plaintext; text-align: start; }
+.ard-sinrow { display: flex; gap: 6px; }
+.ard-sin { flex: 1; height: 32px; border-radius: 8px; padding: 0 10px; }
+.ard-sinrow button { height: 32px; padding: 0 14px; border-radius: 8px; }

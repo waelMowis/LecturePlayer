@@ -20,7 +20,7 @@ $CliVersion = '1.6.0'
 $CliSha256 = '2769B9B282CE597DB9679D8EC14D726D57004CA4205EF4D7A795BF36B6CDC9D8'
 $Core = 'arduino:avr@1.8.6'
 $Libs = @('Servo@1.2.2', 'LiquidCrystal@1.0.7')
-$Stamp = "cli=$CliVersion;core=$Core;libs=$($Libs -join ',');v=1"
+$Stamp = "cli=$CliVersion;core=$Core;libs=$($Libs -join ',');v=2"
 
 $Dest = [System.IO.Path]::GetFullPath($Dest)
 $stampFile = Join-Path $Dest '.masar-stamp'
@@ -37,6 +37,7 @@ function Compile-Samples {
         Copy-Item $f.FullName (Join-Path $sd $f.Name)
         & $cli --config-file (Join-Path $Dest 'arduino-cli.yaml') compile --fqbn arduino:avr:uno --output-dir $SampleOut $sd
         if ($LASTEXITCODE -ne 0) { throw "ترجمة المثال $($f.Name) فشلت" }
+        Get-Content (Join-Path $SampleOut ($f.Name + '.hex')) | ForEach-Object { Write-Host "ARDUHEX $($f.BaseName) $_" }
     }
 }
 
@@ -104,6 +105,19 @@ metrics:
     # فهرس المكتبات كبير ومش لازم للترجمة
     Get-ChildItem $env:ARDUINO_DIRECTORIES_DATA -Filter 'library_index*' -ErrorAction SilentlyContinue | Remove-Item -Force
     Remove-Item (Join-Path $env:ARDUINO_DIRECTORIES_DATA 'staging') -Recurse -Force -ErrorAction SilentlyContinue
+
+    # avr-gcc فيه مكتبات لكل عائلات AVR (~300 ميجا): بنسيب عائلة avr5 بس (ATmega328P = أونو ونانو)
+    # والتوثيق مش لازم. تجربة الترجمة اللي تحت بتتأكد إن الحذف ماكسرش حاجة.
+    $gcc = Get-ChildItem (Join-Path $env:ARDUINO_DIRECTORIES_DATA 'packages\arduino\tools\avr-gcc') -Directory | Select-Object -First 1
+    if (-not $gcc) { throw 'avr-gcc مش موجود بعد تثبيت النواة' }
+    Get-ChildItem (Join-Path $gcc.FullName 'avr\lib') -Directory | Where-Object { @('avr5', 'ldscripts') -notcontains $_.Name } | Remove-Item -Recurse -Force
+    $gl = Get-ChildItem (Join-Path $gcc.FullName 'lib\gcc\avr') -Directory | Select-Object -First 1
+    if ($gl) { Get-ChildItem $gl.FullName -Directory | Where-Object { @('avr5', 'include', 'include-fixed', 'device-specs') -notcontains $_.Name } | Remove-Item -Recurse -Force }
+    foreach ($d in 'share', 'doc', 'man', 'info') { Remove-Item (Join-Path $gcc.FullName $d) -Recurse -Force -ErrorAction SilentlyContinue }
+    foreach ($d in Get-ChildItem $Dest -Recurse -Directory -Depth 5) {
+        $sz = (Get-ChildItem $d.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+        if ($sz -gt 8MB) { Write-Host ("  {0,6:N0} MB  {1}" -f ($sz / 1MB), $d.FullName.Substring($Dest.Length)) }
+    }
 
     # 3) تجربة ترجمة من غير نت (Blink + Servo + LiquidCrystal) عشان نتأكد إن الأدوات سليمة
     $sk = Join-Path $tmp 'check'

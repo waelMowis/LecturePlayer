@@ -722,6 +722,8 @@ window.masar = {
   pickResult: (id, url) => { const r = picks.get(id); if (r) { picks.delete(id); r(url || null); } return "ok"; },
   peTest: () => PageEditor,
   boardTest: () => Board,
+  /** محاكي أردوينو: نتيجة الترجمة من البرنامج */
+  arduResult: (id, r) => Sci.ardu.result(id, r),
   sciTest: () => ({ Sci, Chem: SciChem, Shapes: SciShapes }),
   /** لقطة من نافذة مصادر العلوم (PhET/GeoGebra/Desmos) ← على الصفحة المفتوحة. */
   sciCaptured: d => { Sci.webCaptured(d); return "ok"; },
