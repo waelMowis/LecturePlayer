@@ -6,6 +6,9 @@
 import { Ink, W, onDark } from "./ink.js";
 import { balance, rebuild, parseOnly, isBalanced } from "./sci-chem.js";
 import { MATH_T, PHYS_T, CHEM_T, BIO_T, ARABIC_KEYS } from "./sci-data.js";
+import { TOOLS, SYMBOLS } from "./sci-shapes.js";
+import { LAB, LAB_GROUPS } from "./sci-lab.js";
+import { wrap } from "./sci-svg.js";
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -23,6 +26,8 @@ const h = (tag, attrs = {}, ...kids) => {
 };
 const LIB = "lib/sci/";
 const SIZES = { s: [24, "صغير"], m: [34, "متوسط"], l: [48, "كبير"], xl: [68, "كبير جدًا"] };
+/** مقاس الأشكال على الصفحة (مضروب في مقاس الرسم الأصلي). */
+const SHAPE_SC = { s: [0.5, "صغير"], m: [0.75, "متوسط"], l: [1.05, "كبير"], xl: [1.45, "كبير جدًا"] };
 const SWATCH = ["#111111", "#1971c2", "#e03131", "#2f9e44", "#f08c00", "#7048e8"];
 const AR_DIG = "٠١٢٣٤٥٦٧٨٩";
 const pref = (k, d) => { try { const v = localStorage.getItem("masar.sci." + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
@@ -168,7 +173,35 @@ export const Sci = {
       try { await this.place({ ...it.sci, c }, { key, id }); } catch (e) { }
     }
   },
-  canRender(sci) { return sci.k === "eq" || sci.k === "chem"; },
+  canRender(sci) { return sci.k === "eq" || sci.k === "chem" || (sci.k === "shape" && !!TOOLS[sci.type]); },
+  /** القيم الافتراضية لحقول أداة. */
+  defaults(type) { const o = {}; for (const f of TOOLS[type]?.f || []) o[f[0]] = f[3]; return o; },
+  /** يرسم أي مصدر علمي ← {url, w, h} بوحدات الصفحة. */
+  async render(src, color) {
+    if (src.k !== "shape") return renderTex(texOf(src), color, src.fs || 34, !!src.rtl);
+    const tool = TOOLS[src.type];
+    if (!tool) throw new Error("أداة غير معروفة");
+    const r = await tool.draw({ ...this.defaults(src.type), ...(src.p || {}) }, color);
+    const out = wrap(r.inner, r.w, r.h, color), sc = src.sc || SHAPE_SC.m[0];
+    return { url: out.url, w: out.w * sc, h: out.h * sc };
+  },
+  /** صورة مصغرة للوحة (للأدوات اللي رسمها فوري). */
+  thumb(type, p) {
+    try {
+      const r = TOOLS[type].draw({ ...this.defaults(type), ...p }, "#222");
+      if (r && r.then) return h("span", { cls: "th" });
+      return h("img", { src: wrap(r.inner, r.w, r.h, "#222").url, alt: "", loading: "lazy" });
+    } catch (e) { return h("span", { cls: "th" }); }
+  },
+  /** أدوات المادة (بتفتح محرر الحقول). */
+  toolTiles(tab) { return Object.entries(TOOLS).filter(([, t]) => t.tab === tab && !t.hidden).map(([id, t]) => this.tile(t.icon, t.name, t.sub, () => this.shapeEditor({ k: "shape", type: id }), { "data-tool": id })); },
+  /** شبكة صور مصغرة بتدرج بضغطة (رموز الدوائر وأدوات المعمل). */
+  grid(items) {
+    return h("div", { cls: "sci-grid" }, items.map(([type, p, name]) => h("button", {
+      title: name + " — انقر للإدراج، وانقر نقرًا مزدوجًا عليها في الصفحة لتعديلها", "data-shape": type + ":" + (p.s || p.type || ""),
+      onclick: async () => { try { await this.place({ k: "shape", type, p: { ...this.defaults(type), ...p }, sc: SHAPE_SC[pref("ssize", "m")]?.[0] }); } catch (e) { this.board?.toast?.(e.message); } }
+    }, this.thumb(type, p), h("small", {}, name))));
+  },
   isOn() { return !!(this.panel && !this.panel.hidden); },
   toggle() { if (this.isOn()) this.close(); else this.open(); },
   close() { if (this.panel) this.panel.hidden = true; this.board?.onSciPanel?.(false); },
@@ -208,16 +241,21 @@ export const Sci = {
   tabBody(tab) {
     if (tab === "math") return [
       this.section("المعادلات", this.tile("✎", "معادلة جديدة", "كسور، جذور، أسس، مصفوفات، تكامل — ولوحة رموز عربية", () => this.editor({ k: "eq", tex: "" }))),
+      this.section("الرسوم والأشكال", ...this.toolTiles("math")),
       this.section("صيغ جاهزة", this.templates(MATH_T, "eq"))
     ];
     if (tab === "chem") return [
       this.section("المعادلات الكيميائية",
         this.tile("⚗", "معادلة كيميائية", "اكتب 2H2 + O2 -> 2H2O فتظهر بالأرقام السفلية والأسهم", () => this.editor({ k: "chem", ce: "" })),
         this.tile("⚖", "وازن معادلة", "اكتبها بلا معاملات واضغط «وازن»، أو أخفِ المعاملات للتمرين", () => this.editor({ k: "chem", ce: "", balance: 1 }))),
+      this.section("نماذج الذرة", ...this.toolTiles("chem")),
+      ...LAB_GROUPS.map(([g, title]) => this.section("أدوات المعمل — " + title, this.grid(LAB.filter(x => x[2] === g).map(([id, name]) => ["lab", { type: id }, name])))),
       this.section("تفاعلات جاهزة", this.templates(CHEM_T, "chem"))
     ];
     if (tab === "phys") return [
       this.section("القوانين والمعادلات", this.tile("✎", "قانون أو معادلة", "متجهات، دلتا، وحدات، كسور", () => this.editor({ k: "eq", tex: "" }))),
+      this.section("الرسوم الفيزيائية", ...this.toolTiles("phys")),
+      this.section("رموز الدوائر الكهربائية (وصّلها بأداة الخط)", this.grid(SYMBOLS.map(([id, name]) => ["symbol", { s: id }, name]))),
       this.section("قوانين جاهزة", this.templates(PHYS_T, "eq"))
     ];
     return [
@@ -357,6 +395,82 @@ export const Sci = {
     );
     build();
   },
+  // ---------------------------------------------------------------- محرر الأشكال (حقول عامة)
+  shapeEditor(sci, edit) {
+    this.closeEditor();
+    const tool = TOOLS[sci.type];
+    if (!tool) return;
+    const st = { p: { ...this.defaults(sci.type), ...(sci.p || {}) }, c: sci.c || null, sc: sci.sc || SHAPE_SC[pref("ssize", "m")]?.[0] || 0.75 };
+    document.body.classList.add("sci-on");
+    const prev = h("div", { cls: "sci-prev big", "aria-live": "polite" }), msg = h("div", { cls: "sci-msg" });
+    const box = h("div", { cls: "sci-dlg", role: "dialog", "aria-modal": "true", "aria-label": tool.name, "data-shape-dlg": sci.type });
+    const wrapEl = h("div", { cls: "sci-cover", onpointerdown: e => { if (e.target === wrapEl) this.closeEditor(); } }, box);
+    this.dlg = wrapEl;
+    document.body.appendChild(wrapEl);
+    const say = (t, kind) => { msg.textContent = t; msg.className = "sci-msg " + (kind || ""); };
+    const color = () => st.c || Ink.currentColor() || "#111111";
+    let timer = 0, seq = 0;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const my = ++seq;
+        try {
+          const r = await this.render({ k: "shape", type: sci.type, p: st.p, sc: 1 }, color());
+          if (my !== seq || !this.dlg) return;
+          prev.textContent = ""; say("");
+          prev.append(h("img", { src: r.url, alt: "معاينة", style: { maxWidth: "100%", maxHeight: "300px" } }));
+        } catch (e) { if (my === seq) say(e.message, "err"); }
+      }, 140);
+    };
+    const form = h("div", { cls: "sci-form" });
+    const fields = [];
+    const vis = () => { for (const [f, row] of fields) row.hidden = !!(f[5] && !f[5](st.p)); };
+    for (const f of tool.f) {
+      const [key, label, type, , opts] = f;
+      let input;
+      if (type === "chk") {
+        input = h("input", { type: "checkbox", checked: st.p[key] ? true : null, onchange: e => { st.p[key] = e.target.checked ? 1 : 0; vis(); refresh(); } });
+        const row = h("label", { cls: "sci-row chk", "data-f": key }, input, h("span", {}, label));
+        fields.push([f, row]); form.append(row); continue;
+      }
+      if (type === "sel") {
+        input = h("select", { onchange: e => { st.p[key] = e.target.value; vis(); refresh(); } }, (opts || []).map(([v, l]) => h("option", { value: v, selected: String(st.p[key]) === String(v) ? true : null }, l)));
+      } else {
+        input = h("input", { type: "text", dir: "ltr", spellcheck: "false", inputmode: type === "num" ? "decimal" : null, value: st.p[key] ?? "", placeholder: opts || "", oninput: e => { st.p[key] = type === "num" ? e.target.value : e.target.value; refresh(); } });
+        if (type === "text") input.classList.add("wide");
+      }
+      const row = h("label", { cls: "sci-row" + (type === "text" ? " wide" : ""), "data-f": key }, h("span", {}, label), input);
+      fields.push([f, row]); form.append(row);
+    }
+    vis();
+    const sizeSel = h("select", { "aria-label": "الحجم على الصفحة", onchange: e => { st.sc = +e.target.value; setPref("ssize", Object.keys(SHAPE_SC).find(k => SHAPE_SC[k][0] === st.sc) || "m"); } },
+      Object.values(SHAPE_SC).map(([v, l]) => h("option", { value: v, selected: Math.abs(v - st.sc) < 1e-6 ? true : null }, l)));
+    const swatches = h("div", { cls: "sci-sw" }, SWATCH.map(c => h("button", {
+      cls: "sw" + (st.c === c ? " on" : ""), title: "اللون", style: { background: c },
+      onclick: e => { st.c = c; for (const b of swatches.children) b.classList.toggle("on", b === e.currentTarget); refresh(); }
+    })));
+    const done = async () => {
+      const src = { k: "shape", type: sci.type, p: { ...st.p }, sc: st.sc };
+      if (st.c) src.c = st.c;
+      try { const it = await this.place(src, edit); if (it) this.closeEditor(); } catch (e) { say(e.message, "err"); }
+    };
+    box.addEventListener("keydown", e => {
+      if (e.key === "Escape") { e.preventDefault(); this.closeEditor(); }
+      else if (e.key === "Enter" && e.target.tagName !== "SELECT") { e.preventDefault(); done(); }
+    });
+    box.append(
+      h("div", { cls: "sci-dlg-h" }, h("b", {}, (edit ? "تعديل: " : "") + tool.icon + " " + tool.name), h("button", { cls: "sci-x", title: "إغلاق (Esc)", onclick: () => this.closeEditor() }, "✕")),
+      form,
+      h("div", { cls: "sci-opts" }, h("span", {}, "اللون"), swatches, h("span", {}, "الحجم"), sizeSel),
+      prev, msg,
+      h("div", { cls: "sci-foot" },
+        h("button", { cls: "pri", onclick: done }, edit ? "احفظ التعديل" : "أدرج على الصفحة"),
+        h("button", { onclick: () => this.closeEditor() }, "إلغاء"),
+        h("small", {}, "Enter للإدراج"))
+    );
+    refresh();
+    setTimeout(() => form.querySelector("input,select")?.focus(), 0);
+  },
   closeEditor() {
     if (!this.dlg) return;
     try { window.mathVirtualKeyboard?.hide(); } catch (e) { }
@@ -369,7 +483,7 @@ export const Sci = {
     const s = edit ? Ink.surfaces.get(edit.key) : (this.board?.curSurface?.() || Ink.visibleSurface());
     if (!s) throw new Error("افتح صفحة من السبورة أولًا");
     const base = src.c || Ink.currentColor() || "#111111";
-    const r = await renderTex(texOf(src), s.dark ? onDark(base) : base, src.fs || 34, !!src.rtl);
+    const r = await this.render(src, s.dark ? onDark(base) : base);
     src.nw = r.w;
     if (edit) {
       const old = Ink.doc.items(s.key).find(i => i.id === edit.id);
@@ -384,7 +498,11 @@ export const Sci = {
     const vis = [Math.max(rc.top, 0), Math.min(rc.bottom, innerHeight)];
     const cy = ((vis[0] + vis[1]) / 2 - rc.top) / rc.width * W;
     const w = Math.min(r.w, W * 0.9), hh = r.h * (w / r.w);
-    const it = Ink.add(s.key, { t: "image", img: r.url, x: (W - w) / 2, y: Math.max(10, cy - hh / 2), w, h: hh, sci: src });
+    // لو فيه عنصر علمي في نفس المكان بالظبط (إدراج ورا بعض) ← نزحزح الجديد شوية عشان ميتغطاش
+    let x = (W - w) / 2, y = Math.max(10, cy - hh / 2);
+    const others = Ink.doc.items(s.key).filter(i => i.sci);
+    for (let k = 0; k < 8 && others.some(i => Math.abs(i.x - x) < 8 && Math.abs(i.y - y) < 8); k++) { x += 28; y += 28; }
+    const it = Ink.add(s.key, { t: "image", img: r.url, x, y, w, h: hh, sci: src });
     Ink.setTool("select");
     Ink.setSel({ key: s.key, ids: new Set([it.id]) });
     return it;
@@ -394,5 +512,6 @@ export const Sci = {
   editItem(s, it) {
     if (!it?.sci) return;
     if (it.sci.k === "eq" || it.sci.k === "chem") this.editor(it.sci, { key: s.key, id: it.id });
+    else if (it.sci.k === "shape" && TOOLS[it.sci.type]) this.shapeEditor(it.sci, { key: s.key, id: it.id });
   }
 };

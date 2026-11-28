@@ -68,6 +68,8 @@ internal partial class MainForm
         Js("masar.sciTest().Sci.closeEditor(); masar.sciTest().Sci.close(); 'ok'");
         Check(Js("String(document.body.classList.contains('sci-on'))") == "false", "editor closed");
 
+        RunScienceShapeChecks(Js, Until);
+
         // محفوظة في ملف الشرح، وبعدين بنشيلها
         Js("masar.inkFlush()");
         Check(Until(() => InkStore.Load(InkStore.FileFor(_libraryPath, b.Id)).ToJsonString().Contains("\"sci\""), 8000), "science items saved with their source");
@@ -76,5 +78,67 @@ internal partial class MainForm
             """);
         Check(Until(() => Js("String(masar.inkTest().Ink.count())") == before, 5000), "science items removed");
         Console.WriteLine("SMOKE science: ok");
+    }
+
+    /// <summary>
+    /// المرحلة الثانية: الأشكال المرسومة بالكود — رسم الدوال (JSXGraph)، الهندسة، الفيزياء، رموز الدوائر، أدوات المعمل، نموذج الذرة —
+    /// بتتحط صورة وتتعدل بالنقر المزدوج من نفس الحقول. العناصر بتنضاف لـ __sci.ids عشان تتشال مع الباقي.
+    /// </summary>
+    private void RunScienceShapeChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("science shapes: " + what); }
+        // حسابات بحتة: تحويل الدالة، توزيع الإلكترونات، كل أداة بترسم
+        string pure = Js("""
+            (()=>{const M=masar.sciTest().Shapes;const r=[M.jsExpr('ص = 3x^2 - 2x + 1'),M.jsExpr('2sin(x)+ln(x)'),M.shells(11).join(','),M.shells(26).join(','),M.shells(29).join(','),M.pretty('x^2 - 4')];
+            let bad=[];for(const [id,t] of Object.entries(M.TOOLS)){if(t.async)continue;try{const o=t.draw(Object.fromEntries(t.f.map(f=>[f[0],f[3]])),'#111');if(!(o.inner.length>50&&o.w>20&&o.h>20))bad.push(id)}catch(e){bad.push(id+':'+e.message)}}
+            r.push(bad.join(';')||'all');return r.join('|')})()
+            """);
+        Check(pure == "3*x^2 - 2*x + 1|2*sin(x)+log(x)|2,8,1|2,8,14,2|2,8,18,1|x² - 4|all", "pure: " + pure);
+
+        // اللوحة: أدوات كل مادة + شبكة المعمل والرموز
+        Js("masar.sciTest().Sci.open('math'); 'ok'");
+        Check(Until(() => Js("String(document.querySelectorAll('.sci-panel .sci-tile[data-tool]').length)") == "8", 5000), "math tools: " + Js("String(document.querySelectorAll('.sci-panel .sci-tile[data-tool]').length)"));
+        Js("masar.sciTest().Sci.open('phys'); 'ok'");
+        Check(Until(() => Js("document.querySelectorAll('.sci-panel .sci-tile[data-tool]').length+':'+document.querySelectorAll('.sci-panel .sci-grid button').length") == "7:21", 5000), "physics tools + circuit symbols");
+        Js("masar.sciTest().Sci.open('chem'); 'ok'");
+        Check(Until(() => Js("String(document.querySelectorAll('.sci-panel .sci-grid button[data-shape^=\"lab:\"] img').length)") == "36", 5000), "lab apparatus thumbnails: " + Js("String(document.querySelectorAll('.sci-panel .sci-grid img').length)"));
+
+        // الإدراج: شبكة المعمل بضغطة + أدوات بحقول + رسم دالة
+        Js("""
+            window.__shp=null;(async()=>{try{const S=masar.sciTest().Sci,I=masar.inkTest().Ink;const n0=I.count();
+            document.querySelector('.sci-grid button[data-shape="lab:titration"]').click();
+            await new Promise(r=>setTimeout(r,600));
+            const key=S.board.curPage().id,lab=I.doc.items(key).filter(i=>i.sci&&i.sci.k==='shape').at(-1);
+            const g=await S.place({k:'shape',type:'graph',p:{f1:'x^2-4',f2:'2sin(x)',points:'(2,0) (-2,0)'}});
+            const t=await S.place({k:'shape',type:'triangle',p:{type:'right',sides:1}});
+            const v=await S.place({k:'shape',type:'freebody',p:{incline:30}});
+            const s=await S.place({k:'shape',type:'symbol',p:{s:'lamp',label:'L'}});
+            const a=await S.place({k:'shape',type:'atom',p:{z:11}});
+            const all=[lab,g,t,v,s,a];window.__sci.ids.push(...all.map(i=>i.id));
+            window.__shp={n:I.count()-n0,ok:all.every(i=>i.t==='image'&&i.img.startsWith('data:image/svg+xml')&&i.w>30&&i.h>30),lab:lab.sci.type+':'+lab.sci.p.type,graph:atob(g.img.split(',')[1]).includes('<path')};
+            }catch(e){window.__shp={err:String(e&&e.message||e)}}})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__shp)") == "true", 30_000), "shapes placed");
+        Check(Js("JSON.stringify(window.__shp)") == "{\"n\":6,\"ok\":true,\"lab\":\"lab:titration\",\"graph\":true}", "shapes: " + Js("JSON.stringify(window.__shp)"));
+        Until(() => false, 500);
+        SaveSmokeShot(this, "board-science-shapes");
+
+        // التعديل بالنقر المزدوج: محرر الحقول ← غيّر مستوى السائل ← احفظ بنفس الرقم
+        Js("""
+            (()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,id=window.__sci.ids.at(-6);
+            S.editItem(I.surfaces.get(key),I.doc.items(key).find(i=>i.id===id));return 'ok'})()
+            """);
+        Check(Until(() => Js("String(!!document.querySelector('.sci-dlg[data-shape-dlg=lab] .sci-prev img'))") == "true", 8000), "shape editor with preview");
+        Check(Js("String(!document.querySelector('.sci-row[data-f=liq2]').hidden && document.querySelector('.sci-row[data-f=flame]').hidden)") == "true", "fields shown per apparatus");
+        Until(() => false, 300);
+        SaveSmokeShot(this, "board-science-shape-editor");
+        Js("""
+            (()=>{const i=document.querySelector('.sci-row[data-f=level] input');i.value='85';i.dispatchEvent(new Event('input'));
+            [...document.querySelectorAll('.sci-dlg .sci-foot button')][0].click();return 'ok'})()
+            """);
+        Check(Until(() => Js("""
+            (()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,it=I.doc.items(key).find(i=>i.id===window.__sci.ids.at(-6));return String(!document.querySelector('.sci-dlg')&&it.sci.p.level==='85')})()
+            """) == "true", 8000), "lab item edited in place");
+        Js("masar.sciTest().Sci.close(); 'ok'");
     }
 }

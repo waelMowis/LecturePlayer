@@ -6,6 +6,7 @@ import { PageEditor } from "./page-editor.js";
 import { Board, boardPlans } from "./board.js";
 import { Sci } from "./sci.js";
 import * as SciChem from "./sci-chem.js";
+import * as SciShapes from "./sci-shapes.js";
 import { runJob } from "./ink-export.js";
 const host = window.chrome && window.chrome.webview;
 function post(msg) {
@@ -720,7 +721,7 @@ window.masar = {
   pickResult: (id, url) => { const r = picks.get(id); if (r) { picks.delete(id); r(url || null); } return "ok"; },
   peTest: () => PageEditor,
   boardTest: () => Board,
-  sciTest: () => ({ Sci, Chem: SciChem }),
+  sciTest: () => ({ Sci, Chem: SciChem, Shapes: SciShapes }),
   boardExport: (which, send) => { if (S.kind === "board") Board.exportPdf(which || "all", !!send); return "ok"; },
   /** لقطة شاشة جاية من البرنامج ← صفحة جديدة في السبورة. */
   boardImage: (dataUrl, name) => { if (S.kind === "board") Board.addImagePage(dataUrl, name); return "ok"; },
