@@ -128,7 +128,7 @@ internal sealed partial class ReaderPane : Panel
         string url = Serve(file);
         var o = new Dictionary<string, object?>
         {
-            ["gen"] = gen, ["url"] = url, ["title"] = title, ["format"] = Data.BookFiles.FormatOf(file), ["cfi"] = b.LastCfi,
+            ["gen"] = gen, ["url"] = url, ["title"] = title, ["bookId"] = b.Id, ["format"] = Data.BookFiles.FormatOf(file), ["cfi"] = b.LastCfi,
             ["page"] = Math.Max(1, b.LastPage), ["top"] = b.LastTop, ["left"] = b.LastLeft,
             ["scale"] = b.Zoom ?? "page-width", ["spread"] = b.Spread, ["rtl"] = b.RightToLeft,
             ["theme"] = theme, ["readSeconds"] = readSeconds, ["read"] = read.ToArray(),
@@ -151,6 +151,19 @@ internal sealed partial class ReaderPane : Panel
     public Task MergeInkAsync(System.Text.Json.Nodes.JsonObject doc) => Run("masar.setInk(" + JsonSerializer.Serialize(doc.ToJsonString()) + ")");
     /// <summary>القارئ يبعت أي تغيير لسه مابعتهوش.</summary>
     public Task FlushInkAsync() => Run("masar.inkFlush()");
+
+    /// <summary>قبل القفل: الأدوات الكبيرة المفتوحة (محاكي أردوينو، البرمجة بالكتل) تحفظ شغلها في السبورة (بحد أقصى مهلة).</summary>
+    public async Task CloseToolsAsync(TimeSpan max)
+    {
+        if (Web.CoreWebView2 == null) return;
+        await EvalAsync("masar.closeTools()");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.Elapsed < max)
+        {
+            await Task.Delay(100);
+            if (await EvalAsync("String(masar.toolsBusy())") != "\"true\"") break;
+        }
+    }
     public Task SetInkModeAsync(bool on) => Run("masar.ink(" + (on ? "true" : "false") + ")");
     public async Task<string?> EvalAsync(string js)
     {

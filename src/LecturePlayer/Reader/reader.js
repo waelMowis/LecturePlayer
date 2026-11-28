@@ -68,6 +68,7 @@ async function open(o) {
   const gen = ++S.gen;
   await closeDoc();
   S.opts = o || {};
+  Sci.docId = String(o?.bookId || "");
   S.readSeconds = Math.max(1, o.readSeconds || 10);
   S.read = new Set(o.read || []);
   S.dwell = new Map();
@@ -187,6 +188,8 @@ function restore(o) {
 }
 
 async function closeDoc() {
+  // أداة كبيرة مفتوحة (محاكي أردوينو، البرمجة بالكتل…): تحفظ شغلها في السبورة الحالية الأول
+  try { await Sci.apps.closeAndWait(); } catch (e) { }
   inkClose();
   const d = S.doc, t = S.task;
   S.doc = null; S.task = null;
@@ -708,6 +711,9 @@ window.masar = {
   setInk: json => { Ink.mergeRemote(json); InkUI.refresh(); return "ok"; },
   setInkPrefs: json => { Ink.setPrefs(json); applyInkPrefs(); return "ok"; },
   inkFlush: () => { Ink.flush(); return "ok"; },
+  /** قبل قفل البرنامج: الأدوات المفتوحة تحفظ شغلها في السبورة، وبعدين الرسم يتبعت */
+  closeTools: () => { Sci.apps.closeAndWait().catch(() => { }).finally(() => Ink.flush()); return "ok"; },
+  toolsBusy: () => Sci.apps.busy(),
   ink: on => { if (on == null) toggleInk(); else setInk(!!on); return "ok"; },
   inkState: () => JSON.stringify({ on: Ink.on, tool: Ink.tool, count: Ink.count(), layers: Ink.surfaces.size, json: Ink.doc.toJSON() }),
   inkTest: () => ({ Ink, InkUI }),

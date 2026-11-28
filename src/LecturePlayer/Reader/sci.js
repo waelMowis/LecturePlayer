@@ -170,7 +170,7 @@ export const Sci = {
     this.board = board;
     Apps.init(this);
     Ardu.init(this);
-    ScratchApp.sciToast = m => this.toast(m);
+    ScratchApp.sciToast = m => this.toast(m); ScratchApp.sci = this;
     Ink.onSciEdit = (s, it) => this.editItem(s, it);
     Ink.onSciRecolor = (key, ids, c) => this.recolor(key, ids, c);
   },

@@ -344,5 +344,51 @@ internal partial class MainForm
         SaveSmokeShot(this, "scratch-reopen");
         Js("masar.sciTest().Sci.apps.close();'ok'");
         Console.WriteLine("SMOKE scratch: ok");
+        RunToolSaveChecks(Js, Until);
+    }
+
+    /// <summary>
+    /// حفظ شغل الأدوات الكبيرة: حفظ تلقائي لكل سبورة (أردوينو والبرمجة بالكتل)، والعنصر المفتوح من السبورة
+    /// بيتحدّث لوحده لما النافذة تتقفل بعد تعديل (ومايتغيّرش من غير تعديل)، وmasar.closeTools (قفل البرنامج) بيحفظ.
+    /// </summary>
+    private void RunToolSaveChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("tool save: " + what); }
+        Check(Js("String(masar.sciTest().Sci.docId.length>8)") == "true", "board id passed to the page: " + Js("masar.sciTest().Sci.docId"));
+        Js("""
+            window.__tsv=null;(async()=>{try{const S=masar.sciTest().Sci,A=S.ardu,I=masar.inkTest().Ink,sl=ms=>new Promise(r=>setTimeout(r,ms)),out={};
+            const doc=S.docId;
+            await A.open({mode:'code'});A.ui.ta.value='// A1\nvoid setup(){}\nvoid loop(){}\n';A.ui.ta.dispatchEvent(new Event('input'));await sl(1400);
+            await S.apps.closeAndWait();
+            await A.open({mode:'code'});out.restoreA=A.ui.ta.value.startsWith('// A1');await S.apps.closeAndWait();
+            S.docId='__smoke_other';await A.open({mode:'code'});out.otherBoard=!A.ui.ta.value.startsWith('// A1');await S.apps.closeAndWait();S.docId=doc;
+            await A.openProject('blink');await sl(300);await A.capture();await sl(1200);
+            const key=S.board.curPage().id;let it=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='arduino').at(-1);window.__sci.ids.push(it.id);const img0=it.img;
+            S.editItem({key},it);await sl(1500);A.ui.ta.value+='// تعديل\n';A.ui.ta.dispatchEvent(new Event('input'));
+            await S.apps.closeAndWait();await sl(300);
+            it=I.doc.items(key).find(i=>i.id===it.id);out.itemUpdated=it.sci.code.includes('// تعديل')&&it.img!==img0;
+            const img1=it.img;S.editItem({key},it);await sl(1500);await S.apps.closeAndWait();it=I.doc.items(key).find(i=>i.id===it.id);out.noChangeSame=it.img===img1;
+            S.editItem({key},it);await sl(1500);A.ui.ta.value+='// عند القفل\n';A.ui.ta.dispatchEvent(new Event('input'));
+            masar.closeTools();for(let i=0;i<60&&(masar.toolsBusy()||document.querySelector('.ard-win'));i++)await sl(100);
+            it=I.doc.items(key).find(i=>i.id===it.id);out.closeTools=it.sci.code.includes('// عند القفل');
+            await S.scratch.open({});let api=S.scratch.api;const sp=api.vm.runtime.targets.find(t=>!t.isStage);api.vm.renameSprite(sp.id,'نجمة');sp.setXY(50,20);
+            await S.apps.closeAndWait();
+            await S.scratch.open({});api=S.scratch.api;out.scratchRestore=api.vm.runtime.targets.some(t=>t.getName()==='نجمة'&&Math.round(t.x)===50);
+            await S.scratch.capture();await sl(1500);
+            let si=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='scratch').at(-1);window.__sci.ids.push(si.id);const sb0=si.sci.sb3;
+            S.editItem({key},si);for(let i=0;i<150&&!(S.scratch.api&&S.scratch.ctx?.openSig);i++)await sl(200);
+            api=S.scratch.api;api.vm.renameSprite(api.vm.runtime.targets.find(t=>!t.isStage).id,'قمر');
+            await S.apps.closeAndWait();await sl(300);
+            si=I.doc.items(key).find(i=>i.id===si.id);out.scratchItemUpdated=si.sci.sb3!==sb0;
+            S.editItem({key},si);for(let i=0;i<150&&!(S.scratch.api&&S.scratch.ctx?.openSig);i++)await sl(200);
+            out.scratchReopen=S.scratch.api.vm.runtime.targets.some(t=>t.getName()==='قمر');
+            await S.apps.closeAndWait();
+            window.__tsv=out}catch(e){window.__tsv={err:String(e&&e.message||e)}}})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__tsv)") == "true", 180_000), "tool save checks finished");
+        string r = Js("JSON.stringify(window.__tsv)");
+        Console.WriteLine("SMOKE tool save: " + r);
+        Check(r == "{\"restoreA\":true,\"otherBoard\":true,\"itemUpdated\":true,\"noChangeSame\":true,\"closeTools\":true,\"scratchRestore\":true,\"scratchItemUpdated\":true,\"scratchReopen\":true}", r);
+        Console.WriteLine("SMOKE tool save: ok");
     }
 }

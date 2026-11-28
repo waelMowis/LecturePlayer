@@ -25,7 +25,9 @@
       else { var src = new Uint8Array(data); u = new Uint8Array(src.length); u.set(src); }
       return api.vm.loadProject(u.buffer);
     },
-    title: ""
+    title: "",
+    /** عدّاد التعديلات (بيزيد مع كل تغيير في المشروع) */
+    changes: 0
   };
   var props = {
     assetHost: "assets", projectHost: ".", projectId: "0",
@@ -33,7 +35,7 @@
     showComingSoon: false, enableCommunity: false, hasCloudPermission: false, isScratchDesktop: false, backpackVisible: false,
     onClickLogo: function () { }, onShowPrivacyPolicy: function () { },
     onUpdateProjectTitle: function (t) { api.title = t; },
-    onVmInit: function (vm) { api.vm = vm; },
+    onVmInit: function (vm) { api.vm = vm; vm.on("PROJECT_CHANGED", function () { api.changes++; }); },
     // جاهز بعد ما المشروع الافتراضي يتحمّل (لو فتحنا مشروع قبلها، الافتراضي كان هيكتب فوقه)
     onProjectLoaded: function () {
       var l = document.getElementById("masar-loading"); if (l) l.remove();

@@ -7,6 +7,7 @@
 //  Ketcher ومحاكي البصريات كبار، فبيتنزلوا أول مرة بس (من حزم «مسار» على /scipack) ويتحفظوا على الجهاز.
 // =====================================================================
 import { loadElements, SERIES, STATE, confText, cellOf } from "./sci-ptable.js";
+import { Ink } from "./ink.js";
 
 const PACKS = "/scipack/gh/waelMowis/LecturePlayer/master/packs/";
 const KETCHER = PACKS + "ketcher/v3.21/index.html";
@@ -59,14 +60,39 @@ export const Apps = {
     this.say = (t, kind) => { msg.textContent = t || ""; msg.title = t || ""; msg.className = "sci-win-msg " + (kind || ""); };
     return win;
   },
+  /**
+   * قفل النافذة. لو الأداة محتاجة تحفظ شغلها (الـ cleanup بيرجّع Promise) النافذة بتستخبى لحد ما الحفظ يخلص،
+   * وبعدين تتشال (الإطار الداخلي لازم يفضل موجود عشان نقدر ناخد منه المشروع والصورة).
+   */
   close() {
-    try { this.cleanup?.(); } catch (e) { }
+    let r = null;
+    try { r = this.cleanup?.(); } catch (e) { }
     this.cleanup = null;
-    if (this.win) { this.win.remove(); this.win = null; }
+    const w = this.win; this.win = null;
+    let p = Promise.resolve();
+    if (w) {
+      if (r && typeof r.then === "function") {
+        Object.assign(w.style, { visibility: "hidden", pointerEvents: "none" });
+        p = Promise.race([Promise.resolve(r).catch(() => { }), new Promise(res => setTimeout(res, 8000))]).finally(() => w.remove());
+        this.pending.add(p); p.finally(() => this.pending.delete(p));
+      } else w.remove();
+    }
     if (!this.sci?.dlg) document.body.classList.remove("sci-on");
+    return p;
   },
+  pending: new Set(),
+  /** قفل الأداة المفتوحة واستنى حفظها (قبل تغيير الملف المفتوح أو قفل البرنامج) */
+  async closeAndWait() { this.close(); await Promise.all([...this.pending]); },
+  busy() { return this.pending.size > 0; },
   /** نتيجة الأداة ← عنصر على الصفحة (أو تحديث نفس العنصر). */
   async insert(src, url, edit, width = 480) {
+    const it = await this.store(src, url, edit, width);
+    if (it) this.close();
+    return it;
+  },
+  /** نفس insert من غير قفل النافذة. لو edit مش موجود على الصفحة خلاص (اتمسح) مابنعملش عنصر جديد إلا لو create */
+  async store(src, url, edit, width = 480, create = true) {
+    if (edit && !create && !Ink.doc?.items(edit.key)?.some(i => i.id === edit.id)) return null;
     let [w, hh] = await imgSize(url);
     if (/^data:image\/(png|jpeg)/.test(url)) {
       // لقطة الأداة (خلفيتها مصمتة) ← JPEG بعرض 1400 بكسل على الأكثر (ملف الشرح مايتقلش)
@@ -77,9 +103,7 @@ export const Apps = {
     }
     // width = العرض على الصفحة (الصفحة عرضها 1000)، أو دالة من مقاس الصورة
     const tw = typeof width === "function" ? width(w, hh) : width;
-    const it = await this.sci.place({ ...src, k: "app", __img: url, __w: tw, __h: tw * hh / w }, edit);
-    if (it) this.close();
-    return it;
+    return await this.sci.place({ ...src, k: "app", __img: url, __w: tw, __h: tw * hh / w }, edit);
   },
 
   // ---------------------------------------------------------------- الجدول الدوري

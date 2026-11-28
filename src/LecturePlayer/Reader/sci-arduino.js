@@ -8,6 +8,11 @@ import { Circuit, partThumb } from "./ardu-circuit.js";
 import { PARTS, PALETTE, WIRE_COLORS } from "./ardu-parts.js";
 import { createBlocks } from "./ardu-blocks.js";
 import { PROJECTS, projectState } from "./ardu-projects.js";
+import { ToolStore, hash } from "./tool-store.js";
+
+/** بصمة المشروع (للمقارنة: اتغيّر من ساعة الفتح ولا لأ) */
+const projSig = s => hash(JSON.stringify([s.code ?? "", s.circuit ?? null, s.blocks ?? null, s.mode || "code"]));
+const CAP_W = (w, hh) => Math.min(940, w * 0.85, 620 * w / hh);
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -110,14 +115,27 @@ export const Ardu = {
 
   async open(state = {}, edit = null) {
     await loadScript("lib/sci/wokwi/wokwi-elements.bundle.min.js", "elements");
-    const code0 = state.code ?? store.get("code") ?? BLINK;
+    // الحفظ التلقائي: لكل سبورة مفتاح، ولكل عنصر مفتوح من السبورة مفتاح (تعديلات لسه ماتحفظتش فيه)
+    const docKey = "ardu:board:" + (this.sci?.docId || "none"), itemKey = edit ? "ardu:item:" + edit.id : null;
+    const itemBase = edit ? projSig(state) : null;
+    let restored = false;
+    if (edit) {
+      const r = await ToolStore.get(itemKey);
+      if (r?.data && r.base === itemBase) { state = { ...state, ...r.data }; restored = true; }
+    } else if (state.code == null && state.circuit == null) {
+      const r = await ToolStore.get(docKey);
+      if (r?.data) { state = { ...r.data, mode: state.mode || r.data.mode }; restored = true; }
+    }
+    clearTimeout(this._asave);
+    const ctx = { key: null, base: null, openSig: null, savedSig: null };   // حالة الحفظ الخاصة بالنافذة دي
+    const code0 = state.code ?? BLINK;
     const ta = h("textarea", { cls: "ard-ta", dir: "ltr", spellcheck: "false", wrap: "off", "aria-label": "كود أردوينو", autocomplete: "off", autocapitalize: "off" });
     ta.value = code0;
     const hl = h("pre", { cls: "ard-hl", dir: "ltr", "aria-hidden": "true" });
     const gut = h("div", { cls: "ard-gut", dir: "ltr", "aria-hidden": "true" });
     const probs = h("div", { cls: "ard-probs", "aria-live": "polite" });
     const circ = this.circuit = new Circuit({
-      onChange: j => { store.set("circuit", JSON.stringify(j)); this.ctlBar(); },
+      onChange: () => { this.autosave(); this.ctlBar(); },
       onSel: sel => this.selBar(sel),
       onWarn: list => this.showWarn(list),
       onReset: () => this.reset(),
@@ -172,7 +190,7 @@ export const Ardu = {
       const n = ta.value.split("\n").length;
       if (gut.childElementCount !== n) { gut.textContent = ""; for (let i = 1; i <= n; i++) gut.append(h("div", { "data-l": i }, i)); }
       for (const [l, k] of ui.marks) gut.children[l - 1]?.classList.add(k);
-      store.set("code", ta.value);
+      this.autosave();
     };
     const scroll = () => { hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; gut.scrollTop = ta.scrollTop; };
     ta.addEventListener("input", () => { if (ui.marks.size) { ui.marks.clear(); for (const d of gut.children) d.className = ""; } sync(); });
@@ -197,9 +215,10 @@ export const Ardu = {
     });
     sync();
     // الدائرة: المحفوظة (أو أردوينو لوحده) + قائمة القطع
-    let saved = state.circuit; if (!saved) try { saved = JSON.parse(store.get("circuit") || "null"); } catch { saved = null; }
+    const saved = state.circuit || null;
     await circ.load(saved);
     this.edit = edit; this.title = state.title || "";
+    ctx.base = itemBase;
     // مشروع جاهز: القطع الصغيرة على ثقوب لوحة التوصيل
     if (state.plug?.length) {
       for (const [id, pin, hole] of state.plug) { const at = circ.holeAt("bb1", hole); if (at) circ.moveTo(id, pin, ...at); }
@@ -216,17 +235,32 @@ export const Ardu = {
       partThumb(t).then(u => { b.querySelector("img").src = u; }).catch(() => { });
     }
     this.selBar(null); this.ctlBar();
-    this.blockState = state.blocks ?? (() => { try { return JSON.parse(store.get("blocks") || "null"); } catch { return null; } })();
+    this.blockState = state.blocks ?? null;
     await this.setMode(state.mode || store.get("mode") || "code");
+    ctx.openSig = projSig(this.snapshot());
+    clearTimeout(this._asave); ctx.key = edit ? itemKey : docKey; this.ctx = ctx;
     const roB = new ResizeObserver(() => this.blocks?.resize()); roB.observe(blkHost);
-    // الإغلاق (أو فتح نافذة جديدة فوقها): بننضّف النافذة دي بس
+    // الإغلاق (أو فتح نافذة جديدة فوقها، أو تغيير الملف المفتوح، أو قفل البرنامج): بننضّف النافذة دي بس.
+    // لو مفتوحة من عنصر على السبورة واتعدّلت: الصورة والمشروع على السبورة يتحدّثوا لوحدهم.
     Apps.cleanup = () => {
       ro.disconnect(); roB.disconnect();
-      if (this.ui === ui) { this.stop(true); this.ui = null; }
+      let p = null;
+      if (this.ui === ui) {
+        clearTimeout(this._asave);
+        const snap = this.snapshot(), sig = projSig(snap);
+        if (edit && ctx.openSig && sig !== ctx.openSig && sig !== ctx.savedSig) {
+          const { url, src } = this.renderCapture();
+          p = Apps.store(src, url, edit, CAP_W, false)
+            .then(it => it ? ToolStore.del(itemKey) : ToolStore.set(docKey, { data: snap }))
+            .catch(() => ToolStore.set(itemKey, { base: itemBase, data: snap }));
+        } else if (ctx.key && sig !== ctx.openSig && sig !== ctx.savedSig) p = this.writeSave(snap, ctx);
+        this.stop(true); this.ui = null;
+      }
       if (this.blocks && this.blocksOf === ui) { try { this.blocks.dispose(); } catch { } this.blocks = null; }
       if (this.circuit === circ) this.circuit = null;
+      return p;
     };
-    this.say("اكتب الكود ثم اضغط «تشغيل». الترجمة تتم على هذا الجهاز بدون إنترنت.");
+    this.say(restored ? (edit ? "استُعيدت تعديلات لم تُحفظ في السبورة." : "استُعيد آخر عمل على هذه السبورة.") : "اكتب الكود ثم اضغط «تشغيل». الترجمة تتم على هذا الجهاز بدون إنترنت.", restored ? "ok" : "");
     setTimeout(() => ta.focus(), 0);
     return win;
   },
@@ -237,7 +271,7 @@ export const Ardu = {
   async setMode(mode) {
     const ui = this.ui; if (!ui) return;
     this.mode = mode === "blocks" ? "blocks" : "code";
-    store.set("mode", this.mode);
+    store.set("mode", this.mode); this.autosave();
     ui.ed.hidden = this.mode === "blocks"; ui.blkWrap.hidden = this.mode !== "blocks";
     ui.win.classList.toggle("ard-blkmode", this.mode === "blocks");
     ui.tabCode.classList.toggle("on", this.mode === "code"); ui.tabBlk.classList.toggle("on", this.mode === "blocks");
@@ -248,7 +282,7 @@ export const Ardu = {
         this.blocksOf = ui;
         this.blocks = await createBlocks(ui.blkHost, this.blockState, api => {
           ui.blkCode.innerHTML = highlight(api.code());
-          clearTimeout(this._bsave); this._bsave = setTimeout(() => store.set("blocks", JSON.stringify(api.save())), 400);
+          this.autosave();
         });
         ui.blkCode.innerHTML = highlight(this.blocks.code());
       } catch (e) { this.say(e.message, "err"); this.mode = "code"; return this.setMode("code"); }
@@ -337,18 +371,45 @@ export const Ardu = {
     for (const t of list) ui.warnBox.append(h("div", {}, "⚠ " + t));
   },
 
-  /** صورة (الكود + الدائرة بحالتها الحالية) على صفحة السبورة، ومعاها المشروع كله لإعادة فتحه بالنقر المزدوج */
-  async capture() {
-    const ui = this.ui; if (!ui) return;
+  /** حالة المشروع الحالية (الكود + الدائرة + الكتل + الوضع) */
+  snapshot() {
+    const ui = this.ui;
+    return { code: ui.ta.value, circuit: ui.circ.toJSON(), blocks: this.blocks ? this.blocks.save() : (this.blockState ?? null), mode: this.mode, title: this.title };
+  },
+  /** حفظ تلقائي على الجهاز بعد أي تعديل (بعد ثانية من آخر تغيير) */
+  autosave() {
+    const ctx = this.ctx; if (!this.ui || !ctx?.key) return;
+    clearTimeout(this._asave);
+    this._asave = setTimeout(() => { if (!this.ui || this.ctx !== ctx) return; const snap = this.snapshot(); if (projSig(snap) !== ctx.openSig) this.writeSave(snap, ctx); }, 1000);
+  },
+  writeSave(snap, ctx) {
+    return ToolStore.set(ctx.key, ctx.base ? { base: ctx.base, data: snap } : { data: snap });
+  },
+  /** صورة السبورة (الكود ملوّن + الدائرة بحالتها) + المشروع ← { url, src } */
+  renderCapture() {
+    const ui = this.ui;
     const code = this.source(), c = codeSvg(code), k = ui.circ.toSVG(), gap = 14;
     const W = c.w + gap + k.w, H = Math.max(c.h, k.h);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
       `<g>${c.svg}</g><rect x="${c.w + gap}" width="${k.w}" height="${k.h}" rx="10" fill="#f4f6f8"/><g transform="translate(${c.w + gap} 0)">${k.svg}</g></svg>`;
     const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-    const src = { app: "arduino", title: this.title, mode: this.mode, code: ui.ta.value, circuit: ui.circ.toJSON() };
-    if (this.blocks) src.blocks = this.blocks.save(); else if (this.blockState) src.blocks = this.blockState;
-    try { await Apps.insert(src, url, this.edit, (w, hh) => Math.min(940, w * 0.85, 620 * w / hh)); }
-    catch (e) { this.say(e.message || String(e), "err"); }
+    const snap = this.snapshot();
+    const src = { app: "arduino", title: this.title, mode: snap.mode, code: snap.code, circuit: snap.circuit };
+    if (snap.blocks) src.blocks = snap.blocks;
+    return { url, src };
+  },
+  /** صورة (الكود + الدائرة بحالتها الحالية) على صفحة السبورة، ومعاها المشروع كله لإعادة فتحه بالنقر المزدوج */
+  async capture() {
+    const ui = this.ui; if (!ui) return;
+    const { url, src } = this.renderCapture(), sig = projSig(this.snapshot()), edit = this.edit, ctx = this.ctx;
+    clearTimeout(this._asave);
+    try {
+      if (ctx) ctx.savedSig = sig;   // الإغلاق بعد الالتقاط مايحدّثش تاني
+      const it = await Apps.insert(src, url, edit, CAP_W);
+      if (!it) { if (ctx) ctx.savedSig = null; }
+      else if (edit) ToolStore.del("ardu:item:" + edit.id);
+      else if (ctx?.key) this.writeSave(this.snapshot(), ctx);
+    } catch (e) { if (ctx) ctx.savedSig = null; this.say(e.message || String(e), "err"); }
   },
 
   async run() {

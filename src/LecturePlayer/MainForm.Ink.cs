@@ -142,6 +142,7 @@ internal partial class MainForm
         {
             try
             {
+                try { await _reader.CloseToolsAsync(TimeSpan.FromSeconds(6)).WaitAsync(TimeSpan.FromSeconds(7)); } catch { }
                 await _reader.FlushInkAsync().WaitAsync(TimeSpan.FromSeconds(2));
                 await Task.Delay(150); // الرسالة توصل
             }
