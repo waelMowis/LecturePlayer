@@ -68,7 +68,8 @@ internal sealed partial class ReaderPane : Panel
     private readonly Dictionary<string, string> _saves = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (TaskCompletionSource<JobResult> Done, IProgress<double>? Progress)> _jobs = new();
 
-    public sealed record JobResult(bool Ok, string? Error, long Size, int Pages);
+    /// <summary>نتيجة شغلانة: وLinks (صفحة نصية) = مواضع الروابط فيها (JSON) عشان تبقى قابلة للنقر في الملف المجمّع.</summary>
+    public sealed record JobResult(bool Ok, string? Error, long Size, int Pages, string? Links = null);
 
     public ReaderPane()
     {
@@ -389,7 +390,13 @@ internal sealed partial class ReaderPane : Panel
     }
 
     /// <summary>صفحة A4 نصية (عنوان وسطر فرعي وأقسام بنقاط) ← PNG، يرسمها المتصفح (يشكّل العربية صحيحًا).</summary>
-    public Task<JobResult> TextPageAsync(string title, string subtitle, IEnumerable<(string Head, List<string> Lines)> sections, string target)
+    public Task<JobResult> TextPageAsync(string title, string subtitle, IEnumerable<(string Head, List<string> Lines)> sections, string target) =>
+        TextPageAsync(title, subtitle, sections.Select(s => (s.Head, s.Lines.Select(l => new TextLine(l)).ToList())), target);
+
+    /// <summary>سطر في صفحة نصية: ولو له رابط يُرسم أزرق ويبقى قابلًا للنقر في الملف المجمّع.</summary>
+    public sealed record TextLine(string Text, string? Url = null);
+
+    public Task<JobResult> TextPageAsync(string title, string subtitle, IEnumerable<(string Head, List<TextLine> Lines)> sections, string target)
     {
         string save = SaveUrl(target);
         var o = new System.Text.Json.Nodes.JsonObject
@@ -397,14 +404,15 @@ internal sealed partial class ReaderPane : Panel
             ["title"] = title, ["subtitle"] = subtitle,
             ["sections"] = new System.Text.Json.Nodes.JsonArray(sections.Select(s => (System.Text.Json.Nodes.JsonNode)new System.Text.Json.Nodes.JsonObject
             {
-                ["head"] = s.Head, ["lines"] = new System.Text.Json.Nodes.JsonArray(s.Lines.Select(l => (System.Text.Json.Nodes.JsonNode)l!).ToArray())
+                ["head"] = s.Head, ["lines"] = new System.Text.Json.Nodes.JsonArray(s.Lines.Select(l => l.Url == null ? (System.Text.Json.Nodes.JsonNode)l.Text!
+                    : new System.Text.Json.Nodes.JsonObject { ["t"] = l.Text, ["url"] = l.Url }).ToArray())
             }).ToArray())
         };
         return RunJobAsync(id => $"masar.textPage({id}, {JsonSerializer.Serialize(o.ToJsonString())}, {JsonSerializer.Serialize(save)})", null, CancellationToken.None, 60_000);
     }
 
     /// <summary>جزء من ملف مجمّع: صفحات من PDF (من 0، أو كلها) أو صورة بمقاس صفحة (بالنقاط).</summary>
-    public sealed record ComposePart(string? Pdf = null, int[]? Pages = null, string? Image = null, double W = 0, double H = 0);
+    public sealed record ComposePart(string? Pdf = null, int[]? Pages = null, string? Image = null, double W = 0, double H = 0, string? Links = null);
 
     /// <summary>ملف PDF واحد من أجزاء بالترتيب.</summary>
     public Task<JobResult> ComposeAsync(IEnumerable<ComposePart> parts, string target, string title, IProgress<double>? progress, CancellationToken ct)
@@ -415,7 +423,11 @@ internal sealed partial class ReaderPane : Panel
         {
             var o = new System.Text.Json.Nodes.JsonObject();
             if (p.Pdf != null) { o["pdf"] = Serve(p.Pdf); if (p.Pages is { Length: > 0 }) o["pages"] = new System.Text.Json.Nodes.JsonArray(p.Pages.Select(x => (System.Text.Json.Nodes.JsonNode)x).ToArray()); }
-            else if (p.Image != null) { o["img"] = Serve(p.Image); o["w"] = p.W; o["h"] = p.H; }
+            else if (p.Image != null)
+            {
+                o["img"] = Serve(p.Image); o["w"] = p.W; o["h"] = p.H;
+                if (p.Links != null) try { o["links"] = System.Text.Json.Nodes.JsonNode.Parse(p.Links); } catch { }
+            }
             else continue;
             arr.Add(o);
         }
@@ -562,6 +574,7 @@ internal sealed partial class ReaderPane : Panel
         [JsonPropertyName("id")] public string? Id { get; set; }
         [JsonPropertyName("ok")] public bool Ok { get; set; }
         [JsonPropertyName("pages")] public JsonElement Pages { get; set; }
+        [JsonPropertyName("links")] public string? Links { get; set; }
         [JsonPropertyName("page")] public int Page { get; set; }
         [JsonPropertyName("fingerprint")] public string? Fingerprint { get; set; }
         [JsonPropertyName("title")] public string? Title { get; set; }
@@ -681,7 +694,7 @@ internal sealed partial class ReaderPane : Panel
                     break;
                 case "job" when m.Id != null && _jobs.TryGetValue(m.Id, out var job):
                     if (m.Progress is { } pr) job.Progress?.Report(pr);
-                    else job.Done.TrySetResult(new JobResult(m.Ok, m.Error, m.Size, m.Pages.ValueKind == JsonValueKind.Number ? m.Pages.GetInt32() : 0));
+                    else job.Done.TrySetResult(new JobResult(m.Ok, m.Error, m.Size, m.Pages.ValueKind == JsonValueKind.Number ? m.Pages.GetInt32() : 0, m.Links));
                     break;
                 case "pick" when m.Gen == Generation && m.Id != null:
                     PickRequested?.Invoke(m.Gen, m.Id, m.Kind ?? "", m.Name ?? "");

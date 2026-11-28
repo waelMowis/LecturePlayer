@@ -68,7 +68,12 @@ public static class ShelfShare
         return new Plan(roots.FirstOrDefault()?.Name ?? "رف", shelves, books, priv, missing, bytes);
     }
 
-    public static ExportResult Export(Plan plan, string libraryPath, Func<Book, string> fileOf, string zipPath, Options o, IProgress<double>? progress, CancellationToken ct)
+    /// <summary>ملفات زيادة جوه الحزمة (فيديوهات الحصة مثلًا) — بتتكتب في نفس المرور (من غير فتح الملف تاني).</summary>
+    public sealed record Extra(IReadOnlyList<(string Src, string Entry)>? Files = null, IReadOnlyList<(string Entry, string Text)>? Texts = null,
+        Func<Book, string?>? InkOf = null, string? Readme = null);
+
+    public static ExportResult Export(Plan plan, string libraryPath, Func<Book, string> fileOf, string zipPath, Options o, IProgress<double>? progress, CancellationToken ct,
+        Extra? extra = null)
     {
         string annDir = Path.GetFileNameWithoutExtension(LibName) + InkStore.FolderSuffix + "/";
         var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -107,8 +112,9 @@ public static class ShelfShare
         }).ToList();
         var lib = new CourseLibrary { Name = plan.Name, Shelves = shelves, Books = copies };
 
+        var extraFiles = (extra?.Files ?? Array.Empty<(string, string)>()).Where(x => File.Exists(x.Src)).ToList();
         string tmp = zipPath + ".part";
-        long total = Math.Max(1, files.Sum(x => new FileInfo(x.Src).Length)), done = 0;
+        long total = Math.Max(1, files.Concat(extraFiles).Sum(x => new FileInfo(x.Src).Length)), done = 0;
         int annotations = 0;
         try
         {
@@ -127,7 +133,7 @@ public static class ShelfShare
                     ["v"] = 1, ["app"] = "Masar", ["name"] = plan.Name, ["created"] = DateTime.UtcNow.ToString("o"),
                     ["books"] = copies.Count, ["progress"] = o.Progress, ["annotations"] = o.Annotations, ["annotatedCopies"] = o.AnnotatedCopies
                 }.ToJsonString());
-                Text("اقرأني.txt",
+                Text("اقرأني.txt", extra?.Readme ??
                     $"هذا رف مشترك من «مسار»: {plan.Name}\r\n\r\n" +
                     "الطريقة الأسهل: من «مسار» ← الكتب ← إضافة ← «رف مشترك (ZIP)» واختر هذا الملف — ستُضاف الرفوف إلى مكتبتك.\r\n" +
                     $"أو فك الضغط وافتح «{LibName}» من «فتح مكتبة».\r\n\r\n" +
@@ -137,16 +143,18 @@ public static class ShelfShare
                     {
                         string slides = InkStore.FileFor(libraryPath, b.Id + "-slides");   // رسم «أقلام وأشكال» على شرائح العرض
                         if (File.Exists(slides)) zip.CreateEntryFromFile(slides, annDir + Path.GetFileName(slides), CompressionLevel.Optimal);
-                        string ink = InkStore.FileFor(libraryPath, b.Id);
+                        string ink = extra?.InkOf?.Invoke(b) ?? InkStore.FileFor(libraryPath, b.Id);
                         if (!File.Exists(ink)) continue;
-                        zip.CreateEntryFromFile(ink, annDir + Path.GetFileName(ink), CompressionLevel.Optimal);
+                        zip.CreateEntryFromFile(ink, annDir + b.Id + ".json", CompressionLevel.Optimal);
                         annotations++;
                     }
-                foreach (var (src, entry) in files)
+                foreach (var (entry, text) in extra?.Texts ?? Array.Empty<(string, string)>()) Text(entry, text);
+                foreach (var (src, entry) in files.Concat(extraFiles))
                 {
                     ct.ThrowIfCancellationRequested();
                     string ext = Path.GetExtension(src).ToLowerInvariant();
-                    var e = zip.CreateEntry(entry, ext is ".pdf" or ".epub" or ".zip" ? CompressionLevel.NoCompression : CompressionLevel.Optimal);
+                    bool packed = ext is ".pdf" or ".epub" or ".zip" || MediaFiles.IsMedia(src);   // مضغوطة أصلًا
+                    var e = zip.CreateEntry(entry, packed ? CompressionLevel.NoCompression : CompressionLevel.Optimal);
                     e.LastWriteTime = File.GetLastWriteTime(src);
                     using var input = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                     using var output = e.Open();

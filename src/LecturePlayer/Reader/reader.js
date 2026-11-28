@@ -710,7 +710,7 @@ window.masar = {
   find: q => { findBarOpen(); $("findInput").value = q; find(false, false); return "ok"; },
   setInk: json => { Ink.mergeRemote(json); InkUI.refresh(); return "ok"; },
   setInkPrefs: json => { Ink.setPrefs(json); applyInkPrefs(); return "ok"; },
-  inkFlush: () => { Ink.flush(); return "ok"; },
+  inkFlush: () => { Ink.flush(); Board.flush(); return "ok"; },
   /** قبل قفل البرنامج: الأدوات المفتوحة تحفظ شغلها في السبورة، وبعدين الرسم يتبعت */
   closeTools: () => { Sci.apps.closeAndWait().catch(() => { }).finally(() => Ink.flush()); return "ok"; },
   toolsBusy: () => Sci.apps.busy(),
@@ -771,11 +771,22 @@ async function runTextPage(id, pageJson, save) {
     x.direction = "rtl"; x.textAlign = "right"; x.textBaseline = "top";
     const font = (size, bold) => `${bold ? "700 " : ""}${size}px "Segoe UI", Tahoma, "Noto Sans Arabic", sans-serif`;
     let y = 90;
-    const wrap = (text, size, bold, color, indent = 0) => {
+    const links = [];
+    const wrap = (text, size, bold, color, indent = 0, url = null) => {
       x.font = font(size, bold); x.fillStyle = color;
       const words = String(text).split(/\s+/), max = width - indent, lh = Math.round(size * 1.55);
       let line = "";
-      const flush = () => { if (y < H - 140) x.fillText(line, W - M - indent, y); y += lh; line = ""; };
+      const flush = () => {
+        if (y < H - 140) {
+          x.fillText(line, W - M - indent, y);
+          if (url) {
+            const w = x.measureText(line).width, x0 = W - M - indent - w;
+            x.fillRect(x0, y + size * 1.2, w, 2);
+            links.push({ x: x0 / W, y: (y - 4) / H, w: w / W, h: (lh + 2) / H, url });
+          }
+        }
+        y += lh; line = "";
+      };
       for (const w of words) {
         const t = line ? line + " " + w : w;
         if (line && x.measureText(t).width > max) { flush(); line = w; } else line = t;
@@ -792,7 +803,9 @@ async function runTextPage(id, pageJson, save) {
       for (const l of s.lines || []) {
         if (y > H - 170) { x.font = font(26); x.fillStyle = "#6e6e76"; x.fillText("…", W - M, y); y = H; break; }
         x.font = font(26); x.fillStyle = "#1e1e22"; x.fillText("•", W - M, y);
-        wrap(l, 26, false, "#1e1e22", 34); y += 6;
+        if (l && typeof l === "object") wrap(l.t || l.url || "", 26, false, l.url ? "#0b63c5" : "#1e1e22", 34, l.url || null);
+        else wrap(l, 26, false, "#1e1e22", 34);
+        y += 6;
       }
       y += 26;
     }
@@ -800,7 +813,7 @@ async function runTextPage(id, pageJson, save) {
     const blob = await new Promise(r => c.toBlob(r, "image/png"));
     const res = await fetch(save, { method: "POST", body: blob, headers: { "Content-Type": "image/png" } });
     if (!res.ok) throw new Error("فشل الحفظ");
-    post({ t: "job", id, ok: true, size: blob.size });
+    post({ t: "job", id, ok: true, size: blob.size, links: JSON.stringify(links) });
   } catch (e) { post({ t: "job", id, ok: false, error: (e && e.message) || String(e) }); }
 }
 /** ملف واحد من أجزاء: صفحات من ملفات PDF وصور (صفحة لكل صورة). */
@@ -880,7 +893,7 @@ function inkOpen(o) {
   else for (const id of ["spread", "theme", "findButton", "ai", "mark"]) $(id).hidden = false;
   if (document.body.classList.contains("pe-on")) PageEditor.close(true);
 }
-function inkClose() { if (Ink.on) InkUI.setOn(false); Ink.flush(); Ink.clearSurfaces(); setPresent(false); }
+function inkClose() { if (Ink.on) InkUI.setOn(false); Ink.flush(); Board.flush(); Ink.clearSurfaces(); setPresent(false); }
 function setInk(on) {
   if (on && !(S.kind === "board" || (S.kind === "pdf" && S.doc))) return;
   if (on === Ink.on) return;

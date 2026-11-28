@@ -18,7 +18,8 @@ namespace LecturePlayer;
 /// </summary>
 internal partial class MainForm
 {
-    internal sealed record SessionExportOptions(bool Pdf, bool Zip, bool Video);
+    /// <param name="FullBooks">«شرح حصة»: الكتب كاملة في ملف PDF (لا الصفحات المشروحة فقط) — والحزمة فيها الكتب كاملة دائمًا.</param>
+    internal sealed record SessionExportOptions(bool Pdf, bool Zip, bool Video, bool FullBooks = false);
     internal sealed record SessionExportResult(string Folder, string? Pdf, int PdfPages, string? Zip, List<string> Videos, List<string> Notes);
 
     internal const string SessionManifest = "masar-session.json";
@@ -40,7 +41,8 @@ internal partial class MainForm
     private List<(VideoItem Video, string Course)> SessionVideosWithMarks(StudySession s)
     {
         var list = new List<(VideoItem, string)>();
-        var paths = s.Recordings.Concat(s.Tabs.Where(t => t.Kind == WorkTab.CourseKind && t.ItemPath != null).Select(t => t.ItemPath!));
+        var paths = s.Recordings.Concat((s.Lesson ? LessonVideos(s).Select(x => x.Video.Path) : Enumerable.Empty<string>()))
+            .Concat((s.Items ?? s.Tabs).Where(t => t.Kind == WorkTab.CourseKind && t.ItemPath != null).Select(t => t.ItemPath!));
         foreach (var path in paths)
         {
             var v = _library.AllVideos.FirstOrDefault(x => x.Path == path);
@@ -56,6 +58,7 @@ internal partial class MainForm
     {
         if (_exporting) { ShowStatus("تصدير آخر يعمل الآن…", 4); return; }
         if (_activeTab >= 0 && _sessionId == s.Id) { CaptureTab(_activeTab); MirrorSession(); }
+        if (s.Lesson) { LessonExportDialog(s); return; }
         var videos = SessionVideosWithMarks(s);
         using var kit = new FormKit($"تصدير «{s.Name}»", 600);
         kit.Header("ماذا تريد أن تصدّر؟");
@@ -112,13 +115,14 @@ internal partial class MainForm
         if (o.Pdf)
         {
             string target = Path.Combine(folder, SafeFileName(s.Name, "ملف") + ".pdf");
-            pages = await BuildStudentPdfAsync(s, target, notes, ct);
+            pages = s.Lesson ? await BuildLessonPdfAsync(s, target, o.FullBooks, notes, ct) : await BuildStudentPdfAsync(s, target, notes, ct);
             if (pages > 0) pdf = target;
         }
         if (o.Zip)
         {
             string target = Path.Combine(folder, SafeFileName(s.Name, "حزمة") + " — مسار.zip");
-            await Task.Run(() => BuildSessionZip(s, target), ct);
+            if (s.Lesson) { if (!o.Pdf) await FlushInkForCloseAsync(); string? p = pdf; await Task.Run(() => BuildLessonZip(s, target, p, ct), ct); }
+            else await Task.Run(() => BuildSessionZip(s, target), ct);
             zip = target;
         }
         if (o.Video)
@@ -231,7 +235,7 @@ internal partial class MainForm
     /// <summary>
     /// الشرائح المشروحة: ما عليه حبر PowerPoint (في النسخة المشروحة) أو رسم «أقلام وأشكال» — صورة لكل شريحة والرسم فوقها.
     /// </summary>
-    private List<(string File, int W, int H)> ExportAnnotatedSlides(Book b, string tmp, int k, List<string> notes)
+    private List<(string File, int W, int H)> ExportAnnotatedSlides(Book b, string tmp, int k, List<string> notes, bool all = false)
     {
         var result = new List<(string, int, int)>();
         var overlay = HasLibrary ? SlideInk.Load(_libraryPath, b.Id) : new();
@@ -248,7 +252,7 @@ internal partial class MainForm
         {
             show = new PowerPointShow();
             show.Open(src);
-            var slides = show.InkSlideIndices().Union(overlay.Keys).Where(n => n >= 1 && n <= show.SlideCount).Distinct().OrderBy(n => n).ToList();
+            var slides = (all ? Enumerable.Range(1, show.SlideCount) : show.InkSlideIndices().Union(overlay.Keys)).Where(n => n >= 1 && n <= show.SlideCount).Distinct().OrderBy(n => n).ToList();
             foreach (int n in slides)
             {
                 string f = Path.Combine(tmp, $"{k}-slide{n}.png");
@@ -306,7 +310,6 @@ internal partial class MainForm
         string FileOf(Book x) => _library.Books.FirstOrDefault(o => o.Id == x.Id) is { } orig ? BookFile(orig) : "";
         long bytes = clones.Sum(c => FileOf(c) is { Length: > 0 } f && File.Exists(f) ? new FileInfo(f).Length : 0);
         var plan = new ShelfShare.Plan(s.Name, new() { shelf }, clones, new(), new(), bytes);
-        ShelfShare.Export(plan, _libraryPath, FileOf, target, new ShelfShare.Options(Progress: true, Annotations: true, AnnotatedCopies: false), null, CancellationToken.None);
 
         var tabs = new JsonArray();
         foreach (var t in s.Tabs)
@@ -324,41 +327,12 @@ internal partial class MainForm
             ["v"] = 1, ["app"] = "Masar", ["name"] = s.Name, ["class"] = cls, ["plan"] = s.Plan, ["homework"] = s.Homework,
             ["created"] = DateTime.UtcNow.ToString("o"), ["tabs"] = tabs
         };
-        using var zip = ZipFile.Open(target, ZipArchiveMode.Update);
-        var e = zip.CreateEntry(SessionManifest, CompressionLevel.Optimal);
-        using var w = new StreamWriter(e.Open(), new UTF8Encoding(false));
-        w.Write(manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+        ShelfShare.Export(plan, _libraryPath, FileOf, target, new ShelfShare.Options(Progress: true, Annotations: true, AnnotatedCopies: false), null, CancellationToken.None,
+            new ShelfShare.Extra(Texts: new[] { (SessionManifest, ManifestJson(manifest)) }));
     }
 
-    /// <summary>بعد استقبال حزمة: إن كان فيها جلسة تُضاف بتبويبات الكتب الجديدة وخطتها وواجبها.</summary>
-    private StudySession? ImportSessionFromZip(string zipPath, ShelfShare.ImportResult r)
-    {
-        try
-        {
-            using var zip = ZipFile.OpenRead(zipPath);
-            var e = zip.GetEntry(SessionManifest);
-            if (e == null) return null;
-            using var rd = new StreamReader(e.Open(), Encoding.UTF8);
-            if (JsonNode.Parse(rd.ReadToEnd()) is not JsonObject m) return null;
-            var s = new StudySession
-            {
-                Name = (string?)m["name"] ?? r.Name,
-                Plan = (string?)m["plan"],
-                Homework = (string?)m["homework"]
-            };
-            foreach (var t in (m["tabs"] as JsonArray ?? new()).OfType<JsonObject>())
-            {
-                if ((string?)t["kind"] != WorkTab.BookKind) continue;
-                string? old = (string?)t["ref"];
-                if (old == null || !r.IdMap.TryGetValue(old, out var id) || r.Books.All(b => b.Id != id)) continue;
-                s.Tabs.Add(new WorkTab { Kind = WorkTab.BookKind, Ref = id, Title = (string?)t["title"], Page = (int?)t["page"] });
-            }
-            _library.Sessions.Add(s);
-            MarkDirty();
-            return s;
-        }
-        catch (Exception ex) { Log.Error("import session", ex); return null; }
-    }
+    private static string ManifestJson(JsonObject m) =>
+        m.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
 
     // ---------------- الفيديو بالفصول ----------------
 

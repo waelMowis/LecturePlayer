@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using LecturePlayer.Data;
@@ -73,6 +75,11 @@ internal sealed partial class MainForm
             Check(!s1.Items!.Any(t => t.Ref == book.Id) && _library.Books.Contains(book) && File.Exists(pdf), "«أزل من الحصة» keeps the file");
             RemoveLessonEntry(s1, entries.First(e => e.Video == link));
             Check(lg.Videos.Count == 1 && LessonEntries(s1).Count == 3, "link removed");
+            // ترجع للتصدير
+            AddFilesToLesson(s1, new[] { pdf }, openFirst: false);
+            link = AddLessonLink(s1, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "رابط الفحص")!;
+            s1.Plan = "مقدمة\nالدرس";
+            s1.Homework = "حل تمارين الصفحة 2";
 
             // الحصة تُحفظ وتُقرأ بحقولها
             var back = JsonSerializer.Deserialize<StudySession>(JsonSerializer.Serialize(s1))!;
@@ -89,11 +96,81 @@ internal sealed partial class MainForm
             Check(Until(() => JsonNode.Parse(File.ReadAllText(nb.LocalPath)) is JsonObject m && (m["sections"] as JsonArray)?.Count == 2
                 && m["sections"]![1]!["name"]?.GetValue<string>() == "حصة الفحص 2" && m["sec"]?.GetValue<string>() == s2.NotebookSection, 10_000), "section «حصة الفحص 2» saved in the notebook");
 
+            // ---------- التصدير: PDF كامل وملف «مسار» ----------
+            if (ReaderShown) CloseReader(showHome: true);
+            Until(() => false, 300);
+            JsonNode Rect(string id, string color) => JsonNode.Parse($$"""{"id":"{{id}}","t":"shape","k":"rect","x1":100,"y1":300,"x2":400,"y2":500,"c":"{{color}}","sw":3,"ly":"p","u":1}""")!;
+            JsonObject Ink(params (string Page, string Id)[] marks)
+            {
+                var d = JsonNode.Parse("{\"v\":1,\"pages\":{},\"del\":{}}")!.AsObject();
+                foreach (var (p, id) in marks) d["pages"]![p] = new JsonArray(Rect(id, "#e03131"));
+                return d;
+            }
+            string FirstPage(string file, string? sec = null) => (JsonNode.Parse(File.ReadAllText(file))!["pages"] as JsonArray)!.OfType<JsonObject>().First(p => sec == null || (string?)p["sec"] == sec)["id"]!.GetValue<string>();
+            InkStore.Save(InkStore.FileFor(_libraryPath, board!.Id), Ink((FirstPage(board.LocalPath), "a")));
+            InkStore.Save(InkStore.FileFor(_libraryPath, nb!.Id), Ink((FirstPage(nb.LocalPath, s1.NotebookSection), "b"), (FirstPage(nb.LocalPath, s2.NotebookSection), "c")));
+            InkStore.Save(InkStore.FileFor(_libraryPath, book.Id), Ink(("2", "d")));
+            string outDir = Path.Combine(dir, "out");
+            SmokeExportFolder = outDir;
+            SmokeDialogShots = true;
+            try { ExportSessionDialog(s1); } finally { SmokeDialogShots = false; }
+            var ex = Wait(ExportSessionAsync(s1, new SessionExportOptions(true, true, false), outDir, CancellationToken.None), 180_000);
+            Console.WriteLine($"SMOKE lesson export: pdf {ex.PdfPages}p, zip {ex.Zip != null}, notes: {string.Join(" | ", ex.Notes)}");
+            Check(ex.Pdf != null && ex.PdfPages == 6, $"lesson pdf: cover + board + notebook section + explained page + videos page + homework = 6 (got {ex.PdfPages})");
+            Check(PdfHasText(ex.Pdf!, "/URI") && PdfHasText(ex.Pdf!, "youtube.com/watch?v=dQw4w9WgXcQ"), "clickable youtube link in the pdf");
+            var full = Wait(ExportSessionAsync(s1, new SessionExportOptions(true, false, false, FullBooks: true), Path.Combine(dir, "full"), CancellationToken.None), 180_000);
+            Check(full.PdfPages == 11, $"«الكتاب كامل في PDF»: 6 book pages instead of 1 (got {full.PdfPages})");
+            using (var z = ZipFile.OpenRead(ex.Zip!))
+            {
+                var names = z.Entries.Select(e => e.FullName).ToList();
+                Check(names.Count(n => n.StartsWith("books/")) == 3 && names.Count(n => n.StartsWith("videos/")) == 1 && names.Count(n => n.Contains(".annotations/")) == 3
+                      && names.Contains(SessionManifest) && names.Contains(Path.GetFileName(ex.Pdf!)), "lesson zip entries: " + string.Join(", ", names));
+                var nbEntry = z.Entries.First(e => e.FullName == "books/" + Path.GetFileName(nb.LocalPath));
+                using (var rd = new StreamReader(nbEntry.Open())) Check((JsonNode.Parse(rd.ReadToEnd())!["pages"] as JsonArray)!.Count == 1, "zip notebook = this lesson's section only");
+                var annNb = z.Entries.First(e => e.FullName.EndsWith("/" + nb.Id + ".json"));
+                using (var rd = new StreamReader(annNb.Open())) Check((JsonNode.Parse(rd.ReadToEnd())!["pages"] as JsonObject)!.Count == 1, "zip notebook ink = section pages only");
+                var man = z.GetEntry(SessionManifest)!;
+                using var mr = new StreamReader(man.Open());
+                var mj = JsonNode.Parse(mr.ReadToEnd())!;
+                Check((int?)mj["v"] == LessonManifestVersion && (string?)mj["kind"] == "lesson" && (string?)mj["lessonId"] == s1.Id && (mj["videos"] as JsonArray)?.Count == 2, "manifest v2");
+            }
+
+            // ---------- الطالب: «📂 افتح حصة» ----------
+            SmokeLessonRoot = Path.Combine(dir, "recv");
+            SmokeDialogShots = true;
+            try { Wait(OpenLessonFileAsync(ex.Zip!), 30_000); } finally { SmokeDialogShots = false; }
+            SmokeLessonUpdate = false;
+            LastImportedSession = null;
+            var got = Wait(OpenLessonFileAsync(ex.Zip!), 60_000);
+            Check(got != null && got == LastImportedSession && got.Lesson && got.ImportedFrom != null && got.LessonId == s1.Id && got.Name == s1.Name && got.Homework == s1.Homework, "lesson received");
+            made.Add(got!);
+            var gotBooks = (got!.Items ?? new()).Select(t => _library.Books.FirstOrDefault(b => b.Id == t.Ref)).OfType<Book>().ToList();
+            books.AddRange(gotBooks);
+            Check(gotBooks.Count == 3 && gotBooks.All(b => File.Exists(b.LocalPath) && b.LocalPath.StartsWith(SmokeLessonRoot)), "received books (full copies)");
+            var gb = gotBooks.FirstOrDefault(b => b.Id == got.BoardId);
+            var gn = gotBooks.FirstOrDefault(b => b.Id == got.NotebookId);
+            Check(gb != null && gb.IsBoard && gn != null && gn.IsNotebook && got.NotebookSection == s1.NotebookSection && gn.PageCount == 1, "received board + notebook section");
+            Check(_library.ShelfOf(gb!) is { } rsh && _library.Shelves.FirstOrDefault(x => x.Id == rsh.ParentId)?.Kind == LessonsShelfKind, "received shelf inside «حصصي»");
+            Check(InkStore.PagesWithInk(InkStore.Load(InkStore.FileFor(_libraryPath, gotBooks.First(b => !b.IsBoard).Id))).SequenceEqual(new[] { 2 }) && InkStore.Count(InkStore.Load(InkStore.FileFor(_libraryPath, gb!.Id))) == 1, "received ink");
+            var glg = LessonGroup(got, false);
+            Check(glg != null && glg.Videos.Count == 2 && glg.Videos.Any(v => v.Path == link.Path) && glg.Videos.Any(v => !v.IsOnline && File.Exists(v.Path) && v.Path.StartsWith(SmokeLessonRoot)), "received video + link");
+            Check(ActiveSession == got && Until(() => ReaderShown && _currentBook == gb, 20_000), "received lesson opens on its board");
+            Check(_tabStrip.SessionText.Contains("📘") && _tabStrip.ActionText.Length == 0, "student: lesson without «end lesson»");
+            // مرة ثانية: «حدّث الموجودة»
+            SmokeLessonUpdate = true;
+            var again = Wait(OpenLessonFileAsync(ex.Zip!), 60_000);
+            Check(again != null && again != got && !_library.Sessions.Contains(got) && _library.Sessions.Count(x => x.LessonId == s1.Id) == 1 && gotBooks.All(b => !_library.Books.Contains(b)), "update replaces the old copy");
+            made.Add(again!);
+            books.AddRange((again!.Items ?? new()).Select(t => _library.Books.FirstOrDefault(b => b.Id == t.Ref)).OfType<Book>());
+            SmokeLessonUpdate = null;
+            SaveSmokeShot(this, "lesson-received");
+            Console.WriteLine("SMOKE lesson export/open: ok");
+
             // ---------- حصة بلا مجموعة والدفتر مقفول: دفتر جديد للحصة ----------
             var s3 = Wait(CreateLessonAsync("حصة حرة", null), 20_000)!;
             made.Add(s3);
             foreach (var id in new[] { s3.BoardId, s3.NotebookId }) if (_library.Books.FirstOrDefault(b => b.Id == id) is { } x) books.Add(x);
-            Check(s2.Done && s3.ClassId == null && s3.NotebookId != nb.Id && _library.Books.First(b => b.Id == s3.NotebookId).Title == "حصة حرة — دفتر", "own notebook without a class");
+            Check(s3.ClassId == null && s3.NotebookId != nb.Id && _library.Books.First(b => b.Id == s3.NotebookId).Title == "حصة حرة — دفتر", "own notebook without a class");
             Until(() => false, 500);
             SaveSmokeShot(this, "lesson");
             Console.WriteLine("SMOKE lesson: ok");
@@ -101,6 +178,9 @@ internal sealed partial class MainForm
         finally
         {
             SmokeLessonFiles = null;
+            SmokeExportFolder = null;
+            SmokeLessonRoot = null;
+            SmokeLessonUpdate = null;
             if (_sessionId != null) EndSession(markDone: false);
             if (ReaderShown) CloseReader(showHome: true);
             foreach (var s in made) { _library.Sessions.Remove(s); }
@@ -112,6 +192,7 @@ internal sealed partial class MainForm
             }
             foreach (var c in _library.Courses.Where(c => c.Name == LessonsName)) c.Groups.RemoveAll(g => made.Any(s => s.GroupId == g.Id));
             _library.Courses.RemoveAll(c => c.Name == LessonsName && c.Groups.Count == 0);
+            _library.Shelves.RemoveAll(sh => sh.Kind == null && sh.ParentId != null && _library.Shelves.FirstOrDefault(p => p.Id == sh.ParentId)?.Kind == LessonsShelfKind && !_library.Books.Any(x => x.ShelfId == sh.Id));
             _library.Classes.Remove(cls);
             if (!hadLessons) _library.Shelves.RemoveAll(s => s.Kind == LessonsShelfKind && !_library.Books.Any(x => x.ShelfId == s.Id));
             if (!hadNotebooks) _library.Shelves.RemoveAll(s => s.Kind == NotebooksShelfKind && !_library.Books.Any(x => x.ShelfId == s.Id));
@@ -119,5 +200,32 @@ internal sealed partial class MainForm
             RebuildTree();
             try { Directory.Delete(dir, true); } catch { }
         }
+    }
+
+    /// <summary>نص داخل ملف PDF (مباشرة أو داخل مجرى مضغوط — pdf-lib بيضغط الكائنات).</summary>
+    private static bool PdfHasText(string file, string needle)
+    {
+        byte[] data = File.ReadAllBytes(file);
+        var latin = Encoding.Latin1;
+        string raw = latin.GetString(data);
+        if (raw.Contains(needle)) return true;
+        for (int i = raw.IndexOf("stream", StringComparison.Ordinal); i >= 0; i = raw.IndexOf("stream", i + 6, StringComparison.Ordinal))
+        {
+            if (i >= 3 && raw.Substring(i - 3, 3) == "end") continue;
+            int start = i + 6;
+            if (start < raw.Length && raw[start] == '\r') start++;
+            if (start < raw.Length && raw[start] == '\n') start++;
+            int end = raw.IndexOf("endstream", start, StringComparison.Ordinal);
+            if (end < 0) break;
+            try
+            {
+                using var zs = new ZLibStream(new MemoryStream(data, start, end - start), CompressionMode.Decompress);
+                using var ms = new MemoryStream();
+                zs.CopyTo(ms);
+                if (latin.GetString(ms.ToArray()).Contains(needle)) return true;
+            }
+            catch { }
+        }
+        return false;
     }
 }

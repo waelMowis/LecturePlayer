@@ -84,7 +84,7 @@ internal partial class MainForm
     }
 
     /// <summary>بيفك الرف في «Documents\مسار\رفوف متشاركة\اسمه» ويضيفه للمكتبة.</summary>
-    internal async Task<ShelfShare.ImportResult?> ReceiveSharedShelfAsync(string zip, Shelf? parent, string? destRoot = null)
+    internal async Task<ShelfShare.ImportResult?> ReceiveSharedShelfAsync(string zip, Shelf? parent, string? destRoot = null, bool openSession = false)
     {
         string name = ShelfShare.PeekName(zip) ?? Path.GetFileNameWithoutExtension(zip);
         string safe = new string(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c).ToArray()).Trim();
@@ -106,6 +106,16 @@ internal partial class MainForm
             var local = r.Books.Where(b => !b.IsOnline && File.Exists(b.LocalPath)).ToList();
             if (local.Count > 0) QueueProbe(local);
             var session = ImportSessionFromZip(zip, r);
+            if (session != null && openSession)
+            {
+                LastImportedSession = session;
+                OpenSession(session);
+                ShowBanner($"📂 فُتحت «{session.Name}»: {(session.Items ?? session.Tabs).Count} ملف" + (LessonGroup(session, false) is { } lg && lg.Videos.Count > 0 ? $" و{lg.Videos.Count} فيديو ورابط" : "") +
+                           (session.Homework is { Length: > 0 } hw0 ? "  ·  الواجب: " + FirstLine(hw0) : ""), BannerKind.Success,
+                    "📋 محتويات الحصة", () => { if (ActiveSession == session) LessonContentsDialog(session); }, seconds: 20, key: "import-session");
+                RefreshHome();
+                return r;
+            }
             if (session != null)
             {
                 LastImportedSession = session;

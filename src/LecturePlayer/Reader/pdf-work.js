@@ -251,6 +251,16 @@ async function compose(m) {
       const w = p.w || img.width, h = p.h || img.height;
       const page = out.addPage([w, h]);
       page.drawImage(img, { x: 0, y: 0, width: w, height: h });
+      // روابط قابلة للنقر فوق الصورة (مواضعها نسبة من الصفحة، من أعلى اليمين كما رُسمت)
+      for (const l of p.links || []) {
+        if (!/^https?:\/\//i.test(l.url || "")) continue;
+        const rect = [l.x * w, h - (l.y + l.h) * h, (l.x + l.w) * w, h - l.y * h];
+        const annot = out.context.obj({
+          Type: "Annot", Subtype: "Link", Rect: rect, Border: [0, 0, 0],
+          A: { Type: "Action", S: "URI", URI: PDFString.of(l.url) }
+        });
+        page.node.addAnnot(out.context.register(annot));
+      }
     }
     post({ id: m.id, progress: ++i / Math.max(1, m.parts.length) * 0.9 });
   }

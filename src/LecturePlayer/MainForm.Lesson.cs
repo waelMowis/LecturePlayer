@@ -545,7 +545,7 @@ internal partial class MainForm
             Item("📝  الخطة والواجب…", () => SessionNotesDialog(s)),
             Item("📤  تصدير الحصة (PDF كامل وملف «مسار» للطلاب)…", () => ExportSessionDialog(s)),
             Item("✏  إعادة التسمية…", () => RenameSession(s)),
-            Item("⏹  إنهاء الحصة…", () => EndLessonDialog(s)),
+            s.ImportedFrom != null ? Item("⏹  أغلق الحصة (تبقى في «آخر الحصص»)", () => EndSession(markDone: false)) : Item("⏹  إنهاء الحصة…", () => EndLessonDialog(s)),
             new ToolStripSeparator()
         };
     }

@@ -475,6 +475,8 @@ internal partial class MainForm
             ? "الجلسة = ما تذاكره الآن (فيديو، كتاب، سبورة) محفوظًا باسم ومواضعه — تعود إليه بضغطة"
             : "تابع جلسة من حيث توقفت، أو ابدأ جلسة جديدة بالملفات المفتوحة");
         foreach (var s in list) _homeRole.Controls.Add(SessionCard(s));
+        _homeRole.Controls.Add(TeacherActionCard(Glyphs.OpenFolder, "افتح حصة من معلمك", "ملف «مسار» المضغوط: الكتب والسبورات والدفتر والفيديوهات في حصة واحدة (أو اسحبه على البرنامج)",
+            Theme.Accent, () => OpenLessonFileDialog()));
         _homeRole.Controls.Add(TeacherActionCard(Glyphs.Add, "جلسة مذاكرة جديدة", _tabs.Count > 0 ? $"تحفظ التبويبات المفتوحة ({_tabs.Count}) باسم" : "افتح ما ستذاكره، وكل ما تفتحه يُحفظ فيها",
             Theme.Accent, () => NewSessionDialog(fromTabs: _tabs.Count > 0)));
     }

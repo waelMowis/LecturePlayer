@@ -1842,6 +1842,12 @@ internal sealed partial class MainForm
             return;
         }
         if (!EnsureLibrary()) return;
+        // ملف حصة من «مسار» (ZIP) ← «📂 افتح حصة»
+        if (e.Data?.GetData(DataFormats.FileDrop) is string[] zips && zips.FirstOrDefault(IsLessonZip) is { } lessonZip)
+        {
+            _ = OpenLessonFileAsync(lessonZip);
+            return;
+        }
         if (e.Data?.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0)
         {
             var urls = TryGetDroppedUrls(e.Data);
