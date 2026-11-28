@@ -32,7 +32,7 @@ jobs:
 
       - name: أدوات أردوينو (محاكي بدون نت)
         shell: pwsh
-        run: ./tools/arduino/fetch-arduino.ps1 -Dest Releases/_tools/arduino
+        run: ./tools/arduino/fetch-arduino.ps1 -Dest Releases/_tools/arduino -SampleOut smoke-shots/arduino
 
       - name: فحص إن البرنامج بيفتح (smoke test)
         shell: pwsh

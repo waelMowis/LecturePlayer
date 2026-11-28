@@ -10,7 +10,8 @@
 # الاستخدام:  pwsh tools/arduino/fetch-arduino.ps1 -Dest <فولدر>
 # لو الفولدر جاهز بنفس الإصدارات (ملف .masar-stamp) مابنزّلش حاجة تاني.
 param(
-    [Parameter(Mandatory = $true)][string]$Dest
+    [Parameter(Mandatory = $true)][string]$Dest,
+    [string]$SampleOut = ''   # (للمطورين) نسخة من ملف hex لتجربة الترجمة
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -23,8 +24,25 @@ $Stamp = "cli=$CliVersion;core=$Core;libs=$($Libs -join ',');v=1"
 
 $Dest = [System.IO.Path]::GetFullPath($Dest)
 $stampFile = Join-Path $Dest '.masar-stamp'
+# (للمطورين) ترجمة أمثلة tools/arduino/samples/*.ino ← ملفات hex لتجربة المحاكي
+function Compile-Samples {
+    if (-not $SampleOut) { return }
+    New-Item -ItemType Directory -Force -Path $SampleOut | Out-Null
+    $cli = Join-Path $Dest 'arduino-cli.exe'
+    $env:ARDUINO_DIRECTORIES_DATA = Join-Path $Dest 'data'
+    $env:ARDUINO_DIRECTORIES_USER = Join-Path $Dest 'user'
+    foreach ($f in Get-ChildItem (Join-Path $PSScriptRoot 'samples') -Filter '*.ino' -ErrorAction SilentlyContinue) {
+        $sd = Join-Path ([System.IO.Path]::GetTempPath()) ("masar-sample-" + [guid]::NewGuid().ToString('N') + "\" + $f.BaseName)
+        New-Item -ItemType Directory -Force -Path $sd | Out-Null
+        Copy-Item $f.FullName (Join-Path $sd $f.Name)
+        & $cli --config-file (Join-Path $Dest 'arduino-cli.yaml') compile --fqbn arduino:avr:uno --output-dir $SampleOut $sd
+        if ($LASTEXITCODE -ne 0) { throw "ترجمة المثال $($f.Name) فشلت" }
+    }
+}
+
 if ((Test-Path (Join-Path $Dest 'arduino-cli.exe')) -and (Test-Path $stampFile) -and ((Get-Content $stampFile -Raw).Trim() -eq $Stamp)) {
     Write-Host "✓ أدوات أردوينو جاهزة ($Stamp)"
+    Compile-Samples
     exit 0
 }
 
@@ -40,7 +58,12 @@ try {
     $zip = Join-Path $tmp $zipName
     $sums = Join-Path $tmp 'checksums.txt'
     Invoke-WebRequest -Uri "$base/$zipName" -OutFile $zip -UseBasicParsing
-    Invoke-WebRequest -Uri "$base/arduino-cli_${CliVersion}_checksums.txt" -OutFile $sums -UseBasicParsing
+    # اسم ملف checksums في إصدارات arduino-cli: «<الإصدار>-checksums.txt»
+    $gotSums = $false
+    foreach ($n in @("$CliVersion-checksums.txt", "arduino-cli_${CliVersion}_checksums.txt")) {
+        try { Invoke-WebRequest -Uri "$base/$n" -OutFile $sums -UseBasicParsing; $gotSums = $true; break } catch { }
+    }
+    if (-not $gotSums) { throw "ملف checksums الرسمي لـ arduino-cli $CliVersion مش موجود" }
     $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToUpperInvariant()
     $official = (Get-Content $sums | Where-Object { $_ -match [regex]::Escape($zipName) + '\s*$' } | ForEach-Object { ($_ -split '\s+')[0] } | Select-Object -First 1)
     if (-not $official) { throw "ملف checksums الرسمي مافيهوش $zipName" }
@@ -100,6 +123,7 @@ void loop() { digitalWrite(13, !digitalRead(13)); Serial.println(millis()); dela
     if (-not (Test-Path (Join-Path $tmp 'out\check.ino.hex'))) { throw 'تجربة الترجمة ماطلعتش ملف hex' }
 
     Set-Content -Path $stampFile -Value $Stamp -Encoding ascii
+    Compile-Samples
     $mb = [math]::Round(((Get-ChildItem $Dest -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB)
     Write-Host "✓ أدوات أردوينو اتجهزت في $Dest ($mb MB) — $Stamp"
 }
