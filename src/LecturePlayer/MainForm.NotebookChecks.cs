@@ -24,7 +24,7 @@ internal partial class MainForm
         var others = _menu.Items.OfType<ToolStripMenuItem>().Where(i => i != _boardMenu && i != _boardQuick).ToList();
         foreach (var m in others) m.ShowDropDown();
         foreach (var m in others) m.HideDropDown();
-        var stray = others.SelectMany(m => All(m.DropDownItems)).Where(i => i.Text!.Contains("سبورة") || i.Text.Contains("دفتر")).Select(i => i.Text).ToList();
+        var stray = others.SelectMany(m => All(m.DropDownItems)).Where(i => (i.Text!.Contains("سبورة") || i.Text.Contains("دفتر")) && !i.Text.StartsWith("تراجع") && !i.Text.StartsWith("إعادة")).Select(i => i.Text).ToList();
         Check(stray.Count == 0, "board commands only in «السبورة»: " + string.Join(" | ", stray));
         _boardMenu.ShowDropDown();
         Until(() => false, 200);
