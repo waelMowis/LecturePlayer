@@ -164,7 +164,15 @@ body.sci-busy, body.sci-busy * { cursor: progress !important; }
 .ard-prob b { white-space: nowrap; }
 .ard-prob small { flex-basis: 100%; color: #868e96; font: 11.5px Consolas, monospace; text-align: left; }
 .ard-board { display: flex; justify-content: center; align-items: center; padding: 6px; background: #f1f3f5; border-radius: 10px; min-height: 0; }
-.ard-uno { zoom: 1.45; }
+.ard-uno { zoom: var(--z, 1.4); }
+.ard-win .sci-win-msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 980px) {
+  .ard-wrap { flex-direction: column; overflow: auto; }
+  .ard-left { flex: 1 0 300px; }
+  .ard-right { flex: 1 0 auto; }
+  .ard-ser { min-height: 140px; }
+  .ard-win .sci-win-act button { padding: 0 9px; }
+}
 .ard-stat { font-size: 12px; color: #adb5bd; min-height: 16px; }
 .ard-serh { display: flex; align-items: center; gap: 10px; }
 .ard-serh b { flex: 1; }

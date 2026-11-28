@@ -152,7 +152,10 @@ export const Ardu = {
       }
     });
     sync();
-    Apps.cleanup = () => { this.stop(true); this.ui = null; };
+    // اللوحة على قد المساحة المتاحة
+    const fit = () => { const w = ui.board.parentElement.clientWidth - 16; ui.board.style.setProperty("--z", Math.max(0.6, Math.min(1.6, w / 280)).toFixed(2)); };
+    const ro = new ResizeObserver(fit); ro.observe(ui.board.parentElement); fit();
+    Apps.cleanup = () => { ro.disconnect(); this.stop(true); this.ui = null; };
     this.say("اكتب الكود ثم اضغط «تشغيل». الترجمة تتم على هذا الجهاز بدون إنترنت.");
     setTimeout(() => ta.focus(), 0);
     return win;

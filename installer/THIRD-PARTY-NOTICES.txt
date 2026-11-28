@@ -101,3 +101,29 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 FFmpeg (تنزيل يوتيوب، وتسجيل الشاشة والكاميرا، والتحويل) — مش جوه المثبّت؛ بيتنزّل عند أول استخدام
 من https://github.com/BtbN/FFmpeg-Builds (بناء LGPL المشترك) — https://ffmpeg.org — License: LGPL v2.1 أو أحدث.
+
+------------------------------------------------------------
+محاكي أردوينو (السبورة ← حاسب) — يعمل بدون إنترنت
+
+Arduino CLI 1.6.0  (arduino\arduino-cli.exe) — برنامج منفصل يشغّله «مسار» كما هو
+https://github.com/arduino/arduino-cli — License: GPL-3.0
+Source code: https://github.com/arduino/arduino-cli/tree/v1.6.0
+
+Arduino AVR Boards (arduino:avr 1.8.6) — arduino\data\packages\arduino\hardware\avr
+https://github.com/arduino/ArduinoCore-avr — License: LGPL-2.1 (core) — Source: https://github.com/arduino/ArduinoCore-avr/tree/1.8.6
+مُضمّن معه: avr-gcc 7.3.0-atmel3.6.1-arduino7 و binutils (GPL-3.0) و avr-libc (BSD) و avrdude (GPL-2.0) و arduinoOTA (GPL-3.0)
+وأدوات arduino-cli المدمجة (ctags: GPL-2.0؛ serial-discovery و mdns-discovery و serial-monitor و dfu-discovery: GPL-3.0).
+مصادرها: https://github.com/arduino/toolchain-avr و https://github.com/arduino/avrdude-build-script
+و https://github.com/arduino/ctags و https://github.com/arduino/serial-discovery و https://github.com/arduino/mdns-discovery
+و https://github.com/arduino/serial-monitor و https://github.com/arduino/dfu-discovery
+(حذفنا من avr-gcc مكتبات عائلات AVR غير المستخدمة ووثائقه فقط؛ لم نعدّل أي ملف.)
+
+Servo 1.2.2 و LiquidCrystal 1.0.7 (مكتبات أردوينو) — arduino\user\libraries — License: LGPL-2.1
+https://github.com/arduino-libraries/Servo — https://github.com/arduino-libraries/LiquidCrystal
+
+avr8js 0.21.1 (محاكاة المعالج ATmega328P) — Reader\lib\sci\avr8js\avr8js.mjs
+https://github.com/wokwi/avr8js — License: MIT — Copyright (c) 2019-2025 Uri Shaked — النص الكامل: Reader\lib\sci\avr8js\LICENSE.txt
+
+wokwi-elements 1.9.2 (رسوم اللوحة والقطع) — Reader\lib\sci\wokwi\wokwi-elements.bundle.min.js
+https://github.com/wokwi/wokwi-elements — License: MIT — Copyright (c) 2020 Uri Shaked — النص الكامل: Reader\lib\sci\wokwi\LICENSE.txt
+مُضمّن فيه: Lit (https://github.com/lit/lit) — License: BSD-3-Clause — Copyright 2019 Google LLC
