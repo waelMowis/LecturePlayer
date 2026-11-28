@@ -127,3 +127,7 @@ https://github.com/wokwi/avr8js — License: MIT — Copyright (c) 2019-2025 Uri
 wokwi-elements 1.9.2 (رسوم اللوحة والقطع) — Reader\lib\sci\wokwi\wokwi-elements.bundle.min.js
 https://github.com/wokwi/wokwi-elements — License: MIT — Copyright (c) 2020 Uri Shaked — النص الكامل: Reader\lib\sci\wokwi\LICENSE.txt
 مُضمّن فيه: Lit (https://github.com/lit/lit) — License: BSD-3-Clause — Copyright 2019 Google LLC
+
+Blockly 13.5.0 (البرمجة بالكتل في محاكي أردوينو) — Reader\lib\sci\blockly
+https://github.com/google/blockly — License: Apache License 2.0 — Copyright 2011 Google LLC — النص الكامل: Reader\lib\sci\blockly\LICENSE.txt
+(الكتل العربية الخاصة بأردوينو ومولّد كود أردوينو من كتابة «مسار».)

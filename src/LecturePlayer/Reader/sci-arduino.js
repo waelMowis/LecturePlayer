@@ -6,6 +6,7 @@ import { Apps } from "./sci-apps.js";
 import { Uno, parseHex } from "./ardu-sim.js";
 import { Circuit, partThumb } from "./ardu-circuit.js";
 import { PARTS, PALETTE, WIRE_COLORS } from "./ardu-parts.js";
+import { createBlocks } from "./ardu-blocks.js";
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -114,6 +115,14 @@ export const Ardu = {
     const auto = h("input", { type: "checkbox", checked: true });
     const baud = h("span", { cls: "ard-baud" });
     const ed = h("div", { cls: "ard-ed" }, gut, h("div", { cls: "ard-code" }, hl, ta));
+    // الكتل: مساحة Blockly + الكود المولَّد جنبها (للقراءة)
+    const blkHost = h("div", { cls: "ard-blk", dir: "ltr" });
+    const blkCode = h("pre", { cls: "ard-blkcode", dir: "ltr", "aria-label": "الكود المولَّد من الكتل" });
+    const blkWrap = h("div", { cls: "ard-blkwrap", hidden: true }, blkHost,
+      h("div", { cls: "ard-blkside" }, h("div", { cls: "ard-blkh" }, h("b", {}, "الكود المولَّد"),
+        h("button", { title: "انسخ الكود إلى المحرر لتعديله يدويًا (تبقى الكتل كما هي)", onclick: () => { ta.value = this.blocks?.code() || ta.value; ta.dispatchEvent(new Event("input")); this.setMode("code"); } }, "تعديله يدويًا")), blkCode));
+    const tabCode = h("button", { cls: "ard-tab", role: "tab", onclick: () => this.setMode("code") }, "✎ الكود");
+    const tabBlk = h("button", { cls: "ard-tab", role: "tab", onclick: () => this.setMode("blocks") }, "🧩 الكتل");
 
     const btnRun = h("button", { cls: "pri", title: "ترجمة وتشغيل (Ctrl+Enter)", onclick: () => this.run() }, "▶ تشغيل");
     const btnStop = h("button", { title: "إيقاف المحاكاة", onclick: () => this.stop(), disabled: true }, "⏹ إيقاف");
@@ -121,7 +130,7 @@ export const Ardu = {
 
     const send = () => { if (!this.uno || !sin.value) return; this.uno.serialWrite(sin.value + "\n"); this.rxAt = performance.now(); sin.value = ""; };
     const body = h("div", { cls: "ard-wrap" },
-      h("div", { cls: "ard-left" }, ed, probs),
+      h("div", { cls: "ard-left" }, h("div", { cls: "ard-tabs", role: "tablist" }, tabCode, tabBlk), ed, blkWrap, probs),
       h("div", { cls: "ard-right" },
         bar,
         h("div", { cls: "ard-mid" }, pal, circ.root),
@@ -136,7 +145,7 @@ export const Ardu = {
       "المحاكاة: avr8js (MIT) — رسوم اللوحة: wokwi-elements (MIT) — الترجمة بدون إنترنت: arduino-cli و avr-gcc (GPL) ونواة أردوينو (LGPL)");
     win.classList.add("ard-win");
 
-    const ui = this.ui = { win, ta, hl, gut, probs, circ, bar, pal, ctl, warnBox, stat, ser, auto, baud, btnRun, btnStop, btnReset, marks: new Map() };
+    const ui = this.ui = { win, ta, hl, gut, ed, blkWrap, blkHost, blkCode, tabCode, tabBlk, probs, circ, bar, pal, ctl, warnBox, stat, ser, auto, baud, btnRun, btnStop, btnReset, marks: new Map() };
     Object.defineProperty(ui, "board", { get: () => circ.parts.get("uno")?.w });
     const sync = () => {
       hl.innerHTML = highlight(ta.value);
@@ -181,13 +190,47 @@ export const Ardu = {
       partThumb(t).then(u => { b.querySelector("img").src = u; }).catch(() => { });
     }
     this.selBar(null); this.ctlBar();
-    Apps.cleanup = () => { ro.disconnect(); this.stop(true); this.ui = null; this.circuit = null; };
+    this.blockState = state.blocks ?? (() => { try { return JSON.parse(store.get("blocks") || "null"); } catch { return null; } })();
+    await this.setMode(state.mode || store.get("mode") || "code");
+    const roB = new ResizeObserver(() => this.blocks?.resize()); roB.observe(blkHost);
+    // الإغلاق (أو فتح نافذة جديدة فوقها): بننضّف النافذة دي بس
+    Apps.cleanup = () => {
+      ro.disconnect(); roB.disconnect();
+      if (this.ui === ui) { this.stop(true); this.ui = null; }
+      if (this.blocks && this.blocksOf === ui) { try { this.blocks.dispose(); } catch { } this.blocks = null; }
+      if (this.circuit === circ) this.circuit = null;
+    };
     this.say("اكتب الكود ثم اضغط «تشغيل». الترجمة تتم على هذا الجهاز بدون إنترنت.");
     setTimeout(() => ta.focus(), 0);
     return win;
   },
 
   say(t, kind) { Apps.say?.(t, kind); },
+
+  /** «الكود» أو «الكتل» */
+  async setMode(mode) {
+    const ui = this.ui; if (!ui) return;
+    this.mode = mode === "blocks" ? "blocks" : "code";
+    store.set("mode", this.mode);
+    ui.ed.hidden = this.mode === "blocks"; ui.blkWrap.hidden = this.mode !== "blocks";
+    ui.win.classList.toggle("ard-blkmode", this.mode === "blocks");
+    ui.tabCode.classList.toggle("on", this.mode === "code"); ui.tabBlk.classList.toggle("on", this.mode === "blocks");
+    ui.tabCode.setAttribute("aria-selected", this.mode === "code"); ui.tabBlk.setAttribute("aria-selected", this.mode === "blocks");
+    if (this.mode === "blocks" && !this.blocks) {
+      try {
+        this._centered = false;
+        this.blocksOf = ui;
+        this.blocks = await createBlocks(ui.blkHost, this.blockState, api => {
+          ui.blkCode.innerHTML = highlight(api.code());
+          clearTimeout(this._bsave); this._bsave = setTimeout(() => store.set("blocks", JSON.stringify(api.save())), 400);
+        });
+        ui.blkCode.innerHTML = highlight(this.blocks.code());
+      } catch (e) { this.say(e.message, "err"); this.mode = "code"; return this.setMode("code"); }
+    }
+    if (this.mode === "blocks") setTimeout(() => { this.blocks?.resize(); if (!this._centered && this.blocks) { this._centered = true; this.blocks.ws.scrollCenter(); } }, 0);
+  },
+  /** الكود اللي هيتشغّل: من المحرر أو من الكتل */
+  source() { return this.mode === "blocks" && this.blocks ? this.blocks.code() : this.ui.ta.value; },
 
   showProblems(list) {
     const ui = this.ui; if (!ui) return;
@@ -275,7 +318,7 @@ export const Ardu = {
     this.say("جارٍ ترجمة البرنامج…");
     ui.probs.textContent = "";
     try {
-      const r = await this.compile(ui.ta.value);
+      const r = await this.compile(this.source());
       this.last = r;
       if (!this.ui) return;
       this.showProblems(r.problems || []);

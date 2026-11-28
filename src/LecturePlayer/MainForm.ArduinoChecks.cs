@@ -194,5 +194,47 @@ internal partial class MainForm
         Check(Until(() => Js("String(masar.sciTest().Sci.ardu.circuit.warn.some(w=>w.includes('بدون مقاومة')))") == "true", 10_000), "warning: LED without resistor: " + Js("JSON.stringify(masar.sciTest().Sci.ardu.circuit.warn)"));
         Js("masar.sciTest().Sci.ardu.stop(true);masar.sciTest().Sci.apps.close();'ok'");
         Console.WriteLine("SMOKE arduino circuit: ok");
+        RunArduinoBlocksChecks(Js, Until);
+    }
+
+    /// <summary>
+    /// محاكي أردوينو (المرحلة الثالثة): البرمجة بالكتل العربية — برنامج بمتغير وشرط وقراءة تناظرية وطباعة ←
+    /// الكود المولَّد ← ترجمة حقيقية ← تشغيل مع مقاومة متغيرة.
+    /// </summary>
+    private void RunArduinoBlocksChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("arduino blocks: " + what); }
+        Js("""
+            window.__abl=null;(async()=>{try{const A=masar.sciTest().Sci.ardu;
+            await A.open({code:'// x',mode:'blocks',circuit:{parts:[{id:'uno',type:'uno',x:0,y:0},{id:'pot1',type:'potentiometer',x:330,y:120}],wires:[{a:'pot1:SIG',b:'uno:A0'},{a:'pot1:VCC',b:'uno:5V'},{a:'pot1:GND',b:'uno:GND.2'}]}});
+            const B=window.Blockly,ws=A.blocks.ws;ws.clear();
+            const v=ws.getVariableMap().createVariable('قراءة');const V={id:v.getId()};
+            B.serialization.blocks.append({type:'ard_program',x:20,y:20,inputs:{
+              SETUP:{block:{type:'ard_serial_begin',fields:{BAUD:'9600'},next:{block:{type:'ard_pin_mode',fields:{PIN:'13',MODE:'OUTPUT'}}}}},
+              LOOP:{block:{type:'variables_set',fields:{VAR:V},inputs:{VALUE:{block:{type:'ard_analog_read',fields:{PIN:'A0'}}}},
+                next:{block:{type:'controls_if',extraState:{hasElse:true},inputs:{
+                  IF0:{block:{type:'logic_compare',fields:{OP:'GT'},inputs:{A:{block:{type:'variables_get',fields:{VAR:V}}},B:{block:{type:'math_number',fields:{NUM:500}}}}}},
+                  DO0:{block:{type:'ard_digital_write',fields:{PIN:'13',VAL:'HIGH'}}},ELSE:{block:{type:'ard_digital_write',fields:{PIN:'13',VAL:'LOW'}}}},
+                next:{block:{type:'ard_serial_print',fields:{NL:'println'},inputs:{V:{block:{type:'variables_get',fields:{VAR:V}}}},
+                next:{block:{type:'ard_delay',inputs:{MS:{block:{type:'math_number',fields:{NUM:100}}}}}}}}}}}}}},ws);
+            await new Promise(r=>setTimeout(r,300));
+            const code=A.blocks.code();
+            window.__abl={code,cats:document.querySelectorAll('.ard-blk .blocklyToolboxCategory, .ard-blk .blocklyTreeRow').length,preview:document.querySelector('.ard-blkcode').textContent.trim()===code.trim()};
+            }catch(e){window.__abl={err:String(e&&e.message||e)}}})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__abl)") == "true", 20_000), "blocks workspace ready");
+        string code = Js("String(window.__abl.code||window.__abl.err)");
+        Console.WriteLine("SMOKE arduino blocks code: " + code.Replace("\n", " | "));
+        Check(code.Contains("Serial.begin(9600);") && code.Contains("= analogRead(A0);") && System.Text.RegularExpressions.Regex.IsMatch(code, @"if \(\w+ > 500\) \{") && code.Contains("digitalWrite(13, LOW);") && code.Contains("Serial.println("), "generated code: " + code);
+        Check(Js("String(window.__abl.cats===9&&window.__abl.preview)") == "true", "toolbox + preview: " + Js("JSON.stringify(window.__abl)"));
+        SaveSmokeShot(this, "arduino-blocks");
+        Js("window.__abr=null;masar.sciTest().Sci.ardu.run().then(()=>window.__abr=String(masar.sciTest().Sci.ardu.uno?.running));'ok'");
+        Check(Until(() => Js("String(window.__abr)") != "null", 240_000) && Js("String(window.__abr)") == "true", "blocks program compiled and running: " + Js("document.querySelector('.sci-win-msg').textContent"));
+        string Last() => Js("(()=>{const l=document.querySelector('.ard-ser').textContent.trim().split('\\n');return l[l.length-1].trim()})()");
+        Check(Until(() => Last() == "512" && Js("String(masar.sciTest().Sci.ardu.ui.board.led13)") == "true", 20_000), "pot 512 → LED on: " + Last());
+        Js("(()=>{const p=masar.sciTest().Sci.ardu.circuit.parts.get('pot1');p.w.value=100;p.w.dispatchEvent(new InputEvent('input'));return 'ok'})()");
+        Check(Until(() => Last() == "100" && Js("String(masar.sciTest().Sci.ardu.ui.board.led13)") == "false", 10_000), "pot 100 → LED off: " + Last());
+        Js("masar.sciTest().Sci.ardu.stop(true);masar.sciTest().Sci.ardu.setMode('code');masar.sciTest().Sci.apps.close();'ok'");
+        Console.WriteLine("SMOKE arduino blocks: ok");
     }
 }

@@ -223,3 +223,20 @@ body.sci-busy, body.sci-busy * { cursor: progress !important; }
 .ard-warn { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #ffd43b; background: #f59f0014; border: 1px solid #f59f0040; border-radius: 8px; padding: 5px 9px; }
 .ard-right .ard-ser { flex: 0 0 17%; min-height: 90px; }
 .ard-mid { flex: 1; }
+/* البرمجة بالكتل */
+.ard-tabs { display: flex; gap: 4px; }
+.ard-tab { height: 30px; padding: 0 14px; border-radius: 8px 8px 0 0; background: #ffffff0d; color: #adb5bd; }
+.ard-tab.on { background: #1971c2; color: #fff; font-weight: 600; }
+.ard-win.ard-blkmode .ard-left { flex: 1.7; }
+.ard-blkwrap { flex: 1; min-height: 0; display: flex; gap: 8px; }
+.ard-blkwrap[hidden] { display: none; }
+.ard-blk { flex: 2.2; min-width: 0; border-radius: 10px; overflow: hidden; background: #fff; position: relative; }
+.ard-blkside { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ard-blkh { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ard-blkh button { height: 26px; padding: 0 10px; border-radius: 7px; font-size: 12px; }
+.ard-blkcode { flex: 1; margin: 0; overflow: auto; padding: 8px 10px; background: #1e1f22; color: #d4d4d4; border-radius: 10px; border: 1px solid #ffffff1a; font: 12.5px/18px Consolas, "Cascadia Mono", monospace; white-space: pre; text-align: left; }
+.ard-blkcode i { font-style: normal; }
+.ard-blkcode .c { color: #6a9955; } .ard-blkcode .s { color: #ce9178; } .ard-blkcode .p { color: #c586c0; } .ard-blkcode .n { color: #b5cea8; } .ard-blkcode .k { color: #569cd6; } .ard-blkcode .f { color: #dcdcaa; }
+.ard-blk .blocklyToolboxDiv, .ard-blk .blocklyToolbox { background: #f1f3f5; }
+.ard-blk .blocklyTreeLabel, .ard-blk .blocklyToolboxCategoryLabel { color: #212529; font: 600 13px "Segoe UI", Tahoma, sans-serif; }
+.ard-ed[hidden] { display: none; }
