@@ -1,4 +1,5 @@
 using LecturePlayer.Data;
+using LecturePlayer.UI;
 
 namespace LecturePlayer;
 
@@ -71,6 +72,7 @@ internal partial class MainForm
         RunScienceShapeChecks(Js, Until);
         RunScienceLibraryChecks(Js, Until);
         RunScienceAppChecks(Js, Until);
+        RunScienceOnlineChecks(Js, Until);
 
         // محفوظة في ملف الشرح، وبعدين بنشيلها
         Js("masar.inkFlush()");
@@ -275,6 +277,51 @@ internal partial class MainForm
         Js("window.__pc=null;fetch('/scipack/pubchem/compound/name/caffeine/SDF?record_type=3d').then(async r=>window.__pc=r.status+' '+(await r.text()).length,e=>window.__pc='error '+e); 'ok'");
         Until(() => Js("String(window.__pc)") != "null", 30_000);
         Console.WriteLine("SMOKE pubchem: " + Js("String(window.__pc)"));
+        Js("masar.sciTest().Sci.close(); 'ok'");
+    }
+
+    /// <summary>
+    /// المرحلة الخامسة: المصادر الأونلاين — محاكاة PhET في نافذة «مسار» ولقطتها على الصفحة بذكر المصدر،
+    /// وبحث PubChem وWikimedia Commons وإدراج النتيجة بترخيصها. GeoGebra وDesmos: بنسجل إن الصفحة اتفتحت.
+    /// </summary>
+    private void RunScienceOnlineChecks(Func<string, string> Js, Func<Func<bool>, int, bool> Until)
+    {
+        static void Check(bool ok, string what) { if (!ok) throw new Exception("science online: " + what); }
+        // PhET في نافذة البرنامج
+        Js("masar.sciTest().Sci.open('phys'); document.querySelector('.sci-panel [data-phet=\"pendulum-lab\"]')?.click() || document.querySelector('.sci-panel [data-phet]').click(); 'ok'");
+        Check(Until(() => SciWebForm.Current is { IsDisposed: false }, 10_000), "PhET window opened");
+        var form = SciWebForm.Current!;
+        bool loaded = Until(() => form.PageLoaded, 90_000);
+        Until(() => false, 6000);   // المحاكاة نفسها بتحمّل بعد الصفحة
+        Console.WriteLine("SMOKE phet: loaded=" + loaded + " title=" + form.Text);
+        SaveSmokeShot(form, "science-phet-window");
+        Js("window.__webn=masar.inkTest().Ink.count(); 'ok'");
+        var cap = form.CaptureAsync();
+        Check(Until(() => cap.IsCompleted, 20_000) && cap.Result is { Length: > 5000 }, "capture");
+        Check(Until(() => Js("String(masar.inkTest().Ink.count()>window.__webn)") == "true", 15_000), "capture placed on the page");
+        Check(Js("""
+            (()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,it=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='web').at(-1);
+            window.__sci.ids.push(it.id);return String(it.sci.source==='phet'&&it.sci.url.includes('phet.colorado.edu')&&atob(it.img.split(',')[1]).includes('PhET Interactive Simulations'))})()
+            """) == "true", "PhET capture with credit");
+        // GeoGebra في نفس النافذة
+        Js("masar.sciTest().Sci.open('math'); document.querySelector('.sci-panel [data-web=\"geogebra\"]').click(); 'ok'");
+        bool gg = Until(() => form.PageLoaded && form.Web.CoreWebView2?.Source?.Contains("geogebra.org") == true, 60_000);
+        Console.WriteLine("SMOKE geogebra: " + gg + " " + form.Web.CoreWebView2?.Source);
+        form.Close();
+
+        // PubChem وWikimedia Commons (بحث عن طريق البرنامج)
+        Js("""
+            window.__onl=null;(async()=>{const r={};try{const W=await import('./sci-web.js');const c=await W.pubchemCompound('aspirin');r.pc=c.formula+' '+c.cid;
+            const A=masar.sciTest().Sci.apps;const a=await A.insert({app:'pubchem',cid:c.cid,title:c.title},await W.pubchemSvg(c),null,360);window.__sci.ids.push(a.id);r.pcimg=atob(a.img.split(',')[1]).includes('PubChem CID');
+            const list=await W.commonsSearch('بركان');r.cm=list.length;const b=await A.insert({app:'commons',title:list[0].title,lic:list[0].lic},await W.commonsSvg(list[0]),null,480);window.__sci.ids.push(b.id);
+            r.cmimg=atob(b.img.split(',')[1]).includes('Wikimedia Commons');r.lic=list[0].lic}catch(e){r.err=String(e&&e.message||e)}window.__onl=r})();'ok'
+            """);
+        Check(Until(() => Js("String(!!window.__onl)") == "true", 90_000), "PubChem + Commons finished");
+        string onl = Js("JSON.stringify(window.__onl)");
+        Console.WriteLine("SMOKE science online: " + onl);
+        Check(Js("(()=>{const r=window.__onl;return String(!r.err&&r.pc.startsWith('C9H8O4')&&r.pcimg&&r.cm>3&&r.cmimg)})()") == "true", "PubChem + Commons: " + onl);
+        Until(() => false, 500);
+        SaveSmokeShot(this, "board-science-online");
         Js("masar.sciTest().Sci.close(); 'ok'");
     }
 }

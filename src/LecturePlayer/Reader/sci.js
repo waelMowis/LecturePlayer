@@ -12,6 +12,7 @@ import { wrap } from "./sci-svg.js";
 import { loadLib, search, thumbEl, displayName, drawPic, needsCredit, licName, phyloSearch } from "./sci-lib.js";
 import { CAT_AR, TAB_CATS } from "./sci-lib-ar.js";
 import { Apps } from "./sci-apps.js";
+import { PHET, SITES, phetUrl, CREDIT, captionedShot, pubchemCompound, pubchemSvg, commonsSearch, commonsSvg } from "./sci-web.js";
 
 const h = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -24,7 +25,7 @@ const h = (tag, attrs = {}, ...kids) => {
     else if (k === "style" && typeof v === "object") Object.assign(e.style, v);
     else e.setAttribute(k, v === true ? "" : v);
   }
-  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
   return e;
 };
 const LIB = "lib/sci/";
@@ -258,6 +259,7 @@ export const Sci = {
   tabBody(tab) {
     if (tab === "math") return [
       this.libSection("math"),
+      this.onlineSection("math"),
       this.section("المعادلات", this.tile("✎", "معادلة جديدة", "كسور، جذور، أسس، مصفوفات، تكامل — ولوحة رموز عربية", () => this.editor({ k: "eq", tex: "" }))),
       this.section("الرسوم والأشكال", ...this.toolTiles("math")),
       this.section("صيغ جاهزة", this.templates(MATH_T, "eq"))
@@ -271,6 +273,7 @@ export const Sci = {
         ["mol3d", "🧬", "الجزيئات ثلاثية الأبعاد", "52 جزيئًا جاهزًا، وبحث في PubChem، بنماذج الكرات والعصي والنموذج الفراغي"]]),
       this.section("نماذج الذرة", ...this.toolTiles("chem")),
       ...LAB_GROUPS.map(([g, title]) => this.section("أدوات المعمل — " + title, this.grid(LAB.filter(x => x[2] === g).map(([id, name]) => ["lab", { type: id }, name])))),
+      this.onlineSection("chem"),
       this.libSection("chem"),
       this.section("تفاعلات جاهزة", this.templates(CHEM_T, "chem"))
     ];
@@ -280,12 +283,14 @@ export const Sci = {
         ["motion", "⚽", "مشهد الحركة", "كرات وصناديق ومستوى مائل وبندول ونابض وتصادم بالجاذبية، ومتجهات السرعة"]]),
       this.section("الرسوم الفيزيائية", ...this.toolTiles("phys")),
       this.section("رموز الدوائر الكهربائية (وصّلها بأداة الخط)", this.grid(SYMBOLS.map(([id, name]) => ["symbol", { s: id }, name]))),
+      this.onlineSection("phys"),
       this.libSection("phys"),
       this.section("قوانين جاهزة", this.templates(PHYS_T, "eq"))
     ];
     return [
       this.libSection("bio"),
       this.appTiles([["mol3d", "🧬", "الجزيئات ثلاثية الأبعاد", "الجلوكوز والأحماض الأمينية وقواعد DNA، وبحث في PubChem"]]),
+      this.onlineSection("bio"),
       this.section("المعادلات الحيوية", this.tile("⚗", "معادلة حيوية", "البناء الضوئي، التنفس، الإنزيمات", () => this.editor({ k: "chem", ce: "" }))),
       this.section("صيغ جاهزة", h("div", { cls: "sci-tpl" }, BIO_T.map(([name, src, k]) => h("button", {
         onclick: () => this.editor(k === "eq" ? { k: "eq", tex: src } : { k: "chem", ce: src })
@@ -543,6 +548,65 @@ export const Sci = {
         h("button", { onclick: () => this.closeEditor() }, "إلغاء"))
     );
     refresh();
+  },
+
+  // ---------------------------------------------------------------- مصادر أونلاين
+  /** PhET وGeoGebra وDesmos (نافذة جوه «مسار») + بحث PubChem وWikimedia Commons. */
+  onlineSection(tab) {
+    const out = [];
+    const sites = SITES[tab] || [];
+    if (sites.length) out.push(this.section("تطبيقات أونلاين (تُفتح في نافذة داخل «مسار»، ثم «التقط إلى السبورة»)",
+      sites.map(([src, url, name, icon]) => this.tile(icon, name, src === "desmos" ? "رسم الدوال والجداول والمنزلقات" : "من موقع GeoGebra الرسمي (للاستخدام غير التجاري)", () => this.web(src, url, name), { "data-web": src }))));
+    const sims = PHET[tab] || [];
+    if (sims.length) {
+      const st = (this.phetN ||= {});
+      const n = st[tab] || 8, box = h("div", { cls: "sci-tpl" });
+      const fill = k => { box.textContent = ""; box.append(...sims.slice(0, k).map(([id, name]) => h("button", { "data-phet": id, title: "محاكاة PhET — تُفتح من موقعها الرسمي بالعربية إن وُجدت ترجمة", onclick: () => this.web("phet", phetUrl(id), "PhET — " + name) }, "▶ " + name)));
+        if (k < sims.length) box.append(h("button", { onclick: () => { st[tab] = sims.length; fill(sims.length); } }, `المزيد (${sims.length - k})`)); };
+      fill(n);
+      out.push(this.section("محاكيات PhET التفاعلية (أونلاين)", box));
+    }
+    if (tab === "chem") out.push(this.section("بحث المركبات في PubChem (أونلاين)", this.searchBox("اسم المركب بالإنجليزية أو صيغته: aspirin، C6H12O6", async (q, res) => {
+      const c = await pubchemCompound(q);
+      res.append(h("div", { cls: "sci-pc" }, h("img", { src: c.png, alt: c.title }), h("b", {}, c.title), h("small", {}, `${c.formula} · ${c.weight} جم/مول`), h("small", { dir: "ltr" }, c.iupac || ""),
+        h("button", { cls: "pri", onclick: async () => { try { await Apps.insert({ app: "pubchem", cid: c.cid, title: c.title }, await pubchemSvg(c), null, 360); } catch (e) { this.toast(e.message); } } }, "أدرج في السبورة"),
+        h("button", { onclick: () => Apps.mol3d({}).then(() => { const q2 = document.querySelector(".m3-side input"); if (q2) { q2.value = c.title; q2.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); } }) }, "اعرضه ثلاثي الأبعاد")));
+    })));
+    out.push(this.section("صور من Wikimedia Commons (أونلاين، بترخيص كل صورة)", this.searchBox("ابحث: بركان، خلية، heart…", async (q, res) => {
+      const list = await commonsSearch(q);
+      if (!list.length) { res.append(h("div", { cls: "sci-lib-msg" }, "لا توجد نتائج")); return; }
+      const grid = h("div", { cls: "sci-lib-res" });
+      grid.append(...list.map(it => h("button", { cls: "sci-lib-it", title: `${it.title}\n${it.author} — ${it.lic}`, onclick: async () => {
+        document.body.classList.add("sci-busy");
+        try { await Apps.insert({ app: "commons", title: it.title, page: it.page, lic: it.lic, author: it.author }, await commonsSvg(it), null, 480); } catch (e) { this.toast(e.message); }
+        finally { document.body.classList.remove("sci-busy"); }
+      } }, h("img", { src: it.thumb, alt: "", loading: "lazy" }), h("small", {}, it.lic))));
+      res.append(grid);
+    })));
+    return out;
+  },
+  /** خانة بحث بنتيجة تحتها (Enter أو زر). */
+  searchBox(ph, run) {
+    const res = h("div", { cls: "sci-sbox-res" });
+    const input = h("input", { type: "search", cls: "sci-lib-q", placeholder: ph });
+    const go = async () => { const q = input.value.trim(); if (!q) return; res.textContent = ""; res.append(h("div", { cls: "sci-lib-msg" }, "جارٍ البحث…"));
+      try { const tmp = h("div"); await run(q, tmp); res.textContent = ""; res.append(...tmp.childNodes); } catch (e) { res.textContent = ""; res.append(h("div", { cls: "sci-lib-msg" }, e.message)); } };
+    input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+    return h("div", { cls: "sci-sbox" }, h("div", { cls: "sci-sbox-in" }, input, h("button", { onclick: go }, "ابحث")), res);
+  },
+  /** فتح مصدر أونلاين في نافذة البرنامج (اللقطة بترجع على webCaptured). */
+  web(source, url, title, edit) {
+    this.webEdit = edit || null;
+    if (!this.post) { this.toast("هذه المصادر تعمل داخل «مسار» فقط"); return; }
+    this.post({ t: "sciweb", message: url, name: title || "", code: source });
+  },
+  async webCaptured(d) {
+    try {
+      const url = await captionedShot(d.img, CREDIT[d.source] || d.source);
+      const edit = this.webEdit; this.webEdit = null;
+      if (edit && !Ink.doc.items(edit.key).some(i => i.id === edit.id)) return Apps.insert({ app: "web", source: d.source, url: d.url, title: d.title }, url, null, 640);
+      return await Apps.insert({ app: "web", source: d.source, url: d.url, title: d.title }, url, edit, 640);
+    } catch (e) { this.toast(e.message); }
   },
 
   // ---------------------------------------------------------------- محرر الأشكال (حقول عامة)

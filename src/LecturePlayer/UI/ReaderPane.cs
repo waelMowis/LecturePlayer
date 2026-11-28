@@ -37,6 +37,8 @@ internal sealed partial class ReaderPane : Panel
     /// <summary>تعديل تظليل: (رقم الفتحة، الرقم، اللون الجديد أو null، اتشال).</summary>
     public event Action<int, string, string?, bool>? HighlightEdited;
     public event Action<Keys>? KeyForwarded;
+    /// <summary>السبورة عايزة تفتح مصدر علوم أونلاين (الرابط، العنوان، المصدر).</summary>
+    public event Action<string, string, string>? SciWebRequested;
     /// <summary>شرح اتغير: (رقم الفتحة، الصفحات اللي اتغيرت كاملة، أوقات المسح).</summary>
     public event Action<int, JsonElement, JsonElement>? InkChanged;
     /// <summary>إعدادات أدوات الشرح اتغيرت (الألوان والمقاسات والملصقات): JSON.</summary>
@@ -177,7 +179,7 @@ internal sealed partial class ReaderPane : Panel
         [".html"] = "text/html; charset=utf-8", [".js"] = "text/javascript; charset=utf-8", [".mjs"] = "text/javascript; charset=utf-8",
         [".css"] = "text/css; charset=utf-8", [".wasm"] = "application/wasm", [".svg"] = "image/svg+xml", [".png"] = "image/png",
         [".gif"] = "image/gif", [".json"] = "application/json", [".pdf"] = "application/pdf", [".epub"] = "application/epub+zip",
-        [".txt"] = "text/plain; charset=utf-8", [".webp"] = "image/webp", [".jpg"] = "image/jpeg"
+        [".txt"] = "text/plain; charset=utf-8", [".webp"] = "image/webp", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg"
     };
 
     /// <summary>بيرد على طلبات القارئ: ملفات القارئ من فولدره، والكتب من مكانها (مع Range).</summary>
@@ -595,6 +597,9 @@ internal sealed partial class ReaderPane : Panel
                     break;
                 case "log":
                     Data.Log.Info("reader page: " + m.Message);
+                    break;
+                case "sciweb" when m.Message != null && SciWebForm.Allowed(m.Message):
+                    SciWebRequested?.Invoke(m.Message, m.Name ?? "", m.Code ?? "");
                     break;
                 case "text" when m.Id != null && _texts.TryGetValue(m.Id, out var tx):
                     if (m.Pages.ValueKind == JsonValueKind.Array)

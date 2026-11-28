@@ -40,6 +40,11 @@ internal static class SciPacks
         // PubChem (بحث المركبات وبناها ثلاثية الأبعاد) من غير حفظ
         if (parts.Length is >= 3 and <= 6 && parts[0] == "pubchem" && parts[1] == "compound" && parts.Skip(1).All(p => p.Length is > 0 and < 120 && p.All(c => c is not ('/' or '\\' or '?' or '#'))))
             return ("https://pubchem.ncbi.nlm.nih.gov/rest/pug/" + string.Join('/', parts.Skip(1).Select(Uri.EscapeDataString)) + SafeQuery(query), null);
+        // Wikimedia Commons: البحث (من غير حفظ) والصور (بتتحفظ)
+        if (parts.Length == 2 && parts[0] == "wiki" && parts[1] == "api")
+            return ("https://commons.wikimedia.org/w/api.php" + SafeQuery(query), null);
+        if (parts.Length >= 4 && parts[0] == "wiki" && parts[1] == "img" && parts.Skip(2).All(p => p.Length is > 0 and < 260))
+            return ("https://upload.wikimedia.org/wikipedia/commons/" + string.Join('/', parts.Skip(2).Select(Uri.EscapeDataString)), Path.Combine(new[] { CacheDir, "wiki" }.Concat(parts.Skip(2).Select(SafeName)).ToArray()));
         // PhyloPic: البحث (من غير حفظ) والصور (بتتحفظ)
         if (parts.Length >= 2 && parts[0] == "phylo" && parts[1] == "api" && parts.Length <= 4 && parts.Skip(2).All(p => p.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')))
             return ("https://api.phylopic.org/" + string.Join('/', parts.Skip(2)) + SafeQuery(query), null);
@@ -48,6 +53,9 @@ internal static class SciPacks
             return ($"https://images.phylopic.org/images/{string.Join('/', parts.Skip(2))}", Path.Combine(new[] { CacheDir, "phylo" }.Concat(parts.Skip(2)).ToArray()));
         return null;
     }
+
+    /// <summary>اسم ملف آمن على ويندوز (أسماء ملفات ويكيميديا فيها رموز).</summary>
+    private static string SafeName(string p) => string.Concat(p.Select(c => Path.GetInvalidFileNameChars().Contains(c) || c is ':' or '*' or '?' or '"' or '<' or '>' or '|' ? '_' : c));
 
     private static string SafeQuery(string q) =>
         string.IsNullOrEmpty(q) ? "" : q.All(c => c is not ('\r' or '\n' or '#')) && q.StartsWith('?') ? q : "";
@@ -78,13 +86,17 @@ internal static class SciPacks
     }
 
     /// <summary>طلب بحث (JSON) من غير حفظ.</summary>
-    public static async Task<(int Status, byte[] Body)> GetAsync(string url)
+    public static async Task<(int Status, byte[] Body, string Type)> GetAsync(string url)
     {
         try
         {
             using var r = await Http.GetAsync(url);
-            return ((int)r.StatusCode, await r.Content.ReadAsByteArrayAsync());
+            string type = r.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
+            // نسمح بأنواع البيانات والصور بس (مش صفحات HTML بسكربتات من مواقع تانية)
+            if (!(type.StartsWith("application/json") || type.StartsWith("text/plain") || type.StartsWith("chemical/") || type.StartsWith("image/png") || type.StartsWith("image/jpeg") || type.StartsWith("application/octet-stream")))
+                type = "text/plain; charset=utf-8";
+            return ((int)r.StatusCode, await r.Content.ReadAsByteArrayAsync(), type);
         }
-        catch (Exception ex) { Log.Info("sci-packs: " + ex.Message); return (502, Array.Empty<byte>()); }
+        catch (Exception ex) { Log.Info("sci-packs: " + ex.Message); return (502, Array.Empty<byte>(), "text/plain"); }
     }
 }

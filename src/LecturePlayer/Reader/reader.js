@@ -13,6 +13,7 @@ function post(msg) {
   const s = JSON.stringify(msg);
   if (host) host.postMessage(s); else (window.__posted ||= []).push(msg);
 }
+Sci.post = post;   // الأدوات العلمية بتطلب من البرنامج يفتح مصادر أونلاين
 window.addEventListener("error", e => post({ t: "log", message: "error: " + (e.message || e) + " @" + (e.filename || "") + ":" + (e.lineno || "") }));
 window.addEventListener("unhandledrejection", e => post({ t: "log", message: "rejection: " + (e.reason && (e.reason.message || e.reason)) }));
 const $ = id => document.getElementById(id);
@@ -722,6 +723,8 @@ window.masar = {
   peTest: () => PageEditor,
   boardTest: () => Board,
   sciTest: () => ({ Sci, Chem: SciChem, Shapes: SciShapes }),
+  /** لقطة من نافذة مصادر العلوم (PhET/GeoGebra/Desmos) ← على الصفحة المفتوحة. */
+  sciCaptured: d => { Sci.webCaptured(d); return "ok"; },
   boardExport: (which, send) => { if (S.kind === "board") Board.exportPdf(which || "all", !!send); return "ok"; },
   /** لقطة شاشة جاية من البرنامج ← صفحة جديدة في السبورة. */
   boardImage: (dataUrl, name) => { if (S.kind === "board") Board.addImagePage(dataUrl, name); return "ok"; },

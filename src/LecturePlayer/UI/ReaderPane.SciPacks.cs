@@ -36,9 +36,9 @@ internal sealed partial class ReaderPane
                 }
                 else
                 {
-                    var (status, body) = await Data.SciPacks.GetAsync(url);
+                    var (status, body, type) = await Data.SciPacks.GetAsync(url);
                     await UiAsync(() => resp = env.CreateWebResourceResponse(new MemoryStream(body), status, status == 200 ? "OK" : "Error",
-                        $"Content-Type: application/json\r\nContent-Length: {body.Length}\r\nCache-Control: no-store"));
+                        $"Content-Type: {type}\r\nContent-Length: {body.Length}\r\nCache-Control: no-store"));
                 }
             }
             catch (Exception ex) { Data.Log.Info("scipack: " + ex.Message); }

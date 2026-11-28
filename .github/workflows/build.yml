@@ -29,7 +29,7 @@ jobs:
         run: |
           dotnet build src/LecturePlayer/LecturePlayer.csproj -c Release -o smoke
           $p = Start-Process -FilePath smoke\LecturePlayer.exe -ArgumentList '--smoke-test' -PassThru -RedirectStandardError smoke-err.txt -RedirectStandardOutput smoke-out.txt
-          if (-not $p.WaitForExit(600000)) { $p.Kill(); throw 'البرنامج علّق في فحص الفتح' }
+          if (-not $p.WaitForExit(1200000)) { $p.Kill(); throw 'البرنامج علّق في فحص الفتح' }
           Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue
           Get-ChildItem smoke\Data\logs -ErrorAction SilentlyContinue | Get-Content -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "البرنامج وقع وهو بيفتح (exit $($p.ExitCode))" }

@@ -1134,6 +1134,7 @@ internal sealed partial class MainForm
         pane.Command += OnReaderCommand;
         pane.HighlightRequested += OnHighlightRequested;
         pane.HighlightEdited += OnHighlightEdited;
+        pane.SciWebRequested += OnSciWebRequested;
         pane.InkChanged += OnInkChanged;
         pane.InkPrefsChanged += OnInkPrefsChanged;
         pane.PickRequested += OnReaderPick;

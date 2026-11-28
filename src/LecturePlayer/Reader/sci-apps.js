@@ -25,7 +25,7 @@ const h = (tag, attrs = {}, ...kids) => {
     else if (k === "style" && typeof v === "object") Object.assign(e.style, v);
     else e.setAttribute(k, v === true ? "" : v);
   }
-  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
   return e;
 };
 const loadScript = (src, global) => new Promise((res, rej) => {
@@ -301,5 +301,6 @@ export const Apps = {
     if (sci.app === "ketcher") return this.ketcher(sci, edit);
     if (sci.app === "optics") return this.optics(sci, edit);
     if (sci.app === "motion") return this.motion(sci, edit);
+    if (sci.app === "web") return this.sci.web(sci.source, sci.url, sci.title, edit);
   }
 };
