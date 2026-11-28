@@ -38,7 +38,7 @@ internal static class SciPacks
             return ($"https://raw.githubusercontent.com/{parts[1]}/{parts[2]}/{rest}", Path.Combine(new[] { CacheDir }.Concat(parts).ToArray()));
         }
         // PubChem (بحث المركبات وبناها ثلاثية الأبعاد) من غير حفظ
-        if (parts.Length is >= 3 and <= 6 && parts[0] == "pubchem" && parts[1] == "compound" && parts.Skip(1).All(p => p.Length is > 0 and < 120 && p.All(c => c is not ('/' or '\\' or '?' or '#'))))
+        if (parts.Length is >= 3 and <= 8 && parts[0] == "pubchem" && parts[1] == "compound" && parts.Skip(1).All(p => p.Length is > 0 and < 120 && p.All(c => c is not ('/' or '\\' or '?' or '#'))))
             return ("https://pubchem.ncbi.nlm.nih.gov/rest/pug/" + string.Join('/', parts.Skip(1).Select(Uri.EscapeDataString)) + SafeQuery(query), null);
         // Wikimedia Commons: البحث (من غير حفظ) والصور (بتتحفظ)
         if (parts.Length == 2 && parts[0] == "wiki" && parts[1] == "api")

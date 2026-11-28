@@ -298,6 +298,7 @@ internal partial class MainForm
         Js("window.__webn=masar.inkTest().Ink.count(); 'ok'");
         var cap = form.CaptureAsync();
         Check(Until(() => cap.IsCompleted, 20_000) && cap.Result is { Length: > 5000 }, "capture");
+        try { string tmp = Path.Combine(Path.GetTempPath(), "masar-phet.jpg"); File.WriteAllBytes(tmp, cap.Result!); SaveSmokeShotFile(tmp, "science-phet-capture"); } catch (Exception) { }
         Check(Until(() => Js("String(masar.inkTest().Ink.count()>window.__webn)") == "true", 15_000), "capture placed on the page");
         Check(Js("""
             (()=>{const S=masar.sciTest().Sci,I=masar.inkTest().Ink,key=S.board.curPage().id,it=I.doc.items(key).filter(i=>i.sci&&i.sci.app==='web').at(-1);
