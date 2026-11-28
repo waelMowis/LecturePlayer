@@ -454,7 +454,7 @@ internal static class DarkList
             TextRenderer.DrawText(e.Graphics, e.SubItem.Text, e.Item.Font ?? lv.Font, Rectangle.Inflate(cell, -6, 0), e.Item.ForeColor,
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.RightToLeft | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         };
-        lv.HandleCreated += (_, _) => NativeMethods.UseDarkExplorerTheme(lv);
+        lv.HandleCreated += (_, _) => { NativeMethods.UseDarkExplorerTheme(lv); NativeMethods.UseDarkHeader(lv); };
         return lv;
     }
 

@@ -207,7 +207,7 @@ internal sealed class StatsForm : Form
         lv.ShowItemToolTips = true;
         lv.ForeColor = Theme.Text;
         lv.BorderStyle = BorderStyle.None;
-        lv.HandleCreated += (_, _) => NativeMethods.UseDarkExplorerTheme(lv);
+        lv.HandleCreated += (_, _) => { NativeMethods.UseDarkExplorerTheme(lv); NativeMethods.UseDarkHeader(lv); };
     }
 
     private static void ReverseColumns(ListView lv)

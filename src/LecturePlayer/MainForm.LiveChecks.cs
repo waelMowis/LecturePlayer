@@ -60,6 +60,12 @@ internal sealed partial class MainForm
             Check(!row.SubItems[0].Text.StartsWith("🔊"), "mark removed after stop");
             form.Close();
         }
+        // القنوات الجاهزة: بث رسمي على يوتيوب، أرقام فريدة، وكلها تمر بأداة يوتيوب
+        var presets = LivePresets.Tv;
+        Check(presets.Count >= 12 && presets.Select(p => p.Id).Distinct().Count() == presets.Count, "presets unique: " + presets.Count);
+        Check(presets.All(p => p.Id.StartsWith("preset:", StringComparison.Ordinal) && p.Kind == LiveKind.Tv && NeedsResolver(p)
+            && Uri.TryCreate(p.Url, UriKind.Absolute, out var pu) && pu.Host == "www.youtube.com"), "presets are official YouTube pages");
+        Check(presets.Any(p => p.Group!.StartsWith("رياضة")) && presets.Count(p => p.Group!.StartsWith("أخبار")) >= 8, "sports and news presets");
         Check(_activityLive.Caption == "بث", "live button in the side bar");
         Console.WriteLine("SMOKE live: ok");
     }

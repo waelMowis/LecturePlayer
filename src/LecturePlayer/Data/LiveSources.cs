@@ -112,13 +112,14 @@ public static class RadioBrowser
 }
 
 /// <summary>
-/// قنوات جاهزة: بث رسمي من القنوات نفسها على يوتيوب (مش منقول).
+/// قنوات جاهزة: بث رسمي من القنوات نفسها على يوتيوب (مش منقول) — دينية ورياضية وإخبارية.
 /// رابط «/live» بتاع القناة بيجيب البث الشغال دلوقتي، فمش بيتأثر لما القناة تبدأ بث جديد.
 /// </summary>
 public static class LivePresets
 {
     public static IReadOnlyList<LiveChannel> Tv { get; } = new[]
     {
+        // ---- دينية ----
         new LiveChannel
         {
             Id = "preset:makkah", Name = "مكة المكرمة — المسجد الحرام (قناة القرآن الكريم)",
@@ -130,7 +131,30 @@ public static class LivePresets
             Id = "preset:madinah", Name = "المدينة المنورة — المسجد النبوي (قناة السنة النبوية)",
             Url = "https://www.youtube.com/watch?v=AsSEENjHds0", Kind = LiveKind.Tv,
             Group = "بث رسمي — هيئة الإذاعة والتلفزيون السعودية", Tags = "المدينة، المسجد النبوي، صلاة"
-        }
+        },
+        // ---- رياضة (البث المجاني الرسمي فقط؛ القنوات المشفرة بالاشتراك من منصاتها) ----
+        Preset("ksa-sports", "القنوات الرياضية السعودية", "UCLo2xigvxv9ksxp78AyCBTw", "رياضة — هيئة الإذاعة والتلفزيون السعودية",
+            "رياضة، كرة قدم، السعودية (البث على يوتيوب متاح داخل السعودية)"),
+        // ---- أخبار ----
+        Preset("ekhbariya", "الإخبارية", "UCV01ajGl6nt09h40iDoHDNg", "أخبار — السعودية", "أخبار، السعودية"),
+        Preset("alarabiya", "العربية", "UCahpxixMCwoANAftn6IxkTg", "أخبار — السعودية", "أخبار، عاجل"),
+        Preset("alhadath", "الحدث", "UCrj5BGAhtWxDfqbza9T9hqA", "أخبار — السعودية", "أخبار، سياسة"),
+        Preset("asharq", "الشرق (الشرق بلومبرغ)", "UCRJUVYt9gjg8MnlGacySUdg", "أخبار — السعودية", "أخبار، اقتصاد، أسواق"),
+        Preset("aljazeera", "الجزيرة", "UCfiwzLy-8yKzIbsmZTzxDgw", "أخبار — قطر", "أخبار، عاجل"),
+        Preset("skynewsarabia", "سكاي نيوز عربية", "UCIJXOvggjKtCagMfxvcCzAA", "أخبار — الإمارات", "أخبار، عاجل"),
+        Preset("alqahera", "القاهرة الإخبارية", "UCktyejXTxWaKfrgp1Oq7CMQ", "أخبار — مصر", "أخبار، مصر"),
+        Preset("france24-ar", "فرانس 24 عربي", "UCdTyuXgmJkG_O8_75eqej-w", "أخبار — فرنسا", "أخبار، دولية"),
+        Preset("dw-ar", "DW عربية", "UC30ditU5JI16o5NbFsHde_Q", "أخبار — ألمانيا", "أخبار، دولية")
+    };
+
+    /// <summary>
+    /// قناة رسمية على يوتيوب: «/channel/رقم القناة/live» يفتح بثها الشغال الآن
+    /// (رقم القناة ثابت حتى لو غيّرت اسمها، والبث نفسه يتجدد بلا ما يتغير الرابط).
+    /// </summary>
+    private static LiveChannel Preset(string id, string name, string channelId, string group, string tags) => new()
+    {
+        Id = "preset:" + id, Name = name, Url = $"https://www.youtube.com/channel/{channelId}/live",
+        Kind = LiveKind.Tv, Group = group, Tags = tags
     };
 
     /// <summary>نسخة جديدة (عشان التعديل عليها مايغيّرش القايمة الثابتة).</summary>

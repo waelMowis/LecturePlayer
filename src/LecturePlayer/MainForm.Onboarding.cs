@@ -59,6 +59,34 @@ internal sealed partial class MainForm
         if (_advancedItem != null) _advancedItem.Checked = adv;
     }
 
+    /// <summary>قائمة «المكتبة» مقسّمة لقوائم فرعية، واختصارات الأوامر داخلها ما زالت تعمل.</summary>
+    private void RunLibraryMenuChecks()
+    {
+        var lib = _menu.Items.OfType<ToolStripMenuItem>().First(i => i.Text == "المكتبة");
+        int direct = lib.DropDownItems.OfType<ToolStripMenuItem>().Count();
+        if (direct > 8) throw new Exception("library menu still crowded: " + direct);
+        static IEnumerable<ToolStripMenuItem> All(ToolStripItemCollection c) =>
+            c.OfType<ToolStripMenuItem>().SelectMany(i => new[] { i }.Concat(All(i.DropDownItems)));
+        foreach (var k in new[] { Keys.Control | Keys.I, Keys.Control | Keys.R, Keys.F4, Keys.Control | Keys.E, Keys.Control | Keys.Shift | Keys.N, Keys.Control | Keys.G })
+            if (!All(lib.DropDownItems).Any(i => i.ShortcutKeys == k)) throw new Exception("library shortcut lost: " + k);
+        if (!All(lib.DropDownItems).Any(i => i.Text.Contains("كلاسيرا")) || !All(lib.DropDownItems).Any(i => i.Text.Contains("رف مشترك")))
+            throw new Exception("library menu commands missing");
+        // اختصار عنصر في قائمة فرعية داخل قائمة فرعية يعمل من النافذة
+        var organize = All(lib.DropDownItems).First(i => i.Text.Contains("تنظيم"));
+        bool fired = false;
+        var probe = new ToolStripMenuItem("فحص") { ShortcutKeys = Keys.Control | Keys.Alt | Keys.F12 };
+        probe.Click += (_, _) => fired = true;
+        organize.DropDownItems.Add(probe);
+        try
+        {
+            var msg = new Message { HWnd = Handle, Msg = 0x0100 };
+            ProcessCmdKey(ref msg, Keys.Control | Keys.Alt | Keys.F12);
+            if (!fired) throw new Exception("shortcut inside a nested library submenu did not fire");
+        }
+        finally { organize.DropDownItems.Remove(probe); probe.Dispose(); }
+        Console.WriteLine($"SMOKE library menu: {direct} items, shortcuts ok");
+    }
+
     private static int CountHidden(ToolStripItemCollection items) =>
         items.OfType<ToolStripItem>().Sum(i => (i.Available ? 0 : 1) + (i is ToolStripDropDownItem dd ? CountHidden(dd.DropDownItems) : 0));
 
@@ -146,6 +174,7 @@ internal sealed partial class MainForm
                 if (_nowPlayingLabel.Text == "رسالة فحص") throw new Exception("toast did not expire");
             }
         }
+        RunLibraryMenuChecks();
         ShowBanner("فحص", BannerKind.Warning, "زر", () => { }, seconds: 0, key: "smoke");
         HideBanner("smoke");
         foreach (var kind in Enum.GetValues<BannerKind>()) ShowBanner("فحص", kind, seconds: 1);

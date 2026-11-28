@@ -367,6 +367,23 @@ internal static class NativeMethods
         try { SetWindowTheme(c.Handle, "DarkMode_Explorer", null); } catch { }
     }
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>
+    /// رأس جدول غامق: المساحة الفارغة بعد آخر عمود يرسمها ويندوز نفسه (مش الرسم الخاص)،
+    /// فكانت تظهر مربعًا أبيض في أول الرأس.
+    /// </summary>
+    public static void UseDarkHeader(ListView lv)
+    {
+        try
+        {
+            IntPtr header = SendMessage(lv.Handle, 0x101F /* LVM_GETHEADER */, IntPtr.Zero, IntPtr.Zero);
+            if (header != IntPtr.Zero) SetWindowTheme(header, "DarkMode_ItemsView", null);
+        }
+        catch { }
+    }
+
     /// <summary>شريط عنوان غامق للنافذة (ويندوز 10 20H1+ / 11).</summary>
     public static void UseDarkTitleBar(Form f)
     {
