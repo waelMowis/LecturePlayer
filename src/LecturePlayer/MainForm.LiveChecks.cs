@@ -17,7 +17,7 @@ internal sealed partial class MainForm
         // الراديو: رابطه بث مباشرة حتى لو انتهى بـ .php — لا ينتظر أداة يوتيوب
         Check(!NeedsResolver(new LiveChannel { Kind = LiveKind.Radio, Url = "https://radio.example.com/stream.php?id=4" }), "radio .php is a stream");
         Check(NeedsResolver(new LiveChannel { Kind = LiveKind.Radio, Url = "https://www.youtube.com/watch?v=abc" }), "radio on youtube needs the resolver");
-        Check(NeedsResolver(new LiveChannel { Kind = LiveKind.Tv, Url = "https://tv.example.com/live.html" }) && !NeedsResolver(new LiveChannel { Kind = LiveKind.Tv, Url = "https://cdn.example.com/a/index.m3u8" }), "tv page vs stream");
+        Check(NeedsResolver(new LiveChannel { Kind = LiveKind.Tv, Url = "https://tv.example.com/watch/channel.html" }) && !NeedsResolver(new LiveChannel { Kind = LiveKind.Tv, Url = "https://cdn.example.com/a/index.m3u8" }), "tv page vs stream");
 
         // جدول بأعمدة معكوسة: العمود الأول (الاسم) على اليمين فعلًا
         using (var host = new Form { Size = new Size(700, 300), StartPosition = FormStartPosition.Manual, Location = new Point(-2000, -2000), ShowInTaskbar = false })

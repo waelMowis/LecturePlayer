@@ -51,6 +51,9 @@ internal partial class MainForm
             return new WorkTab { Kind = WorkTab.BookKind, Ref = pb.Id, Title = pb.Title, Page = pb.LastPage };
         if (ReaderShown && _currentBook is { } b)
             return new WorkTab { Kind = WorkTab.BookKind, Ref = b.Id, Title = b.Title, Page = b.LastPage };
+        // بث مباشر: تبويب خاص به، والتبويبات السابقة تبقى كما هي للرجوع إليها
+        if (_currentLive is { } live)
+            return new WorkTab { Kind = WorkTab.LiveKind, Ref = live.Id, ItemPath = live.Url, Title = live.Name, Stream = live.Kind == LiveKind.Radio ? "radio" : "tv" };
         if (_currentLive == null && _currentVideo is { } v && _currentGroup is { } g)
         {
             var c = _library.FindCourseOf(g);
@@ -75,6 +78,12 @@ internal partial class MainForm
             return;
         }
         int i = _tabs.FindIndex(t => t.Same(cur));
+        // تبويب بث واحد: تغيير القناة يحدّث تبويب البث بدل ما يفتح تبويبًا لكل قناة
+        if (i < 0 && cur.Kind == WorkTab.LiveKind && _tabs.FindIndex(t => t.Kind == WorkTab.LiveKind) is int j and >= 0)
+        {
+            _tabs[j] = cur;
+            i = j;
+        }
         if (prev >= 0 && prev != i) CaptureTab(prev);
         if (i < 0)
         {
@@ -98,6 +107,7 @@ internal partial class MainForm
             var t = _tabs[i];
             t.Title = cur.Title;
             if (cur.Kind == WorkTab.CourseKind) { t.GroupId = cur.GroupId; t.ItemPath = cur.ItemPath; }
+            if (cur.Kind == WorkTab.LiveKind) { t.ItemPath = cur.ItemPath; t.Stream = cur.Stream; }
         }
         _activeTab = i;
         TabsChanged();
@@ -108,6 +118,7 @@ internal partial class MainForm
     {
         if (i < 0 || i >= _tabs.Count) return;
         var t = _tabs[i];
+        if (t.Kind == WorkTab.LiveKind) return; // البث مالوش موضع
         if (t.Kind == WorkTab.BookKind)
         {
             if (_library.Books.FirstOrDefault(x => x.Id == t.Ref) is { } b) { t.Page = b.LastPage; t.Title = b.Title; }
@@ -140,6 +151,7 @@ internal partial class MainForm
 
     private string TabGlyph(WorkTab t)
     {
+        if (t.Kind == WorkTab.LiveKind) return t.Stream == "radio" ? "📻" : "📺";
         if (t.Kind == WorkTab.CourseKind)
         {
             var v = t.ItemPath == null ? null : _library.AllVideos.FirstOrDefault(x => x.Path == t.ItemPath);
@@ -159,6 +171,7 @@ internal partial class MainForm
             string tip = t.Title ?? "";
             if (t.Kind == WorkTab.CourseKind && t.ItemPath != null && _library.AllVideos.FirstOrDefault(x => x.Path == t.ItemPath) is { } v)
                 tip += "  ›  " + v.Title;
+            if (t.Kind == WorkTab.LiveKind) tip += t.Stream == "radio" ? "  ›  راديو مباشر" : "  ›  بث مباشر";
             if (i < 9) tip += $"   (Ctrl+{i + 1})";
             items.Add(new TabStrip.Item(TabGlyph(t), t.Title ?? "", tip, i == _activeTab));
         }
@@ -192,6 +205,18 @@ internal partial class MainForm
         if (i == _activeTab && CurrentItemTab()?.Same(t) == true) return;
         if (_activeTab >= 0) CaptureTab(_activeTab);
         bool saved = _sessionId != null;   // داخل جلسة: موضع الجلسة (لكل مجموعة موضعها)
+        if (t.Kind == WorkTab.LiveKind)
+        {
+            if (string.IsNullOrWhiteSpace(t.ItemPath)) { RemoveMissingTab(i); return; }
+            var ch = _library.Live.FirstOrDefault(x => x.Id == t.Ref) ?? new LiveChannel
+            {
+                Id = t.Ref, Name = t.Title ?? t.ItemPath, Url = t.ItemPath,
+                Kind = t.Stream == "radio" ? LiveKind.Radio : LiveKind.Tv,
+                StationUuid = t.Ref.StartsWith("rb:", StringComparison.Ordinal) ? t.Ref[3..] : null
+            };
+            PlayLive(ch);
+            return;
+        }
         if (t.Kind == WorkTab.BookKind)
         {
             var b = _library.Books.FirstOrDefault(x => x.Id == t.Ref);

@@ -83,6 +83,28 @@ internal sealed partial class MainForm
             Check(ReferenceEquals(_currentMedia, toneMedia) && _videoSuspended == null && Math.Abs(_mp.Time - pausedAt) < 3000 && _videoView.Visible && !ReaderShown,
                 $"video resumed from the same frame without reloading ({pausedAt} → {_mp.Time})");
             Check(HandleTabKeys(Keys.Control | Keys.Tab) && Until(() => ReaderShown && _currentBook == book, 20_000), "Ctrl+Tab cycles");
+
+            // بث مباشر أثناء العمل: تبويب جديد، والكتاب والفيديو يبقيان في تبويبيهما بمواضعهما
+            int bookPage = book.LastPage;
+            var radio1 = new LiveChannel { Name = "Tab Radio", Url = wav, Kind = LiveKind.Radio };
+            var radio2 = new LiveChannel { Name = "Tab Radio 2", Url = wav, Kind = LiveKind.Radio };
+            PlayLive(radio1);
+            Check(_currentLive == radio1 && !ReaderShown && _tabs.Count == 3 && _activeTab == 2 && _tabs[2].Kind == WorkTab.LiveKind && _tabs[2].Ref == radio1.Id
+                && _tabs[0].Ref == book.Id && _tabs[1].ItemPath == tone.Path && _tabs[1].PositionMs > 500 && book.LastPage == bookPage, "live opens in a new tab, other tabs kept");
+            Check(_tabStrip.Items.Count == 3 && _tabStrip.Items[2].Active && _tabStrip.Items[2].Glyph == "📻", "live tab glyph");
+            // تغيير القناة: نفس تبويب البث (لا تبويب لكل قناة)
+            PlayLive(radio2);
+            Check(_currentLive == radio2 && _tabs.Count == 3 && _activeTab == 2 && _tabs[2].Ref == radio2.Id && _tabs[2].Title == radio2.Name, "changing channel reuses the live tab");
+            // الرجوع إلى الفيديو ثم إلى البث
+            ActivateTab(1);
+            Check(Until(() => _currentVideo == tone && _mp.State == VLCState.Playing, 20_000) && _currentLive == null && _tabs.Count == 3 && _activeTab == 1, "back to the video from live");
+            ActivateTab(2);
+            Check(_currentLive?.Url == wav && _activeTab == 2 && _tabs.Count == 3 && tone.LastPositionMs > 500, "back to the live tab");
+            // إغلاق تبويب البث يعيد الرئيسية والتبويبات الأخرى كما هي
+            CloseTab(2);
+            Check(_currentLive == null && _tabs.Count == 2 && _activeTab == -1, "closing the live tab keeps the others");
+            ActivateTab(0);
+            Check(Until(() => ReaderShown && _currentBook == book, 20_000) && _activeTab == 0, "book back after live");
             SaveSmokeShot(this, "tabs-strip");
             // الفأرة فوق الشريط بعد إغلاق تبويب وقبل إعادة الرسم (كان يرمي Index out of range عند إغلاق سبورة)
             var move = typeof(Control).GetMethod("OnMouseMove", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;

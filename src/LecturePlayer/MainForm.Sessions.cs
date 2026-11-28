@@ -21,10 +21,13 @@ internal partial class MainForm
     private static readonly string[] DayNames = { "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت" };
 
     /// <summary>كل تغيير في التبويبات يُنسخ إلى الجلسة النشطة (بمواضعها).</summary>
+    /// <summary>تبويبات الجلسة: الملفات فقط (البث المباشر مؤقت ولا يدخل الجلسة).</summary>
+    private List<WorkTab> SessionTabs() => _tabs.Where(t => t.Kind != WorkTab.LiveKind).Select(t => t.Copy()).ToList();
+
     private void MirrorSession()
     {
         if (ActiveSession is not { } s) return;
-        var tabs = _tabs.Select(t => t.Copy()).ToList();
+        var tabs = SessionTabs();
         bool same = tabs.Count == s.Tabs.Count && tabs.Zip(s.Tabs).All(p => p.First.Same(p.Second) && p.First.Page == p.Second.Page
             && p.First.PositionMs == p.Second.PositionMs && p.First.ItemPath == p.Second.ItemPath);
         if (same) return;
@@ -99,7 +102,7 @@ internal partial class MainForm
             if (string.IsNullOrWhiteSpace(name)) return null;
         }
         if (_activeTab >= 0) CaptureTab(_activeTab);
-        var s = new StudySession { Name = name.Trim(), ClassId = classId, Tabs = fromTabs ? _tabs.Select(t => t.Copy()).ToList() : new() };
+        var s = new StudySession { Name = name.Trim(), ClassId = classId, Tabs = fromTabs ? SessionTabs() : new() };
         _library.Sessions.Add(s);
         MarkDirty();
         if (fromTabs)
@@ -133,7 +136,8 @@ internal partial class MainForm
         MarkPositionDirty();
         TabsChanged();
         RefreshHome();
-        if (_tabs.Count > 0) ActivateTab(0);
+        // الجلسة تُفتح على أول ملف (لا على بث مباشر)
+        if (_tabs.Count > 0) ActivateTab(Math.Max(0, _tabs.FindIndex(x => x.Kind != WorkTab.LiveKind)));
         else ShowStatus($"📚 «{s.Name}»: افتح ملفاتها (كتاب، عرض، سبورة، فيديو) وستُحفظ فيها", 6);
         if (!string.IsNullOrWhiteSpace(s.Plan) || !string.IsNullOrWhiteSpace(s.Homework))
             ShowBanner($"📚 {s.Name}" + (string.IsNullOrWhiteSpace(s.Plan) ? "" : "  ·  الخطة: " + FirstLine(s.Plan)) +

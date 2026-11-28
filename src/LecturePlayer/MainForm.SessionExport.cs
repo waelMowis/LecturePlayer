@@ -151,6 +151,7 @@ internal partial class MainForm
             {
                 k++;
                 ct.ThrowIfCancellationRequested();
+                if (t.Kind == WorkTab.LiveKind) continue; // البث لا يُصدَّر
                 if (t.Kind == WorkTab.CourseKind)
                 {
                     var v = t.ItemPath == null ? null : _library.AllVideos.FirstOrDefault(x => x.Path == t.ItemPath);

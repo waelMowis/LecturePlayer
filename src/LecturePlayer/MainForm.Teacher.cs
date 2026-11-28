@@ -193,7 +193,7 @@ internal partial class MainForm
     private List<WorkTab> FirstLessonTabs()
     {
         if (_activeTab >= 0) CaptureTab(_activeTab);
-        var open = _tabs.Select(t => t.Copy()).ToList();
+        var open = SessionTabs();
         if (open.Count == 0) return open;
         var last = _library.Sessions.Where(s => s.ClassId != null && s.Done && s.StartTabs is { Count: > 0 })
             .OrderByDescending(s => s.UpdatedUtc).FirstOrDefault();
@@ -256,6 +256,7 @@ internal partial class MainForm
     private string TabPlaceText(WorkTab t)
     {
         string glyph = TabGlyph(t), title = t.Title ?? "";
+        if (t.Kind == WorkTab.LiveKind) return $"{glyph} {title} — مباشر";
         if (t.Kind == WorkTab.BookKind)
         {
             var b = _library.Books.FirstOrDefault(x => x.Id == t.Ref);

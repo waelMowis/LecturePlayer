@@ -162,7 +162,7 @@ internal sealed partial class MainForm
                 Forget: c => _deletedKeys.Add(LibrarySync.LiveKey(c)),
                 Changed: () => { MarkDirty(); SaveLibrary(); },
                 Current: () => _currentLive,
-                Stop: () => { if (_currentLive != null) GoHome(); }));
+                Stop: () => { if (_currentLive != null) CloseActiveTab(); }));
             _liveForm.Show(this);
         }
         else

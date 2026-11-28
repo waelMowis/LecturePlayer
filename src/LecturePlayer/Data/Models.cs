@@ -668,7 +668,7 @@ public sealed class CourseLibrary
 /// <summary>تبويب مفتوح: دورة (والفيديو الحالي فيها) أو كتاب/سبورة/عرض.</summary>
 public sealed class WorkTab
 {
-    public const string CourseKind = "course", BookKind = "book";
+    public const string CourseKind = "course", BookKind = "book", LiveKind = "live";
     public string Kind { get; set; } = CourseKind;
     /// <summary>رقم الدورة أو الكتاب.</summary>
     public string Ref { get; set; } = "";
@@ -678,6 +678,8 @@ public sealed class WorkTab
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? Page { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public long? PositionMs { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Title { get; set; }
+    /// <summary>بث مباشر: «radio» أو «tv» (والرابط في ItemPath).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Stream { get; set; }
 
     public bool Same(WorkTab o) => Kind == o.Kind && Ref == o.Ref;
     public WorkTab Copy() => (WorkTab)MemberwiseClone();
