@@ -141,7 +141,7 @@ internal sealed class SciWebForm : Form
             dst.Save(outMs, jpeg, ps);
             var bytes = outMs.ToArray();
             Captured?.Invoke(bytes, core.Source, core.DocumentTitle ?? "", _source);
-            Status("✓ نزلت اللقطة على السبورة — تقدر تلتقط تاني بعد ما تغيّر المحاكاة.");
+            Status("✓ أُدرجت اللقطة في السبورة — يمكنك التقاط صورة أخرى بعد تغيير المحاكاة.");
             return bytes;
         }
         catch (Exception ex)
