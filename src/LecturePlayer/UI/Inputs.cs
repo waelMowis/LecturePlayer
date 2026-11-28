@@ -434,6 +434,8 @@ internal static class DarkList
         lv.BackColor = Theme.Panel;
         lv.ForeColor = Theme.Text;
         lv.OwnerDraw = true;
+        // رسم بلا وميض عند مرور الفأرة والتمرير
+        typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.SetValue(lv, true);
         lv.SmallImageList = new ImageList { ImageSize = new Size(1, 26) };
         lv.DrawColumnHeader += (_, e) =>
         {
@@ -446,12 +448,30 @@ internal static class DarkList
         lv.DrawSubItem += (_, e) =>
         {
             if (e.Item == null || e.SubItem == null) return;
-            using (var bg = new SolidBrush(e.Item.Selected ? Theme.AccentDark : Theme.Panel)) e.Graphics.FillRectangle(bg, e.Bounds);
-            TextRenderer.DrawText(e.Graphics, e.SubItem.Text, lv.Font, Rectangle.Inflate(e.Bounds, -6, 0), e.Item.ForeColor,
+            var cell = CellBounds(lv, e.Item, e.ColumnIndex, e.Bounds);
+            using (var bg = new SolidBrush(e.Item.Selected ? Theme.AccentDark : e.Item.BackColor == lv.BackColor || e.Item.BackColor.IsEmpty ? Theme.Panel : e.Item.BackColor))
+                e.Graphics.FillRectangle(bg, cell);
+            TextRenderer.DrawText(e.Graphics, e.SubItem.Text, e.Item.Font ?? lv.Font, Rectangle.Inflate(cell, -6, 0), e.Item.ForeColor,
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.RightToLeft | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         };
         lv.HandleCreated += (_, _) => NativeMethods.UseDarkExplorerTheme(lv);
         return lv;
+    }
+
+    /// <summary>
+    /// مكان الخانة حسب ترتيب العرض: مع الأعمدة المعكوسة يعطي ويندوز للعمود الأول مكان أول عمود من الشمال
+    /// (فكان الاسم يُرسم تحت «النوع» ويغطي «الجودة»، وخانته على اليمين فارغة).
+    /// </summary>
+    internal static Rectangle CellBounds(ListView lv, ListViewItem item, int column, Rectangle given)
+    {
+        if (column < 0 || column >= lv.Columns.Count) return given;
+        int x = item.Bounds.Left;
+        foreach (var c in lv.Columns.Cast<ColumnHeader>().OrderBy(c => c.DisplayIndex))
+        {
+            if (c.Index == column) break;
+            x += c.Width;
+        }
+        return new Rectangle(x, given.Top, lv.Columns[column].Width, given.Height);
     }
 
     /// <summary>بعد إضافة الأعمدة: أول عمود يظهر على اليمين.</summary>

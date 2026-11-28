@@ -160,7 +160,9 @@ internal sealed partial class MainForm
                 Play: PlayLive,
                 Checkpoint: Checkpoint,
                 Forget: c => _deletedKeys.Add(LibrarySync.LiveKey(c)),
-                Changed: () => { MarkDirty(); SaveLibrary(); }));
+                Changed: () => { MarkDirty(); SaveLibrary(); },
+                Current: () => _currentLive,
+                Stop: () => { if (_currentLive != null) GoHome(); }));
             _liveForm.Show(this);
         }
         else
@@ -189,7 +191,7 @@ internal sealed partial class MainForm
         _radioVisual.Visible = true;
         _ = LoadLogoAsync(ch);
         int request = ++_playRequest;
-        _ = StartLiveAsync(ch, request, useResolver: !M3u.IsDirectStream(ch.Url));
+        _ = StartLiveAsync(ch, request, useResolver: NeedsResolver(ch));
         UpdateNowPlaying();
         UpdateTitle();
         if (ch.StationUuid != null) _ = RadioBrowser.ClickAsync(ch.StationUuid);
@@ -281,6 +283,13 @@ internal sealed partial class MainForm
         }
     }
 
+    /// <summary>
+    /// رابط صفحة (يوتيوب، أو صفحة بث) يحتاج أداة يوتيوب لاستخراج البث. أما الراديو فرابطه بث مباشرة دائمًا
+    /// (حتى لو انتهى بـ .php أو .aspx)، فلا يطلب تنزيل أداة ولا ينتظرها.
+    /// </summary>
+    private static bool NeedsResolver(LiveChannel ch) =>
+        ch.Kind == LiveKind.Radio ? M3u.IsVideoSite(ch.Url) : !M3u.IsDirectStream(ch.Url);
+
     private static string? FirstTags(string? tags)
     {
         if (string.IsNullOrWhiteSpace(tags)) return null;
@@ -313,7 +322,7 @@ internal sealed partial class MainForm
             _ = Task.Delay(TimeSpan.FromSeconds(2 * attempt)).ContinueWith(_ => Ui(() =>
             {
                 if (_currentLive == ch && request == _playRequest)
-                    _ = StartLiveAsync(ch, request, useResolver: !M3u.IsDirectStream(ch.Url));
+                    _ = StartLiveAsync(ch, request, useResolver: NeedsResolver(ch));
             }));
             return true;
         }
@@ -341,7 +350,7 @@ internal sealed partial class MainForm
             case VLCState.Buffering: break;
             default:
                 _liveRetries = 0;
-                _ = StartLiveAsync(ch, ++_playRequest, useResolver: !M3u.IsDirectStream(ch.Url));
+                _ = StartLiveAsync(ch, ++_playRequest, useResolver: NeedsResolver(ch));
                 break;
         }
         UpdatePlayButton();

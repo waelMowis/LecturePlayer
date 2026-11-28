@@ -328,7 +328,7 @@ internal sealed partial class MainForm
     private async Task<bool> EnsureFfmpegAsync(string why)
     {
         if (Tools.FindFfmpeg() != null) return true;
-        if (!Dialogs.Confirm(this,
+        if (!Tools.FfmpegDownloading && !Dialogs.Confirm(this,
                 $"{why} يحتاج إلى «أداة الفيديو» المجانية (نحو 65 ميجابايت، تُنزَّل مرة واحدة).\n\n" +
                 "ستُنزَّل من مصدرها الرسمي. هل أنزّلها الآن؟", "أداة الفيديو"))
             return false;

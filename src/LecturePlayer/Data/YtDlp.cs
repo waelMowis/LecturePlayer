@@ -376,26 +376,31 @@ public static partial class YtDlp
         response.EnsureSuccessStatusCode();
         long? total = response.Content.Headers.ContentLength;
 
-        string tmp = target + ".download";
-        await using (var input = await response.Content.ReadAsStreamAsync(ct))
-        await using (var output = File.Create(tmp))
+        // اسم مؤقت فريد: تنزيلان لنفس الملف لا يتصادمان، وبقايا تنزيل منقطع لا تمنع التالي
+        string tmp = $"{target}.{Guid.NewGuid():N}.download";
+        try
         {
-            var buffer = new byte[81920];
-            long done = 0;
-            int lastPercent = -1, read;
-            while ((read = await input.ReadAsync(buffer, ct)) > 0)
+            await using (var input = await response.Content.ReadAsStreamAsync(ct))
+            await using (var output = File.Create(tmp))
             {
-                await output.WriteAsync(buffer.AsMemory(0, read), ct);
-                done += read;
-                int percent = total > 0 ? (int)(done * 100 / total.Value) : -1;
-                if (percent != lastPercent)
+                var buffer = new byte[81920];
+                long done = 0;
+                int lastPercent = -1, read;
+                while ((read = await input.ReadAsync(buffer, ct)) > 0)
                 {
-                    lastPercent = percent;
-                    progress.Report(percent >= 0 ? $"جارٍ تنزيل {label}… {percent}%" : $"جارٍ تنزيل {label}… {done / 1_048_576} ميجابايت");
+                    await output.WriteAsync(buffer.AsMemory(0, read), ct);
+                    done += read;
+                    int percent = total > 0 ? (int)(done * 100 / total.Value) : -1;
+                    if (percent != lastPercent)
+                    {
+                        lastPercent = percent;
+                        progress.Report(percent >= 0 ? $"جارٍ تنزيل {label}… {percent}%" : $"جارٍ تنزيل {label}… {done / 1_048_576} ميجابايت");
+                    }
                 }
             }
+            File.Move(tmp, target, overwrite: true);
         }
-        File.Move(tmp, target, overwrite: true);
+        finally { try { if (File.Exists(tmp)) File.Delete(tmp); } catch { } }
     }
 
     // =====================================================================

@@ -13,7 +13,9 @@ internal sealed class LiveForm : ToolWindow
         Action<LiveChannel> Play,
         Action<string> Checkpoint,     // قبل أي تعديل (للتراجع)
         Action<LiveChannel> Forget,    // اتمسحت (عشان ماترجعش من جهاز تاني)
-        Action Changed);               // بعد أي تعديل (حفظ)
+        Action Changed,                // بعد أي تعديل (حفظ)
+        Func<LiveChannel?>? Current = null,   // اللي شغال الآن (يُميَّز في القائمة)
+        Action? Stop = null);                 // إيقاف البث
 
     private enum Tab { Favorites, Radio, Tv }
 
@@ -27,9 +29,16 @@ internal sealed class LiveForm : ToolWindow
     private readonly Label _note = new() { Dock = DockStyle.Top, Height = 24, ForeColor = Theme.Muted, TextAlign = ContentAlignment.MiddleRight };
     private readonly ListView _list = DarkList.Setup(new ListView { Dock = DockStyle.Fill, MultiSelect = false });
     private readonly Label _status = new() { Dock = DockStyle.Bottom, Height = 24, ForeColor = Theme.Muted, TextAlign = ContentAlignment.MiddleRight };
-    private readonly PillButton _favButton, _deleteButton;
+    private readonly PillButton _favButton, _deleteButton, _stopButton;
     private List<RadioStation> _radioResults = new();
     private CancellationTokenSource? _searchCts;
+    private readonly System.Windows.Forms.Timer _debounce = new() { Interval = 350 };
+    private readonly System.Windows.Forms.Timer _nowTimer = new() { Interval = 1000 };
+    private string? _shownPlaying;
+    /// <summary>نتائج البحث في هذه الجلسة (نفس الدولة/النوع/الاسم لا يُطلب مرتين).</summary>
+    private static readonly Dictionary<string, (DateTime At, List<RadioStation> Items)> Cache = new();
+    /// <summary>آخر دولة ونوع اخترتهما (حتى تُغلق البرنامج).</summary>
+    private static int? _lastCountry, _lastGenre;
 
     public LiveForm(Host host) : base("بث مباشر — راديو وتلفزيون", 820, 600)
     {
@@ -58,16 +67,20 @@ internal sealed class LiveForm : ToolWindow
         var searchHost = new RoundedHost(_search, searchIcon: true) { Width = 230, Height = 34, Margin = new Padding(0, 0, 0, 0) };
         foreach (var (_, name) in RadioBrowser.Countries) _country.Items.Add(name);
         foreach (var (_, name) in RadioBrowser.Genres) _genre.Items.Add(name);
-        _country.SelectedIndex = 1; // مصر
-        _genre.SelectedIndex = 0;
+        _country.SelectedIndex = _lastCountry ?? DefaultCountry();
+        _genre.SelectedIndex = _lastGenre ?? 0;
         _country.Height = _genre.Height = 34;
         _country.Margin = _genre.Margin = new Padding(8, 0, 0, 0);
         var go = Btn("بحث", () => _ = SearchRadioAsync());
         go.Margin = new Padding(8, 0, 0, 0);
         _filters.Controls.AddRange(new Control[] { searchHost, _country, _genre, go });
-        _search.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _ = SearchRadioAsync(); } };
-        _country.SelectedIndexChanged += (_, _) => _ = SearchRadioAsync();
-        _genre.SelectedIndexChanged += (_, _) => _ = SearchRadioAsync();
+        _search.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; _debounce.Stop(); _ = SearchRadioAsync(); } };
+        // الكتابة والتنقل بين الدول بالأسهم: بحث واحد بعد أن تتوقف لحظة، لا بحث مع كل حرف
+        _search.TextChanged += (_, _) => Debounce();
+        _country.SelectedIndexChanged += (_, _) => { _lastCountry = _country.SelectedIndex; Debounce(); };
+        _genre.SelectedIndexChanged += (_, _) => { _lastGenre = _genre.SelectedIndex; Debounce(); };
+        _debounce.Tick += (_, _) => { _debounce.Stop(); _ = SearchRadioAsync(); };
+        _nowTimer.Tick += (_, _) => MarkPlaying();
 
         // القايمة
         _list.Columns.Add("الاسم", 300);
@@ -75,7 +88,15 @@ internal sealed class LiveForm : ToolWindow
         _list.Columns.Add("النوع", 200);
         _list.Columns.Add("الجودة", 90);
         DarkList.ReverseColumns(_list);
-        _list.DoubleClick += (_, _) => PlaySelected();
+        _list.MouseDoubleClick += (_, e) =>
+        {
+            // النقر المزدوج على أي مكان في الصف يشغّله
+            var hit = _list.HitTest(e.Location).Item ?? _list.GetItemAt(8, e.Y);
+            if (hit == null) return;
+            hit.Selected = true;
+            hit.Focused = true;
+            PlaySelected();
+        };
         _list.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; PlaySelected(); }
@@ -92,6 +113,9 @@ internal sealed class LiveForm : ToolWindow
         bar.Controls.Add(Btn("إضافة قنوات من ملف…", ImportM3u));
         _deleteButton = Btn("حذف", DeleteSelected);
         bar.Controls.Add(_deleteButton);
+        _stopButton = Btn("⏹ إيقاف", () => { _host.Stop?.Invoke(); MarkPlaying(); });
+        _stopButton.Visible = _host.Stop != null;
+        bar.Controls.Add(_stopButton);
 
         // الترتيب مهم مع Dock: اللي بيتضاف الأول بيبقى تحت
         Controls.Add(_list);
@@ -103,6 +127,27 @@ internal sealed class LiveForm : ToolWindow
 
         var lib = _host.Library();
         SelectTab(lib.Live.Any(l => l.Favorite) ? Tab.Favorites : Tab.Radio);
+        _nowTimer.Start();
+    }
+
+    /// <summary>دولة الجهاز إن كانت في القائمة (السعودية لمن في السعودية…)، وإلا مصر.</summary>
+    private static int DefaultCountry()
+    {
+        try
+        {
+            string code = System.Globalization.RegionInfo.CurrentRegion.TwoLetterISORegionName;
+            int i = Array.FindIndex(RadioBrowser.Countries, c => c.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+            if (i > 0) return i;
+        }
+        catch { }
+        return 1;
+    }
+
+    private void Debounce()
+    {
+        if (_tab != Tab.Radio) return;
+        _debounce.Stop();
+        _debounce.Start();
     }
 
     private PillButton TabButton(string text, Tab tab)
@@ -159,12 +204,14 @@ internal sealed class LiveForm : ToolWindow
             string tags = Shorten(c.Tags ?? "", 60);
             var item = new ListViewItem(new[] { (c.Favorite ? "⭐ " : "") + kind + " " + c.Name, c.Group ?? "", tags, quality })
             {
-                Tag = r, ForeColor = Theme.Text, ToolTipText = c.Url
+                Tag = r, ForeColor = Theme.Text, ToolTipText = c.Name + (string.IsNullOrWhiteSpace(c.Tags) ? "" : "\n" + c.Tags)
             };
             _list.Items.Add(item);
         }
         _list.EndUpdate();
-        if (_list.Items.Count > 0) _list.Items[0].Selected = true;
+        _shownPlaying = null;
+        MarkPlaying();
+        if (_list.SelectedItems.Count == 0 && _list.Items.Count > 0) _list.Items[0].Selected = true;
         _status.Text = _tab switch
         {
             Tab.Favorites when _list.Items.Count == 0 => "لا توجد مفضلة بعد: من تبويب «راديو» اختر محطة واضغط ⭐ للمفضلة.",
@@ -193,14 +240,22 @@ internal sealed class LiveForm : ToolWindow
     {
         _searchCts?.Cancel();
         var cts = _searchCts = new CancellationTokenSource();
+        string code = RadioBrowser.Countries[Math.Max(0, _country.SelectedIndex)].Code;
+        string tag = RadioBrowser.Genres[Math.Max(0, _genre.SelectedIndex)].Tag;
+        string key = $"{code}|{tag}|{_search.Text.Trim().ToLowerInvariant()}";
+        if (Cache.TryGetValue(key, out var hit) && DateTime.UtcNow - hit.At < TimeSpan.FromMinutes(30))
+        {
+            _radioResults = hit.Items;
+            if (_tab == Tab.Radio) Fill();
+            return;
+        }
+        // بلا مؤشر انتظار للنافذة كلها: القائمة تبقى تعمل، والحالة مكتوبة أسفلها
         _status.Text = "جارٍ البحث في دليل الراديو…";
-        UseWaitCursor = true;
         try
         {
-            string code = RadioBrowser.Countries[Math.Max(0, _country.SelectedIndex)].Code;
-            string tag = RadioBrowser.Genres[Math.Max(0, _genre.SelectedIndex)].Tag;
             var result = await RadioBrowser.SearchAsync(_search.Text, code, tag, 200, cts.Token);
             if (cts.IsCancellationRequested || IsDisposed) return;
+            Cache[key] = (DateTime.UtcNow, result);
             _radioResults = result;
             if (_tab == Tab.Radio) Fill();
             if (result.Count == 0) _status.Text = "لا توجد محطات بهذا البحث. جرّب دولة أو نوعًا آخر.";
@@ -209,9 +264,8 @@ internal sealed class LiveForm : ToolWindow
         catch (Exception ex)
         {
             Log.Error("radio-search", ex);
-            if (!IsDisposed) _status.Text = ex.Message;
+            if (!IsDisposed && _searchCts == cts) _status.Text = "⚠ " + ex.Message;
         }
-        finally { if (!IsDisposed && _searchCts == cts) UseWaitCursor = false; }
     }
 
     // =====================================================================
@@ -220,7 +274,32 @@ internal sealed class LiveForm : ToolWindow
     {
         if (Selected is not { } r) return;
         _host.Play(r.Channel);
-        _status.Text = "يعمل الآن: " + r.Channel.Name;
+        _shownPlaying = null;
+        MarkPlaying();
+    }
+
+    /// <summary>المحطة الشغالة: ▶ وخط عريض في القائمة، واسمها في السطر السفلي.</summary>
+    private void MarkPlaying()
+    {
+        if (IsDisposed) return;
+        var cur = _host.Current?.Invoke();
+        string? id = cur == null ? null : cur.Id + "|" + cur.Url;
+        _stopButton.Enabled = cur != null;
+        if (id == _shownPlaying) return;
+        _shownPlaying = id;
+        _list.BeginUpdate();
+        foreach (ListViewItem it in _list.Items)
+        {
+            bool on = cur != null && it.Tag is Row r && (r.Channel == cur || (r.Channel.Id == cur.Id && r.Channel.Url == cur.Url));
+            string name = it.SubItems[0].Text;
+            bool marked = name.StartsWith("🔊 ", StringComparison.Ordinal);
+            if (on && !marked) it.SubItems[0].Text = "🔊 " + name;
+            else if (!on && marked) it.SubItems[0].Text = name[3..];
+            it.ForeColor = on ? Theme.Success : Theme.Text;
+        }
+        _list.EndUpdate();
+        if (cur != null) _status.Text = "🔊 يعمل الآن: " + cur.Name;
+        else if (_status.Text.StartsWith("🔊", StringComparison.Ordinal)) _status.Text = $"{_list.Items.Count} عنصر";
     }
 
     private void ToggleFavorite()
@@ -328,6 +407,8 @@ internal sealed class LiveForm : ToolWindow
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _searchCts?.Cancel();
+        _debounce.Dispose();
+        _nowTimer.Dispose();
         base.OnFormClosed(e);
     }
 }

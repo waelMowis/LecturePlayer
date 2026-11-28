@@ -167,6 +167,7 @@ internal sealed partial class MainForm
         RunMoodleChecks();
         RunItLegendChecks();
         RunClasseraChecks();
+        RunLiveChecks();
         RunTopicSeparatorCheck();
         RunMenuChecks();
         RunBookChecks();

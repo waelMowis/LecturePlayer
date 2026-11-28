@@ -190,6 +190,15 @@ public static class M3u
     /// <summary>
     /// الرابط ده ملف بث يشغّله VLC على طول (m3u8، ts، mp4، rtmp…)، ولا صفحة محتاجة yt-dlp (زي يوتيوب لايف)؟
     /// </summary>
+    /// <summary>مواقع فيديو (البث فيها صفحة، لا رابط بث).</summary>
+    public static bool IsVideoSite(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
+        string host = u.Host.ToLowerInvariant();
+        return host.Contains("youtube.com") || host.Contains("youtu.be") || host.Contains("facebook.com") ||
+               host.Contains("twitch.tv") || host.Contains("dailymotion.com") || host.Contains("kick.com");
+    }
+
     public static bool IsDirectStream(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return true;

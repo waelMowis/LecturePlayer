@@ -176,6 +176,7 @@ internal sealed class StatsForm : Form
     private static void SetupList(ListView lv)
     {
         lv.OwnerDraw = true;
+        typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.SetValue(lv, true);
         lv.DrawColumnHeader += (_, e) =>
         {
             using (var bg = new SolidBrush(Theme.Panel)) e.Graphics.FillRectangle(bg, e.Bounds);
@@ -189,8 +190,9 @@ internal sealed class StatsForm : Form
         {
             if (e.Item == null || e.SubItem == null) return;
             bool sel = e.Item.Selected;
-            using (var bg = new SolidBrush(sel ? Theme.AccentDark : Theme.Panel)) e.Graphics.FillRectangle(bg, e.Bounds);
-            var r = Rectangle.Inflate(e.Bounds, -6, 0);
+            var cell = DarkList.CellBounds(lv, e.Item, e.ColumnIndex, e.Bounds);
+            using (var bg = new SolidBrush(sel ? Theme.AccentDark : Theme.Panel)) e.Graphics.FillRectangle(bg, cell);
+            var r = Rectangle.Inflate(cell, -6, 0);
             TextRenderer.DrawText(e.Graphics, e.SubItem.Text, lv.Font, r, e.Item.ForeColor,
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.RightToLeft | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         };

@@ -57,26 +57,70 @@ public static class Tools
     //  التنزيل
     // =====================================================================
 
-    public static async Task DownloadFfmpegAsync(IProgress<string> progress, CancellationToken ct)
+    // تنزيل واحد في نفس الوقت لكل أداة: طلبان معًا (معاينة + تسجيل مثلًا) كانا يكتبان في نفس الملف
+    // فيظهر «The process cannot access the file … ffmpeg.zip.download because it is being used by another process».
+    private static readonly object Gate = new();
+    private static readonly Dictionary<string, Task> Running = new();
+
+    private static Task Once(string key, Func<Task> start)
     {
-        string zip = Path.Combine(ToolsDir, "ffmpeg.zip");
-        await DownloadAsync(FfmpegUrl, zip, "أداة الفيديو", progress, ct);
-        progress.Report("جارٍ تجهيز أداة الفيديو…");
-        ExtractFlat(zip, FfmpegDir, e => e.FullName.Contains("/bin/", StringComparison.OrdinalIgnoreCase));
-        File.Delete(zip);
+        lock (Gate)
+        {
+            if (Running.TryGetValue(key, out var t) && !t.IsCompleted) return t;
+            t = start();
+            Running[key] = t;
+            return t;
+        }
+    }
+
+    /// <summary>أداة الفيديو تُنزَّل الآن (طلب آخر بدأ تنزيلها).</summary>
+    public static bool FfmpegDownloading { get { lock (Gate) return Running.TryGetValue("ffmpeg", out var t) && !t.IsCompleted; } }
+
+    public static Task DownloadFfmpegAsync(IProgress<string> progress, CancellationToken ct) =>
+        Once("ffmpeg", () => DownloadFfmpegCoreAsync(progress, ct));
+
+    private static async Task DownloadFfmpegCoreAsync(IProgress<string> progress, CancellationToken ct)
+    {
+        if (FindFfmpeg() != null) return;
+        CleanStaleDownloads();
+        string zip = Path.Combine(ToolsDir, $"ffmpeg-{Guid.NewGuid():N}.zip");
+        try
+        {
+            await DownloadAsync(FfmpegUrl, zip, "أداة الفيديو", progress, ct);
+            progress.Report("جارٍ تجهيز أداة الفيديو…");
+            ExtractFlat(zip, FfmpegDir, e => e.FullName.Contains("/bin/", StringComparison.OrdinalIgnoreCase));
+        }
+        finally { TryDelete(zip); }
         if (FindFfmpeg() == null) throw new InvalidOperationException("ملف ffmpeg المضغوط لا يحتوي على ffmpeg.exe");
     }
 
-    public static async Task DownloadWhisperAsync(string model, IProgress<string> progress, CancellationToken ct)
+    /// <summary>بقايا تنزيل انقطع (البرنامج أُغلق في أثنائه) تُحذف قبل التنزيل التالي.</summary>
+    private static void CleanStaleDownloads()
+    {
+        try
+        {
+            if (!Directory.Exists(ToolsDir)) return;
+            foreach (var f in Directory.EnumerateFiles(ToolsDir, "*.download").Concat(Directory.EnumerateFiles(ToolsDir, "ffmpeg*.zip")))
+                if (File.GetLastWriteTimeUtc(f) < DateTime.UtcNow.AddMinutes(-30)) TryDelete(f);
+        }
+        catch { }
+    }
+
+    private static void TryDelete(string f) { try { if (File.Exists(f)) File.Delete(f); } catch { } }
+
+    public static Task DownloadWhisperAsync(string model, IProgress<string> progress, CancellationToken ct) =>
+        Once("whisper:" + model, () => DownloadWhisperCoreAsync(model, progress, ct));
+
+    private static async Task DownloadWhisperCoreAsync(string model, IProgress<string> progress, CancellationToken ct)
     {
         if (FindWhisper() == null)
         {
-            string zip = Path.Combine(ToolsDir, "whisper.zip");
+            string zip = Path.Combine(ToolsDir, $"whisper-{Guid.NewGuid():N}.zip");
             await DownloadAsync(await ResolveWhisperUrlAsync(ct), zip, "أداة تحويل الكلام إلى نص", progress, ct);
             progress.Report("جارٍ تجهيز أداة تحويل الكلام إلى نص…");
             ExtractFlat(zip, WhisperDir, e => e.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
                                               e.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
-            File.Delete(zip);
+            TryDelete(zip);
         }
         if (!File.Exists(ModelPath(model)))
         {
